@@ -1,0 +1,764 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.order.order -->
+    <!--  - mantle.order.return -->
+    <!--  - mantle.order.shoppinglist -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.order.order -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="OrderAdjustment" package-name="mantle.order.order">
+        <field name="orderAdjustmentId" type="id" is-pk="true"/>
+        <field name="itemTypeEnumId" type="id"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <field name="comments" type="text-long"/>
+        <field name="description" type="text-long"/>
+        <field name="amount" type="currency-precise"/>
+        <field name="recurringAmount" type="currency-precise"/>
+        <field name="amountAlreadyIncluded" type="currency-precise">
+            <description>The amount here is already represented in the item price, such as VAT taxes.</description>
+        </field>
+        <field name="productFeatureId" type="id"/>
+        <field name="correspondingProductId" type="id"/>
+        <field name="taxAuthorityRateSeqId" type="id"/>
+        <field name="sourceReferenceId" type="id-long"/>
+        <field name="sourcePercentage" type="number-decimal">
+            <description>For tax entries this is the tax percentage</description>
+        </field>
+        <field name="customerReferenceId" type="id-long">
+            <description>For tax entries this is partyTaxId</description>
+        </field>
+        <field name="primaryGeoId" type="id">
+            <description>For tax entries this is the primary jurisdiction Geo (the smallest or most local Geo that this
+                tax is for, usually a state/province, perhaps a county or a city)
+            </description>
+        </field>
+        <field name="secondaryGeoId" type="id">
+            <description>For tax entries this is the secondary jurisdiction Geo (usually a country, or other Geo that
+                the primary is within)
+            </description>
+        </field>
+        <field name="exemptAmount" type="currency-amount">
+            <description>An amount that would normally apply, but not to this order; for tax exemption represents the
+                what the tax would have been.
+            </description>
+        </field>
+        <field name="taxAuthGeoId" type="id"/>
+        <field name="taxAuthPartyId" type="id"/>
+        <field name="overrideGlAccountId" type="id">
+            <description>The override or actual glAccountId used for the adjustment.</description>
+        </field>
+        <field name="includeInTax" type="text-indicator">
+            <description>Both includeInTax and includeInShipping should default to true, except in the case where
+                this adjustment is a tax or shipping adjustment then should be ignored.
+            </description>
+        </field>
+        <field name="includeInShipping" type="text-indicator"/>
+        <field name="originalAdjustmentId" type="id">
+            <description>Adjustment that this is based on such as tax on shipping charges.</description>
+        </field>
+        <relationship type="one" title="ItemType" related-entity-name="Enumeration">
+            <key-map field-name="itemTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one-nofk" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="shipGroupSeqId"/>
+        </relationship>
+        <relationship type="one" title="Primary" related-entity-name="Geo">
+            <key-map field-name="primaryGeoId"/>
+        </relationship>
+        <relationship type="one" title="Secondary" related-entity-name="Geo">
+            <key-map field-name="secondaryGeoId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="TaxAuthority">
+            <key-map field-name="taxAuthGeoId"/>
+            <key-map field-name="taxAuthPartyId"/>
+        </relationship>
+        <relationship type="one" title="Override" related-entity-name="GlAccount">
+            <key-map field-name="overrideGlAccountId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="TaxAuthorityRateProduct">
+            <key-map field-name="taxAuthorityRateSeqId"/>
+        </relationship>
+        <relationship type="one" title="Original" related-entity-name="OrderAdjustment">
+            <key-map field-name="originalAdjustmentId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderAdjustmentBilling"
+            package-name="mantle.order.order">
+        <field name="orderAdjustmentId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="invoiceItemSeqId" type="id" is-pk="true"/>
+        <field name="amount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="OrderAdjustment"/>
+        <relationship type="one-nofk" related-entity-name="Invoice"/>
+        <relationship type="one" related-entity-name="InvoiceItem">
+            <key-map field-name="invoiceId"/>
+            <key-map field-name="invoiceItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderBlacklist" package-name="mantle.order.order">
+        <field name="blacklistString" type="text-long" is-pk="true"/>
+        <field name="orderBlacklistTypeEnumId" type="id" is-pk="true"/>
+        <relationship type="one" title="OrderBlacklistType" related-entity-name="Enumeration">
+            <key-map field-name="orderBlacklistTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CommunicationEventOrder" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+    </entity>
+    <entity entity-name="OrderContactMech" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeTypeId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one" related-entity-name="ContactMechPurposeType"/>
+    </entity>
+    <entity entity-name="OrderContent" package-name="mantle.order.order">
+        <field name="orderContentId" type="id" is-pk="true"/>
+        <field name="orderContentTypeEnumId" type="id"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="contentId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="Content"/>
+        <relationship type="one" title="OrderContentType" related-entity-name="Enumeration">
+            <key-map field-name="orderContentTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderHeader" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderTypeEnumId" type="id"/>
+        <field name="orderName" type="text-medium"/>
+        <field name="orderDate" type="date-time"/>
+        <field name="entryDate" type="date-time"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="externalId" type="id"/>
+        <field name="salesChannelEnumId" type="id"/>
+        <field name="visitId" type="id"/>
+        <field name="firstAttemptOrderId" type="id"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="syncStatusId" type="id"/>
+        <field name="billingAccountId" type="id"/>
+        <field name="productStoreId" type="id"/>
+        <field name="terminalId" type="id-long"/>
+        <field name="transactionId" type="id-long"/>
+        <field name="autoOrderShoppingListId" type="id"/>
+        <field name="remainingSubTotal" type="currency-amount"/>
+        <field name="grandTotal" type="currency-amount"/>
+        <relationship type="one" title="OrderType" related-entity-name="Enumeration">
+            <description>(enumTypeId=ORDER_TYPE)</description>
+            <key-map field-name="orderTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="SalesChannel" related-entity-name="Enumeration">
+            <key-map field-name="salesChannelEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="BillingAccount"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" title="AutoOrder" related-entity-name="ShoppingList">
+            <key-map field-name="autoOrderShoppingListId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="Sync" related-entity-name="StatusItem">
+            <key-map field-name="syncStatusId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <index name="ORDEREXT_ID_IDX"><index-field name="externalId"/></index>
+    </entity>
+    <entity entity-name="OrderNote" package-name="mantle.order.order">
+        <field name="orderNoteId" type="id" is-pk="true"/>
+        <field name="orderId" type="id"/>
+        <field name="noteText" type="text-very-long"/>
+        <field name="internalNote" type="text-indicator"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+    </entity>
+    <entity entity-name="OrderWorkEffort" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+    </entity>
+    <entity entity-name="OrderItem" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="itemTypeEnumId" type="id"/>
+        <field name="orderItemGroupSeqId" type="id"/>
+        <field name="isItemGroupPrimary" type="text-indicator"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+
+        <field name="productId" type="id"/>
+        <field name="itemDescription" type="text-long"/>
+        <field name="comments" type="text-long"/>
+        <field name="quantity" type="number-decimal" enable-audit-log="true"/>
+        <field name="cancelQuantity" type="number-decimal"/>
+        <field name="selectedAmount" type="number-decimal"/>
+        <field name="unitPrice" type="currency-precise" enable-audit-log="true"/>
+        <field name="unitListPrice" type="currency-precise"/>
+        <field name="unitAverageCost" type="currency-amount"/>
+        <field name="unitRecurringPrice" type="currency-amount"/>
+        <field name="isModifiedPrice" type="text-indicator"/>
+
+        <field name="externalItemId" type="id"/>
+        <field name="fromInventoryItemId" type="id"/>
+        <field name="budgetId" type="id"/>
+        <field name="budgetItemSeqId" type="id"/>
+        <field name="supplierProductId" type="id"/>
+        <field name="productCategoryId" type="id"/>
+        <field name="isPromo" type="text-indicator"/>
+        <field name="shoppingListId" type="id"/>
+        <field name="shoppingListItemSeqId" type="id"/>
+        <field name="subscriptionId" type="id"/>
+        <field name="correspondingPoId" type="id"/>
+        <field name="estimatedShipDate" type="date-time"/>
+        <field name="estimatedDeliveryDate" type="date-time"/>
+        <field name="autoCancelDate" type="date-time"/>
+        <field name="dontCancelSetDate" type="date-time"/>
+        <field name="dontCancelSetUserId" type="id-very-long"/>
+        <field name="quoteValidFromDate" type="date-time"/>
+        <field name="quoteValidThruDate" type="date-time"/>
+        <field name="shipAfterDate" type="date-time"/>
+        <field name="shipBeforeDate" type="date-time"/>
+        <field name="overrideGlAccountId" type="id">
+            <description>Used to specify the override or actual glAccountId used for the adjustment, avoids problems if
+                configuration changes after initial posting, etc.
+            </description>
+        </field>
+        <field name="salesOpportunityId" type="id"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" title="ItemType" related-entity-name="Enumeration">
+            <key-map field-name="itemTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderItemGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemGroupSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="From" related-entity-name="InventoryItem">
+            <key-map field-name="fromInventoryItemId"/>
+        </relationship>
+        <relationship type="one" title="DontCancelSet" related-entity-name="UserAccount">
+            <key-map field-name="dontCancelSetUserId"/>
+        </relationship>
+        <relationship type="one" title="Override" related-entity-name="GlAccount">
+            <key-map field-name="overrideGlAccountId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="SalesOpportunity"/>
+        <index name="ORDITMEXT_ID_IDX"><index-field name="externalItemId"/></index>
+    </entity>
+    <entity entity-name="OrderItemAssoc" package-name="mantle.order.order">
+        <field name="orderItemAssocId" type="id" is-pk="true"/>
+        <field name="orderItemAssocTypeEnumId" type="id"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <field name="toOrderId" type="id"/>
+        <field name="toOrderItemSeqId" type="id"/>
+        <field name="toShipGroupSeqId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" title="OrderItemAssocType" related-entity-name="Enumeration">
+            <key-map field-name="orderItemAssocTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one-nofk" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="shipGroupSeqId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="OrderHeader">
+            <key-map field-name="toOrderId"/>
+        </relationship>
+        <relationship type="one-nofk" title="To" related-entity-name="OrderItem">
+            <key-map field-name="toOrderId" related-field-name="orderId"/>
+            <key-map field-name="toOrderItemSeqId" related-field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" title="To" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="toOrderId" related-field-name="orderId"/>
+            <key-map field-name="toShipGroupSeqId" related-field-name="shipGroupSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderItemBilling" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="invoiceItemSeqId" type="id" is-pk="true"/>
+        <field name="itemIssuanceId" type="id"/>
+        <field name="shipmentReceiptId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="amount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Invoice"/>
+        <relationship type="one" related-entity-name="InvoiceItem">
+            <key-map field-name="invoiceId"/>
+            <key-map field-name="invoiceItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentReceipt">
+            <key-map field-name="shipmentReceiptId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ItemIssuance"/>
+    </entity>
+    <entity entity-name="OrderItemGroup" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemGroupSeqId" type="id" is-pk="true"/>
+        <field name="parentGroupSeqId" type="id"/>
+        <field name="groupName" type="text-medium"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" title="Parent" related-entity-name="OrderItemGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="parentGroupSeqId" related-field-name="orderItemGroupSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderItemParty" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one-nofk" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderItemShipGroup" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="shipGroupSeqId" type="id" is-pk="true"/>
+        <field name="shipmentMethodTypeId" type="id" enable-audit-log="true"/>
+        <field name="supplierPartyId" type="id"/>
+        <field name="vendorPartyId" type="id">
+            <description>For use with multi-vendor stores, order will be split so that each ship group is associated
+                with only one vendor (only if applicable)
+            </description>
+        </field>
+        <field name="carrierPartyId" type="id" enable-audit-log="true"/>
+        <field name="facilityId" type="id"/>
+        <field name="postalContactMechId" type="id"/>
+        <field name="telecomContactMechId" type="id"/>
+        <field name="trackingNumber" type="text-short"/>
+        <field name="shippingInstructions" type="text-long"/>
+        <field name="maySplit" type="text-indicator"/>
+        <field name="giftMessage" type="text-long"/>
+        <field name="isGift" type="text-indicator"/>
+        <field name="shipAfterDate" type="date-time"/>
+        <field name="shipBeforeDate" type="date-time"/>
+        <field name="estimatedShipDate" type="date-time"/>
+        <field name="estimatedDeliveryDate" type="date-time"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" title="Supplier" related-entity-name="Party">
+            <key-map field-name="supplierPartyId"/>
+        </relationship>
+        <relationship type="one" title="Vendor" related-entity-name="Party">
+            <key-map field-name="vendorPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="CarrierShipmentMethod">
+            <key-map field-name="shipmentMethodTypeId"/>
+            <key-map field-name="carrierPartyId" related-field-name="partyId"/>
+        </relationship>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" related-entity-name="ShipmentMethodType"/>
+        <relationship type="one" related-entity-name="PostalAddress">
+            <key-map field-name="postalContactMechId"/>
+        </relationship>
+        <relationship type="one" title="Telecom" related-entity-name="TelecomNumber">
+            <key-map field-name="telecomContactMechId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderItemShipGroupAssoc" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="shipGroupSeqId" type="id" is-pk="true"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="cancelQuantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="OrderHeader">
+            <key-map field-name="orderId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="shipGroupSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderPaymentPreference" package-name="mantle.order.order">
+        <field name="orderPaymentPreferenceId" type="id" is-pk="true"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <field name="productPricePurposeId" type="id"/>
+        <field name="paymentMethodTypeId" type="id"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="finAccountId" type="id">
+            <description>For paying with a fin account instead of payment method on file</description>
+        </field>
+        <field name="securityCode" type="text-long" encrypt="true">
+            <description>NOTE: THIS SHOULD NEVER BE PERSISTED OUTSIDE THE SCOPE OF A SINGLE TRANSACTION,
+                TYPICALLY ONLY FOR AUTHORIZATION PURPOSES, SHOULD BE REMOVED IMMEDIATELY FOLLOWING USE;
+                this is the 3 digit on back (for Visa, MC, etc) or 4 digit on front (Amex, etc) card
+                verification code; also note that this field is longer than needed to accommodate encryption.
+            </description>
+        </field>
+        <field name="track2" type="text-long" encrypt="true">
+            <description>NOTE: THIS SHOULD NEVER BE PERSISTED OUTSIDE THE SCOPE OF A SINGLE TRANSACTION,
+                TYPICALLY ONLY FOR AUTHORIZATION PURPOSES, SHOULD BE REMOVED IMMEDIATELY FOLLOWING USE;
+                this is raw track2 data, exactly as read by the magnetic swipe reader;
+                also note that this field is longer than needed to accommodate encryption.
+            </description>
+        </field>
+        <field name="presentFlag" type="text-indicator"/>
+        <field name="swipedFlag" type="text-indicator"/>
+        <field name="overflowFlag" type="text-indicator"/>
+        <field name="maxAmount" type="currency-amount"/>
+        <field name="processAttempt" type="number-integer"/>
+        <field name="billingPostalCode" type="text-short"/>
+        <field name="manualAuthCode" type="text-short"/>
+        <field name="manualRefNum" type="text-short"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="needsNsfRetry" type="text-indicator"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one-nofk" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="shipGroupSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ProductPricePurpose"/>
+        <relationship type="one" related-entity-name="PaymentMethodType"/>
+        <relationship type="one" related-entity-name="PaymentMethod"/>
+        <relationship type="one" related-entity-name="FinAccount"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one-nofk" related-entity-name="CreditCard"/>
+        <relationship type="one-nofk" related-entity-name="EftAccount"/>
+        <relationship type="one-nofk" related-entity-name="GiftCard"/>
+        <index name="NSF_RETRY_CHECK"><index-field name="needsNsfRetry"/></index>
+    </entity>
+    <entity entity-name="OrderParty" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one-nofk" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="OrderShipment" package-name="mantle.order.order">
+        <field name="orderShipmentId" type="id" is-pk="true"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <field name="shipmentId" type="id"/>
+        <field name="shipmentItemSeqId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one-nofk" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Shipment"/>
+        <relationship type="one-nofk" related-entity-name="ShipmentItem">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="OrderTerm" package-name="mantle.order.order">
+        <field name="termTypeId" type="id" is-pk="true"/>
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="numberValue" type="number-integer"/>
+        <field name="numberUomId" type="id"/>
+        <field name="textValue" type="text-long"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" related-entity-name="TermType">
+            <key-map field-name="termTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one-nofk" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" title="Number" related-entity-name="Uom">
+            <key-map field-name="numberUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkOrderItemFulfillment" package-name="mantle.order.order">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.order.return -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ReturnHeader" package-name="mantle.order.return">
+        <field name="returnId" type="id" is-pk="true"/>
+        <field name="returnTypeEnumId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="fromPartyId" type="id"/>
+        <field name="toPartyId" type="id"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="finAccountId" type="id"/>
+        <field name="billingAccountId" type="id"/>
+        <field name="entryDate" type="date-time"/>
+        <field name="originContactMechId" type="id"/>
+        <field name="destinationFacilityId" type="id"/>
+        <field name="needsInventoryReceive" type="text-indicator"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="supplierRmaId" type="id"/>
+        <relationship type="one" title="ReturnType" related-entity-name="Enumeration">
+            <key-map field-name="returnTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="From" related-entity-name="Party">
+            <key-map field-name="fromPartyId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="Party">
+            <key-map field-name="toPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="BillingAccount"/>
+        <relationship type="one" related-entity-name="FinAccount"/>
+        <relationship type="one" related-entity-name="PaymentMethod"/>
+        <relationship type="one" title="Destination" related-entity-name="Facility">
+            <key-map field-name="destinationFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="ContactMech">
+            <key-map field-name="originContactMechId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ReturnItem" package-name="mantle.order.return">
+        <field name="returnId" type="id" is-pk="true"/>
+        <field name="returnItemSeqId" type="id" is-pk="true"/>
+        <field name="returnReasonEnumId" type="id" enable-audit-log="true">
+            <description>why item is returned: did not like, wrong item, damaged, etc. etc.</description>
+        </field>
+        <field name="returnResponseEnumId" type="id" enable-audit-log="true">
+            <description>actually used for disbursement type: store credit, cash refund, exchange</description>
+        </field>
+        <field name="itemTypeEnumId" type="id"/>
+        <field name="productId" type="id">
+            <description>we need this field to be able to figure out net sales of a product</description>
+        </field>
+        <field name="description" type="text-long"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="orderAdjustmentId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="expectedInventoryStatusId" type="id"/>
+        <field name="returnQuantity" type="number-decimal" enable-audit-log="true">
+            <description>promised by the customer</description>
+        </field>
+        <field name="receivedQuantity" type="number-decimal" enable-audit-log="true">
+            <description>actually received from the customer</description>
+        </field>
+        <field name="returnPrice" type="currency-amount" enable-audit-log="true"/>
+        <field name="returnItemResponseId" type="id"/>
+        <!-- Response Detail Fields -->
+        <field name="orderPaymentPreferenceId" type="id"/>
+        <field name="replacementOrderId" type="id"/>
+        <field name="paymentId" type="id"/>
+        <field name="billingAccountId" type="id"/>
+        <field name="finAccountTransId" type="id"/>
+        <field name="responseAmount" type="currency-amount"/>
+        <field name="responseDate" type="date-time"/>
+
+        <relationship type="one" related-entity-name="ReturnHeader">
+            <key-map field-name="returnId"/>
+        </relationship>
+        <relationship type="one" title="ReturnReason" related-entity-name="Enumeration">
+            <key-map field-name="returnReasonEnumId"/>
+        </relationship>
+        <relationship type="one" title="ReturnResponse" related-entity-name="Enumeration">
+            <key-map field-name="returnResponseEnumId"/>
+        </relationship>
+        <relationship type="one" title="ItemType" related-entity-name="Enumeration">
+            <key-map field-name="itemTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ReturnItemResponse">
+            <key-map field-name="returnItemResponseId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="ExpectedInventory" related-entity-name="StatusItem">
+            <key-map field-name="expectedInventoryStatusId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+
+        <relationship type="one" related-entity-name="OrderPaymentPreference">
+            <key-map field-name="orderPaymentPreferenceId"/>
+        </relationship>
+        <relationship type="one" title="Replacement" related-entity-name="OrderHeader">
+            <key-map field-name="replacementOrderId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Payment"/>
+        <relationship type="one" related-entity-name="BillingAccount"/>
+        <relationship type="one" related-entity-name="FinAccountTrans"/>
+
+        <index name="RTN_ITM_BYORDITM"><index-field name="orderId"/><index-field name="orderItemSeqId"/></index>
+    </entity>
+    <entity entity-name="ReturnItemBilling" package-name="mantle.order.return">
+        <field name="returnId" type="id" is-pk="true"/>
+        <field name="returnItemSeqId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="invoiceItemSeqId" type="id" is-pk="true"/>
+        <field name="shipmentReceiptId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="amount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="ReturnItem">
+            <key-map field-name="returnId"/>
+            <key-map field-name="returnItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="InvoiceItem">
+            <key-map field-name="invoiceId"/>
+            <key-map field-name="invoiceItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentReceipt"/>
+    </entity>
+    <entity entity-name="ReturnItemShipment" package-name="mantle.order.return">
+        <field name="returnId" type="id" is-pk="true"/>
+        <field name="returnItemSeqId" type="id" is-pk="true"/>
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="ReturnItem">
+            <key-map field-name="returnId"/>
+            <key-map field-name="returnItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentItem">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentItemSeqId"/>
+        </relationship>
+    </entity>
+
+    <entity entity-name="ReturnContactMech" package-name="mantle.order.return">
+        <field name="returnId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeTypeId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="ReturnHeader"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one" related-entity-name="ContactMechPurposeType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.order.shoppinglist -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ShoppingList" package-name="mantle.order.shoppinglist">
+        <field name="shoppingListId" type="id" is-pk="true"/>
+        <field name="shoppingListTypeEnumId" type="id"/>
+        <field name="parentShoppingListId" type="id"/>
+        <field name="listName" type="text-medium"/>
+        <field name="productStoreId" type="id"/>
+        <field name="visitorId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="isPublic" type="text-indicator"/>
+        <field name="isActive" type="text-indicator"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="shipmentMethodTypeId" type="id"/>
+        <field name="carrierPartyId" type="id"/>
+        <field name="postalContactMechId" type="id"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="recurrenceInfoId" type="id"/>
+        <field name="lastOrderedDate" type="date-time"/>
+        <field name="lastAdminModified" type="date-time"/>
+        <relationship type="one" title="Parent" related-entity-name="ShoppingList">
+            <key-map field-name="parentShoppingListId"/>
+        </relationship>
+        <relationship type="one" title="ShoppingListType" related-entity-name="Enumeration">
+            <key-map field-name="shoppingListTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="Visitor"/>
+        <relationship type="one" related-entity-name="CarrierShipmentMethod">
+            <key-map field-name="shipmentMethodTypeId"/>
+            <key-map field-name="carrierPartyId" related-field-name="partyId"/>
+        </relationship>
+        <relationship type="one" title="Postal" related-entity-name="ContactMech">
+            <key-map field-name="postalContactMechId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="PaymentMethod"/>
+        <relationship type="one" related-entity-name="RecurrenceInfo">
+            <key-map field-name="recurrenceInfoId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShoppingListItem" package-name="mantle.order.shoppinglist">
+        <field name="shoppingListId" type="id" is-pk="true"/>
+        <field name="shoppingListItemSeqId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="quantityPurchased" type="number-decimal"/>
+        <field name="configId" type="id"/>
+        <relationship type="one" related-entity-name="ShoppingList"/>
+        <relationship type="one" related-entity-name="Product"/>
+    </entity>
+</entities>

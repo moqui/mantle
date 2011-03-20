@@ -1,0 +1,602 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.party.agreement -->
+    <!--  - mantle.party.communication -->
+    <!--  - mantle.party.contact -->
+    <!--  - mantle.party.party -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.party.agreement -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Agreement" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="agreementTypeEnumId" type="id"/>
+        <field name="agreementDate" type="date-time"/>
+        <field name="fromPartyId" type="id"/>
+        <field name="fromRoleTypeId" type="id"/>
+        <field name="toPartyId" type="id"/>
+        <field name="toRoleTypeId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="description" type="text-long"/>
+        <field name="textData" type="text-very-long"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="From" related-entity-name="Party">
+            <key-map field-name="fromPartyId"/>
+        </relationship>
+        <relationship type="one" title="From" related-entity-name="RoleType">
+            <key-map field-name="fromRoleTypeId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="Party">
+            <key-map field-name="toPartyId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="RoleType">
+            <key-map field-name="toRoleTypeId"/>
+        </relationship>
+        <relationship type="one" title="AgreementType" related-entity-name="Enumeration">
+            <key-map field-name="agreementTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="AgreementAddendum" package-name="mantle.party.agreement">
+        <field name="agreementAddendumId" type="id" is-pk="true"/>
+        <field name="agreementId" type="id"/>
+        <field name="agreementItemSeqId" type="id"/>
+        <field name="addendumCreationDate" type="date-time"/>
+        <field name="addendumEffectiveDate" type="date-time"/>
+        <field name="addendumText" type="text-long"/>
+        <relationship type="one" related-entity-name="Agreement"/>
+        <relationship type="one" related-entity-name="AgreementItem">
+            <key-map field-name="agreementId"/>
+            <key-map field-name="agreementItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="AgreementParty" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Agreement"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="AgreementTerm" package-name="mantle.party.agreement">
+        <field name="agreementTermId" type="id" is-pk="true"/>
+        <field name="termTypeEnumId" type="id"/>
+        <field name="agreementId" type="id"/>
+        <field name="agreementItemSeqId" type="id"/>
+        <field name="itemTypeEnumId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="termValue" type="currency-precise"/>
+        <field name="termDays" type="number-integer"/>
+        <field name="textValue" type="text-long"/>
+        <field name="minQuantity" type="number-decimal"/>
+        <field name="maxQuantity" type="number-decimal"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="TermType" related-entity-name="Enumeration">
+            <key-map field-name="termTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Agreement"/>
+        <relationship type="one-nofk" related-entity-name="AgreementItem">
+            <key-map field-name="agreementId"/>
+            <key-map field-name="agreementItemSeqId"/>
+        </relationship>
+        <relationship type="one" title="ItemType" related-entity-name="Enumeration">
+            <key-map field-name="itemTypeEnumId"/>
+        </relationship>
+    </entity>
+
+    <entity entity-name="AgreementItem" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="agreementItemSeqId" type="id" is-pk="true"/>
+        <field name="agreementItemTypeEnumId" type="id"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="itemText" type="text-very-long"/>
+        <relationship type="one" related-entity-name="Agreement"/>
+        <relationship type="one" title="AgreementItemType" related-entity-name="Enumeration">
+            <key-map field-name="agreementItemTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="AgreementItemGeo" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="agreementItemSeqId" type="id" is-pk="true"/>
+        <field name="geoId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="AgreementItem">
+            <key-map field-name="agreementId"/>
+            <key-map field-name="agreementItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Geo"/>
+    </entity>
+    <entity entity-name="AgreementItemParty" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="agreementItemSeqId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id"/>
+        <relationship type="one" related-entity-name="AgreementItem">
+            <key-map field-name="agreementId"/>
+            <key-map field-name="agreementItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="AgreementItemProduct" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="agreementItemSeqId" type="id" is-pk="true"/>
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="minQuantity" type="number-decimal" is-pk="true"/>
+        <field name="price" type="currency-precise"/>
+        <relationship type="one" related-entity-name="AgreementItem">
+            <key-map field-name="agreementId"/>
+            <key-map field-name="agreementItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+    </entity>
+    <entity entity-name="AgreementItemWorkEffort" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="agreementItemSeqId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="AgreementItem">
+            <key-map field-name="agreementId"/>
+            <key-map field-name="agreementItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+    </entity>
+    <entity entity-name="AgreementItemEmployment" package-name="mantle.party.agreement">
+        <field name="agreementId" type="id" is-pk="true"/>
+        <field name="agreementItemSeqId" type="id" is-pk="true"/>
+        <field name="employmentId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Employment"/>
+        <relationship type="one" related-entity-name="AgreementItem">
+            <key-map field-name="agreementId"/>
+            <key-map field-name="agreementItemSeqId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.party.communication -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="CommunicationEvent" package-name="mantle.party.communication">
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <field name="communicationEventTypeEnumId" type="id"/>
+        <field name="contactMechTypeEnumId" type="id"/>
+        <field name="statusId" type="id"/>
+
+        <field name="originalCommEventId" type="id"/>
+        <field name="parentCommEventId" type="id"/>
+
+        <field name="fromContactMechId" type="id"/>
+        <field name="toContactMechId" type="id"/>
+        <field name="fromPartyId" type="id"/>
+        <field name="fromRoleTypeId" type="id"/>
+        <field name="toPartyId" type="id"/>
+        <field name="toRoleTypeId" type="id"/>
+
+        <field name="entryDate" type="date-time"/>
+        <field name="datetimeStarted" type="date-time"/>
+        <field name="datetimeEnded" type="date-time"/>
+
+        <field name="subject" type="text-long"/>
+        <field name="contentMimeTypeId" type="id-long"/>
+        <field name="content" type="text-very-long"/>
+        <field name="note" type="text-long"/>
+
+        <field name="reasonEnumId" type="id"/>
+        <field name="contactListId" type="id"/>
+        <field name="emailMessageId" type="id"/>
+
+        <relationship type="one" title="CommunicationEventType" related-entity-name="Enumeration">
+            <key-map field-name="communicationEventTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="ContactMechType" related-entity-name="Enumeration">
+            <key-map field-name="contactMechTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="From" related-entity-name="ContactMech">
+            <key-map field-name="fromContactMechId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="ContactMech">
+            <key-map field-name="toContactMechId"/>
+        </relationship>
+        <relationship type="one" title="From" related-entity-name="Party">
+            <key-map field-name="fromPartyId"/>
+        </relationship>
+        <relationship type="one" title="From" related-entity-name="RoleType">
+            <key-map field-name="fromRoleTypeId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="Party">
+            <key-map field-name="toPartyId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="RoleType">
+            <key-map field-name="toRoleTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ContactList"/>
+        <relationship type="one" title="Content" related-entity-name="MimeType">
+            <key-map field-name="contentMimeTypeId"/>
+        </relationship>
+        <relationship type="one" title="Reason" related-entity-name="Enumeration">
+            <key-map field-name="reasonEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CommunicationEventContent" package-name="mantle.party.communication">
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <field name="contentId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="assocTypeEnumId" type="id"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="Content"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+        <relationship type="one" title="AssocType" related-entity-name="Enumeration">
+            <key-map field-name="assocTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CommunicationEventProduct" package-name="mantle.party.communication">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+    </entity>
+    <entity entity-name="CommunicationEventPurpose" package-name="mantle.party.communication">
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <field name="purposeEnumId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+        <relationship type="one" title="Purpose" related-entity-name="Enumeration">
+            <key-map field-name="purposeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CommunicationEventParty" package-name="mantle.party.communication">
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id"/>
+        <field name="statusId" type="id"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+    </entity>
+    <entity entity-name="CommunicationEventType" package-name="mantle.party.communication">
+        <field name="communicationEventTypeId" type="id" is-pk="true"/>
+        <field name="parentTypeId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contactMechTypeEnumId" type="id"/>
+        <relationship type="one" title="Parent" related-entity-name="CommunicationEventType">
+            <key-map field-name="parentTypeId"/>
+        </relationship>
+        <relationship type="one" title="ContactMechType" related-entity-name="Enumeration">
+            <key-map field-name="contactMechTypeEnumId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.party.contact -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ContactMech" package-name="mantle.party.contact">
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <field name="contactMechTypeEnumId" type="id"/>
+        <field name="infoString" type="text-long"/>
+        <relationship type="one" title="ContactMechType" related-entity-name="Enumeration">
+            <key-map field-name="contactMechTypeEnumId"/>
+        </relationship>
+        <index name="INFO_STRING_IDX"><index-field name="infoString"/></index>
+    </entity>
+    <entity entity-name="ContactMechTypePurpose" package-name="mantle.party.contact">
+        <field name="contactMechTypeEnumId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeTypeEnumId" type="id" is-pk="true"/>
+        <relationship type="one" title="ContactMechType" related-entity-name="Enumeration">
+            <key-map field-name="contactMechTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="ContactMechPurposeType" related-entity-name="Enumeration">
+            <key-map field-name="contactMechPurposeTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="EmailAddressVerification" package-name="mantle.party.contact">
+        <description>Holds hashes for email address verification</description>
+        <field name="emailAddress" type="id-very-long" is-pk="true"/>
+        <field name="verifyHash" type="text-long"/>
+        <field name="expireDate" type="date-time"/>
+        <index name="EMAIL_VERIFY_HASH" unique="true"><index-field name="verifyHash"/></index>
+    </entity>
+    <entity entity-name="PartyContactMech" package-name="mantle.party.contact">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="roleTypeId" type="id"/>
+        <field name="allowSolicitation" type="text-indicator"/>
+        <field name="extension" type="text-long"/>
+        <field name="verified" type="text-indicator"/>
+        <field name="comments" type="text-long"/>
+        <field name="yearsWithContactMech" type="number-integer"/>
+        <field name="monthsWithContactMech" type="number-integer"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+    </entity>
+    <entity entity-name="PostalAddress" package-name="mantle.party.contact">
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <field name="toName" type="text-medium"/>
+        <field name="attnName" type="text-medium"/>
+        <field name="address1" type="text-long"/>
+        <field name="address2" type="text-long"/>
+        <field name="directions" type="text-long"/>
+        <field name="city" type="text-medium"/>
+        <field name="postalCode" type="text-short"/>
+        <field name="postalCodeExt" type="text-short"/>
+        <field name="countryGeoId" type="id"/>
+        <field name="stateProvinceGeoId" type="id"/>
+        <field name="countyGeoId" type="id"/>
+        <field name="postalCodeGeoId" type="id"/>
+        <field name="geoPointId" type="id"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one" title="Country" related-entity-name="Geo">
+            <key-map field-name="countryGeoId"/>
+        </relationship>
+        <relationship type="one" title="StateProvince" related-entity-name="Geo">
+            <key-map field-name="stateProvinceGeoId"/>
+        </relationship>
+        <relationship type="one" title="County" related-entity-name="Geo">
+            <key-map field-name="countyGeoId"/>
+        </relationship>
+        <relationship type="one" title="PostalCode" related-entity-name="Geo">
+            <key-map field-name="postalCodeGeoId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GeoPoint"/>
+        <index name="ADDRESS1_IDX"><index-field name="address1"/></index>
+        <index name="ADDRESS2_IDX"><index-field name="address2"/></index>
+        <index name="CITY_IDX"><index-field name="city"/></index>
+        <index name="POSTAL_CODE_IDX"><index-field name="postalCode"/></index>
+    </entity>
+    <entity entity-name="TelecomNumber" package-name="mantle.party.contact">
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <field name="countryCode" type="text-short"/>
+        <field name="areaCode" type="text-short"/>
+        <field name="contactNumber" type="text-short"/>
+        <field name="askForName" type="text-medium"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <index name="COUNTRY_CODE_IDX"><index-field name="countryCode"/></index>
+        <index name="AREA_CODE_IDX"><index-field name="areaCode"/></index>
+        <index name="CONTACT_NUMBER_IDX"><index-field name="contactNumber"/></index>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.party.party -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Party" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="partyTypeEnumId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="externalId" type="id"/>
+        <field name="dataSourceId" type="id"/>
+        <relationship type="one" title="PartyType" related-entity-name="Enumeration">
+            <key-map field-name="partyTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" related-entity-name="DataSource"/>
+        <index name="PARTY_ID_EXT"><index-field name="externalId"/></index>
+    </entity>
+    <entity entity-name="Affiliate" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="affiliateName" type="text-medium"/>
+        <field name="affiliateDescription" type="text-long"/>
+        <field name="yearEstablished" type="text-short"/>
+        <field name="siteType" type="text-long"/>
+        <field name="sitePageViews" type="text-long"/>
+        <field name="siteVisitors" type="text-long"/>
+        <field name="dateTimeCreated" type="date-time"/>
+        <field name="dateTimeApproved" type="date-time"/>
+        <relationship type="one" related-entity-name="Party"/>
+    </entity>
+    <entity entity-name="PartyGroup" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="groupName" type="text-medium"/>
+        <field name="groupNameLocal" type="text-medium"/>
+        <field name="officeSiteName" type="text-medium"/>
+        <field name="annualRevenue" type="currency-amount"/>
+        <field name="numEmployees" type="number-integer"/>
+        <field name="tickerSymbol" type="text-short"/>
+        <field name="comments" type="text-long"/>
+        <field name="logoImageUrl" type="text-long"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <index name="GROUP_NAME_IDX"><index-field name="groupName"/></index>
+    </entity>
+    <entity entity-name="Person" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="salutation" type="text-medium"/>
+        <field name="firstName" type="text-medium"/>
+        <field name="middleName" type="text-medium"/>
+        <field name="lastName" type="text-medium"/>
+        <field name="personalTitle" type="text-medium"/>
+        <field name="suffix" type="text-medium"/>
+        <field name="nickname" type="text-medium"/>
+        <field name="gender" type="text-indicator"/>
+        <field name="birthDate" type="date"/>
+        <field name="deceasedDate" type="date"/>
+        <field name="height" type="number-float"/>
+        <field name="weight" type="number-float"/>
+        <field name="mothersMaidenName" type="text-long" encrypt="true"/>
+        <field name="maritalStatus" type="text-indicator"/>
+        <field name="comments" type="text-long"/>
+        <field name="employmentStatusEnumId" type="id"/>
+        <field name="residenceStatusEnumId" type="id"/>
+        <field name="occupation" type="text-medium"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" title="EmploymentStatus" related-entity-name="Enumeration">
+            <key-map field-name="employmentStatusEnumId"/>
+        </relationship>
+        <relationship type="one" title="ResidenceStatus" related-entity-name="Enumeration">
+            <key-map field-name="residenceStatusEnumId"/>
+        </relationship>
+        <index name="FIRST_NAME_IDX"><index-field name="firstName"/></index>
+        <index name="LAST_NAME_IDX"><index-field name="lastName"/></index>
+    </entity>
+    <entity entity-name="Vendor" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="manifestCompanyName" type="text-medium"/>
+        <field name="manifestCompanyTitle" type="text-medium"/>
+        <field name="manifestLogoUrl" type="text-long"/>
+        <field name="manifestPolicies" type="text-very-long"/>
+        <relationship type="one" related-entity-name="Party"/>
+    </entity>
+
+    <entity entity-name="PartyIdentification" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="partyIdTypeEnumId" type="id" is-pk="true"/>
+        <field name="idValue" type="id-long"/>
+        <field name="expireDate" type="date"/>
+        <relationship type="one" title="PartyIdType" related-entity-name="Enumeration">
+            <key-map field-name="partyIdTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <index name="PARTY_ID_VALUE" unique="false"><index-field name="idValue"/></index>
+    </entity>
+    <entity entity-name="PartyGeoPoint" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="geoPointId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="GeoPoint"/>
+    </entity>
+
+    <entity entity-name="PartyClassification" package-name="mantle.party.party">
+        <field name="partyClassificationId" type="id" is-pk="true"/>
+        <field name="classificationTypeEnumId" type="id"/>
+        <field name="parentClassificationId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="ClassificationType" related-entity-name="Enumeration">
+            <description>(enumTypeId = PARTY_CLASS_TYPE)</description>
+            <key-map field-name="classificationTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Parent" related-entity-name="PartyClassification">
+            <key-map field-name="parentClassificationId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PartyClassificationAppl" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="partyClassificationId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="PartyClassification"/>
+    </entity>
+
+    <entity entity-name="PartyContent" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="contentId" type="id" is-pk="true"/>
+        <field name="partyContentTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="Content"/>
+        <relationship type="one" title="PartyContentType" related-entity-name="Enumeration">
+            <key-map field-name="partyContentTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PartyNote" package-name="mantle.party.party">
+        <field name="partyNoteId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="noteText" type="text-very-long"/>
+        <relationship type="one" related-entity-name="Party"/>
+    </entity>
+    <entity entity-name="PartyRelationship" package-name="mantle.party.party">
+        <field name="partyRelationshipId" type="id" is-pk="true"/>
+        <field name="relationshipTypeEnumId" type="id"/>
+        <field name="fromPartyId" type="id"/>
+        <field name="fromRoleTypeId" type="id"/>
+        <field name="toPartyId" type="id"/>
+        <field name="toRoleTypeId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="statusId" type="id"/>
+        <field name="priorityTypeEnumId" type="id"/>
+        <field name="permissionsEnumId" type="id"/>
+        <field name="comments" type="text-long"/>
+        <field name="relationshipName" type="text-medium">
+            <description>Official name of relationship, such as title in a company</description>
+        </field>
+        <field name="positionTitle" type="text-medium">
+            <description>The exact word used within the company</description>
+        </field>
+        <relationship type="one" title="From" related-entity-name="Party">
+            <key-map field-name="fromPartyId"/>
+        </relationship>
+        <relationship type="one" title="From" related-entity-name="RoleType">
+            <key-map field-name="fromRoleTypeId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="Party">
+            <key-map field-name="toPartyId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="RoleType">
+            <key-map field-name="toRoleTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="PriorityType" related-entity-name="Enumeration">
+            <key-map field-name="priorityTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="RelationshipType" related-entity-name="Enumeration">
+            <key-map field-name="relationshipTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PartyRole" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.party.time -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="TimePeriod" package-name="mantle.party.time">
+        <description>For configurable time periods used in accounting, sales quotas, etc.</description>
+        <field name="timePeriodId" type="id" is-pk="true"/>
+        <field name="parentPeriodId" type="id"/>
+        <field name="timePeriodTypeId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="periodNum" type="number-integer"/>
+        <field name="periodName" type="text-medium"/>
+        <field name="fromDate" type="date"/>
+        <field name="thruDate" type="date"/>
+        <field name="isClosed" type="text-indicator"/>
+        <relationship type="one" title="Parent" related-entity-name="TimePeriod">
+            <key-map field-name="parentPeriodId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="TimePeriodType"/>
+    </entity>
+    <entity entity-name="TimePeriodType" package-name="mantle.party.time">
+        <field name="timePeriodTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <field name="periodLength" type="number-integer"/>
+        <field name="lengthUomId" type="id"/>
+        <relationship type="one" title="Length" related-entity-name="Uom">
+            <key-map field-name="lengthUomId" related-field-name="uomId"/>
+        </relationship>
+    </entity>
+</entities>

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+
+    <!-- ========================================================= -->
+    <!-- mantle.sales.opportunity -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="SalesOpportunity" package-name="mantle.sales.opportunity">
+        <field name="salesOpportunityId" type="id" is-pk="true"/>
+        <field name="typeEnumId" type="id"/>
+        <field name="opportunityName" type="text-medium"/>
+        <field name="description" type="text-very-long"/>
+        <field name="nextStep" type="text-very-long"/>
+        <field name="estimatedAmount" type="currency-amount" enable-audit-log="true"/>
+        <field name="estimatedProbability" type="number-decimal" enable-audit-log="true"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="marketingCampaignId" type="id"/>
+        <field name="dataSourceId" type="id"/>
+        <field name="estimatedCloseDate" type="date-time"/>
+        <field name="opportunityStageId" type="id" enable-audit-log="true"/>
+        <relationship type="one" title="Type" related-entity-name="Enumeration">
+            <key-map field-name="typeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="SalesOpportunityStage">
+            <key-map field-name="opportunityStageId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="MarketingCampaign"/>
+    </entity>
+    <entity entity-name="SalesOpportunityParty" package-name="mantle.sales.opportunity">
+        <field name="salesOpportunityId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="SalesOpportunity">
+            <key-map field-name="salesOpportunityId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="SalesOpportunityStage" package-name="mantle.sales.opportunity">
+        <field name="opportunityStageId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <field name="defaultProbability" type="number-decimal"/>
+        <field name="sequenceNum" type="number-integer"/>
+    </entity>
+    <entity entity-name="SalesOpportunityWorkEffort" package-name="mantle.sales.opportunity">
+        <field name="salesOpportunityId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="SalesOpportunity"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+    </entity>
+    <entity entity-name="SalesOpportunityQuote" package-name="mantle.sales.opportunity">
+        <field name="salesOpportunityId" type="id" is-pk="true"/>
+        <field name="orderId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="SalesOpportunity"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+    </entity>
+    <entity entity-name="SalesOpportunityCompetitor" package-name="mantle.sales.opportunity">
+        <field name="salesOpportunityId" type="id" is-pk="true"/>
+        <field name="competitorPartyId" type="id" is-pk="true"/>
+        <field name="positionEnumId" type="id"/>
+        <field name="strengths" type="text-very-long"/>
+        <field name="weaknesses" type="text-very-long"/>
+        <relationship type="one" related-entity-name="SalesOpportunity"/>
+    </entity>
+    <entity entity-name="SalesOpportunityTracking" package-name="mantle.sales.opportunity">
+        <field name="salesOpportunityId" type="id" is-pk="true"/>
+        <field name="trackingCodeId" type="id" is-pk="true"/>
+        <field name="receivedDate" type="date-time"/>
+        <relationship type="one" related-entity-name="SalesOpportunity"/>
+        <relationship type="one" related-entity-name="TrackingCode"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.sales.forecast -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="SalesForecast" package-name="mantle.sales.forecast">
+        <field name="salesForecastId" type="id" is-pk="true"/>
+        <field name="parentSalesForecastId" type="id"/>
+        <field name="organizationPartyId" type="id"/>
+        <field name="internalPartyId" type="id"/>
+        <field name="timePeriodId" type="id"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="quotaAmount" type="currency-amount"/>
+        <field name="forecastAmount" type="currency-amount" enable-audit-log="true"/>
+        <field name="bestCaseAmount" type="currency-amount"/>
+        <field name="closedAmount" type="currency-amount" enable-audit-log="true"/>
+        <field name="percentOfQuotaForecast" type="number-decimal"/>
+        <field name="percentOfQuotaClosed" type="number-decimal"/>
+        <field name="pipelineAmount" type="currency-amount"/>
+        <relationship type="one" title="Parent" related-entity-name="SalesForecast">
+            <key-map field-name="parentSalesForecastId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" title="Internal" related-entity-name="Party">
+            <key-map field-name="internalPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="TimePeriod"/>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="SalesForecastDetail" package-name="mantle.sales.forecast">
+        <field name="salesForecastId" type="id" is-pk="true"/>
+        <field name="salesForecastDetailSeqId" type="id" is-pk="true"/>
+        <field name="amount" type="currency-amount"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="quantityUomId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="productCategoryId" type="id"/>
+        <relationship type="one" related-entity-name="SalesForecast"/>
+        <relationship type="one" title="Quantity" related-entity-name="Uom">
+            <key-map field-name="quantityUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.sales.need -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="PartyNeed" package-name="mantle.sales.need">
+        <field name="partyNeedId" type="id" is-pk="true"/>
+        <field name="needTypeEnumId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="roleTypeId" type="id"/>
+        <field name="communicationEventId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="productCategoryId" type="id"/>
+        <field name="visitId" type="id"/>
+        <field name="datetimeRecorded" type="date-time"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="NeedType" related-entity-name="Enumeration">
+            <key-map field-name="needTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="Visit"/>
+    </entity>
+</entities>

@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.request.request -->
+    <!--  - mantle.request.requirement -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.request.request -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Request" package-name="mantle.request.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="requestTypeEnumId" type="id"/>
+        <field name="requestCategoryId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="fromPartyId" type="id"/>
+        <field name="priority" type="number-integer"/>
+        <field name="requestDate" type="date-time"/>
+        <field name="responseRequiredDate" type="date-time"/>
+        <field name="requestName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="maximumAmountUomId" type="id"/>
+        <field name="productStoreId" type="id"/>
+        <field name="salesChannelEnumId" type="id"/>
+        <field name="fulfillContactMechId" type="id"><description>Where to send the results of the request.</description></field>
+        <field name="currencyUomId" type="id"/>
+        <field name="internalComment" type="text-long"/>
+        <relationship type="one" title="RequestType" related-entity-name="Enumeration">
+            <key-map field-name="requestTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="RequestCategory"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="From" related-entity-name="Party">
+            <key-map field-name="fromPartyId"/>
+        </relationship>
+        <relationship type="one" title="MaximumAmount" related-entity-name="Uom">
+            <key-map field-name="maximumAmountUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" title="SalesChannel" related-entity-name="Enumeration">
+            <key-map field-name="salesChannelEnumId"/>
+        </relationship>
+        <relationship type="one" title="Fulfill" related-entity-name="ContactMech">
+            <key-map field-name="fulfillContactMechId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="RequestCategory" package-name="mantle.request.request">
+        <field name="requestCategoryId" type="id" is-pk="true"/>
+        <field name="parentCategoryId" type="id"/>
+        <field name="responsiblePartyId" type="id">
+            <description>Party (person or group) responsible for Requests in this Category.</description>
+        </field>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="Parent" related-entity-name="RequestCategory">
+            <key-map field-name="parentCategoryId"/>
+        </relationship>
+        <relationship type="one" title="Responsible" related-entity-name="Party">
+            <key-map field-name="responsiblePartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="RequestCommEvent" package-name="mantle.request.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Request"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+    </entity>
+    <entity entity-name="RequestContent" package-name="mantle.request.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="contentId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Request"/>
+        <relationship type="one" related-entity-name="Content"/>
+    </entity>
+    <entity entity-name="RequestItem" package-name="mantle.request.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="requestItemSeqId" type="id" is-pk="true"/>
+        <field name="requestResolutionEnumId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="priority" type="number-integer"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="requiredByDate" type="date-time"/>
+        <field name="productId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="selectedAmount" type="number-decimal"/>
+        <field name="maximumAmount" type="currency-amount"/>
+        <field name="reservStart" type="date-time"/>
+        <field name="reservLength" type="number-decimal"/>
+        <field name="reservPersons" type="number-decimal"/>
+        <field name="configId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="story" type="text-very-long"/>
+        <relationship type="one" related-entity-name="Request"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="RequestResolution" related-entity-name="Enumeration">
+            <key-map field-name="requestResolutionEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+    </entity>
+    <entity entity-name="RequestNote" package-name="mantle.request.request">
+        <field name="requestNoteId" type="id" is-pk="true"/>
+        <field name="requestId" type="id"/>
+        <field name="requestItemSeqId" type="id"/>
+        <field name="noteText" type="text-very-long"/>
+        <relationship type="one" related-entity-name="Request"/>
+        <relationship type="one-nofk" related-entity-name="RequestItem">
+            <key-map field-name="requestId"/>
+            <key-map field-name="requestItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="RequestItemWorkEffort" package-name="mantle.request.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="requestItemSeqId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="RequestItem">
+            <key-map field-name="requestId"/>
+            <key-map field-name="requestItemSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="Request"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+    </entity>
+    <entity entity-name="RequestParty" package-name="mantle.request.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Request"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one-nofk" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="RequestWorkEffort" package-name="mantle.request.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Request"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.request.requirement -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Requirement" package-name="mantle.request.requirement">
+        <field name="requirementId" type="id" is-pk="true"/>
+        <field name="requirementTypeEnumId" type="id"/>
+        <field name="facilityId" type="id"/>
+        <field name="deliverableId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="description" type="text-long"/>
+        <field name="requirementStartDate" type="date-time"/>
+        <field name="requiredByDate" type="date-time"/>
+        <field name="estimatedBudget" type="currency-amount"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="useCase" type="text-very-long"/>
+        <field name="reason" type="text-long"/>
+        <relationship type="one" title="RequirementType" related-entity-name="Enumeration">
+            <key-map field-name="requirementTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" related-entity-name="Deliverable"/>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+    </entity>
+    <entity entity-name="RequirementBudgetAllocation" package-name="mantle.request.requirement">
+        <field name="requirementId" type="id" is-pk="true"/>
+        <field name="budgetId" type="id" is-pk="true"/>
+        <field name="budgetItemSeqId" type="id" is-pk="true"/>
+        <field name="amount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="BudgetItem">
+            <key-map field-name="budgetId"/>
+            <key-map field-name="budgetItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Requirement"/>
+    </entity>
+    <entity entity-name="RequirementRequestItem" package-name="mantle.request.requirement">
+        <field name="requirementId" type="id" is-pk="true"/>
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="requestItemSeqId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Requirement"/>
+        <relationship type="one" related-entity-name="RequestItem">
+            <key-map field-name="requestId"/>
+            <key-map field-name="requestItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="RequirementParty" package-name="mantle.request.requirement">
+        <field name="requirementId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Requirement"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="OrderRequirementCommitment" package-name="mantle.request.requirement">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="requirementId" type="id" is-pk="true"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Requirement"/>
+    </entity>
+    <entity entity-name="WorkRequirementFulfillment" package-name="mantle.request.requirement">
+        <field name="requirementId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="fulfillmentTypeEnumId" type="id"/>
+        <relationship type="one" related-entity-name="Requirement"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" title="FulfillmentType" related-entity-name="Enumeration">
+            <key-map field-name="fulfillmentTypeEnumId"/>
+        </relationship>
+    </entity>
+</entities>
