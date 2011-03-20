@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.shipment.issuance -->
+    <!--  - mantle.shipment.picklist -->
+    <!--  - mantle.shipment.receipt -->
+    <!--  - mantle.shipment.shipment -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.issuance -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ItemIssuance" package-name="mantle.shipment.issuance">
+        <field name="itemIssuanceId" type="id" is-pk="true"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <field name="inventoryItemId" type="id"/>
+        <field name="inventoryReservationId" type="id"/>
+        <field name="shipmentId" type="id"/>
+        <field name="shipmentItemSeqId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="maintHistSeqId" type="id"/>
+        <field name="issuedDateTime" type="date-time"/>
+        <field name="quantity" type="number-decimal" enable-audit-log="true"/>
+        <field name="cancelQuantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="InventoryItem">
+            <key-map field-name="inventoryItemId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="InventoryReservation"/>
+        <relationship type="one-nofk" related-entity-name="Shipment"/>
+        <relationship type="one" related-entity-name="ShipmentItem">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="AssetMaint">
+            <key-map field-name="assetId"/>
+            <key-map field-name="maintHistSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ItemIssuanceParty" package-name="mantle.shipment.issuance">
+        <field name="itemIssuanceId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="ItemIssuance"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.picklist -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Picklist" package-name="mantle.shipment.picklist">
+        <field name="picklistId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <field name="facilityId" type="id"/>
+        <field name="shipmentMethodTypeId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="picklistDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" related-entity-name="ShipmentMethodType"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+    </entity>
+    <entity entity-name="PicklistBin" package-name="mantle.shipment.picklist">
+        <field name="picklistBinId" type="id" is-pk="true">
+            <description>The PicklistBin has its own ID to make it easy to put on the pack sheet of the picklist as a
+                barcode, also so it can be moved to another picklist or bin location if necessary</description>
+        </field>
+        <field name="picklistId" type="id"/>
+        <field name="binLocationNumber" type="number-integer"/>
+        <field name="primaryOrderId" type="id"/>
+        <field name="primaryShipGroupSeqId" type="id"/>
+        <relationship type="one" related-entity-name="Picklist"/>
+        <relationship type="one" title="Primary" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="primaryOrderId" related-field-name="orderId"/>
+            <key-map field-name="primaryShipGroupSeqId" related-field-name="shipGroupSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PicklistBinItem" package-name="mantle.shipment.picklist">
+        <field name="picklistBinId" type="id" is-pk="true"/>
+        <field name="picklistBinItemSeqId" type="id" is-pk="true"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <field name="inventoryItemId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="PicklistBin"/>
+        <relationship type="one" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="shipGroupSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+    </entity>
+    <entity entity-name="PicklistParty" package-name="mantle.shipment.picklist">
+        <field name="picklistId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Picklist"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.receipt -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ShipmentReceipt" package-name="mantle.shipment.receipt">
+        <field name="shipmentReceiptId" type="id" is-pk="true"/>
+        <field name="inventoryItemId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="shipmentId" type="id"/>
+        <field name="shipmentItemSeqId" type="id"/>
+        <field name="shipmentPackageSeqId" type="id"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="returnId" type="id"/>
+        <field name="returnItemSeqId" type="id"/>
+        <field name="rejectionReasonEnumId" type="id"/>
+        <field name="receivedByUserId" type="id-very-long"/>
+        <field name="datetimeReceived" type="date-time"/>
+        <field name="itemDescription" type="text-long"/>
+        <field name="quantityAccepted" type="number-decimal"/>
+        <field name="quantityRejected" type="number-decimal"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="ShipmentPackage">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentPackageSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" title="RejectionReason" related-entity-name="Enumeration">
+            <key-map field-name="rejectionReasonEnumId"/>
+        </relationship>
+        <relationship type="one" title="ReceivedBy" related-entity-name="UserAccount">
+            <key-map field-name="receivedByUserId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentItem">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ReturnItem">
+            <key-map field-name="returnId"/>
+            <key-map field-name="returnItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShipmentReceiptParty" package-name="mantle.shipment.receipt">
+        <field name="shipmentReceiptId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="ShipmentReceipt"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.shipment -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="CarrierShipmentMethod" package-name="mantle.shipment.shipment">
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="shipmentMethodTypeId" type="id" is-pk="true"/>
+        <field name="sequenceNumber" type="number-integer"/>
+        <field name="carrierServiceCode" type="text-short"/>
+        <relationship type="one" related-entity-name="ShipmentMethodType"/>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CarrierShipmentBoxType" package-name="mantle.shipment.shipment">
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
+        <field name="packagingTypeCode" type="id"/>
+        <field name="oversizeCode" type="text-short"/>
+        <relationship type="one" related-entity-name="ShipmentBoxType"/>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="Delivery" package-name="mantle.shipment.shipment">
+        <field name="deliveryId" type="id" is-pk="true"/>
+        <field name="originFacilityId" type="id"/>
+        <field name="destFacilityId" type="id"/>
+        <field name="actualStartDate" type="date-time"/>
+        <field name="actualArrivalDate" type="date-time"/>
+        <field name="estimatedStartDate" type="date-time"/>
+        <field name="estimatedArrivalDate" type="date-time"/>
+        <field name="assetId" type="id"/>
+        <field name="startMileage" type="number-decimal"/>
+        <field name="endMileage" type="number-decimal"/>
+        <field name="fuelUsed" type="number-decimal"/>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" title="Origin" related-entity-name="Facility">
+            <key-map field-name="originFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Dest" related-entity-name="Facility">
+            <key-map field-name="destFacilityId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PartyCarrierAccount" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="accountNumber" type="id"/>
+        <relationship type="one" related-entity-name="Party">
+            <key-map field-name="partyId"/>
+        </relationship>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="Shipment" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentTypeEnumId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="picklistBinId" type="id"/>
+        <field name="primaryOrderId" type="id"/>
+        <field name="primaryReturnId" type="id"/>
+        <field name="primaryShipGroupSeqId" type="id"/>
+        <field name="estimatedReadyDate" type="date-time"/>
+        <field name="estimatedShipDate" type="date-time"/>
+        <field name="estimatedShipWorkEffId" type="id"/>
+        <field name="estimatedArrivalDate" type="date-time"/>
+        <field name="estimatedArrivalWorkEffId" type="id"/>
+        <field name="latestCancelDate" type="date-time"/>
+        <field name="estimatedShipCost" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="handlingInstructions" type="text-long"/>
+        <field name="originFacilityId" type="id"/>
+        <field name="originContactMechId" type="id"/>
+        <field name="originTelecomNumberId" type="id"/>
+        <field name="destinationFacilityId" type="id"/>
+        <field name="destinationContactMechId" type="id"/>
+        <field name="destinationTelecomNumberId" type="id"/>
+        <field name="toPartyId" type="id"/>
+        <field name="fromPartyId" type="id"/>
+        <field name="additionalShippingCharge" type="currency-amount"/>
+        <field name="addtlShippingChargeDesc" type="text-long"/>
+        <relationship type="one" title="ShipmentType" related-entity-name="Enumeration">
+            <key-map field-name="shipmentTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" related-entity-name="PicklistBin"/>
+        <relationship type="one" title="EstimatedShip" related-entity-name="WorkEffort">
+            <key-map field-name="estimatedShipWorkEffId"/>
+        </relationship>
+        <relationship type="one" title="EstimatedArrival" related-entity-name="WorkEffort">
+            <key-map field-name="estimatedArrivalWorkEffId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="Facility">
+            <key-map field-name="originFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="PostalAddress">
+            <key-map field-name="originContactMechId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="TelecomNumber">
+            <key-map field-name="originTelecomNumberId"/>
+        </relationship>
+        <relationship type="one" title="Destination" related-entity-name="Facility">
+            <key-map field-name="destinationFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Destination" related-entity-name="PostalAddress">
+            <key-map field-name="destinationContactMechId"/>
+        </relationship>
+        <relationship type="one" title="Destination" related-entity-name="TelecomNumber">
+            <key-map field-name="destinationTelecomNumberId"/>
+        </relationship>
+        <relationship type="one" title="Primary" related-entity-name="OrderHeader">
+            <key-map field-name="primaryOrderId"/>
+        </relationship>
+        <relationship type="one" title="Primary" related-entity-name="ReturnHeader">
+            <key-map field-name="primaryReturnId"/>
+        </relationship>
+        <relationship type="one-nofk" title="Primary" related-entity-name="OrderItemShipGroup">
+            <key-map field-name="primaryOrderId" related-field-name="orderId"/>
+            <key-map field-name="primaryShipGroupSeqId" related-field-name="shipGroupSeqId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="Party"><key-map field-name="toPartyId"/></relationship>
+        <relationship type="one" title="From" related-entity-name="Party"><key-map field-name="fromPartyId"/></relationship>
+    </entity>
+    <entity entity-name="ShipmentBoxType" package-name="mantle.shipment.shipment">
+        <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <field name="dimensionUomId" type="id"/>
+        <field name="boxLength" type="number-decimal"/>
+        <field name="boxWidth" type="number-decimal"/>
+        <field name="boxHeight" type="number-decimal"/>
+        <field name="weightUomId" type="id"/>
+        <field name="boxWeight" type="number-decimal"/>
+        <relationship type="one" title="Dimension" related-entity-name="Uom">
+            <key-map field-name="dimensionUomId"/>
+        </relationship>
+        <relationship type="one" title="Weight" related-entity-name="Uom">
+            <key-map field-name="weightUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShipmentContactMech" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="typeEnumId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id"/>
+        <relationship type="one" related-entity-name="Shipment"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one" title="Type" related-entity-name="Enumeration">
+            <key-map field-name="typeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShipmentItem" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="shipmentContentDescription" type="text-long"/>
+        <relationship type="one" related-entity-name="Shipment"/>
+        <relationship type="one" related-entity-name="Product"/>
+    </entity>
+    <entity entity-name="ShipmentItemBilling" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="invoiceItemSeqId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="ShipmentItem">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="InvoiceItem">
+            <key-map field-name="invoiceId"/>
+            <key-map field-name="invoiceItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShipmentPackage" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
+        <field name="shipmentBoxTypeId" type="id"/>
+        <field name="dateCreated" type="date-time"/>
+        <field name="boxLength" type="number-decimal">
+            <description>This field store the length of package; if a shipmentBoxTypeId is specified then this overrides
+                the dimension specified there; this field is meant to be used when there is no applicable
+                ShipmentBoxType
+            </description>
+        </field>
+        <field name="boxHeight" type="number-decimal">
+            <description>This field store the height of package; if a shipmentBoxTypeId is specified then this overrides
+                the dimension specified there; this field is meant to be used when there is no applicable
+                ShipmentBoxType
+            </description>
+        </field>
+        <field name="boxWidth" type="number-decimal">
+            <description>This field store the width of package; if a shipmentBoxTypeId is specified then this overrides
+                the dimension specified there; this field is meant to be used when there is no applicable
+                ShipmentBoxType
+            </description>
+        </field>
+        <field name="dimensionUomId" type="id">
+            <description>This field store the unit of measurement of dimension (length, width and height)</description>
+        </field>
+        <field name="weight" type="number-decimal"/>
+        <field name="weightUomId" type="id"/>
+        <field name="insuredValue" type="currency-amount"/>
+        <relationship type="one" related-entity-name="Shipment"/>
+        <relationship type="one" related-entity-name="ShipmentBoxType"/>
+        <relationship type="one" title="Dimension" related-entity-name="Uom">
+            <key-map field-name="dimensionUomId"/>
+        </relationship>
+        <relationship type="one" title="Weight" related-entity-name="Uom">
+            <key-map field-name="weightUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShipmentPackageContent" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
+        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="subProductId" type="id"/>
+        <field name="subProductQuantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="ShipmentPackage">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentPackageSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentItem">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentItemSeqId"/>
+        </relationship>
+        <relationship type="one" title="Sub" related-entity-name="Product">
+            <key-map field-name="subProductId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShipmentPackageRouteSeg" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
+        <field name="shipmentRouteSegmentId" type="id" is-pk="true"/>
+        <field name="trackingCode" type="text-short"/>
+        <field name="boxNumber" type="text-short"/>
+        <field name="labelImage" type="binary-very-long"/>
+        <field name="labelIntlSignImage" type="binary-very-long"/>
+        <field name="labelHtml" type="text-very-long"/>
+        <field name="labelPrinted" type="text-indicator"/>
+        <field name="internationalInvoice" type="binary-very-long"/>
+        <field name="packageTransportCost" type="currency-amount"/>
+        <field name="packageServiceCost" type="currency-amount"/>
+        <field name="packageOtherCost" type="currency-amount"/>
+        <field name="codAmount" type="currency-amount"/>
+        <field name="insuredAmount" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <relationship type="one" related-entity-name="ShipmentPackage">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentPackageSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentRouteSegment">
+            <key-map field-name="shipmentId"/>
+            <key-map field-name="shipmentRouteSegmentId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShipmentRouteSegment" package-name="mantle.shipment.shipment">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentRouteSegmentId" type="id" is-pk="true"/>
+        <field name="deliveryId" type="id"/>
+        <field name="originFacilityId" type="id"/>
+        <field name="originContactMechId" type="id"/>
+        <field name="originTelecomNumberId" type="id"/>
+        <field name="destFacilityId" type="id"/>
+        <field name="destContactMechId" type="id"/>
+        <field name="destTelecomNumberId" type="id"/>
+        <field name="carrierPartyId" type="id"/>
+        <field name="shipmentMethodTypeId" type="id"/>
+        <field name="carrierServiceStatusId" type="id" enable-audit-log="true"/>
+        <field name="carrierDeliveryZone" type="text-short"/>
+        <field name="carrierRestrictionCodes" type="text-short"/>
+        <field name="carrierRestrictionDesc" type="text-very-long"/>
+        <field name="billingWeight" type="number-decimal"/>
+        <field name="billingWeightUomId" type="id"/>
+        <field name="actualTransportCost" type="currency-amount"/>
+        <field name="actualServiceCost" type="currency-amount"/>
+        <field name="actualOtherCost" type="currency-amount"/>
+        <field name="actualCost" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="actualStartDate" type="date-time"/>
+        <field name="actualArrivalDate" type="date-time"/>
+        <field name="estimatedStartDate" type="date-time"/>
+        <field name="estimatedArrivalDate" type="date-time"/>
+        <field name="trackingIdNumber" type="text-short" enable-audit-log="true"/>
+        <field name="trackingDigest" type="text-very-long"/>
+        <field name="homeDeliveryType" type="id"/>
+        <field name="homeDeliveryDate" type="date-time"/>
+        <field name="thirdPartyAccountNumber" type="id"/>
+        <field name="thirdPartyPostalCode" type="id"/>
+        <field name="thirdPartyCountryGeoCode" type="id"/>
+        <field name="upsHighValueReport" type="binary-very-long"/>
+        <relationship type="one" related-entity-name="Shipment"/>
+        <relationship type="one" related-entity-name="Delivery"/>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentMethodType"/>
+        <relationship type="one" title="Origin" related-entity-name="Facility">
+            <key-map field-name="originFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="PostalAddress">
+            <key-map field-name="originContactMechId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="TelecomNumber">
+            <key-map field-name="originTelecomNumberId"/>
+        </relationship>
+        <relationship type="one" title="Dest" related-entity-name="Facility">
+            <key-map field-name="destFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Dest" related-entity-name="PostalAddress">
+            <key-map field-name="destContactMechId"/>
+        </relationship>
+        <relationship type="one" title="Dest" related-entity-name="TelecomNumber">
+            <key-map field-name="destTelecomNumberId"/>
+        </relationship>
+        <relationship type="one" title="CarrierService" related-entity-name="StatusItem">
+            <key-map field-name="carrierServiceStatusId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" title="BillingWeight" related-entity-name="Uom">
+            <key-map field-name="billingWeightUomId"/>
+        </relationship>
+    </entity>
+</entities>
