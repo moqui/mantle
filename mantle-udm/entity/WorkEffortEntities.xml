@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+
+    <!-- ========================================================= -->
+    <!--  - mantle.workeffort.timesheet -->
+    <!--  - mantle.workeffort.workeffort -->
+    <!-- ========================================================= -->
+
+    <!-- ========================================================= -->
+    <!-- mantle.workeffort.timesheet -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="TimeEntry" package-name="mantle.workeffort.timesheet">
+        <field name="timeEntryId" type="id" is-pk="true"/>
+        <field name="timesheetId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="rateTypeId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="hours" type="number-decimal"/>
+        <field name="comments" type="text-long"/>
+        <field name="workEffortId" type="id"/>
+        <field name="invoiceId" type="id"/>
+        <field name="invoiceItemSeqId" type="id"/>
+        <relationship type="one" related-entity-name="Timesheet"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RateType">
+            <key-map field-name="rateTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="InvoiceItem">
+            <key-map field-name="invoiceId"/>
+            <key-map field-name="invoiceItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="Timesheet" package-name="mantle.workeffort.timesheet">
+        <field name="timesheetId" type="id" is-pk="true"/>
+        <field name="partyId" type="id"/>
+        <field name="clientPartyId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="statusId" type="id"/>
+        <field name="approvedByUserId" type="id-very-long"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" title="Client" related-entity-name="Party">
+            <key-map field-name="clientPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="ApprovedBy" related-entity-name="UserAccount">
+            <key-map field-name="approvedByUserId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="TimesheetParty" package-name="mantle.workeffort.timesheet">
+        <field name="timesheetId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Timesheet"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.workeffort.workeffort -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="CommunicationEventWorkEff" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+    </entity>
+    <entity entity-name="Deliverable" package-name="mantle.workeffort.workeffort">
+        <field name="deliverableId" type="id" is-pk="true"/>
+        <field name="deliverableTypeEnumId" type="id"/>
+        <field name="deliverableName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="DeliverableType" related-entity-name="Enumeration">
+            <key-map field-name="deliverableTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffort" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="workEffortTypeEnumId" type="id"/>
+        <field name="workEffortPurposeEnumId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="statusDate" type="date-time"/>
+        <field name="scopeEnumId" type="id"/>
+        <field name="priority" type="number-integer"/>
+        <field name="percentComplete" type="number-integer"/>
+        <field name="workEffortName" type="text-medium"/>
+        <field name="showAsEnumId" type="id"/>
+        <field name="sendNotificationEmail" type="text-indicator"/>
+        <field name="description" type="text-long"/>
+        <field name="locationDesc" type="text-long"/>
+        <field name="estimatedStartDate" type="date-time"/>
+        <field name="estimatedCompletionDate" type="date-time"/>
+        <field name="actualStartDate" type="date-time"/>
+        <field name="actualCompletionDate" type="date-time"/>
+        <field name="estimatedMilliSeconds" type="number-float"/>
+        <field name="estimatedSetupMillis" type="number-float"/>
+        <field name="estimateCalcMethod" type="id"/>
+        <field name="actualMilliSeconds" type="number-float"/>
+        <field name="actualSetupMillis" type="number-float"/>
+        <field name="totalMilliSecondsAllowed" type="number-float"/>
+        <field name="budgetAmount" type="currency-amount"/>
+        <field name="budgetUomId" type="id"/>
+        <field name="universalId" type="text-medium"/>
+        <field name="sourceReferenceId" type="id-long"/>
+        <field name="facilityId" type="id"><description>Where the WorkEffort takes place.</description></field>
+        <field name="infoUrl" type="text-long"/>
+        <field name="recurrenceInfoId" type="id">
+            <description>TODO: replace this</description>
+        </field>
+        <field name="quantityToProduce" type="number-decimal"/>
+        <field name="quantityProduced" type="number-decimal"/>
+        <field name="quantityRejected" type="number-decimal"/>
+        <field name="accommodationMapId" type="id"/>
+        <field name="accommodationSpotId" type="id"/>
+        <field name="revisionNumber" type="number-integer"/>
+        <field name="icalendarData" type="text-very-long"/>
+        <relationship type="one" title="WorkEffortType" related-entity-name="Enumeration">
+            <key-map field-name="workEffortTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="WorkEffortPurpose" related-entity-name="Enumeration">
+            <key-map field-name="workEffortPurposeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="Scope" related-entity-name="Enumeration">
+            <key-map field-name="scopeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" title="Budget" related-entity-name="Uom">
+            <key-map field-name="budgetUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="RecurrenceInfo"/>
+        <relationship type="one" related-entity-name="AccommodationMap">
+            <key-map field-name="accommodationMapId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="AccommodationSpot">
+            <key-map field-name="accommodationSpotId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortAssoc" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortIdFrom" type="id" is-pk="true"/>
+        <field name="workEffortIdTo" type="id" is-pk="true"/>
+        <field name="workEffortAssocTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="WorkEffortAssocType"/>
+        <relationship type="one" title="From" related-entity-name="WorkEffort">
+            <key-map field-name="workEffortIdFrom"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="WorkEffort">
+            <key-map field-name="workEffortIdTo"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortAssocType" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortAssocTypeId" type="id" is-pk="true"/>
+        <field name="parentTypeId" type="id"/>
+        <field name="hasTable" type="text-indicator"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="Parent" related-entity-name="WorkEffortAssocType">
+            <key-map field-name="parentTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortBilling" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id" is-pk="true"/>
+        <field name="invoiceItemSeqId" type="id" is-pk="true"/>
+        <field name="percentage" type="number-float"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one-nofk" related-entity-name="Invoice"/>
+        <relationship type="one" related-entity-name="InvoiceItem">
+            <key-map field-name="invoiceId"/>
+            <key-map field-name="invoiceItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortContactMech" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one-nofk" related-entity-name="TelecomNumber"/>
+    </entity>
+    <entity entity-name="WorkEffortContent" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="contentId" type="id" is-pk="true"/>
+        <field name="workEffortContentTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="Content"/>
+        <relationship type="one" related-entity-name="WorkEffortContentType"/>
+    </entity>
+    <entity entity-name="WorkEffortContentType" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortContentTypeId" type="id" is-pk="true"/>
+        <field name="parentTypeId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="Parent" related-entity-name="WorkEffortContentType">
+            <key-map field-name="parentTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortDeliverableProd" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="deliverableId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="Deliverable"/>
+    </entity>
+    <entity entity-name="WorkEffortAssetAssign" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="assetId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="statusId" type="id"/>
+        <field name="availabilityStatusId" type="id"/>
+        <field name="allocatedCost" type="currency-amount"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="Availability" related-entity-name="StatusItem">
+            <description>statusTypeId=WEFA_AVAILABILITY</description>
+            <key-map field-name="availabilityStatusId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortAssetStd" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="fixedAssetTypeId" type="id" is-pk="true"/>
+        <field name="estimatedQuantity" type="number-float"/>
+        <field name="estimatedDuration" type="number-float"/>
+        <field name="estimatedCost" type="currency-amount"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="AssetType"/>
+    </entity>
+    <entity entity-name="WorkEffortGoodStandard" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="workEffortGoodStdEnumId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="estimatedQuantity" type="number-float"/>
+        <field name="estimatedCost" type="currency-amount"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="WorkEffortGoodStandard" related-entity-name="Enumeration">
+            <key-map field-name="workEffortGoodStdEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+    </entity>
+    <entity entity-name="WorkEffortInventoryAssign" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="inventoryItemId" type="id" is-pk="true"/>
+        <field name="statusId" type="id"/>
+        <field name="quantity" type="number-float"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+    </entity>
+    <entity entity-name="WorkEffortInventoryProduced" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="inventoryItemId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+    </entity>
+    <entity entity-name="WorkEffortCostCalc" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="costComponentTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="costComponentCalcId" type="id"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="CostComponentType">
+            <key-map field-name="costComponentTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="CostComponentCalc">
+            <key-map field-name="costComponentCalcId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortNote" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortNodeId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id"/>
+        <field name="noteText" type="text-very-long"/>
+        <field name="internalNote" type="text-indicator"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+    </entity>
+    <entity entity-name="WorkEffortPartyAssignment" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="statusDateTime" type="date-time"/>
+        <field name="expectationEnumId" type="id"/>
+        <field name="delegateReasonEnumId" type="id"/>
+        <field name="availabilityStatusId" type="id"/>
+        <field name="comments" type="text-long"/>
+        <field name="mustRsvp" type="text-indicator"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="StatusItem">
+            <description>statusTypeId=PRTYASGN_STATUS</description>
+        </relationship>
+        <relationship type="one" title="Expectation" related-entity-name="Enumeration">
+            <description>enumTypeId=WORK_EFF_EXPECT</description>
+            <key-map field-name="expectationEnumId"/>
+        </relationship>
+        <relationship type="one" title="DelegateReason" related-entity-name="Enumeration">
+            <description>enumTypeId=WORK_EFF_DEL_REAS</description>
+            <key-map field-name="delegateReasonEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" title="Availability" related-entity-name="StatusItem">
+            <description>statusTypeId=WEPA_AVAILABILITY</description>
+            <key-map field-name="availabilityStatusId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="WorkEffortSkillStandard" package-name="mantle.workeffort.workeffort">
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <field name="skillTypeId" type="id" is-pk="true"/>
+        <field name="estimatedNumPeople" type="number-float"/>
+        <field name="estimatedDuration" type="number-float"/>
+        <field name="estimatedCost" type="currency-amount"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="SkillType"/>
+    </entity>
+</entities>
