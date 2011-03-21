@@ -79,26 +79,18 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="AgreementTerm" package-name="mantle.party.agreement">
         <field name="agreementTermId" type="id" is-pk="true"/>
-        <field name="termTypeEnumId" type="id"/>
         <field name="agreementId" type="id"/>
         <field name="agreementItemSeqId" type="id"/>
+        <field name="settlementTermId" type="id"/>
         <field name="itemTypeEnumId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
-        <field name="termValue" type="currency-precise"/>
-        <field name="termDays" type="number-integer"/>
-        <field name="textValue" type="text-long"/>
-        <field name="minQuantity" type="number-decimal"/>
-        <field name="maxQuantity" type="number-decimal"/>
-        <field name="description" type="text-long"/>
-        <relationship type="one" title="TermType" related-entity-name="Enumeration">
-            <key-map field-name="termTypeEnumId"/>
-        </relationship>
         <relationship type="one" related-entity-name="Agreement"/>
         <relationship type="one-nofk" related-entity-name="AgreementItem">
             <key-map field-name="agreementId"/>
             <key-map field-name="agreementItemSeqId"/>
         </relationship>
+        <relationship type="one" related-entity-name="SettlementTerm"/>
         <relationship type="one" title="ItemType" related-entity-name="Enumeration">
             <key-map field-name="itemTypeEnumId"/>
         </relationship>
@@ -389,7 +381,7 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="Party" package-name="mantle.party.party">
         <field name="partyId" type="id" is-pk="true"/>
         <field name="partyTypeEnumId" type="id"/>
-        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="disabled" type="text-indicator" enable-audit-log="true"/>
         <field name="externalId" type="id"/>
         <field name="dataSourceId" type="id"/>
         <relationship type="one" title="PartyType" related-entity-name="Enumeration">
@@ -411,18 +403,15 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="dateTimeApproved" type="date-time"/>
         <relationship type="one" related-entity-name="Party"/>
     </entity>
-    <entity entity-name="PartyGroup" package-name="mantle.party.party">
+    <entity entity-name="Organization" package-name="mantle.party.party">
         <field name="partyId" type="id" is-pk="true"/>
-        <field name="groupName" type="text-medium"/>
-        <field name="groupNameLocal" type="text-medium"/>
+        <field name="organizationName" type="text-medium"/>
         <field name="officeSiteName" type="text-medium"/>
         <field name="annualRevenue" type="currency-amount"/>
         <field name="numEmployees" type="number-integer"/>
-        <field name="tickerSymbol" type="text-short"/>
         <field name="comments" type="text-long"/>
-        <field name="logoImageUrl" type="text-long"/>
         <relationship type="one" related-entity-name="Party"/>
-        <index name="GROUP_NAME_IDX"><index-field name="groupName"/></index>
+        <index name="PTY_ORG_NAME_IDX"><index-field name="organizationName"/></index>
     </entity>
     <entity entity-name="Person" package-name="mantle.party.party">
         <field name="partyId" type="id" is-pk="true"/>
@@ -488,8 +477,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="classificationTypeEnumId" type="id"/>
         <field name="parentClassificationId" type="id"/>
         <field name="description" type="text-long"/>
-        <relationship type="one" title="ClassificationType" related-entity-name="Enumeration">
-            <description>(enumTypeId = PARTY_CLASS_TYPE)</description>
+        <relationship type="one" title="PartyClassificationType" related-entity-name="Enumeration">
             <key-map field-name="classificationTypeEnumId"/>
         </relationship>
         <relationship type="one" title="Parent" related-entity-name="PartyClassification">
@@ -518,7 +506,7 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
     </entity>
     <entity entity-name="PartyNote" package-name="mantle.party.party">
-        <field name="partyNoteId" type="id"/>
+        <field name="partyNoteId" type="id" is-pk="true"/>
         <field name="partyId" type="id"/>
         <field name="noteText" type="text-very-long"/>
         <relationship type="one" related-entity-name="Party"/>
@@ -537,10 +525,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="permissionsEnumId" type="id"/>
         <field name="comments" type="text-long"/>
         <field name="relationshipName" type="text-medium">
-            <description>Official name of relationship, such as title in a company</description>
-        </field>
-        <field name="positionTitle" type="text-medium">
-            <description>The exact word used within the company</description>
+            <description>Official name of relationship, such as title in an organization.</description>
         </field>
         <relationship type="one" title="From" related-entity-name="Party">
             <key-map field-name="fromPartyId"/>
@@ -558,7 +543,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="PriorityType" related-entity-name="Enumeration">
             <key-map field-name="priorityTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="RelationshipType" related-entity-name="Enumeration">
+        <relationship type="one" title="PartyRelationshipType" related-entity-name="Enumeration">
             <key-map field-name="relationshipTypeEnumId"/>
         </relationship>
     </entity>
@@ -568,7 +553,14 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
     </entity>
-
+    <entity entity-name="RoleType" package-name="mantle.party.party">
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="parentTypeId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="Parent" related-entity-name="RoleType">
+            <key-map field-name="parentTypeId"/>
+        </relationship>
+    </entity>
 
     <!-- ========================================================= -->
     <!-- mantle.party.time -->

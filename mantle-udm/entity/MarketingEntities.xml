@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.marketing.campaign -->
+    <!--  - mantle.marketing.contact -->
+    <!--  - mantle.marketing.segment -->
+    <!--  - mantle.marketing.tracking -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.marketing.campaign -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="MarketingCampaign" package-name="mantle.marketing.campaign">
+        <field name="marketingCampaignId" type="id" is-pk="true"/>
+        <field name="parentCampaignId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="campaignName" type="text-medium"/>
+        <field name="campaignSummary" type="text-very-long"/>
+        <field name="budgetedCost" type="currency-amount"/>
+        <field name="actualCost" type="currency-amount"/>
+        <field name="estimatedCost" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="isActive" type="text-indicator"/>
+        <field name="convertedLeads" type="id"/>
+        <field name="expectedResponsePercent" type="number-float"/>
+        <field name="expectedRevenue" type="currency-amount"/>
+        <field name="numSent" type="number-integer"/>
+        <field name="startDate" type="date-time"/>
+        <relationship type="one" title="Parent" related-entity-name="MarketingCampaign">
+            <key-map field-name="parentCampaignId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="MarketingCampaignNote" package-name="mantle.marketing.campaign">
+        <field name="marketingCampaignNodeId" type="id" is-pk="true"/>
+        <field name="marketingCampaignId" type="id"/>
+        <field name="noteText" type="text-very-long"/>
+        <relationship type="one" related-entity-name="MarketingCampaign"/>
+    </entity>
+    <entity entity-name="MarketingCampaignParty" package-name="mantle.marketing.campaign">
+        <field name="marketingCampaignId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="MarketingCampaign"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.marketing.contact -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ContactList" package-name="mantle.marketing.contact">
+        <field name="contactListId" type="id" is-pk="true"/>
+        <field name="contactListTypeEnumId" type="id"/>
+        <field name="contactMechTypeEnumId" type="id"/>
+        <field name="marketingCampaignId" type="id"/>
+        <field name="contactListName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="comments" type="text-long"/>
+        <field name="isPublic" type="text-indicator"/>
+        <field name="singleUse" type="text-indicator">
+            <description>Parties in the list should be contacted only once.</description>
+        </field>
+        <field name="ownerPartyId" type="id"/>
+        <field name="verifyEmailFrom" type="text-long"/>
+        <field name="verifyEmailScreen" type="text-long"/>
+        <field name="verifyEmailSubject" type="text-long"/>
+        <field name="verifyEmailWebSiteId" type="id"/>
+        <field name="optOutScreen" type="text-long"/>
+        <relationship type="one" related-entity-name="MarketingCampaign"/>
+        <relationship type="one" title="ContactListType" related-entity-name="Enumeration">
+            <key-map field-name="contactListTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="ContactMechType" related-entity-name="Enumeration">
+            <key-map field-name="contactMechTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Owner" related-entity-name="Party">
+            <key-map field-name="ownerPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ContactListCommStatus" package-name="mantle.marketing.contact">
+        <field name="contactListId" type="id" is-pk="true"/>
+        <field name="communicationEventId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <field name="partyId" type="id"/>
+        <field name="messageId" type="text-long"/>
+        <field name="statusId" type="id"/>
+        <relationship type="one" related-entity-name="ContactList"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+        <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <index name="CNTLSTCST_MSG_ID" unique="true"><index-field name="messageId"/></index>
+    </entity>
+    <entity entity-name="ContactListParty" package-name="mantle.marketing.contact">
+        <field name="contactListId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="preferredContactMechId" type="id"/>
+        <field name="optInVerifyCode" type="text-short"/>
+        <relationship type="one" related-entity-name="ContactList"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="Preferred" related-entity-name="ContactMech">
+            <key-map field-name="preferredContactMechId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.marketing.segment -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="MarketInterest" package-name="mantle.marketing.segment">
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="marketSegmentId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="MarketSegment"/>
+    </entity>
+    <entity entity-name="MarketSegment" package-name="mantle.marketing.segment">
+        <field name="marketSegmentId" type="id" is-pk="true"/>
+        <field name="marketSegmentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="productStoreId" type="id"/>
+        <relationship type="one" title="MarketSegmentType" related-entity-name="Enumeration">
+            <key-map field-name="marketSegmentTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ProductStore"/>
+    </entity>
+    <entity entity-name="MarketSegmentClassification" package-name="mantle.marketing.segment">
+        <field name="marketSegmentId" type="id" is-pk="true"/>
+        <field name="partyClassificationId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="MarketSegment"/>
+        <relationship type="one" related-entity-name="PartyClassification"/>
+    </entity>
+    <entity entity-name="MarketSegmentGeo" package-name="mantle.marketing.segment">
+        <field name="marketSegmentId" type="id" is-pk="true"/>
+        <field name="geoId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="MarketSegment"/>
+        <relationship type="one" related-entity-name="Geo"/>
+    </entity>
+    <entity entity-name="MarketSegmentParty" package-name="mantle.marketing.segment">
+        <field name="marketSegmentId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="MarketSegment"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.marketing.tracking -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="TrackingCode" package-name="mantle.marketing.tracking">
+        <field name="trackingCodeId" type="id" is-pk="true"/>
+        <field name="trackingCodeTypeEnumId" type="id"/>
+        <field name="marketingCampaignId" type="id"/>
+        <field name="redirectUrl" type="text-long"/>
+        <field name="comments" type="text-long"/>
+        <field name="description" type="text-long"/>
+        <field name="trackableLifetime" type="number-integer"/>
+        <field name="billableLifetime" type="number-integer"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="groupId" type="id"/>
+        <field name="subgroupId" type="id"/>
+        <relationship type="one" related-entity-name="MarketingCampaign"/>
+        <relationship type="one" title="TrackingCodeType" related-entity-name="Enumeration">
+            <key-map field-name="trackingCodeTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="TrackingCodeOrder" package-name="mantle.marketing.tracking">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="trackingCodeTypeEnumId" type="id" is-pk="true"/>
+        <field name="trackingCodeId" type="id"/>
+        <field name="isBillable" type="text-indicator"/>
+        <field name="siteId" type="text-long"/>
+        <field name="hasExported" type="text-indicator"/>
+        <field name="affiliateReferredTimeStamp" type="date-time"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="TrackingCode"/>
+        <relationship type="one" title="TrackingCodeType" related-entity-name="Enumeration">
+            <key-map field-name="trackingCodeTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="TrackingCodeOrderReturn" package-name="mantle.marketing.tracking">
+        <field name="trackingCodeTypeEnumId" type="id" is-pk="true"/>
+        <field name="returnId" type="id" is-pk="true"/>
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="trackingCodeId" type="id"/>
+        <field name="isBillable" type="text-indicator"/>
+        <field name="siteId" type="text-long"/>
+        <field name="hasExported" type="text-indicator"/>
+        <field name="affiliateReferredTimeStamp" type="date-time"/>
+        <relationship type="one" title="TrackingCodeType" related-entity-name="Enumeration">
+            <key-map field-name="trackingCodeTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ReturnHeader"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="TrackingCode"/>
+    </entity>
+    <entity entity-name="TrackingCodeVisit" package-name="mantle.marketing.tracking">
+        <field name="trackingCodeId" type="id" is-pk="true"/>
+        <field name="visitId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="sourceEnumId" type="id"/>
+        <relationship type="one" related-entity-name="TrackingCode"/>
+        <relationship type="one" related-entity-name="Visit"/>
+        <relationship type="one" title="Source" related-entity-name="Enumeration">
+            <key-map field-name="sourceEnumId"/>
+        </relationship>
+    </entity>
+</entities>

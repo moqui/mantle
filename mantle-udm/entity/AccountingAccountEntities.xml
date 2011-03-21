@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.accounting.account.billing -->
+    <!--  - mantle.accounting.account.financial -->
+    <!-- ========================================================= -->
+
+    <!-- ========================================================= -->
+    <!-- mantle.accounting.account.billing -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="BillingAccount" package-name="mantle.accounting.account.billing">
+        <field name="billingAccountId" type="id" is-pk="true"/>
+        <field name="accountLimit" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="postalContactMechId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="description" type="text-long"/>
+        <field name="externalAccountId" type="id"/>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" title="Postal" related-entity-name="ContactMech">
+            <key-map field-name="postalContactMechId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="PostalAddress">
+            <key-map field-name="postalContactMechId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="BillingAccountParty" package-name="mantle.accounting.account.billing">
+        <field name="billingAccountId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="BillingAccount"/>
+        <relationship type="one-nofk" related-entity-name="Party"/>
+        <relationship type="one-nofk" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="BillingAccountTerm" package-name="mantle.accounting.account.billing">
+        <field name="billingAccountTermId" type="id" is-pk="true"/>
+        <field name="billingAccountId" type="id"/>
+        <field name="termTypeId" type="id"/>
+        <field name="termValue" type="currency-amount"/>
+        <field name="termDays" type="number-integer"/>
+        <field name="uomId" type="id"/>
+        <relationship type="one" related-entity-name="Uom">
+            <key-map field-name="uomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="TermType">
+            <key-map field-name="termTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="BillingAccount"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.accounting.account.financial -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="FinancialAccount" package-name="mantle.accounting.account.financial">
+        <field name="finAccountId" type="id" is-pk="true"/>
+        <field name="finAccountTypeId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="finAccountName" type="text-medium"/>
+        <field name="finAccountCode" type="text-long" encrypt="true"/>
+        <field name="finAccountPin" type="text-long" encrypt="true"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="organizationPartyId" type="id">
+            <description>The internal organization Party that owns (or rather, is liable for) the account.</description>
+        </field>
+        <field name="ownerPartyId" type="id">
+            <description>The customer or third party that owns the account.</description>
+        </field>
+        <field name="postToGlAccountId" type="id"/>
+        <field name="fromDate" type="date-time">
+            <description>Describes when account will be valid. If null, valid immediately.</description>
+        </field>
+        <field name="thruDate" type="date-time">
+            <description>Expiration date of the account. If null, will never expire.</description>
+        </field>
+        <field name="isRefundable" type="text-indicator"/>
+        <field name="replenishPaymentId" type="id"/>
+        <field name="replenishLevel" type="currency-amount"/>
+        <field name="actualBalance" type="currency-amount">
+            <description>Calculated as the sum of FinancialAccountTrans.amount</description>
+        </field>
+        <field name="availableBalance" type="currency-amount">
+            <description>Calculated as actualBalance minus sum of outstanding FinancialAccountAuth.amount</description>
+        </field>
+        <relationship type="one" related-entity-name="FinancialAccountType">
+            <key-map field-name="finAccountTypeId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" title="Owner" related-entity-name="Party">
+            <key-map field-name="ownerPartyId"/>
+        </relationship>
+        <relationship type="one" title="PostTo" related-entity-name="GlAccount">
+            <key-map field-name="postToGlAccountId"/>
+        </relationship>
+        <relationship type="one" title="Replenish" related-entity-name="PaymentMethod">
+            <key-map field-name="replenishPaymentId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="FinancialAccountAuth" package-name="mantle.accounting.account.financial">
+        <field name="finAccountAuthId" type="id" is-pk="true"/>
+        <field name="finAccountId" type="id"/>
+        <field name="amount" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="authorizationDate" type="date-time"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="FinancialAccount"/>
+    </entity>
+    <entity entity-name="FinancialAccountParty" package-name="mantle.accounting.account.financial">
+        <field name="finAccountId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="FinancialAccount"/>
+        <relationship type="one-nofk" related-entity-name="Party"/>
+        <relationship type="one-nofk" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="FinancialAccountTrans" package-name="mantle.accounting.account.financial">
+        <field name="finAccountTransId" type="id" is-pk="true"/>
+        <field name="finAccountTransTypeEnumId" type="id"/>
+        <field name="finAccountId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="glReconciliationId" type="id"/>
+        <field name="transactionDate" type="date-time"/>
+        <field name="entryDate" type="date-time"/>
+        <field name="amount" type="currency-amount"/>
+        <field name="paymentId" type="id"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id">
+            <description>To be used along with orderId to point to an OrderItem that represents the purchase of a
+                product to add money to the account.
+            </description>
+        </field>
+        <field name="performedByPartyId" type="id"/>
+        <field name="reasonEnumId" type="id"/>
+        <field name="comments" type="text-long"/>
+        <field name="statusId" type="id"/>
+        <relationship type="one" title="FinancialAccountTransType" related-entity-name="Enumeration">
+            <key-map field-name="finAccountTransTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="FinancialAccount"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="Payment"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" title="PerformedBy" related-entity-name="Party">
+            <key-map field-name="performedByPartyId"/>
+        </relationship>
+        <relationship type="one" title="Reason" related-entity-name="Enumeration">
+            <key-map field-name="reasonEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" related-entity-name="GlReconciliation"/>
+    </entity>
+    <entity entity-name="FinancialAccountType" package-name="mantle.accounting.account.financial">
+        <field name="finAccountTypeId" type="id" is-pk="true"/>
+        <field name="parentTypeId" type="id"/>
+        <field name="replenishEnumId" type="id"/>
+        <field name="isRefundable" type="text-indicator"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="Parent" related-entity-name="FinancialAccountType">
+            <key-map field-name="parentTypeId"/>
+        </relationship>
+        <relationship type="one" title="Replenish" related-entity-name="Enumeration">
+            <key-map field-name="replenishEnumId"/>
+        </relationship>
+    </entity>
+</entities>

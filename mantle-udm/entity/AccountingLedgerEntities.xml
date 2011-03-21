@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.accounting.ledger.account -->
+    <!--  - mantle.accounting.ledger.config -->
+    <!--  - mantle.accounting.ledger.reconciliation -->
+    <!--  - mantle.accounting.ledger.transaction -->
+    <!-- ========================================================= -->
+
+    <!-- ========================================================= -->
+    <!-- mantle.accounting.ledger.account -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="GlAccount" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountId" type="id" is-pk="true"/>
+        <field name="glAccountTypeEnumId" type="id"/>
+        <field name="glAccountClassEnumId" type="id"/>
+        <field name="glResourceTypeEnumId" type="id"/>
+        <field name="glXbrlClassEnumId" type="id"/>
+        <field name="parentGlAccountId" type="id"/>
+        <field name="accountCode" type="text-medium"/>
+        <field name="accountName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="productId" type="id"/>
+        <field name="externalId" type="id">
+            <description>id of the account in an external system where the accounts are imported/exported</description>
+        </field>
+        <field name="postedBalance" type="currency-amount"/>
+        <relationship type="one" title="GlAccountType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="GlAccountClass" related-entity-name="Enumeration">
+            <key-map field-name="glAccountClassEnumId"/>
+        </relationship>
+        <relationship type="one" title="GlResourceType" related-entity-name="Enumeration">
+            <key-map field-name="glResourceTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="GlXbrlClass" related-entity-name="Enumeration">
+            <key-map field-name="glXbrlClassEnumId"/>
+        </relationship>
+        <relationship type="one" title="Parent" related-entity-name="GlAccount">
+            <key-map field-name="parentGlAccountId"/>
+        </relationship>
+        <index name="GLACCT_UNQCD" unique="true"><index-field name="accountCode"/></index>
+    </entity>
+
+    <entity entity-name="GlAccountCategory" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountCategoryId" type="id" is-pk="true"/>
+        <field name="glAccountCategoryTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="GlAccountCategoryType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountCategoryTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="GlAccountCategoryMember" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountId" type="id" is-pk="true"/>
+        <field name="glAccountCategoryId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="amountPercentage" type="number-decimal"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one" related-entity-name="GlAccountCategory"/>
+    </entity>
+    <entity entity-name="GlAccountGroup" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountGroupId" type="id" is-pk="true"/>
+        <field name="glAccountGroupTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="GlAccountGroupType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountGroupTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="GlAccountGroupMember" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountId" type="id" is-pk="true"/>
+        <field name="glAccountGroupTypeEnumId" type="id" is-pk="true"/>
+        <field name="glAccountGroupId" type="id"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one" title="GlAccountGroupType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountGroupTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccountGroup"/>
+    </entity>
+
+    <entity entity-name="GlAccountHistory" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="timePeriodId" type="id" is-pk="true"/>
+        <field name="postedDebits" type="currency-amount"/>
+        <field name="postedCredits" type="currency-amount"/>
+        <field name="endingBalance" type="currency-amount"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="TimePeriod"/>
+    </entity>
+
+    <entity entity-name="GlAccountOrganization" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="postedBalance" type="currency-amount"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="GlAccountParty" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one-nofk" related-entity-name="Party"/>
+        <relationship type="one-nofk" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+    </entity>
+
+    <entity entity-name="GlBudgetXref" package-name="mantle.accounting.ledger.account">
+        <field name="glAccountId" type="id" is-pk="true"/>
+        <field name="budgetItemTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="allocationPercentage" type="number-decimal"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one" related-entity-name="Enumeration">
+            <description>(enumTypeId = BUDGET_ITEM_TYPE)</description>
+            <key-map field-name="budgetItemTypeEnumId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.accounting.ledger.config -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="AssetTypeGlAccount" package-name="mantle.accounting.ledger.config">
+        <field name="assetTypeEnumId" type="id" is-pk="true">
+            <description>The fixed asset type for the mappings. This field can be set to _NA_ in order to define a
+                mapping for all types or for a specific asset (specified by the id in the assetId field).
+            </description>
+        </field>
+        <field name="assetId" type="id" is-pk="true">
+            <description>The fixed asset id for the mappings. This field can be set to _NA_ in order to define a mapping
+                for all assets of a given type (specified by the id in the fixedAssetTypeId field).
+            </description>
+        </field>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="assetGlAccountId" type="id">
+            <description>The (debit) account for the initial asset value (purchase cost)</description>
+        </field>
+        <field name="accDepGlAccountId" type="id">
+            <description>The (credit) account for the accumulated depreciation</description>
+        </field>
+        <field name="depGlAccountId" type="id">
+            <description>The (debit) account for the depreciation expense (matches the accDepGlAccountId)</description>
+        </field>
+        <field name="profitGlAccountId" type="id">
+            <description>The (credit) account for the eventual profit derived from the sale of the asset</description>
+        </field>
+        <field name="lossGlAccountId" type="id">
+            <description>The (debit) account for the eventual loss derived from the sale of the asset</description>
+        </field>
+        <relationship type="one" title="AssetType" related-entity-name="Enumeration">
+            <key-map field-name="assetTypeEnumId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" title="Asset" related-entity-name="GlAccount">
+            <key-map field-name="assetGlAccountId"/>
+        </relationship>
+        <relationship type="one" title="AccumulatedDepreciation" related-entity-name="GlAccount">
+            <key-map field-name="accDepGlAccountId"/>
+        </relationship>
+        <relationship type="one" title="Depreciation" related-entity-name="GlAccount">
+            <key-map field-name="depGlAccountId"/>
+        </relationship>
+        <relationship type="one" title="Profit" related-entity-name="GlAccount">
+            <key-map field-name="profitGlAccountId"/>
+        </relationship>
+        <relationship type="one" title="Loss" related-entity-name="GlAccount">
+            <key-map field-name="lossGlAccountId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CreditCardTypeGlAccount" package-name="mantle.accounting.ledger.config">
+        <field name="creditCardTypeEnumId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" title="CreditCardType" related-entity-name="Enumeration">
+            <key-map field-name="creditCardTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccount"/>
+    </entity>
+    <entity entity-name="FinancialAccountTypeGlAccount" package-name="mantle.accounting.ledger.config">
+        <field name="finAccountTypeId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" related-entity-name="FinancialAccountType"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccount"/>
+    </entity>
+    <entity entity-name="GlAccountTypePaymentType" package-name="mantle.accounting.ledger.config">
+        <field name="paymentTypeEnumId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountTypeEnumId" type="id" is-pk="true"/>
+        <relationship type="one" title="PaymentType" related-entity-name="Enumeration">
+            <key-map field-name="paymentTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" title="GlAccountType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="GlAccountTypePartyDefault" package-name="mantle.accounting.ledger.config">
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="glAccountTypeEnumId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one" title="GlAccountType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccount"/>
+    </entity>
+    <entity entity-name="GlAccountTypeDefault" package-name="mantle.accounting.ledger.config">
+        <field name="glAccountTypeEnumId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" title="GlAccountType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccount"/>
+    </entity>
+    <entity entity-name="ItemTypeGlAccount" package-name="mantle.accounting.invoice">
+        <field name="itemTypeEnumId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" title="ItemType" related-entity-name="Enumeration">
+            <key-map field-name="itemTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccount"/>
+    </entity>
+    <entity entity-name="PaymentMethodTypeGlAccount" package-name="mantle.accounting.ledger.config">
+        <field name="paymentMethodTypeEnumId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" title="PaymentMethodType" related-entity-name="Enumeration">
+            <key-map field-name="paymentMethodTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccount">
+            <key-map field-name="glAccountId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductGlAccount" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountTypeId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="GlAccountType"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+    </entity>
+    <entity entity-name="VarianceReasonGlAccount" package-name="mantle.accounting.ledger.config">
+        <field name="varianceReasonId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" related-entity-name="VarianceReason"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccount"/>
+    </entity>
+    <entity entity-name="PartyAcctgPreference" package-name="mantle.accounting.ledger.config">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="fiscalYearStartMonth" type="number-integer"/>
+        <field name="fiscalYearStartDay" type="number-integer"/>
+        <field name="taxFormEnumId" type="id"/>
+        <field name="cogsMethodEnumId" type="id"/>
+        <field name="baseCurrencyUomId" type="id"/>
+        <field name="invoiceSequenceEnumId" type="id"/>
+        <field name="invoiceIdPrefix" type="text-short"/>
+        <field name="lastInvoiceNumber" type="number-integer"/>
+        <field name="lastInvoiceRestartDate" type="date-time"/>
+        <field name="useInvoiceIdForReturns" type="text-indicator"/>
+        <field name="quoteSequenceEnumId" type="id"/>
+        <field name="quoteIdPrefix" type="text-short"/>
+        <field name="lastQuoteNumber" type="number-integer"/>
+        <field name="orderSequenceEnumId" type="id"/>
+        <field name="orderIdPrefix" type="text-short"/>
+        <field name="lastOrderNumber" type="number-integer"/>
+        <field name="refundPaymentMethodId" type="id"/>
+        <field name="errorGlJournalId" type="id">
+            <description>
+                Journal to which all the failed automatic transaction are assigned.
+                If the error journal is set, if the GL posting fails for some reason the triggering operation
+                (finalizing an invoice or payment or whatever) would NOT roll back, instead the partial GL post would be
+                placed into the error journal.
+            </description>
+        </field>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" title="TaxForm" related-entity-name="Enumeration">
+            <key-map field-name="taxFormEnumId"/>
+        </relationship>
+        <relationship type="one" title="Cogs" related-entity-name="Enumeration">
+            <key-map field-name="cogsMethodEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Uom">
+            <key-map field-name="baseCurrencyUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="PaymentMethod">
+            <key-map field-name="refundPaymentMethodId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlJournal">
+            <key-map field-name="errorGlJournalId"/>
+        </relationship>
+        <relationship type="one" title="InvoiceSequence" related-entity-name="Enumeration">
+            <key-map field-name="invoiceSequenceEnumId"/>
+        </relationship>
+        <relationship type="one" title="QuoteSequence" related-entity-name="Enumeration">
+            <key-map field-name="quoteSequenceEnumId"/>
+        </relationship>
+        <relationship type="one" title="OrderSequence" related-entity-name="Enumeration">
+            <key-map field-name="orderSequenceEnumId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.accounting.ledger.reconciliation -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="GlReconciliation" package-name="mantle.accounting.ledger.reconciliation">
+        <field name="glReconciliationId" type="id" is-pk="true"/>
+        <field name="glReconciliationName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="createdByUserLogin" type="id-very-long"/>
+        <field name="lastModifiedByUserLogin" type="id-very-long"/>
+        <field name="glAccountId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="organizationPartyId" type="id"/>
+        <field name="reconciledBalance" type="currency-amount"/>
+        <field name="openingBalance" type="currency-amount"/>
+        <field name="reconciledDate" type="date-time"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem"/>
+    </entity>
+    <entity entity-name="GlReconciliationEntry" package-name="mantle.accounting.ledger.reconciliation">
+        <field name="glReconciliationId" type="id" is-pk="true"/>
+        <field name="acctgTransId" type="id" is-pk="true"/>
+        <field name="acctgTransEntrySeqId" type="id" is-pk="true"/>
+        <field name="reconciledAmount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="GlReconciliation"/>
+        <relationship type="one-nofk" related-entity-name="AcctgTrans"/>
+        <relationship type="one" related-entity-name="AcctgTransEntry">
+            <key-map field-name="acctgTransId"/>
+            <key-map field-name="acctgTransEntrySeqId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.accounting.ledger.transaction -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="AcctgTrans" package-name="mantle.accounting.ledger.transaction">
+        <field name="acctgTransId" type="id" is-pk="true"/>
+        <field name="acctgTransTypeId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="transactionDate" type="date-time"/>
+        <field name="isPosted" type="text-indicator" enable-audit-log="true"/>
+        <field name="postedDate" type="date-time"/>
+        <field name="scheduledPostingDate" type="date-time"/>
+        <field name="glJournalId" type="id"/>
+        <field name="glFiscalTypeId" type="id"/>
+        <field name="voucherRef" type="text-short"/>
+        <field name="voucherDate" type="date-time"/>
+        <field name="groupStatusId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="inventoryItemId" type="id"/>
+        <field name="physicalInventoryId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="roleTypeId" type="id"/>
+        <field name="invoiceId" type="id"/>
+        <field name="paymentId" type="id"/>
+        <field name="finAccountTransId" type="id"/>
+        <field name="shipmentId" type="id"/>
+        <field name="receiptId" type="id"/>
+        <field name="workEffortId" type="id"/>
+        <field name="theirAcctgTransId" type="id-long"/>
+        <relationship type="one" related-entity-name="AcctgTransType">
+            <key-map field-name="acctgTransTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlJournal"/>
+        <relationship type="one" related-entity-name="GlFiscalType">
+            <key-map field-name="glFiscalTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem">
+            <key-map field-name="groupStatusId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="PhysicalInventory"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+        <relationship type="one" related-entity-name="InventoryItemVariance">
+            <key-map field-name="inventoryItemId"/>
+            <key-map field-name="physicalInventoryId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one-nofk" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Invoice"/>
+        <relationship type="one" related-entity-name="Payment"/>
+        <relationship type="one" related-entity-name="FinancialAccountTrans"/>
+        <relationship type="one" related-entity-name="Shipment"/>
+        <relationship type="one" related-entity-name="ShipmentReceipt"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+    </entity>
+    <entity entity-name="AcctgTransEntry" package-name="mantle.accounting.ledger.transaction">
+        <field name="acctgTransId" type="id" is-pk="true"/>
+        <field name="acctgTransEntrySeqId" type="id" is-pk="true"/>
+        <field name="acctgTransEntryTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="voucherRef" type="text-short"/>
+        <field name="partyId" type="id"/>
+        <field name="roleTypeId" type="id"/>
+        <field name="theirPartyId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="theirProductId" type="id"/>
+        <field name="inventoryItemId" type="id"/>
+        <field name="glAccountTypeId" type="id"/>
+        <field name="glAccountId" type="id"/>
+        <field name="organizationPartyId" type="id"/>
+        <field name="amount" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="origAmount" type="currency-amount"/>
+        <field name="origCurrencyUomId" type="id"/>
+        <field name="debitCreditFlag" type="text-indicator"/>
+        <field name="dueDate" type="date"/>
+        <field name="groupId" type="id"/>
+        <field name="taxId" type="id"/>
+        <field name="reconcileStatusId" type="id"/>
+        <field name="settlementTermId" type="id"/>
+        <field name="isSummary" type="text-indicator"/>
+        <relationship type="one" title="AcctgTransEntryType" related-entity-name="Enumeration">
+            <key-map field-name="acctgTransEntryTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" title="OrigCurrency" related-entity-name="Uom">
+            <key-map field-name="origCurrencyUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="AcctgTrans"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one-nofk" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="GlAccountType"/>
+        <relationship type="one" related-entity-name="GlAccount"/>
+        <relationship type="one" related-entity-name="GlAccountOrganization">
+            <key-map field-name="glAccountId"/>
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="StatusItem">
+            <key-map field-name="reconcileStatusId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="SettlementTerm"/>
+    </entity>
+    <entity entity-name="GlJournal" package-name="mantle.accounting.ledger.transaction">
+        <field name="glJournalId" type="id" is-pk="true"/>
+        <field name="glJournalName" type="text-medium"/>
+        <field name="organizationPartyId" type="id"/>
+        <field name="isPosted" type="text-indicator"/>
+        <field name="postedDate" type="date-time"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+    </entity>
+</entities>
