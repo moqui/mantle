@@ -1,0 +1,646 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.product.category -->
+    <!--  - mantle.product.config -->
+    <!--  - mantle.product.cost -->
+    <!--  - mantle.product.feature -->
+    <!--  - mantle.product.price -->
+    <!--  - mantle.product.product -->
+    <!--  - mantle.product.subscription -->
+    <!-- ========================================================= -->
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.category -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductCategory" package-name="mantle.product.category">
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="productCategoryTypeId" type="id"/>
+        <field name="categoryName" type="text-medium"/>
+        <field name="description" type="text-very-long"/>
+        <relationship type="one" related-entity-name="ProductCategoryType">
+            <key-map field-name="productCategoryTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductCategoryContent" package-name="mantle.product.category">
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="contentId" type="id" is-pk="true"/>
+        <field name="categoryContentEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="Content"/>
+        <relationship type="one" title="CategoryContent" related-entity-name="Enumeration">
+            <key-map field-name="categoryContentEnumId"/>
+        </relationship>
+        <index name="PRDCAT_CNT_CTTP"><index-field name="productCategoryId"/><index-field name="categoryContentEnumId"/></index>
+    </entity>
+    <entity entity-name="ProductCategoryParty" package-name="mantle.product.category">
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <entity entity-name="ProductCategoryMember" package-name="mantle.product.category">
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="comments" type="text-long"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <index name="PRD_CMBR_PCT"><index-field name="productCategoryId"/></index>
+    </entity>
+    <entity entity-name="ProductCategoryRollup" package-name="mantle.product.category">
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="parentProductCategoryId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" title="Parent" related-entity-name="ProductCategory">
+            <key-map field-name="parentProductCategoryId"/>
+        </relationship>
+        <index name="PRDCR_PARPC"><index-field name="parentProductCategoryId"/></index>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.config -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductConfigItemAppl" package-name="mantle.product.config">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="configItemId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="configTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="defaultConfigOptionId" type="id"/>
+        <field name="isMandatory" type="text-indicator"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="ProductConfigItem"/>
+        <relationship type="one" title="ProductConfig" related-entity-name="Enumeration">
+            <key-map field-name="configTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductConfigItem" package-name="mantle.product.config">
+        <field name="configItemId" type="id" is-pk="true"/>
+        <field name="configItemTypeEnumId" type="id"/>
+        <field name="configItemName" type="text-medium"/>
+        <relationship type="one" title="ProductConfigItem" related-entity-name="Enumeration">
+            <key-map field-name="configItemTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductConfigItemContent" package-name="mantle.product.config">
+        <field name="configItemId" type="id" is-pk="true"/>
+        <field name="contentId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="itemContentTypeEnumId" type="id"/>
+        <relationship type="one" related-entity-name="ProductConfigItem"/>
+        <relationship type="one" related-entity-name="Content"/>
+        <relationship type="one" title="ProductConfigItemContentType" related-entity-name="Enumeration">
+            <key-map field-name="itemContentTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductConfigOption" package-name="mantle.product.config">
+        <field name="configItemId" type="id" is-pk="true"/>
+        <field name="configOptionSeqId" type="id" is-pk="true"/>
+        <field name="configOptionName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductConfigItem"/>
+    </entity>
+    <entity entity-name="ProductConfigOptionIactn" package-name="mantle.product.config">
+        <field name="productConfigOptionIactnId" type="id" is-pk="true"/>
+        <field name="configItemId" type="id"/>
+        <field name="configOptionSeqId" type="id"/>
+        <field name="toConfigItemId" type="id"/>
+        <field name="toConfigOptionSeqId" type="id"/>
+        <field name="iactnTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" related-entity-name="ProductConfigOption">
+            <key-map field-name="configItemId"/>
+            <key-map field-name="configOptionSeqId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="ProductConfigOption">
+            <key-map field-name="toConfigItemId"/>
+            <key-map field-name="toConfigOptionSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductConfigOptionProduct" package-name="mantle.product.config">
+        <field name="configItemId" type="id" is-pk="true"/>
+        <field name="configOptionSeqId" type="id" is-pk="true"/>
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductConfigOption">
+            <key-map field-name="configItemId"/>
+            <key-map field-name="configOptionSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+    </entity>
+    <entity entity-name="ProductConfigSaved" package-name="mantle.product.config">
+        <field name="productConfigSavedId" type="id" is-pk="true"/>
+        <field name="configurableProductId" type="id"/>
+        <relationship type="one" title="Configurable" related-entity-name="Product">
+            <key-map field-name="configurableProductId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductConfigSavedOption" package-name="mantle.product.config">
+        <field name="productConfigSavedId" type="id" is-pk="true"/>
+        <field name="configItemId" type="id" is-pk="true"/>
+        <field name="configOptionSeqId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="ProductConfigOption">
+            <key-map field-name="configItemId"/>
+            <key-map field-name="configOptionSeqId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.cost -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="CostComponent" package-name="mantle.product.cost">
+        <field name="costComponentId" type="id" is-pk="true"/>
+        <field name="costComponentTypeId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="geoId" type="id"/>
+        <field name="workEffortId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="costComponentCalcId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="cost" type="number-decimal"/>
+        <field name="costUomId" type="id"/>
+        <relationship type="one" related-entity-name="CostComponentType">
+            <key-map field-name="costComponentTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="Geo"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="CostComponentCalc"/>
+        <relationship type="one" title="Cost" related-entity-name="Uom">
+            <key-map field-name="costUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CostComponentCalc" package-name="mantle.product.cost">
+        <field name="costComponentCalcId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+        <field name="costGlAccountTypeId" type="id"/>
+        <field name="offsettingGlAccountTypeId" type="id"/>
+        <field name="fixedCost" type="currency-amount"/>
+        <field name="variableCost" type="currency-amount"/>
+        <field name="perMilliSecond" type="number-integer"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="costCustomMethodId" type="id"/>
+        <relationship type="one" title="Cost" related-entity-name="GlAccountType">
+            <key-map field-name="costGlAccountTypeId"/>
+        </relationship>
+        <relationship type="one" title="Offsetting" related-entity-name="GlAccountType">
+            <key-map field-name="offsettingGlAccountTypeId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="CustomMethod">
+            <key-map field-name="costCustomMethodId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductCostComponentCalc" package-name="mantle.product.cost">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="costComponentTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="costComponentCalcId" type="id"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="Product">
+            <key-map field-name="productId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="CostComponentType">
+            <key-map field-name="costComponentTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="CostComponentCalc">
+            <key-map field-name="costComponentCalcId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductAverageCost" package-name="mantle.product.cost">
+        <description>History of a product's average cost in a particular company and facility.</description>
+        <field name="productAverageCostId" type="id" is-pk="true"/>
+        <field name="averageCostTypeEnumId" type="id"/>
+        <field name="organizationPartyId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="facilityId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="averageCost" type="number-decimal"/>
+        <relationship type="one" title="AverageCostType" related-entity-name="Enumeration">
+            <key-map field-name="averageCostTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="Facility"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.feature -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductFeature" package-name="mantle.product.feature">
+        <field name="productFeatureId" type="id" is-pk="true"/>
+        <field name="productFeatureTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="numberSpecified" type="number-decimal"/>
+        <field name="numberUomId" type="id"/>
+        <field name="defaultAmount" type="currency-amount"/>
+        <field name="defaultSequenceNum" type="number-integer"/>
+        <field name="abbrev" type="id"/>
+        <field name="idCode" type="id-long"/>
+        <relationship type="one" title="ProductFeatureType" related-entity-name="Enumeration">
+            <key-map field-name="productFeatureTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Number" related-entity-name="Uom">
+            <key-map field-name="numberUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductFeatureAppl" package-name="mantle.product.feature">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="productFeatureId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="applTypeEnumId" type="id"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="amount" type="currency-amount"/>
+        <field name="recurringAmount" type="currency-amount"/>
+        <relationship type="one" title="ProductFeatureApplType" related-entity-name="Enumeration">
+            <key-map field-name="applTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="ProductFeature"/>
+    </entity>
+    <entity entity-name="ProductCategoryFeatGrpAppl" package-name="mantle.product.feature">
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="productFeatureGroupId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="ProductFeatureGroup"/>
+    </entity>
+    <entity entity-name="ProductFeatureGroup" package-name="mantle.product.feature">
+        <field name="productFeatureGroupId" type="id" is-pk="true"/>
+        <field name="description" type="text-long"/>
+    </entity>
+    <entity entity-name="ProductFeatureGroupAppl" package-name="mantle.product.feature">
+        <field name="productFeatureGroupId" type="id" is-pk="true"/>
+        <field name="productFeatureId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductFeatureGroup"/>
+        <relationship type="one" related-entity-name="ProductFeature"/>
+    </entity>
+    <entity entity-name="ProductFeatureIactn" package-name="mantle.product.feature">
+        <field name="fromProductFeatureId" type="id" is-pk="true"/>
+        <field name="toProductFeatureId" type="id" is-pk="true"/>
+        <field name="iactnTypeEnumId" type="id"/>
+        <field name="productId" type="id"/>
+        <relationship type="one" title="ProductFeatureIactnType" related-entity-name="Enumeration">
+            <key-map field-name="iactnTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="From" related-entity-name="ProductFeature">
+            <key-map field-name="fromProductFeatureId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="ProductFeature">
+            <key-map field-name="toProductFeatureId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.price -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductPrice" package-name="mantle.product.price">
+        <field name="productPriceId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="priceTypeEnumId" type="id"/>
+        <field name="pricePurposeEnumId" type="id"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="fromQuantity" type="number-decimal"/>
+        <field name="thruQuantity" type="number-decimal"/>
+        <field name="price" type="currency-precise" enable-audit-log="true"/>
+        <field name="termUomId" type="id">
+            <description>For recurring and usage prices to specify a time/freq measure, or a usage unit measure (bits, minutes, etc).</description>
+        </field>
+        <field name="taxAmount" type="currency-precise"/>
+        <field name="taxPercentage" type="number-decimal"/>
+        <field name="taxAuthPartyId" type="id"/>
+        <field name="taxAuthGeoId" type="id"/>
+        <field name="taxInPrice" type="text-indicator">
+            <description>If Y the price field has tax included for the given taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description>
+        </field>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="ProductPriceType" related-entity-name="Enumeration">
+            <key-map field-name="priceTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="ProductPricePurpose" related-entity-name="Enumeration">
+            <key-map field-name="pricePurposeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <relationship type="one" title="Term" related-entity-name="Uom"><key-map field-name="termUomId"/></relationship>
+        <relationship type="one" related-entity-name="ProductStoreGroup"/>
+        <relationship type="one" title="TaxAuthority" related-entity-name="Party">
+            <key-map field-name="taxAuthPartyId"/>
+        </relationship>
+        <relationship type="one" title="TaxAuthority" related-entity-name="Geo">
+            <key-map field-name="taxAuthGeoId"/>
+        </relationship>
+        <index name="PRD_PRC_GENLKP">
+            <index-field name="productId"/>
+            <index-field name="productPricePurposeId"/>
+            <index-field name="currencyUomId"/>
+        </index>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.product -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Product" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="productTypeEnumId" type="id"/>
+
+        <field name="productName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="comments" type="text-long"/>
+
+        <field name="salesIntroductionDate" type="date-time"/>
+        <field name="salesDiscontinuationDate" type="date-time"/>
+        <field name="salesDiscWhenNotAvail" type="text-indicator"/>
+        <field name="supportDiscontinuationDate" type="date-time"/>
+
+        <field name="requireInventory" type="text-indicator"/>
+        <field name="requirementMethodEnumId" type="id"/>
+        <field name="taxable" type="text-indicator"/>
+        <field name="chargeShipping" type="text-indicator"/>
+        <field name="inShippingBox" type="text-indicator"/>
+        <field name="defaultShipmentBoxTypeId" type="id"/>
+        <field name="returnable" type="text-indicator"/>
+
+        <field name="requireAmount" type="text-indicator"/>
+        <field name="amountUomTypeId" type="id"/>
+        <field name="fixedAmount" type="currency-amount"><description>For products which are sold in fixed denominations, such as gift certificates or calling cards.</description></field>
+
+        <field name="originGeoId" type="id"/>
+        <field name="billOfMaterialLevel" type="number-integer"/>
+
+        <relationship type="one" title="ProductType" related-entity-name="Enumeration">
+            <key-map field-name="productTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="RequirementMethod" related-entity-name="Enumeration">
+            <key-map field-name="requirementMethodEnumId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="Geo">
+            <key-map field-name="originGeoId"/>
+        </relationship>
+        <relationship type="one" title="Default" related-entity-name="ShipmentBoxType">
+            <key-map field-name="defaultShipmentBoxTypeId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductAssoc" package-name="mantle.product.product">
+        <field name="productAssocId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="toProductId" type="id"/>
+        <field name="productAssocTypeId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="reason" type="text-long"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="scrapFactor" type="number-decimal"/>
+        <field name="instruction" type="text-long"/>
+        <field name="routingWorkEffortId" type="id"/>
+        <relationship type="one" related-entity-name="ProductAssocType">
+            <key-map field-name="productAssocTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="To" related-entity-name="Product">
+            <key-map field-name="toProductId"/>
+        </relationship>
+        <relationship type="one" title="Routing" related-entity-name="WorkEffort">
+            <key-map field-name="routingWorkEffortId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductCalculatedInfo" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="totalQuantityOrdered" type="number-decimal"/>
+        <field name="totalTimesViewed" type="number-integer"/>
+        <field name="averageCustomerRating" type="number-decimal"/>
+        <relationship type="one" related-entity-name="Product"/>
+    </entity>
+    <entity entity-name="ProductContent" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="contentId" type="id" is-pk="true"/>
+        <field name="productContentTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="Content"/>
+        <relationship type="one" title="ProductContentType" related-entity-name="Enumeration">
+            <key-map field-name="productContentTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductDimension" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="dimensionTypeEnumId" type="id"/>
+        <field name="value" type="number-decimal"/>
+        <field name="valueUomId" type="id"/>
+        <relationship type="one" title="ProductDimensionType" related-entity-name="Enumeration">
+            <key-map field-name="dimensionTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductGeo" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="geoId" type="id" is-pk="true"/>
+        <field name="productGeoEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="Geo"/>
+        <relationship type="one" related-entity-name="Enumeration">
+            <key-map field-name="productGeoEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductIdentification" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="productIdTypeEnumId" type="id" is-pk="true"/>
+        <field name="idValue" type="id-long"/>
+        <relationship type="one" title="ProductIdentificationType" related-entity-name="Enumeration">
+            <key-map field-name="productIdTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+        <index name="PRODUCT_ID_VALUE" unique="false"><index-field name="idValue"/></index>
+    </entity>
+    <entity entity-name="ProductParty" package-name="mantle.product.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one-nofk" related-entity-name="Party"/>
+        <relationship type="one-nofk" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="PartyRole">
+            <key-map field-name="partyId"/>
+            <key-map field-name="roleTypeId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+    </entity>
+    <entity entity-name="ProductReview" package-name="mantle.product.product">
+        <field name="productReviewId" type="id" is-pk="true"/>
+        <field name="productStoreId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="userId" type="id-very-long"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="postedAnonymous" type="text-indicator"/>
+        <field name="postedDateTime" type="date-time"/>
+        <field name="productRating" type="number-decimal"/>
+        <field name="productReview" type="text-very-long"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="UserAccount"/>
+        <relationship type="one" related-entity-name="StatusItem"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.subscription -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductSubscriptionResource" package-name="mantle.product.subscription">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="subscriptionResourceId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="purchaseFromDate" type="date-time"/>
+        <field name="purchaseThruDate" type="date-time"/>
+        <field name="availableTime" type="number-integer"/>
+        <field name="availableTimeUomId" type="id"/>
+        <field name="useCountLimit" type="number-integer"/>
+        <field name="useTime" type="number-integer"/>
+        <field name="useTimeUomId" type="id"/>
+        <field name="useRoleTypeId" type="id"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="SubscriptionResource"/>
+        <relationship type="one" title="Use" related-entity-name="RoleType">
+            <key-map field-name="useRoleTypeId"/>
+        </relationship>
+        <relationship type="one" title="UseTime" related-entity-name="Uom">
+            <key-map field-name="useTimeUomId"/>
+        </relationship>
+        <relationship type="one" title="AvailableTime" related-entity-name="Uom">
+            <key-map field-name="availableTimeUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="Subscription" package-name="mantle.product.subscription">
+        <field name="subscriptionId" type="id" is-pk="true"/>
+        <field name="subscriptionTypeEnumId" type="id"/>
+        <field name="subscriptionResourceId" type="id"/>
+        <field name="subscriberPartyId" type="id"/>
+        <field name="deliverToContactMechId" type="id"/>
+
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="externalSubscriptionId" type="id"/>
+        <field name="description" type="text-long"/>
+
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="purchaseFromDate" type="date-time"/>
+        <field name="purchaseThruDate" type="date-time"/>
+
+        <field name="availableTime" type="number-integer"/>
+        <field name="availableTimeUomId" type="id"/>
+        <field name="useTime" type="number-integer"/>
+        <field name="useTimeUomId" type="id"/>
+        <field name="useCountLimit" type="number-integer"/>
+        <relationship type="one" title="SubscriptionType" related-entity-name="Enumeration">
+            <key-map field-name="subscriptionTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="SubscriptionResource">
+            <key-map field-name="subscriptionResourceId"/>
+        </relationship>
+        <relationship type="one" title="Subscriber" related-entity-name="Party">
+            <key-map field-name="subscriberPartyId"/>
+        </relationship>
+        <relationship type="one" title="DeliverTo" related-entity-name="ContactMech">
+            <key-map field-name="deliverToContactMechId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="AvailableTime" related-entity-name="Uom">
+            <key-map field-name="availableTimeUomId"/>
+        </relationship>
+        <relationship type="one" title="UseTime" related-entity-name="Uom">
+            <key-map field-name="useTimeUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="SubscriptionDelivery" package-name="mantle.product.subscription">
+        <field name="subscriptionId" type="id" is-pk="true"/>
+        <field name="dateSent" type="date-time" is-pk="true"/>
+        <field name="communicationEventId" type="id"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one" related-entity-name="Subscription"/>
+        <relationship type="one" related-entity-name="CommunicationEvent"/>
+    </entity>
+    <entity entity-name="SubscriptionResource" package-name="mantle.product.subscription">
+        <field name="subscriptionResourceId" type="id" is-pk="true"/>
+        <field name="parentResourceId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentId" type="id"/>
+        <relationship type="one" title="Parent" related-entity-name="SubscriptionResource">
+            <key-map field-name="parentResourceId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Content"/>
+    </entity>
+</entities>
