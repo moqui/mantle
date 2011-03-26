@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.0.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.product.store -->
+    <!--  - mantle.product.store.group -->
+    <!-- ========================================================= -->
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.store -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductStore" package-name="mantle.product.store">
+        <field name="productStoreId" type="id" is-pk="true"/>
+        <field name="storeName" type="text-medium"/>
+        <field name="organizationPartyId" type="id">
+            <description>The organizationPartyId that Invoices, GL transactions, etc will be credited to.</description>
+        </field>
+        <field name="inventoryFacilityId" type="id"/>
+        <field name="reservationOrderEnumId" type="id"/>
+        <field name="requirementMethodEnumId" type="id"/>
+        <field name="defaultLocale" type="text-short"/>
+        <field name="defaultCurrencyUomId" type="id"/>
+        <field name="defaultSalesChannelEnumId" type="id"/>
+        <field name="requireCustomerRole" type="text-indicator"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
+            <key-map field-name="organizationPartyId"/>
+        </relationship>
+        <relationship type="one" title="Inventory" related-entity-name="Facility">
+            <key-map field-name="inventoryFacilityId"/>
+        </relationship>
+        <relationship type="one" title="InventoryReservationOrder" related-entity-name="Enumeration">
+            <key-map field-name="reservationOrderEnumId"/>
+        </relationship>
+        <relationship type="one" title="RequirementMethod" related-entity-name="Enumeration">
+            <key-map field-name="requirementMethodEnumId"/>
+        </relationship>
+        <relationship type="one" title="DefaultCurrency" related-entity-name="Uom">
+            <key-map field-name="defaultCurrencyUomId"/>
+        </relationship>
+        <relationship type="one" title="DefaultSalesChannel" related-entity-name="Enumeration">
+            <key-map field-name="defaultSalesChannelEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductStoreCategory" package-name="mantle.product.catalog">
+        <field name="productStoreId" type="id" is-pk="true"/>
+        <field name="productCategoryId" type="id" is-pk="true"/>
+        <field name="storeCategoryTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="Enumeration">
+            <description>(enumTypeId = PRODUCT_STORE_CATTYP)</description>
+            <key-map field-name="storeCategoryTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductStoreEmail" package-name="mantle.product.store">
+        <field name="productStoreId" type="id" is-pk="true"/>
+        <field name="emailTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="emailTemplateId" type="id"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" title="ProductStoreEmailNotification" related-entity-name="Enumeration">
+            <key-map field-name="emailTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="EmailTemplate"/>
+    </entity>
+    <entity entity-name="ProductStoreFacility" package-name="mantle.product.store">
+        <field name="productStoreId" type="id" is-pk="true"/>
+        <field name="facilityId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="Facility"/>
+    </entity>
+    <entity entity-name="ProductStoreParty" package-name="mantle.product.store">
+        <field name="productStoreId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.product.store.group -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductStoreGroup" package-name="mantle.product.store.group">
+        <field name="productStoreGroupId" type="id" is-pk="true"/>
+        <field name="productStoreGroupTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" title="ProductStoreGroupType" related-entity-name="Enumeration">
+            <key-map field-name="productStoreGroupTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductStoreGroupMember" package-name="mantle.product.store.group">
+        <field name="productStoreGroupId" type="id" is-pk="true"/>
+        <field name="productStoreId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="ProductStoreGroup"/>
+    </entity>
+    <entity entity-name="ProductStoreGroupParty" package-name="mantle.product.store.group">
+        <field name="productStoreGroupId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="ProductStoreGroup"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="ProductStoreGroupRollup" package-name="mantle.product.store.group">
+        <field name="productStoreGroupId" type="id" is-pk="true"/>
+        <field name="parentGroupId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="ProductStoreGroup"/>
+        <relationship type="one" title="Parent" related-entity-name="ProductStoreGroup">
+            <key-map field-name="parentGroupId"/>
+        </relationship>
+    </entity>
+</entities>
