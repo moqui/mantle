@@ -122,7 +122,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="positionId" type="id"/>
         <field name="geoPointId" type="id" enable-audit-log="true"/>
         <relationship type="one" related-entity-name="Facility"/>
-        <relationship type="one" title="Type" related-entity-name="Enumeration">
+        <relationship type="one" title="FacilityLocationType" related-entity-name="Enumeration">
             <key-map field-name="locationTypeEnumId"/>
         </relationship>
     </entity>
@@ -174,13 +174,10 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="inventoryItemId" type="id" is-pk="true"/>
         <field name="isSerialized" type="text-indicator"/>
         <field name="productId" type="id" enable-audit-log="true"/>
-        <field name="partyId" type="id"/>
-        <field name="ownerPartyId" type="id" enable-audit-log="true">
-            <description>The owner of the inventory item.</description>
-        </field>
         <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="datetimeReceived" type="date-time"/>
-        <field name="datetimeManufactured" type="date-time"/>
+        <field name="ownerPartyId" type="id" enable-audit-log="true"/>
+        <field name="receiveDate" type="date-time"/>
+        <field name="manufactureDate" type="date-time"/>
         <field name="expireDate" type="date-time"/>
         <field name="facilityId" type="id"/>
         <field name="containerId" type="id"/>
@@ -194,18 +191,14 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="softIdentifier" type="text-long"/>
         <field name="activationNumber" type="text-long"/>
         <field name="activationValidThru" type="date-time"/>
-        <field name="unitCost" type="number-decimal">
-            <description>Higher precision in case it is a calculated number</description>
-        </field>
-        <field name="currencyUomId" type="id">
-            <description>The currency Uom of the unit cost.</description>
-        </field>
+        <field name="unitCost" type="number-decimal"/>
+        <field name="unitCostUomId" type="id"/>
         <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" title="Owner" related-entity-name="Party">
             <key-map field-name="ownerPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="InventoryItem" related-entity-name="StatusItem"/>
         <relationship type="one" related-entity-name="Facility"/>
         <relationship type="one" related-entity-name="Container"/>
         <relationship type="one" related-entity-name="Lot"/>
@@ -225,9 +218,9 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Currency" related-entity-name="Uom">
             <key-map field-name="currencyUomId"/>
         </relationship>
+        <index name="INVITEM_SN"><index-field name="serialNumber"/></index>
         <index name="INVITEM_SOFID" unique="true"><index-field name="softIdentifier"/></index>
         <index name="INVITEM_ACTNM" unique="true"><index-field name="activationNumber"/></index>
-        <index name="INVITEM_SN"><index-field name="serialNumber"/></index>
     </entity>
     <entity entity-name="InventoryItemDetail" package-name="mantle.product.inventory">
         <field name="inventoryItemId" type="id" is-pk="true"/>
@@ -267,36 +260,13 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" related-entity-name="ShipmentReceipt"/>
         <relationship type="one" related-entity-name="PhysicalInventory"/>
-        <relationship title="Reason" related-entity-name="Enumeration" type="one">
+        <relationship type="one" title="InventoryVarianceReason" related-entity-name="Enumeration">
             <key-map field-name="reasonEnumId"/>
         </relationship>
         <relationship type="one-nofk" related-entity-name="InventoryItemVariance">
             <key-map field-name="inventoryItemId"/>
             <key-map field-name="physicalInventoryId"/>
         </relationship>
-    </entity>
-    <entity entity-name="InventoryItemTempRes" package-name="mantle.product.inventory">
-        <field name="visitId" type="id" is-pk="true"/>
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="productStoreId" type="id" is-pk="true"/>
-        <field name="quantity" type="number-decimal"/>
-        <field name="reservedDate" type="date-time"/>
-        <relationship type="one" related-entity-name="Visit"/>
-        <relationship type="one" related-entity-name="Product"/>
-        <relationship type="one" related-entity-name="ProductStore"/>
-    </entity>
-    <entity entity-name="InventoryItemVariance" package-name="mantle.product.inventory">
-        <field name="inventoryItemId" type="id" is-pk="true"/>
-        <field name="physicalInventoryId" type="id" is-pk="true"/>
-        <field name="varianceReasonEnumId" type="id"/>
-        <field name="availableToPromiseVar" type="number-decimal"/>
-        <field name="quantityOnHandVar" type="number-decimal"/>
-        <field name="comments" type="text-long"/>
-        <relationship type="one" related-entity-name="PhysicalInventory"/>
-        <relationship type="one" title="VarianceReason" related-entity-name="Enumeration">
-            <key-map field-name="varianceReasonEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="InventoryItem"/>
     </entity>
     <entity entity-name="InventoryReservation" package-name="mantle.product.inventory">
         <field name="inventoryReservationId" type="id" is-pk="true"/>
@@ -346,7 +316,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="receiveDate" type="date-time"/>
         <field name="comments" type="text-long"/>
         <relationship type="one" related-entity-name="InventoryItem"/>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="InventoryTransfer" related-entity-name="StatusItem"/>
         <relationship type="one" related-entity-name="Facility"/>
         <relationship type="one-nofk" related-entity-name="FacilityLocation">
             <key-map field-name="facilityId"/>
@@ -383,42 +353,50 @@ and those parts may be licensed under the Apache License 2.0.
     <!-- ========================================================= -->
 
     <entity entity-name="SupplierProduct" package-name="mantle.product.supplier">
-        <field name="supplierProductId" type="id" is-pk="true"/>
-        <field name="productId" type="id"/>
-        <field name="supplierPartyId" type="id"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="price" type="currency-precise"/>
-        <field name="currencyUomId" type="id"/>
-        <field name="minQuantity" type="number-decimal"/>
+        <field name="supplierPartyId" type="id" is-pk="true"/>
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="supplierProductName" type="text-medium"/>
+        <field name="supplierProductId" type="id"/>
+        <field name="comments" type="text-long"/>
         <field name="quantityIncrement" type="number-decimal"/>
         <field name="quantityIncluded" type="number-decimal"/>
         <field name="quantityUomId" type="id"/>
-        <field name="agreementId" type="id"/>
-        <field name="agreementItemSeqId" type="id"/>
         <field name="preferredOrderEnumId" type="id"/>
         <field name="supplierRatingTypeEnumId" type="id"/>
         <field name="standardLeadTimeDays" type="number-decimal"/>
-        <field name="supplierProductName" type="text-medium"/>
-        <field name="supplierProductId" type="id"/>
         <field name="canDropShip" type="text-indicator"/>
         <field name="supplierCommissionPercent" type="number-decimal"/>
-        <field name="comments" type="text-long"/>
-        <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" title="Supplier" related-entity-name="Party">
             <key-map field-name="supplierPartyId"/>
         </relationship>
+        <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" title="SupplierPreferredOrder" related-entity-name="Enumeration">
             <key-map field-name="preferredOrderEnumId"/>
         </relationship>
         <relationship type="one" title="SupplierRatingType" related-entity-name="Enumeration">
             <key-map field-name="supplierRatingTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="Currency" related-entity-name="Uom">
-            <key-map field-name="currencyUomId"/>
-        </relationship>
         <relationship type="one" title="Quantity" related-entity-name="Uom">
             <key-map field-name="quantityUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="SupplierProductPrice" package-name="mantle.product.supplier">
+        <field name="supplierProductPriceId" type="id" is-pk="true"/>
+        <field name="supplierPartyId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="minQuantity" type="number-decimal"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="price" type="currency-precise"/>
+        <field name="priceUomId" type="id"/>
+        <field name="agreementId" type="id"/>
+        <field name="agreementItemSeqId" type="id"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="Supplier" related-entity-name="Party">
+            <key-map field-name="supplierPartyId"/>
+        </relationship>
+        <relationship type="one" title="Price" related-entity-name="Uom">
+            <key-map field-name="priceUomId"/>
         </relationship>
         <relationship type="one" related-entity-name="AgreementItem">
             <key-map field-name="agreementId"/>
