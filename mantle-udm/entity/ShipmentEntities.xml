@@ -24,6 +24,66 @@ and those parts may be licensed under the Apache License 2.0.
 
 
     <!-- ========================================================= -->
+    <!-- mantle.shipment.carrier -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="CarrierShipmentMethod" package-name="mantle.shipment.carrier">
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="shipmentMethodEnumId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="carrierServiceCode" type="text-short"/>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+        <relationship type="one" title="ShipmentMethod" related-entity-name="Enumeration">
+            <key-map field-name="shipmentMethodEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="CarrierShipmentBoxType" package-name="mantle.shipment.carrier">
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
+        <field name="packagingTypeCode" type="id"/>
+        <field name="oversizeCode" type="text-short"/>
+        <relationship type="one" related-entity-name="ShipmentBoxType"/>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="Delivery" package-name="mantle.shipment.carrier">
+        <field name="deliveryId" type="id" is-pk="true"/>
+        <field name="originFacilityId" type="id"/>
+        <field name="destFacilityId" type="id"/>
+        <field name="actualStartDate" type="date-time"/>
+        <field name="actualArrivalDate" type="date-time"/>
+        <field name="estimatedStartDate" type="date-time"/>
+        <field name="estimatedArrivalDate" type="date-time"/>
+        <field name="assetId" type="id"/>
+        <field name="startMileage" type="number-decimal"/>
+        <field name="endMileage" type="number-decimal"/>
+        <field name="fuelUsed" type="number-decimal"/>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" title="Origin" related-entity-name="Facility">
+            <key-map field-name="originFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Dest" related-entity-name="Facility">
+            <key-map field-name="destFacilityId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PartyCarrierAccount" package-name="mantle.party.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="accountNumber" type="id"/>
+        <relationship type="one" related-entity-name="Party">
+            <key-map field-name="partyId"/>
+        </relationship>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
     <!-- mantle.shipment.issuance -->
     <!-- ========================================================= -->
 
@@ -77,12 +137,14 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="picklistId" type="id" is-pk="true"/>
         <field name="description" type="text-long"/>
         <field name="facilityId" type="id"/>
-        <field name="shipmentMethodTypeId" type="id"/>
+        <field name="shipmentMethodEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="picklistDate" type="date-time"/>
         <relationship type="one" related-entity-name="Facility"/>
-        <relationship type="one" related-entity-name="ShipmentMethodType"/>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="ShipmentMethod" related-entity-name="Enumeration">
+            <key-map field-name="shipmentMethodEnumId"/>
+        </relationship>
+        <relationship type="one" title="Picklist" related-entity-name="StatusItem"/>
     </entity>
     <entity entity-name="PicklistBin" package-name="mantle.shipment.picklist">
         <field name="picklistBinId" type="id" is-pk="true">
@@ -117,7 +179,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="orderId"/>
             <key-map field-name="orderItemSeqId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="PicklistBinItem" related-entity-name="StatusItem"/>
         <relationship type="one" related-entity-name="InventoryItem"/>
     </entity>
     <entity entity-name="PicklistParty" package-name="mantle.shipment.picklist">
@@ -189,59 +251,6 @@ and those parts may be licensed under the Apache License 2.0.
     <!-- mantle.shipment.shipment -->
     <!-- ========================================================= -->
 
-    <entity entity-name="CarrierShipmentMethod" package-name="mantle.shipment.shipment">
-        <field name="carrierPartyId" type="id" is-pk="true"/>
-        <field name="shipmentMethodTypeId" type="id" is-pk="true"/>
-        <field name="sequenceNumber" type="number-integer"/>
-        <field name="carrierServiceCode" type="text-short"/>
-        <relationship type="one" related-entity-name="ShipmentMethodType"/>
-        <relationship type="one" title="Carrier" related-entity-name="Party">
-            <key-map field-name="carrierPartyId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="CarrierShipmentBoxType" package-name="mantle.shipment.shipment">
-        <field name="carrierPartyId" type="id" is-pk="true"/>
-        <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
-        <field name="packagingTypeCode" type="id"/>
-        <field name="oversizeCode" type="text-short"/>
-        <relationship type="one" related-entity-name="ShipmentBoxType"/>
-        <relationship type="one" title="Carrier" related-entity-name="Party">
-            <key-map field-name="carrierPartyId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="Delivery" package-name="mantle.shipment.shipment">
-        <field name="deliveryId" type="id" is-pk="true"/>
-        <field name="originFacilityId" type="id"/>
-        <field name="destFacilityId" type="id"/>
-        <field name="actualStartDate" type="date-time"/>
-        <field name="actualArrivalDate" type="date-time"/>
-        <field name="estimatedStartDate" type="date-time"/>
-        <field name="estimatedArrivalDate" type="date-time"/>
-        <field name="assetId" type="id"/>
-        <field name="startMileage" type="number-decimal"/>
-        <field name="endMileage" type="number-decimal"/>
-        <field name="fuelUsed" type="number-decimal"/>
-        <relationship type="one" related-entity-name="Asset"/>
-        <relationship type="one" title="Origin" related-entity-name="Facility">
-            <key-map field-name="originFacilityId"/>
-        </relationship>
-        <relationship type="one" title="Dest" related-entity-name="Facility">
-            <key-map field-name="destFacilityId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="PartyCarrierAccount" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="carrierPartyId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="accountNumber" type="id"/>
-        <relationship type="one" related-entity-name="Party">
-            <key-map field-name="partyId"/>
-        </relationship>
-        <relationship type="one" title="Carrier" related-entity-name="Party">
-            <key-map field-name="carrierPartyId"/>
-        </relationship>
-    </entity>
     <entity entity-name="Shipment" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
         <field name="shipmentTypeEnumId" type="id"/>
@@ -257,7 +266,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="estimatedArrivalWorkEffId" type="id"/>
         <field name="latestCancelDate" type="date-time"/>
         <field name="estimatedShipCost" type="currency-amount"/>
-        <field name="currencyUomId" type="id"/>
+        <field name="costUomId" type="id"/>
         <field name="handlingInstructions" type="text-long"/>
         <field name="originFacilityId" type="id"/>
         <field name="originContactMechId" type="id"/>
@@ -272,7 +281,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="ShipmentType" related-entity-name="Enumeration">
             <key-map field-name="shipmentTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="Shipment" related-entity-name="StatusItem"/>
         <relationship type="one" related-entity-name="PicklistBin"/>
         <relationship type="one" title="EstimatedShip" related-entity-name="WorkEffort">
             <key-map field-name="estimatedShipWorkEffId"/>
@@ -280,7 +289,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="EstimatedArrival" related-entity-name="WorkEffort">
             <key-map field-name="estimatedArrivalWorkEffId"/>
         </relationship>
-        <relationship type="one" title="Currency" related-entity-name="Uom">
+        <relationship type="one" title="Cost" related-entity-name="Uom">
             <key-map field-name="currencyUomId"/>
         </relationship>
         <relationship type="one" title="Origin" related-entity-name="Facility">
@@ -332,20 +341,18 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="ShipmentContactMech" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
-        <field name="typeEnumId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeId" type="id" is-pk="true"/>
         <field name="contactMechId" type="id"/>
         <relationship type="one" related-entity-name="Shipment"/>
+        <relationship type="one" related-entity-name="ContactMechPurpose"/>
         <relationship type="one" related-entity-name="ContactMech"/>
-        <relationship type="one" title="Type" related-entity-name="Enumeration">
-            <key-map field-name="typeEnumId"/>
-        </relationship>
     </entity>
     <entity entity-name="ShipmentItem" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
         <field name="shipmentItemSeqId" type="id" is-pk="true"/>
         <field name="productId" type="id"/>
         <field name="quantity" type="number-decimal"/>
-        <field name="shipmentContentDescription" type="text-long"/>
+        <field name="description" type="text-long"/>
         <relationship type="one" related-entity-name="Shipment"/>
         <relationship type="one" related-entity-name="Product"/>
     </entity>
@@ -460,8 +467,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="destContactMechId" type="id"/>
         <field name="destTelecomNumberId" type="id"/>
         <field name="carrierPartyId" type="id"/>
-        <field name="shipmentMethodTypeId" type="id"/>
-        <field name="carrierServiceStatusId" type="id" enable-audit-log="true"/>
+        <field name="shipmentMethodEnumId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="carrierDeliveryZone" type="text-short"/>
         <field name="carrierRestrictionCodes" type="text-short"/>
         <field name="carrierRestrictionDesc" type="text-very-long"/>
@@ -489,7 +496,9 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Carrier" related-entity-name="Party">
             <key-map field-name="carrierPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="ShipmentMethodType"/>
+        <relationship type="one" title="ShipmentMethod" related-entity-name="Enumeration">
+            <key-map field-name="shipmentMethodEnumId"/>
+        </relationship>
         <relationship type="one" title="Origin" related-entity-name="Facility">
             <key-map field-name="originFacilityId"/>
         </relationship>
@@ -508,9 +517,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Dest" related-entity-name="TelecomNumber">
             <key-map field-name="destTelecomNumberId"/>
         </relationship>
-        <relationship type="one" title="CarrierService" related-entity-name="StatusItem">
-            <key-map field-name="carrierServiceStatusId"/>
-        </relationship>
+        <relationship type="one" title="ShipmentRouteSegment" related-entity-name="StatusItem"/>
         <relationship type="one" title="Currency" related-entity-name="Uom">
             <key-map field-name="currencyUomId"/>
         </relationship>
