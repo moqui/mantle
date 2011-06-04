@@ -83,7 +83,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="agreementId" type="id"/>
         <field name="agreementItemSeqId" type="id"/>
         <field name="settlementTermId" type="id"/>
-        <field name="itemTypeEnumId" type="id"/>
+        <field name="termTypeEnumId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="Agreement"/>
@@ -92,7 +92,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="agreementItemSeqId"/>
         </relationship>
         <relationship type="one" related-entity-name="SettlementTerm"/>
-        <relationship type="one" title="ItemType" related-entity-name="Enumeration">
+        <relationship type="one" title="TermType" related-entity-name="Enumeration">
             <key-map field-name="itemTypeEnumId"/>
         </relationship>
     </entity>
@@ -171,7 +171,7 @@ and those parts may be licensed under the Apache License 2.0.
 
     <entity entity-name="CommunicationEvent" package-name="mantle.party.communication">
         <field name="communicationEventId" type="id" is-pk="true"/>
-        <field name="communicationEventTypeEnumId" type="id"/>
+        <field name="communicationEventTypeId" type="id"/>
         <field name="contactMechTypeEnumId" type="id"/>
         <field name="statusId" type="id"/>
 
@@ -198,13 +198,11 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="contactListId" type="id"/>
         <field name="emailMessageId" type="id"/>
 
-        <relationship type="one" title="CommunicationEventType" related-entity-name="Enumeration">
-            <key-map field-name="communicationEventTypeEnumId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="CommunicationEventType"/>
         <relationship type="one" title="ContactMechType" related-entity-name="Enumeration">
             <key-map field-name="contactMechTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="CommunicationEvent" related-entity-name="StatusItem"/>
         <relationship type="one" title="From" related-entity-name="ContactMech">
             <key-map field-name="fromContactMechId"/>
         </relationship>
@@ -255,7 +253,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="purposeEnumId" type="id" is-pk="true"/>
         <field name="description" type="text-long"/>
         <relationship type="one" related-entity-name="CommunicationEvent"/>
-        <relationship type="one" title="Purpose" related-entity-name="Enumeration">
+        <relationship type="one" title="CommunicationPurpose" related-entity-name="Enumeration">
             <key-map field-name="purposeEnumId"/>
         </relationship>
     </entity>
@@ -269,7 +267,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
         <relationship type="one" related-entity-name="ContactMech"/>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="CommunicationEventParty" related-entity-name="StatusItem"/>
     </entity>
     <entity entity-name="CommunicationEventType" package-name="mantle.party.communication">
         <field name="communicationEventTypeId" type="id" is-pk="true"/>
@@ -297,15 +295,14 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <index name="INFO_STRING_IDX"><index-field name="infoString"/></index>
     </entity>
-    <entity entity-name="ContactMechTypePurpose" package-name="mantle.party.contact">
-        <field name="contactMechTypeEnumId" type="id" is-pk="true"/>
-        <field name="contactMechPurposeTypeEnumId" type="id" is-pk="true"/>
+    <entity entity-name="ContactMechPurpose" package-name="mantle.party.contact">
+        <field name="contactMechPurposeId" type="id" is-pk="true"/>
+        <field name="contactMechTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
         <relationship type="one" title="ContactMechType" related-entity-name="Enumeration">
             <key-map field-name="contactMechTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="ContactMechPurposeType" related-entity-name="Enumeration">
-            <key-map field-name="contactMechPurposeTypeEnumId"/>
-        </relationship>
+        <index name="INFO_STRING_IDX"><index-field name="infoString"/></index>
     </entity>
     <entity entity-name="EmailAddressVerification" package-name="mantle.party.contact">
         <description>Holds hashes for email address verification</description>
@@ -317,7 +314,7 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="PartyContactMech" package-name="mantle.party.contact">
         <field name="partyId" type="id" is-pk="true"/>
         <field name="contactMechId" type="id" is-pk="true"/>
-        <field name="contactMechPurposeTypeId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="roleTypeId" type="id"/>
@@ -325,11 +322,11 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="extension" type="text-long"/>
         <field name="verified" type="text-indicator"/>
         <field name="comments" type="text-long"/>
-        <field name="yearsWithContactMech" type="number-integer"/>
-        <field name="monthsWithContactMech" type="number-integer"/>
+        <field name="validSince" type="date"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
         <relationship type="one" related-entity-name="ContactMech"/>
+        <relationship type="one" related-entity-name="ContactMechPurpose"/>
     </entity>
     <entity entity-name="PostalAddress" package-name="mantle.party.contact">
         <field name="contactMechId" type="id" is-pk="true"/>
@@ -337,6 +334,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="attnName" type="text-medium"/>
         <field name="address1" type="text-long"/>
         <field name="address2" type="text-long"/>
+        <field name="unitNumber" type="text-medium"/>
         <field name="directions" type="text-long"/>
         <field name="city" type="text-medium"/>
         <field name="postalCode" type="text-short"/>
@@ -360,8 +358,6 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="postalCodeGeoId"/>
         </relationship>
         <relationship type="one" related-entity-name="GeoPoint"/>
-        <index name="ADDRESS1_IDX"><index-field name="address1"/></index>
-        <index name="ADDRESS2_IDX"><index-field name="address2"/></index>
         <index name="CITY_IDX"><index-field name="city"/></index>
         <index name="POSTAL_CODE_IDX"><index-field name="postalCode"/></index>
     </entity>
@@ -372,9 +368,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="contactNumber" type="text-short"/>
         <field name="askForName" type="text-medium"/>
         <relationship type="one" related-entity-name="ContactMech"/>
-        <index name="COUNTRY_CODE_IDX"><index-field name="countryCode"/></index>
-        <index name="AREA_CODE_IDX"><index-field name="areaCode"/></index>
-        <index name="CONTACT_NUMBER_IDX"><index-field name="contactNumber"/></index>
+        <index name="AREA_CONTACT_IDX"><index-field name="areaCode"/><index-field name="contactNumber"/></index>
     </entity>
 
     <!-- ========================================================= -->
@@ -393,18 +387,6 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="StatusItem"/>
         <relationship type="one" related-entity-name="DataSource"/>
         <index name="PARTY_ID_EXT"><index-field name="externalId"/></index>
-    </entity>
-    <entity entity-name="Affiliate" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="affiliateName" type="text-medium"/>
-        <field name="affiliateDescription" type="text-long"/>
-        <field name="yearEstablished" type="text-short"/>
-        <field name="siteType" type="text-long"/>
-        <field name="sitePageViews" type="text-long"/>
-        <field name="siteVisitors" type="text-long"/>
-        <field name="dateTimeCreated" type="date-time"/>
-        <field name="dateTimeApproved" type="date-time"/>
-        <relationship type="one" related-entity-name="Party"/>
     </entity>
     <entity entity-name="Organization" package-name="mantle.party.party">
         <field name="partyId" type="id" is-pk="true"/>
@@ -445,14 +427,6 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <index name="FIRST_NAME_IDX"><index-field name="firstName"/></index>
         <index name="LAST_NAME_IDX"><index-field name="lastName"/></index>
-    </entity>
-    <entity entity-name="Vendor" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="manifestCompanyName" type="text-medium"/>
-        <field name="manifestCompanyTitle" type="text-medium"/>
-        <field name="manifestLogoUrl" type="text-long"/>
-        <field name="manifestPolicies" type="text-very-long"/>
-        <relationship type="one" related-entity-name="Party"/>
     </entity>
 
     <entity entity-name="PartyIdentification" package-name="mantle.party.party">
@@ -542,7 +516,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="To" related-entity-name="RoleType">
             <key-map field-name="toRoleTypeId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="PartyRelationship" related-entity-name="StatusItem"/>
         <relationship type="one" title="PriorityType" related-entity-name="Enumeration">
             <key-map field-name="priorityTypeEnumId"/>
         </relationship>
