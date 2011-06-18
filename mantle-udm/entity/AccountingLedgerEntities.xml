@@ -61,10 +61,10 @@ and those parts may be licensed under the Apache License 2.0.
 
     <entity entity-name="GlAccountCategory" package-name="mantle.accounting.ledger.account">
         <field name="glAccountCategoryId" type="id" is-pk="true"/>
-        <field name="glAccountCategoryTypeEnumId" type="id"/>
+        <field name="categoryTypeEnumId" type="id"/>
         <field name="description" type="text-long"/>
         <relationship type="one" title="GlAccountCategoryType" related-entity-name="Enumeration">
-            <key-map field-name="glAccountCategoryTypeEnumId"/>
+            <key-map field-name="categoryTypeEnumId"/>
         </relationship>
     </entity>
     <entity entity-name="GlAccountCategoryMember" package-name="mantle.accounting.ledger.account">
@@ -295,23 +295,27 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="ProductCategoryGlAccount" package-name="mantle.product.category">
         <field name="productCategoryId" type="id" is-pk="true"/>
         <field name="organizationPartyId" type="id" is-pk="true"/>
-        <field name="glAccountTypeId" type="id" is-pk="true"/>
+        <field name="glAccountTypeEnumId" type="id" is-pk="true"/>
         <field name="glAccountId" type="id"/>
         <relationship type="one" related-entity-name="ProductCategory"/>
-        <relationship type="one" related-entity-name="Party">
+        <relationship type="one" title="Organization" related-entity-name="Party">
             <key-map field-name="organizationPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="GlAccountType"/>
+        <relationship type="one" title="GlAccountType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountTypeEnumId"/>
+        </relationship>
         <relationship type="one" related-entity-name="GlAccount"/>
     </entity>
     <entity entity-name="ProductGlAccount" package-name="mantle.product.product">
         <field name="productId" type="id" is-pk="true"/>
         <field name="organizationPartyId" type="id" is-pk="true"/>
-        <field name="glAccountTypeId" type="id" is-pk="true"/>
+        <field name="glAccountTypeEnumId" type="id" is-pk="true"/>
         <field name="glAccountId" type="id"/>
         <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="GlAccountType"/>
+        <relationship type="one" title="GlAccountType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountTypeEnumId"/>
+        </relationship>
         <relationship type="one" related-entity-name="GlAccount"/>
     </entity>
     <entity entity-name="TaxAuthorityGlAccount" package-name="mantle.accounting.ledger.config">
@@ -329,10 +333,12 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="GlAccount"/>
     </entity>
     <entity entity-name="VarianceReasonGlAccount" package-name="mantle.accounting.ledger.config">
-        <field name="varianceReasonId" type="id" is-pk="true"/>
+        <field name="varianceReasonEnumId" type="id" is-pk="true"/>
         <field name="organizationPartyId" type="id" is-pk="true"/>
         <field name="glAccountId" type="id"/>
-        <relationship type="one" related-entity-name="VarianceReason"/>
+        <relationship type="one" title="InventoryVarianceReason" related-entity-name="Enumeration">
+            <key-map field-name="varianceReasonEnumId"/>
+        </relationship>
         <relationship type="one" title="Organization" related-entity-name="Party">
             <key-map field-name="organizationPartyId"/>
         </relationship>
@@ -441,7 +447,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="postedDate" type="date-time"/>
         <field name="scheduledPostingDate" type="date-time"/>
         <field name="glJournalId" type="id"/>
-        <field name="glFiscalTypeId" type="id"/>
+        <field name="glFiscalTypeEnumId" type="id"/>
         <field name="voucherRef" type="text-short"/>
         <field name="voucherDate" type="date-time"/>
         <field name="groupStatusId" type="id"/>
@@ -461,8 +467,8 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="acctgTransTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="GlJournal"/>
-        <relationship type="one" related-entity-name="GlFiscalType">
-            <key-map field-name="glFiscalTypeId"/>
+        <relationship type="one" title="GlFiscalType" related-entity-name="Enumeration">
+            <key-map field-name="glFiscalTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="StatusItem">
             <key-map field-name="groupStatusId"/>
@@ -470,16 +476,8 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Asset"/>
         <relationship type="one" related-entity-name="PhysicalInventory"/>
         <relationship type="one" related-entity-name="InventoryItem"/>
-        <relationship type="one" related-entity-name="InventoryItemVariance">
-            <key-map field-name="inventoryItemId"/>
-            <key-map field-name="physicalInventoryId"/>
-        </relationship>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
-        <relationship type="one-nofk" related-entity-name="PartyRole">
-            <key-map field-name="partyId"/>
-            <key-map field-name="roleTypeId"/>
-        </relationship>
         <relationship type="one" related-entity-name="Invoice"/>
         <relationship type="one" related-entity-name="Payment"/>
         <relationship type="one" related-entity-name="FinancialAccountTrans"/>
@@ -499,7 +497,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="productId" type="id"/>
         <field name="theirProductId" type="id"/>
         <field name="inventoryItemId" type="id"/>
-        <field name="glAccountTypeId" type="id"/>
+        <field name="glAccountTypeEnumId" type="id"/>
         <field name="glAccountId" type="id"/>
         <field name="organizationPartyId" type="id"/>
         <field name="amount" type="currency-amount"/>
@@ -526,14 +524,11 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="InventoryItem"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
-        <relationship type="one-nofk" related-entity-name="PartyRole">
-            <key-map field-name="partyId"/>
-            <key-map field-name="roleTypeId"/>
+        <relationship type="one" title="GlAccountType" related-entity-name="Enumeration">
+            <key-map field-name="glAccountTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="GlAccountType"/>
         <relationship type="one" related-entity-name="GlAccount"/>
-        <relationship type="one" related-entity-name="GlAccountOrganization">
-            <key-map field-name="glAccountId"/>
+        <relationship type="one" title="Organization" related-entity-name="Party">
             <key-map field-name="organizationPartyId"/>
         </relationship>
         <relationship type="one" title="AcctgTransEntryReconcile" related-entity-name="StatusItem">

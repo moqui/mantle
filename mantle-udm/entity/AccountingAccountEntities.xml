@@ -31,7 +31,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="billingAccountId" type="id" is-pk="true"/>
         <field name="billToPartyId" type="id"/>
         <field name="accountLimit" type="currency-amount"/>
-        <field name="currencyUomId" type="id"/>
+        <field name="accountLimitUomId" type="id"/>
         <field name="postalContactMechId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
@@ -40,8 +40,8 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="BillTo" related-entity-name="Party">
             <key-map field-name="billToPartyId"/>
         </relationship>
-        <relationship type="one" title="Currency" related-entity-name="Uom">
-            <key-map field-name="currencyUomId"/>
+        <relationship type="one" title="AccountLimit" related-entity-name="Uom">
+            <key-map field-name="accountLimitUomId"/>
         </relationship>
         <relationship type="one" title="Postal" related-entity-name="ContactMech">
             <key-map field-name="postalContactMechId"/>
@@ -57,25 +57,20 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="BillingAccount"/>
-        <relationship type="one-nofk" related-entity-name="Party"/>
-        <relationship type="one-nofk" related-entity-name="RoleType"/>
-        <relationship type="one" related-entity-name="PartyRole">
-            <key-map field-name="partyId"/>
-            <key-map field-name="roleTypeId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
     </entity>
     <entity entity-name="BillingAccountTerm" package-name="mantle.accounting.account.billing">
         <field name="billingAccountTermId" type="id" is-pk="true"/>
         <field name="billingAccountId" type="id"/>
-        <field name="termTypeId" type="id"/>
-        <field name="termValue" type="currency-amount"/>
-        <field name="termDays" type="number-integer"/>
-        <field name="uomId" type="id"/>
-        <relationship type="one" related-entity-name="Uom">
-            <key-map field-name="uomId"/>
+        <field name="termTypeEnumId" type="id"/>
+        <field name="termValue" type="number-decimal"/>
+        <field name="termUomId" type="id"/>
+        <relationship type="one" title="BillingAccountTermType" related-entity-name="Enumeration">
+            <key-map field-name="termTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="TermType">
-            <key-map field-name="termTypeId"/>
+        <relationship type="one" title="Term" related-entity-name="Uom">
+            <key-map field-name="termUomId"/>
         </relationship>
         <relationship type="one" related-entity-name="BillingAccount"/>
     </entity>
@@ -91,7 +86,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="finAccountName" type="text-medium"/>
         <field name="finAccountCode" type="text-long" encrypt="true"/>
         <field name="finAccountPin" type="text-long" encrypt="true"/>
-        <field name="currencyUomId" type="id"/>
         <field name="organizationPartyId" type="id">
             <description>The internal organization Party that is liable for the account.</description>
         </field>
@@ -100,20 +94,19 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="isRefundable" type="text-indicator"/>
-        <field name="replenishPaymentId" type="id"/>
-        <field name="replenishLevel" type="currency-amount"/>
+        <field name="balanceUomId" type="id"/>
         <field name="actualBalance" type="currency-amount">
             <description>Calculated as the sum of FinancialAccountTrans.amount</description>
         </field>
         <field name="availableBalance" type="currency-amount">
             <description>Calculated as actualBalance minus sum of outstanding FinancialAccountAuth.amount</description>
         </field>
+        <field name="replenishPaymentId" type="id"/>
+        <field name="replenishLevel" type="currency-amount"/>
         <relationship type="one" related-entity-name="FinancialAccountType">
             <key-map field-name="finAccountTypeId"/>
         </relationship>
-        <relationship type="one" title="Currency" related-entity-name="Uom">
-            <key-map field-name="currencyUomId"/>
-        </relationship>
+        <relationship type="one" title="FinancialAccount" related-entity-name="StatusItem"/>
         <relationship type="one" title="Organization" related-entity-name="Party">
             <key-map field-name="organizationPartyId"/>
         </relationship>
@@ -122,6 +115,9 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" title="PostTo" related-entity-name="GlAccount">
             <key-map field-name="postToGlAccountId"/>
+        </relationship>
+        <relationship type="one" title="Balance" related-entity-name="Uom">
+            <key-map field-name="balanceUomId"/>
         </relationship>
         <relationship type="one" title="Replenish" related-entity-name="PaymentMethod">
             <key-map field-name="replenishPaymentId"/>
@@ -144,12 +140,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="FinancialAccount"/>
-        <relationship type="one-nofk" related-entity-name="Party"/>
-        <relationship type="one-nofk" related-entity-name="RoleType"/>
-        <relationship type="one" related-entity-name="PartyRole">
-            <key-map field-name="partyId"/>
-            <key-map field-name="roleTypeId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
     </entity>
     <entity entity-name="FinancialAccountTrans" package-name="mantle.accounting.account.financial">
         <field name="finAccountTransId" type="id" is-pk="true"/>
@@ -184,10 +176,10 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="PerformedBy" related-entity-name="Party">
             <key-map field-name="performedByPartyId"/>
         </relationship>
-        <relationship type="one" title="Reason" related-entity-name="Enumeration">
+        <relationship type="one" title="FinancialAccountTransReason" related-entity-name="Enumeration">
             <key-map field-name="reasonEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="FinancialAccountTrans" related-entity-name="StatusItem"/>
         <relationship type="one" related-entity-name="GlReconciliation"/>
     </entity>
     <entity entity-name="FinancialAccountType" package-name="mantle.accounting.account.financial">
@@ -211,10 +203,10 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Parent" related-entity-name="FinancialAccountType">
             <key-map field-name="parentTypeId"/>
         </relationship>
-        <relationship type="one" title="ReplenishMethod" related-entity-name="Enumeration">
+        <relationship type="one" title="FinancialAccountReplenishMethod" related-entity-name="Enumeration">
             <key-map field-name="replenishMethodEnumId"/>
         </relationship>
-        <relationship type="one" title="ReplenishType" related-entity-name="Enumeration">
+        <relationship type="one" title="FinancialAccountReplenishType" related-entity-name="Enumeration">
             <key-map field-name="replenishTypeEnumId"/>
         </relationship>
     </entity>
@@ -246,7 +238,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="To" related-entity-name="Party">
             <key-map field-name="toPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="Invoice" related-entity-name="StatusItem"/>
         <relationship type="one" related-entity-name="BillingAccount"/>
         <relationship type="one" title="Currency" related-entity-name="Uom">
             <key-map field-name="currencyUomId"/>
@@ -254,10 +246,12 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="InvoiceContactMech" package-name="mantle.accounting.account.invoice">
         <field name="invoiceId" type="id" is-pk="true"/>
-        <field name="contactMechPurposeTypeId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeEnumId" type="id" is-pk="true"/>
         <field name="contactMechId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="Invoice"/>
-        <relationship type="one" related-entity-name="ContactMechPurposeType"/>
+        <relationship type="one" title="ContactMechPurpose" related-entity-name="Enumeration">
+            <key-map field-name="contactMechPurposeEnumId"/>
+        </relationship>
         <relationship type="one" related-entity-name="ContactMech"/>
     </entity>
     <entity entity-name="InvoiceItem" package-name="mantle.accounting.account.invoice">
@@ -283,7 +277,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="description" type="text-long"/>
         <field name="taxAuthPartyId" type="id"/>
         <field name="taxAuthGeoId" type="id"/>
-        <field name="taxAuthorityRateSeqId" type="id"/>
+        <field name="taxAuthorityRateSalesId" type="id"/>
         <field name="salesOpportunityId" type="id"/>
         <relationship type="one" title="ItemType" related-entity-name="Enumeration">
             <key-map field-name="itemTypeEnumId"/>
@@ -305,7 +299,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Tax" related-entity-name="Geo">
             <key-map field-name="taxAuthGeoId"/>
         </relationship>
-        <relationship type="one" related-entity-name="TaxAuthorityRateProduct"/>
+        <relationship type="one" related-entity-name="TaxAuthorityRateSales"/>
         <relationship type="one" title="OverrideOrg" related-entity-name="Party">
             <key-map field-name="overrideOrgPartyId"/>
         </relationship>
@@ -470,7 +464,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="partyId" type="id"/>
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"/>
-        <field name="surveyResponseId" type="id"/>
+        <field name="surveyResponseId" type="id"><!-- TODO replace this with dyn form or something --></field>
         <field name="cardNumber" type="text-long" encrypt="true"/>
         <field name="pinNumber" type="text-long" encrypt="true"/>
         <field name="amount" type="currency-amount"/>
@@ -490,9 +484,6 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="OrderItem">
             <key-map field-name="orderId"/>
             <key-map field-name="orderItemSeqId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="SurveyResponse">
-            <key-map field-name="surveyResponseId"/>
         </relationship>
     </entity>
     <entity entity-name="PayPalAccount" package-name="mantle.accounting.account.method">
@@ -526,7 +517,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="paymentTypeEnumId" type="id"/>
         <field name="paymentMethodTypeEnumId" type="id"/>
         <field name="paymentMethodId" type="id"/>
-        <field name="paymentGatewayResponseId" type="id"/>
+        <!-- Add later with payment gateway integrations: <field name="paymentGatewayResponseId" type="id"/> -->
         <field name="orderPaymentPreferenceId" type="id"/>
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
@@ -555,7 +546,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="actualCurrencyUomId"/>
         </relationship>
         <relationship type="one" related-entity-name="OrderPaymentPreference"/>
-        <relationship type="one" related-entity-name="PaymentGatewayResponse"/>
+        <!-- Add later with payment gateway integrations: <relationship type="one" related-entity-name="PaymentGatewayResponse"/> -->
         <relationship type="one" title="From" related-entity-name="Party"><key-map field-name="fromPartyId"/></relationship>
         <relationship type="one" title="To" related-entity-name="Party"><key-map field-name="toPartyId"/></relationship>
         <relationship type="one" related-entity-name="StatusItem"/>

@@ -31,21 +31,20 @@ and those parts may be licensed under the Apache License 2.0.
 
     <entity entity-name="ProductCategory" package-name="mantle.product.category">
         <field name="productCategoryId" type="id" is-pk="true"/>
-        <field name="productCategoryTypeId" type="id"/>
+        <field name="productCategoryTypeEnumId" type="id"/>
         <field name="categoryName" type="text-medium"/>
         <field name="description" type="text-very-long"/>
-        <relationship type="one" related-entity-name="ProductCategoryType">
-            <key-map field-name="productCategoryTypeId"/>
+        <relationship type="one" title="ProductCategoryType" related-entity-name="Enumeration">
+            <key-map field-name="productCategoryTypeEnumId"/>
         </relationship>
     </entity>
     <entity entity-name="ProductCategoryContent" package-name="mantle.product.category">
         <field name="productCategoryId" type="id" is-pk="true"/>
-        <field name="contentId" type="id" is-pk="true"/>
+        <field name="contentLocation" type="text-long"/>
         <field name="categoryContentTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="ProductCategory"/>
-        <relationship type="one" related-entity-name="Content"/>
         <relationship type="one" title="ProductCategoryContentType" related-entity-name="Enumeration">
             <key-map field-name="categoryContentTypeEnumId"/>
         </relationship>
@@ -118,12 +117,11 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="ProductConfigItemContent" package-name="mantle.product.config">
         <field name="configItemId" type="id" is-pk="true"/>
-        <field name="contentId" type="id" is-pk="true"/>
+        <field name="contentLocation" type="text-long" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="itemContentTypeEnumId" type="id"/>
         <relationship type="one" related-entity-name="ProductConfigItem"/>
-        <relationship type="one" related-entity-name="Content"/>
         <relationship type="one" title="ProductConfigItemContentType" related-entity-name="Enumeration">
             <key-map field-name="itemContentTypeEnumId"/>
         </relationship>
@@ -218,29 +216,25 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="CostComponentCalc" package-name="mantle.product.cost">
         <field name="costComponentCalcId" type="id" is-pk="true"/>
         <field name="description" type="text-long"/>
-        <field name="costGlAccountTypeId" type="id"/>
-        <field name="offsettingGlAccountTypeId" type="id"/>
+        <field name="costGlAccountTypeEnumId" type="id"/>
+        <field name="offsetGlAccountTypeEnumId" type="id"/>
         <field name="fixedCost" type="currency-amount"/>
         <field name="variableCost" type="currency-amount"/>
         <field name="perMilliSecond" type="number-integer"/>
-        <field name="currencyUomId" type="id"/>
-        <field name="costCustomMethodId" type="id"/>
-        <relationship type="one" title="Cost" related-entity-name="GlAccountType">
+        <field name="costUomId" type="id"/>
+        <relationship type="one" title="CostGlAccountType" related-entity-name="Enumeration">
             <key-map field-name="costGlAccountTypeId"/>
         </relationship>
-        <relationship type="one" title="Offsetting" related-entity-name="GlAccountType">
+        <relationship type="one" title="OffsetGlAccountType" related-entity-name="Enumeration">
             <key-map field-name="offsettingGlAccountTypeId"/>
         </relationship>
-        <relationship type="one" title="Currency" related-entity-name="Uom">
-            <key-map field-name="currencyUomId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="CustomMethod">
-            <key-map field-name="costCustomMethodId"/>
+        <relationship type="one" title="Cost" related-entity-name="Uom">
+            <key-map field-name="costUomId"/>
         </relationship>
     </entity>
     <entity entity-name="ProductCostComponentCalc" package-name="mantle.product.cost">
         <field name="productId" type="id" is-pk="true"/>
-        <field name="costComponentTypeId" type="id" is-pk="true"/>
+        <field name="costComponentTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="costComponentCalcId" type="id"/>
         <field name="sequenceNum" type="number-integer"/>
@@ -248,8 +242,8 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Product">
             <key-map field-name="productId"/>
         </relationship>
-        <relationship type="one" related-entity-name="CostComponentType">
-            <key-map field-name="costComponentTypeId"/>
+        <relationship type="one" title="CostComponentType" related-entity-name="Enumeration">
+            <key-map field-name="costComponentTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="CostComponentCalc">
             <key-map field-name="costComponentCalcId"/>
@@ -446,7 +440,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="productAssocId" type="id" is-pk="true"/>
         <field name="productId" type="id"/>
         <field name="toProductId" type="id"/>
-        <field name="productAssocTypeId" type="id"/>
+        <field name="productAssocTypeEnumId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="sequenceNum" type="number-integer"/>
@@ -455,8 +449,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="scrapFactor" type="number-decimal"/>
         <field name="instruction" type="text-long"/>
         <field name="routingWorkEffortId" type="id"/>
-        <relationship type="one" related-entity-name="ProductAssocType">
-            <key-map field-name="productAssocTypeId"/>
+        <relationship type="one" title="ProductAssocType" related-entity-name="Enumeration">
+            <key-map field-name="productAssocTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" title="To" related-entity-name="Product">
@@ -475,13 +469,12 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="ProductContent" package-name="mantle.product.product">
         <field name="productId" type="id" is-pk="true"/>
-        <field name="contentId" type="id" is-pk="true"/>
+        <field name="contentLocation" type="text-long" is-pk="true"/>
         <field name="productContentTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="sequenceNum" type="number-integer"/>
         <relationship type="one" related-entity-name="Product"/>
-        <relationship type="one" related-entity-name="Content"/>
         <relationship type="one" title="ProductContentType" related-entity-name="Enumeration">
             <key-map field-name="productContentTypeEnumId"/>
         </relationship>
@@ -636,10 +629,9 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="subscriptionResourceId" type="id" is-pk="true"/>
         <field name="parentResourceId" type="id"/>
         <field name="description" type="text-long"/>
-        <field name="contentId" type="id"/>
+        <field name="contentLocation" type="text-long"/>
         <relationship type="one" title="Parent" related-entity-name="SubscriptionResource">
             <key-map field-name="parentResourceId"/>
         </relationship>
-        <relationship type="one" related-entity-name="Content"/>
     </entity>
 </entities>
