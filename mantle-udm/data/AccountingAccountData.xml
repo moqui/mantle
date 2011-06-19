@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entity-facade-xml type="seed">
+    <!--  - mantle.accounting.account.billing -->
+
+    <!-- Billing Account Term Type -->
+    <EnumerationType description="Billing Account Term Type" enumTypeId="BillingAccountTermType"/>
+
+    <!--  - mantle.accounting.account.financial -->
+
+    <!-- Financial Account Trans Type -->
+    <EnumerationType description="Financial Account Trans Type" enumTypeId="FinancialAccountTransType"/>
+    <Enumeration description="Deposit" enumId="FATT_DEPOSIT" enumTypeId="FinancialAccountTransType"/>
+    <Enumeration description="Withdraw" enumId="FATT_WITHDRAWAL" enumTypeId="FinancialAccountTransType"/>
+    <Enumeration description="Adjustment" enumId="FATT_ADJUSTMENT" enumTypeId="FinancialAccountTransType"/>
+
+    <!-- Financial Account Status -->
+    <StatusType description="Financial Account Status" statusTypeId="FinancialAccount"/>
+    <StatusItem description="Active" sequenceNum="1" statusId="FNACT_ACTIVE" statusTypeId="FinancialAccount"/>
+    <!-- This is set automatically by the auto-replenishment code to allow one transaction to bring the balance below
+        zero and then if any other transactions are attempted during replenishment they will be rejected. -->
+    <StatusItem description="Negative Pending Replenishment" sequenceNum="2" statusId="FNACT_NEGPENDREPL" statusTypeId="FinancialAccount"/>
+    <!-- This is meant to be set manually by a company representative to freeze an account so further transactions are
+        not allowed. -->
+    <StatusItem description="Manually Frozen" sequenceNum="3" statusId="FNACT_MANFROZEN" statusTypeId="FinancialAccount"/>
+    <StatusItem description="Cancelled" sequenceNum="9" statusId="FNACT_CANCELLED" statusTypeId="FinancialAccount"/>
+    <StatusValidChange statusId="FNACT_ACTIVE" statusIdTo="FNACT_NEGPENDREPL" transitionName="Set Negative Pending Replenishment"/>
+    <StatusValidChange statusId="FNACT_ACTIVE" statusIdTo="FNACT_MANFROZEN" transitionName="Set Manually Frozen"/>
+    <StatusValidChange statusId="FNACT_ACTIVE" statusIdTo="FNACT_CANCELLED" transitionName="Cancel"/>
+    <StatusValidChange statusId="FNACT_NEGPENDREPL" statusIdTo="FNACT_ACTIVE" transitionName="Re-activate"/>
+    <StatusValidChange statusId="FNACT_NEGPENDREPL" statusIdTo="FNACT_MANFROZEN" transitionName="Manually Freeze"/>
+    <StatusValidChange statusId="FNACT_NEGPENDREPL" statusIdTo="FNACT_CANCELLED" transitionName="Cancel"/>
+    <StatusValidChange statusId="FNACT_MANFROZEN" statusIdTo="FNACT_ACTIVE" transitionName="Re-activate"/>
+    <StatusValidChange statusId="FNACT_MANFROZEN" statusIdTo="FNACT_CANCELLED" transitionName="Cancel"/>
+
+    <!-- Financial Account Trans Status -->
+    <StatusType statusTypeId="FinancialAccountTrans" description="Financial Account Trans Status"/>
+    <StatusItem statusId="FINACT_TRNS_APPROVED" statusTypeId="FinancialAccountTrans" sequenceNum="1" description="Approved"/>
+    <StatusItem statusId="FINACT_TRNS_CREATED" statusTypeId="FinancialAccountTrans" sequenceNum="2" description="Created"/>
+    <StatusItem statusId="FINACT_TRNS_CANCELED" statusTypeId="FinancialAccountTrans" sequenceNum="9" description="Canceled"/>
+    <StatusValidChange statusId="FINACT_TRNS_CREATED" statusIdTo="FINACT_TRNS_APPROVED" transitionName="Approve"/>
+    <StatusValidChange statusId="FINACT_TRNS_CREATED" statusIdTo="FINACT_TRNS_CANCELED" transitionName="Cancel"/>
+    <StatusValidChange statusId="FINACT_TRNS_APPROVED" statusIdTo="FINACT_TRNS_CANCELED" transitionName="Cancel"/>
+
+    <!-- Financial Account Trans Reason -->
+    <EnumerationType description="Financial Account Trans Reason" enumTypeId="FinancialAccountTransReason"/>
+    <Enumeration description="Purchase" enumId="FATR_PURCHASE" enumTypeId="FinancialAccountTransReason"/>
+    <Enumeration description="Initial Deposit" enumId="FATR_IDEPOSIT" enumTypeId="FinancialAccountTransReason"/>
+    <Enumeration description="Replenishment" enumId="FATR_REPLENISH" enumTypeId="FinancialAccountTransReason"/>
+    <Enumeration description="Refund" enumId="FATR_REFUND" enumTypeId="FinancialAccountTransReason"/>
+
+    <!-- Financial Account Type (NOTE: not an Enumeration because has additional fields) -->
+    <FinancialAccountType description="Gift Certificate" finAccountTypeId="GIFTCERT_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="N"/>
+    <FinancialAccountType description="Deposit Account" finAccountTypeId="DEPOSIT_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="Y"/>
+    <FinancialAccountType description="Bank Account" finAccountTypeId="BANK_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+    <FinancialAccountType description="Store Credit Account" finAccountTypeId="STORE_CREDIT_ACCT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+    <FinancialAccountType description="Investment Account" finAccountTypeId="INVESTMENT_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+    <FinancialAccountType description="Replenish Account" finAccountTypeId="REPLENISH_ACCOUNT"
+                          replenishEnumId="FARP_AUTOMATIC" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+    <FinancialAccountType description="Service Credit Account" finAccountTypeId="SVCCRED_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="N"/>
+    <FinancialAccountType description="Loan Account" finAccountTypeId="LOAN_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="Y"/>
+    <FinancialAccountType description="Credit Card Account" finAccountTypeId="CREDIT_CARD_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="LOAN_ACCOUNT"/>
+    <FinancialAccountType description="Equity Line Account" finAccountTypeId="EQUITY_LINE_ACCOUNT"
+                          replenishEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="LOAN_ACCOUNT"/>
+
+    <!-- Financial Account Replenish Type -->
+    <EnumerationType description="Financial Account Replenish Type" enumTypeId="FinancialAccountReplenishType"/>
+    <Enumeration description="Automatic Replenish" enumId="FARP_AUTOMATIC" enumTypeId="FinancialAccountReplenishType"/>
+    <Enumeration description="Manual Replenish" enumId="FARP_MANUAL" enumTypeId="FinancialAccountReplenishType"/>
+    <Enumeration description="No Replenish" enumId="FARP_NONE" enumTypeId="FinancialAccountReplenishType"/>
+
+    <!-- Financial Account Replenish Method -->
+    <EnumerationType description="Financial Account Replenish Method" enumTypeId="FinancialAccountReplenishMethod"/>
+    <Enumeration description="Top-off" enumId="FARP_TOP_OFF" enumTypeId="FinancialAccountReplenishMethod"/>
+    <Enumeration description="Replenish-level" enumId="FARP_REPLENISH_LEVEL" enumTypeId="FinancialAccountReplenishMethod"/>
+
+    <!--  - mantle.accounting.account.invoice -->
+
+    <!-- Invoice Type -->
+    <EnumerationType description="Invoice Type" enumTypeId="InvoiceType"/>
+    <Enumeration description="Payable Invoice" enumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Purchase Invoice" enumId="PURCHASE_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Customer Return" enumId="CUST_RTN_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Commission" enumId="COMMISSION_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Payroll" enumId="PAYROLL_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Receivable Invoice" enumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Sales Invoice" enumId="SALES_INVOICE" parentEnumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Vendor Return" enumId="VEND_RTN_INVOICE" parentEnumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Interest" enumId="INTEREST_INVOICE" parentEnumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Invoice Template" enumId="TEMPLATE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Sales Invoice Template" enumId="SALES_INV_TEMPLATE" parentEnumId="TEMPLATE" enumTypeId="InvoiceType"/>
+    <Enumeration description="Purchase Invoice Template" enumId="PUR_INV_TEMPLATE" parentEnumId="TEMPLATE" enumTypeId="InvoiceType"/>
+
+    <!-- Invoice Status -->
+    <StatusType description="Invoice Status" statusTypeId="Invoice"/>
+    <StatusItem description="In-Process" sequenceNum="1" statusId="INVOICE_IN_PROCESS" statusTypeId="Invoice"/>
+    <StatusItem description="Approved" sequenceNum="2" statusId="INVOICE_APPROVED" statusTypeId="Invoice"/>
+    <StatusItem description="Sent" sequenceNum="10" statusId="INVOICE_SENT" statusTypeId="Invoice"/>
+    <StatusItem description="Received" sequenceNum="11" statusId="INVOICE_RECEIVED" statusTypeId="Invoice"/>
+    <!-- READY is a very important state - it triggers general ledger postings.  Make sure your invoices go through this state -->
+    <StatusItem description="Ready for Posting" sequenceNum="20" statusId="INVOICE_READY" statusTypeId="Invoice"/>
+    <StatusItem description="Paid" sequenceNum="30" statusId="INVOICE_PAID" statusTypeId="Invoice"/>
+    <StatusItem description="Write Off" sequenceNum="31" statusId="INVOICE_WRITEOFF" statusTypeId="Invoice"/>
+    <StatusItem description="Cancelled" sequenceNum="99" statusId="INVOICE_CANCELLED" statusTypeId="Invoice"/>
+    <!-- this is the simplest process: IN_PROCESS -> READY or CANCELLED -->
+    <StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_READY" transitionName="Mark Ready"/>
+    <StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+    <!-- this is a more complicated process: IN_PROCESS -> SENT -> (optionally RECEIVED) -> READY or CANCELLED -->
+    <StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_SENT" transitionName="Send"/>
+    <StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_RECEIVED" transitionName="Receive"/>
+    <StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_APPROVED" transitionName="Mark Approved"/>
+    <StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_READY" transitionName="Mark Ready"/>
+    <StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_RECEIVED" transitionName="Receive"/>
+    <StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_READY" transitionName="Mark Receive"/>
+    <StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+    <StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+    <!-- this is a process to enable modification via the Status IN_PROCESS when the receiver/sender wants an invoice change or to cancel it -->
+    <StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_IN_PROCESS" transitionName="Enable sales invoice update"/>
+    <StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_IN_PROCESS" transitionName="Enable purch.invoice update"/>
+    <!-- an optional approval state is put in before invoice is sent or after it is received -->
+    <StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_APPROVED" transitionName="Approve"/>
+    <StatusValidChange statusId="INVOICE_APPROVED" statusIdTo="INVOICE_SENT" transitionName="Send"/>
+    <StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_RECEIVED" transitionName="Receive"/>
+    <StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_APPROVED" transitionName="Approve"/>
+    <StatusValidChange statusId="INVOICE_APPROVED" statusIdTo="INVOICE_READY" transitionName="Mark Ready"/>
+    <!-- finally the invoice can be paid or written off.   -->
+    <StatusValidChange statusId="INVOICE_READY" statusIdTo="INVOICE_PAID" transitionName="Pay"/>
+    <StatusValidChange statusId="INVOICE_READY" statusIdTo="INVOICE_WRITEOFF" transitionName="Write Off"/>
+    <StatusValidChange statusId="INVOICE_PAID" statusIdTo="INVOICE_READY" transitionName="Unpay"/>
+    <StatusValidChange statusId="INVOICE_READY" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+    <StatusValidChange statusId="INVOICE_PAID" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+
+    <!-- Invoice Item Assoc Type -->
+    <EnumerationType description="Invoice Item Assoc Type" enumTypeId="InvoiceItemAssocType"/>
+    <Enumeration description="Commission" enumId="COMMISSION_INVOICE" enumTypeId="InvoiceItemAssocType"/>
+    <Enumeration description="Withdraw" enumId="WITHDRAW_INVOICE" enumTypeId="InvoiceItemAssocType"/>
+
+    <!-- NOTE: this is not an Enumeration because it needs additional fields -->
+    <SettlementTerm settlementTermId="IMMED" termName="Immediate (Due on Delivery)" termValue="0" termValueUomId="TF_day"/>
+    <SettlementTerm settlementTermId="NET_15" termName="Net Due in 15 Days" termValue="15" termValueUomId="TF_day"/>
+    <SettlementTerm settlementTermId="NET_30" termName="Net Due in 30 Days" termValue="30" termValueUomId="TF_day"/>
+    <SettlementTerm settlementTermId="NET_60" termName="Net Due in 60 Days" termValue="60" termValueUomId="TF_day"/>
+    <SettlementTerm settlementTermId="NET_90" termName="Net Due in 90 Days" termValue="90" termValueUomId="TF_day"/>
+
+    <!--  - mantle.accounting.account.method -->
+
+    <!-- Payment Method Type -->
+    <EnumerationType description="Payment Method Type" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Credit Card" enumId="PMT_CREDIT_CARD" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Gift Card" enumId="PMT_GIFT_CARD" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Gift Certificate" enumId="PMT_GIFT_CERTIFICATE" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Cash" enumId="PMT_CASH" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Electronic Funds Transfer" enumId="PMT_EFT_ACCOUNT" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Financial Account" enumId="PMT_FIN_ACCOUNT" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Personal Check" enumId="PMT_PERSONAL_CHECK" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Company Check" enumId="PMT_COMPANY_CHECK" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Certified Check" enumId="PMT_CERTIFIED_CHECK" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Money Order" enumId="PMT_MONEY_ORDER" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Company Account" enumId="PMT_COMPANY_ACCOUNT" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Billing Account" enumId="PMT_EXT_BILLACT" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Cash On Delivery" enumId="PMT_EXT_COD" enumTypeId="PaymentMethodType"/>
+    <Enumeration description="Offline Payment" enumId="PMT_EXT_OFFLINE" enumTypeId="PaymentMethodType"/>
+
+    <!-- Credit Card Type -->
+    <EnumerationType description="Credit Card Type" enumTypeId="CreditCardType"/>
+    <Enumeration description="Visa" enumId="CCT_VISA" enumTypeId="CreditCardType"/>
+    <Enumeration description="Master Card" enumId="CCT_MASTERCARD" enumTypeId="CreditCardType"/>
+    <Enumeration description="American Express" enumId="CCT_AMERICANEXPRESS" enumTypeId="CreditCardType"/>
+    <Enumeration description="Diners Club" enumId="CCT_DINERSCLUB" enumTypeId="CreditCardType"/>
+    <Enumeration description="Discover" enumId="CCT_DISCOVER" enumTypeId="CreditCardType"/>
+    <Enumeration description="EnRoute" enumId="CCT_ENROUTE" enumTypeId="CreditCardType"/>
+    <Enumeration description="Carte Blanche" enumId="CCT_CARTEBLANCHE" enumTypeId="CreditCardType"/>
+    <Enumeration description="JCB" enumId="CCT_JCB" enumTypeId="CreditCardType"/>
+    <Enumeration description="Solo" enumId="CCT_SOLO" enumTypeId="CreditCardType"/>
+    <Enumeration description="Switch" enumId="CCT_SWITCH" enumTypeId="CreditCardType"/>
+    <Enumeration description="Visa Electron" enumId="CCT_VISAELECTRON" enumTypeId="CreditCardType"/>
+    <Enumeration description="Universal Air Travel Plan" enumId="CCT_UATP" enumTypeId="CreditCardType"/>
+
+    <!--  - mantle.accounting.account.payment -->
+
+    <!-- Payment Type -->
+    <EnumerationType description="Payment Type" enumTypeId="PaymentType"/>
+    <Enumeration description="Disbursement" enumId="DISBURSEMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Customer Refund" parentEnumId="DISBURSEMENT" enumId="CUSTOMER_REFUND" enumTypeId="PaymentType"/>
+    <Enumeration description="Vendor Payment" parentEnumId="DISBURSEMENT" enumId="VENDOR_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Vendor Prepayment" parentEnumId="DISBURSEMENT" enumId="VENDOR_PREPAY" enumTypeId="PaymentType"/>
+    <Enumeration description="Commission Payment" parentEnumId="DISBURSEMENT" enumId="COMMISSION_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Payroll Payment" parentEnumId="DISBURSEMENT" enumId="PAYROLL_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Pay Check" parentEnumId="DISBURSEMENT" enumId="PAY_CHECK" enumTypeId="PaymentType"/>
+    <Enumeration description="Tax Payment" parentEnumId="DISBURSEMENT" enumId="TAX_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Sales Tax Payment" parentEnumId="TAX_PAYMENT" enumId="SALES_TAX_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Payroll Tax Payment" parentEnumId="TAX_PAYMENT" enumId="PAYROLL_TAX_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Income Tax Payment" parentEnumId="TAX_PAYMENT" enumId="INCOME_TAX_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Gift Certificate Withdrawal"  parentEnumId="DISBURSEMENT" enumId="GC_WITHDRAWAL" enumTypeId="PaymentType"/>
+
+    <Enumeration description="Receipt" enumId="RECEIPT" enumTypeId="PaymentType"/>
+    <Enumeration description="Customer Payment" parentEnumId="RECEIPT" enumId="CUSTOMER_PAYMENT" enumTypeId="PaymentType"/>
+    <Enumeration description="Customer Deposit" parentEnumId="RECEIPT" enumId="CUSTOMER_DEPOSIT" enumTypeId="PaymentType"/>
+    <Enumeration description="Interest Receipt" parentEnumId="RECEIPT" enumId="INTEREST_RECEIPT" enumTypeId="PaymentType"/>
+    <Enumeration description="Gift Certificate Deposit"  parentEnumId="RECEIPT" enumId="GC_DEPOSIT" enumTypeId="PaymentType"/>
+
+    <Enumeration description="POS Paid Out" parentEnumId="DISBURSEMENT" enumId="POS_PAID_OUT" enumTypeId="PaymentType"/>
+    <Enumeration description="POS Paid In" parentEnumId="RECEIPT" enumId="POS_PAID_IN" enumTypeId="PaymentType"/>
+
+    <!-- Payment Status -->
+    <StatusType description="Payment Status" statusTypeId="PMNT_STATUS"/>
+    <StatusItem description="Not Paid" sequenceNum="1" statusId="PMNT_NOT_PAID" statusTypeId="PMNT_STATUS"/>
+    <StatusItem description="Sent" sequenceNum="3" statusId="PMNT_SENT" statusTypeId="PMNT_STATUS"/>
+    <StatusItem description="Received" sequenceNum="4" statusId="PMNT_RECEIVED" statusTypeId="PMNT_STATUS"/>
+    <StatusItem description="Confirmed" sequenceNum="5" statusId="PMNT_CONFIRMED" statusTypeId="PMNT_STATUS"/>
+    <StatusItem description="Cancelled" sequenceNum="10" statusId="PMNT_CANCELLED" statusTypeId="PMNT_STATUS"/>
+    <StatusItem description="Voided" sequenceNum="11" statusId="PMNT_VOID" statusTypeId="PMNT_STATUS"/>
+    <StatusValidChange statusId="PMNT_NOT_PAID" statusIdTo="PMNT_SENT" transitionName="Payment Send"/>
+    <StatusValidChange statusId="PMNT_NOT_PAID" statusIdTo="PMNT_RECEIVED" transitionName="Payment Received"/>
+    <StatusValidChange statusId="PMNT_NOT_PAID" statusIdTo="PMNT_CANCELLED" transitionName="Payment Cancelled"/>
+    <StatusValidChange statusId="PMNT_SENT" statusIdTo="PMNT_CONFIRMED" transitionName="Payment Confirmed"/>
+    <StatusValidChange statusId="PMNT_RECEIVED" statusIdTo="PMNT_CONFIRMED" transitionName="Payment Confirmed"/>
+    <StatusValidChange statusId="PMNT_SENT" statusIdTo="PMNT_VOID" transitionName="Payment Voided"/>
+    <StatusValidChange statusId="PMNT_RECEIVED" statusIdTo="PMNT_VOID" transitionName="Payment Voided"/>
+    <StatusValidChange statusId="PMNT_NOT_PAID" statusIdTo="PMNT_VOID" transitionName="Payment Voided"/>
+    <StatusValidChange statusId="PMNT_SENT" statusIdTo="PMNT_NOT_PAID" transitionName="Payment Not Paid"/>
+    <StatusValidChange statusId="PMNT_RECEIVED" statusIdTo="PMNT_NOT_PAID" transitionName="Payment Not Paid"/>
+    <StatusValidChange statusId="PMNT_CONFIRMED" statusIdTo="PMNT_SENT" transitionName="Payment Confirmed to Sent"/>
+    <StatusValidChange statusId="PMNT_CONFIRMED" statusIdTo="PMNT_RECEIVED" transitionName="Payment Confirmed to Received"/>
+</entity-facade-xml>
