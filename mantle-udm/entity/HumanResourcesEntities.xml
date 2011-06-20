@@ -32,16 +32,16 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="qualificationTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
-        <field name="qualificationDesc" type="id-long"/>
-        <field name="title" type="id-long"><description>Title of degree or job</description></field>
+        <field name="description" type="text-long"/>
+        <field name="title" type="text-long"><description>Title of degree or job</description></field>
         <field name="statusId" type="id"><description>Status e.g. completed, part-time etc.</description></field>
         <field name="verificationStatusId" type="id"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" title="QualificationType" related-entity-name="Enumeration">
             <key-map field-name="qualificationTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
-        <relationship type="one" title="Verification" related-entity-name="StatusItem">
+        <relationship type="one" title="PartyQualification" related-entity-name="StatusItem"/>
+        <relationship type="one" title="PartyQualificationVerification" related-entity-name="StatusItem">
             <key-map field-name="verificationStatusId"/>
         </relationship>
     </entity>
@@ -50,7 +50,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="partyId" type="id"/>
         <field name="contentLocation" type="text-long"/>
         <field name="resumeDate" type="date-time"/>
-        <field name="resumeText" type="text-long"/>
+        <field name="resumeText" type="text-very-long"/>
         <relationship type="one" related-entity-name="Party"/>
     </entity>
     <entity entity-name="PartySkill" package-name="mantle.humanres.ability">
@@ -90,10 +90,10 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="reviewRatingEnumId" type="id"/>
         <field name="comments" type="text-long"/>
         <relationship type="one" related-entity-name="PerformanceReview"/>
-        <relationship type="one" title="ReviewItemType" related-entity-name="Enumeration">
+        <relationship type="one" title="PerformanceReviewItemType" related-entity-name="Enumeration">
             <key-map field-name="reviewItemTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="ReviewRating" related-entity-name="Enumeration">
+        <relationship type="one" title="PerformanceReviewRating" related-entity-name="Enumeration">
             <key-map field-name="reviewRatingEnumId"/>
         </relationship>
     </entity>
@@ -112,14 +112,14 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="thruDate" type="date-time"/>
         <field name="workEffortId" type="id"/>
         <field name="approverPartyId" type="id"/>
-        <field name="approvalStatusId" type="id"/>
+        <field name="trainingApproved" type="text-indicator" enable-audit-log="true"/>
         <field name="reason" type="text-long"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="TrainingClass"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
         <relationship type="one" title="Approver" related-entity-name="Party">
             <key-map field-name="approverPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="WorkEffort"/>
     </entity>
     <entity entity-name="TrainingClass" package-name="mantle.humanres.trainings">
         <field name="trainingClassId" type="id" is-pk="true"/>
@@ -168,19 +168,17 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="EmploymentApplication" package-name="mantle.humanres.employment">
         <field name="employmentApplicationId" type="id"/>
         <field name="emplPositionId" type="id"/>
-        <field name="applicationSourceEnumId" type="id"/>
-        <field name="applicationDate" type="date-time"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="referredByEnumId" type="id"/>
+        <field name="applicationDate" type="date-time"/>
         <field name="applyingPartyId" type="id"/>
         <field name="referredByPartyId" type="id"/>
         <field name="approverPartyId" type="id"/>
         <field name="jobRequisitionId" type="id"/>
         <relationship type="one" related-entity-name="EmplPosition"/>
-        <relationship type="one-nofk" related-entity-name="StatusItem">
-            <key-map field-name="statusId"/>
-        </relationship>
-        <relationship type="one" title="ApplicationSource" related-entity-name="Enumeration">
-            <key-map field-name="applicationSourceEnumId"/>
+        <relationship type="one" title="EmploymentApplication" related-entity-name="StatusItem"/>
+        <relationship type="one" title="EmploymentApplicationReferredBy" related-entity-name="Enumeration">
+            <key-map field-name="referredByEnumId"/>
         </relationship>
         <relationship type="one" title="Applying" related-entity-name="Party">
             <key-map field-name="applyingPartyId"/>
@@ -193,14 +191,27 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" related-entity-name="JobRequisition"/>
     </entity>
-    <entity entity-name="EmploymentLeave" package-name="mantle.humanres.employment">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="leaveTypeEnumId" type="id" is-pk="true"/>
+    <entity entity-name="EmploymentBenefit" package-name="mantle.humanres.employment">
+        <field name="employmentId" type="id" is-pk="true"/>
+        <field name="benefitTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
+        <field name="cost" type="currency-amount"/>
+        <field name="actualEmployerPaidPercent" type="number-float"/>
+        <field name="availableTime" type="number-integer"/>
+        <relationship type="one" related-entity-name="Employment"/>
+        <relationship type="one" title="EmploymentBenefitType" related-entity-name="Enumeration">
+            <key-map field-name="benefitTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="EmploymentLeave" package-name="mantle.humanres.employment">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date" is-pk="true"/>
+        <field name="thruDate" type="date"/>
+        <field name="leaveTypeEnumId" type="id"/>
         <field name="leaveReasonEnumId" type="id"/>
+        <field name="leaveApproved" type="text-indicator" enable-audit-log="true"/>
         <field name="approverPartyId" type="id"/>
-        <field name="statusId" type="id"/>
         <field name="description" type="text-long"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" title="EmploymentLeaveType" related-entity-name="Enumeration">
@@ -212,31 +223,6 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Approver" related-entity-name="Party">
             <key-map field-name="approverPartyId"/>
         </relationship>
-    </entity>
-    <entity entity-name="EmploymentBenefit" package-name="mantle.humanres.employment">
-        <field name="employmentId" type="id" is-pk="true"/>
-        <field name="benefitTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="cost" type="currency-amount"/>
-        <field name="actualEmployerPaidPercent" type="number-float"/>
-        <field name="availableTime" type="number-integer"/>
-        <relationship type="one" related-entity-name="Employment"/>
-        <relationship type="one" title="BenefitType" related-entity-name="Enumeration">
-            <key-map field-name="benefitTypeEnumId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="PayGrade" package-name="mantle.humanres.employment">
-        <field name="payGradeId" type="id" is-pk="true"/>
-        <field name="payGradeName" type="text-medium"/>
-        <field name="comments" type="text-long"/>
-    </entity>
-    <entity entity-name="PayGradeSalary" package-name="mantle.humanres.employment">
-        <field name="payGradeId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="amount" type="currency-amount"/>
-        <relationship type="one" related-entity-name="PayGrade"/>
     </entity>
     <entity entity-name="EmploymentPayGrade" package-name="mantle.humanres.employment">
         <field name="employmentId" type="id" is-pk="true"/>
@@ -258,7 +244,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="paymentMethodTypeEnumId" type="id"/>
         <field name="paymentMethodId" type="id"/>
         <relationship type="one" related-entity-name="Employment"/>
-        <relationship type="one" title="DeductionType" related-entity-name="Enumeration">
+        <relationship type="one" title="PayrollDeductionType" related-entity-name="Enumeration">
             <key-map field-name="deductionTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="TimePeriodType"/>
@@ -276,7 +262,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="Employment"/>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="UnemploymentClaim" related-entity-name="StatusItem"/>
     </entity>
 
     <!-- ========================================================= -->
@@ -303,7 +289,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="EmplPositionType" related-entity-name="Enumeration">
             <key-map field-name="emplPositionTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="StatusItem"/>
+        <relationship type="one" title="EmplPosition" related-entity-name="StatusItem"/>
         <relationship type="one" title="Employer" related-entity-name="Party">
             <key-map field-name="employerPartyId"/>
         </relationship>
@@ -330,7 +316,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="thruDate" type="date-time"/>
         <field name="comments" type="text-long"/>
         <relationship type="one" related-entity-name="EmplPosition"/>
-        <relationship type="one" title="Responsibility" related-entity-name="Enumeration">
+        <relationship type="one" title="EmploymentResponsibility" related-entity-name="Enumeration">
             <key-map field-name="responsibilityEnumId"/>
         </relationship>
     </entity>
@@ -343,7 +329,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="EmplPositionType" related-entity-name="Enumeration">
             <key-map field-name="emplPositionTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="Responsibility" related-entity-name="Enumeration">
+        <relationship type="one" title="EmploymentResponsibility" related-entity-name="Enumeration">
             <key-map field-name="responsibilityEnumId"/>
         </relationship>
     </entity>
@@ -352,10 +338,22 @@ and those parts may be licensed under the Apache License 2.0.
     <!-- mantle.humanres.rate -->
     <!-- ========================================================= -->
 
+    <entity entity-name="PayGrade" package-name="mantle.humanres.rate">
+        <field name="payGradeId" type="id" is-pk="true"/>
+        <field name="payGradeName" type="text-medium"/>
+        <field name="comments" type="text-long"/>
+    </entity>
+    <entity entity-name="PayGradeSalary" package-name="mantle.humanres.rate">
+        <field name="payGradeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="amount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="PayGrade"/>
+    </entity>
     <entity entity-name="RateAmount" package-name="mantle.humanres.rate">
         <field name="rateAmountId" type="id" is-pk="true"/>
         <field name="rateTypeEnumId" type="id"/>
-        <field name="periodTypeEnumId" type="id"/>
+        <field name="timePeriodTypeId" type="id"/>
         <field name="workEffortId" type="id"/>
         <field name="partyId" type="id"/>
         <field name="emplPositionTypeEnumId" type="id"/>
@@ -366,9 +364,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="RateType" related-entity-name="Enumeration">
             <key-map field-name="rateTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="PeriodType" related-entity-name="Enumeration">
-            <key-map field-name="periodTypeEnumId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="TimePeriodType"/>
         <relationship type="one" related-entity-name="WorkEffort"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" title="EmplPositionType" related-entity-name="Enumeration">
@@ -425,7 +421,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="candidatePartyId" type="id"/>
         <field name="interviewerPartyId" type="id"/>
         <field name="jobInterviewTypeEnumId" type="id"/>
-        <field name="gradeSecuredEnumId" type="id"/>
+        <field name="interviewGradeEnumId" type="id"/>
         <field name="jobInterviewResult" type="id"/>
         <field name="jobInterviewDate" type="date"/>
         <relationship type="one" related-entity-name="JobRequisition"/>
@@ -438,8 +434,8 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="JobInterviewType" related-entity-name="Enumeration">
             <key-map field-name="jobInterviewTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="GradeSecured" related-entity-name="Enumeration">
-            <key-map field-name="gradeSecuredEnumId"/>
+        <relationship type="one" title="InterviewGrade" related-entity-name="Enumeration">
+            <key-map field-name="interviewGradeEnumId"/>
         </relationship>
     </entity>
 </entities>
