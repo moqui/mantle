@@ -121,7 +121,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="invoiceItemSeqId"/>
         </relationship>
     </entity>
-    <entity entity-name="CommunicationEventOrder" package-name="mantle.order.order">
+    <entity entity-name="OrderCommunicationEvent" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="communicationEventId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="OrderHeader"/>
@@ -150,27 +150,33 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="OrderHeader" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
-        <field name="orderTypeEnumId" type="id"/>
+
         <field name="orderName" type="text-medium"/>
         <field name="orderDate" type="date-time"/>
         <field name="entryDate" type="date-time"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
+
+        <field name="terminalId" type="id-long"/>
         <field name="externalId" type="id"/>
+        <field name="syncStatusId" type="id"/>
         <field name="salesChannelEnumId" type="id"/>
+
         <field name="visitId" type="id"/>
         <field name="firstAttemptOrderId" type="id"/>
+
         <field name="currencyUomId" type="id"/>
         <field name="billingAccountId" type="id"/>
         <field name="productStoreId" type="id"/>
-        <field name="terminalId" type="id-long"/>
-        <field name="transactionId" type="id-long"/>
         <field name="autoOrderShoppingListId" type="id"/>
-        <field name="syncStatusId" type="id"/>
+
         <field name="remainingSubTotal" type="currency-amount"/>
         <field name="grandTotal" type="currency-amount"/>
+
         <relationship type="one" title="OrderType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="orderTypeEnumId"/>
         </relationship>
+        <relationship type="one" title="Supplier" related-entity-name="Party"><key-map field-name="supplierPartyId"/></relationship>
+        <relationship type="one" title="Customer" related-entity-name="Party"><key-map field-name="customerPartyId"/></relationship>
         <relationship type="one" title="OrderHeader" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="SalesChannel" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="salesChannelEnumId"/>
@@ -204,9 +210,9 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="OrderItem" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderItemSeqId" type="id" is-pk="true"/>
-        <field name="itemTypeEnumId" type="id"/>
         <field name="orderItemGroupSeqId" type="id"/>
-        <field name="isItemGroupPrimary" type="text-indicator"/>
+
+        <field name="itemTypeEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
 
         <field name="productId" type="id"/>
@@ -220,8 +226,6 @@ and those parts may be licensed under the Apache License 2.0.
 
         <field name="unitPrice" type="currency-precise" enable-audit-log="true"/>
         <field name="unitListPrice" type="currency-precise"/>
-        <field name="unitAverageCost" type="currency-amount"/>
-        <field name="unitRecurringPrice" type="currency-amount"/>
         <field name="isModifiedPrice" type="text-indicator"/>
 
         <field name="externalItemId" type="id"/>
@@ -235,18 +239,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="shoppingListId" type="id"/>
         <field name="shoppingListItemSeqId" type="id"/>
         <field name="subscriptionId" type="id"/>
-        <field name="correspondingPoId" type="id"/>
-
-        <field name="estimatedShipDate" type="date-time"/>
-        <field name="estimatedDeliveryDate" type="date-time"/>
-        <field name="autoCancelDate" type="date-time"/>
-        <field name="dontCancelSetDate" type="date-time"/>
-        <field name="dontCancelSetUserId" type="id-very-long"/>
-
-        <field name="quoteValidFromDate" type="date-time"/>
-        <field name="quoteValidThruDate" type="date-time"/>
-        <field name="shipAfterDate" type="date-time"/>
-        <field name="shipBeforeDate" type="date-time"/>
 
         <field name="overrideGlAccountId" type="id">
             <description>Used to specify the override or actual glAccountId used for the item.</description>
@@ -276,40 +268,6 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="SalesOpportunity"/>
         <index name="ORDITMEXT_ID_IDX"><index-field name="externalItemId"/></index>
     </entity>
-    <entity entity-name="OrderItemAssoc" package-name="mantle.order.order">
-        <field name="orderItemAssocId" type="id" is-pk="true"/>
-        <field name="orderItemAssocTypeEnumId" type="id"/>
-        <field name="orderId" type="id"/>
-        <field name="orderItemSeqId" type="id"/>
-        <field name="shipGroupSeqId" type="id"/>
-        <field name="toOrderId" type="id"/>
-        <field name="toOrderItemSeqId" type="id"/>
-        <field name="toShipGroupSeqId" type="id"/>
-        <field name="quantity" type="number-decimal"/>
-        <relationship type="one" title="OrderItemAssocType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="orderItemAssocTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="OrderHeader"/>
-        <relationship type="one-nofk" related-entity-name="OrderItem">
-            <key-map field-name="orderId"/>
-            <key-map field-name="orderItemSeqId"/>
-        </relationship>
-        <relationship type="one-nofk" related-entity-name="OrderShipGroup">
-            <key-map field-name="orderId"/>
-            <key-map field-name="shipGroupSeqId"/>
-        </relationship>
-        <relationship type="one" title="To" related-entity-name="OrderHeader">
-            <key-map field-name="toOrderId"/>
-        </relationship>
-        <relationship type="one-nofk" title="To" related-entity-name="OrderItem">
-            <key-map field-name="toOrderId" related-field-name="orderId"/>
-            <key-map field-name="toOrderItemSeqId" related-field-name="orderItemSeqId"/>
-        </relationship>
-        <relationship type="one-nofk" title="To" related-entity-name="OrderShipGroup">
-            <key-map field-name="toOrderId" related-field-name="orderId"/>
-            <key-map field-name="toShipGroupSeqId" related-field-name="shipGroupSeqId"/>
-        </relationship>
-    </entity>
     <entity entity-name="OrderItemBilling" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderItemSeqId" type="id" is-pk="true"/>
@@ -335,33 +293,17 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="orderItemGroupSeqId" type="id" is-pk="true"/>
         <field name="parentGroupSeqId" type="id"/>
         <field name="groupName" type="text-medium"/>
-        <relationship type="one" related-entity-name="OrderHeader"/>
-        <relationship type="one" title="Parent" related-entity-name="OrderItemGroup">
-            <key-map field-name="orderId"/>
-            <key-map field-name="parentGroupSeqId" related-field-name="orderItemGroupSeqId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="OrderItemParty" package-name="mantle.order.order">
-        <field name="orderId" type="id" is-pk="true"/>
-        <field name="orderItemSeqId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="OrderItem"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
-    </entity>
-    <entity entity-name="OrderShipGroup" package-name="mantle.order.order">
-        <field name="orderId" type="id" is-pk="true"/>
-        <field name="shipGroupSeqId" type="id" is-pk="true"/>
-        <field name="shipmentMethodEnumId" type="id" enable-audit-log="true"/>
-        <field name="supplierPartyId" type="id"/>
-        <field name="vendorPartyId" type="id">
-            <description>For use with multi-vendor stores, order will be split so that each ship group is associated
-                with only one vendor (only if applicable)
-            </description>
-        </field>
+
+        <field name="vendorPartyId" type="id"><description>The vendor (seller) of the items in the group.</description></field>
+        <field name="placingPartyId" type="id"><description>The customer who placed the order.</description></field>
+        <field name="shipToPartyId" type="id"><description>The customer to ship the order to.</description></field>
+        <field name="customerPoId" type="id"/>
+
+        <field name="facilityId" type="id"><description>The facility to fulfill the order from (if null look up from ProductStore).</description></field>
+
         <field name="carrierPartyId" type="id" enable-audit-log="true"/>
-        <field name="facilityId" type="id"/>
+        <field name="shipmentMethodEnumId" type="id" enable-audit-log="true"/>
+
         <field name="postalContactMechId" type="id"/>
         <field name="telecomContactMechId" type="id"/>
         <field name="trackingNumber" type="text-short"/>
@@ -369,20 +311,30 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="maySplit" type="text-indicator"/>
         <field name="giftMessage" type="text-long"/>
         <field name="isGift" type="text-indicator"/>
+
         <field name="shipAfterDate" type="date-time"/>
         <field name="shipBeforeDate" type="date-time"/>
         <field name="estimatedShipDate" type="date-time"/>
         <field name="estimatedDeliveryDate" type="date-time"/>
+
+        <field name="validFromDate" type="date-time"/>
+        <field name="validThruDate" type="date-time"/>
+
+        <field name="autoCancelDate" type="date-time"/>
+        <field name="dontCancelSetDate" type="date-time"/>
+        <field name="dontCancelSetUserId" type="id-very-long"/>
+
         <relationship type="one" related-entity-name="OrderHeader"/>
-        <relationship type="one" title="Supplier" related-entity-name="Party">
-            <key-map field-name="supplierPartyId"/>
+        <relationship type="one" title="Parent" related-entity-name="OrderItemGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="parentGroupSeqId" related-field-name="orderItemGroupSeqId"/>
         </relationship>
-        <relationship type="one" title="Vendor" related-entity-name="Party">
-            <key-map field-name="vendorPartyId"/>
-        </relationship>
-        <relationship type="one" title="Carrier" related-entity-name="Party">
-            <key-map field-name="carrierPartyId"/>
-        </relationship>
+
+        <relationship type="one" title="Vendor" related-entity-name="Party"><key-map field-name="vendorPartyId"/></relationship>
+        <relationship type="one" title="Placing" related-entity-name="Party"><key-map field-name="placingPartyId"/></relationship>
+        <relationship type="one" title="ShipTo" related-entity-name="Party"><key-map field-name="shipToPartyId"/></relationship>
+
+        <relationship type="one" title="Carrier" related-entity-name="Party"><key-map field-name="carrierPartyId"/></relationship>
         <relationship type="one" related-entity-name="Facility"/>
         <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="shipmentMethodEnumId"/>
@@ -394,14 +346,14 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="telecomContactMechId"/>
         </relationship>
     </entity>
-    <entity entity-name="OrderShipGroupAssoc" package-name="mantle.order.order">
+    <entity entity-name="OrderItemParty" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderItemSeqId" type="id" is-pk="true"/>
-        <field name="shipGroupSeqId" type="id" is-pk="true"/>
-        <field name="quantity" type="number-decimal"/>
-        <field name="cancelQuantity" type="number-decimal"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="OrderItem"/>
-        <relationship type="one" related-entity-name="OrderShipGroup"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
     </entity>
     <entity entity-name="OrderPaymentPreference" package-name="mantle.order.order">
         <field name="orderPaymentPreferenceId" type="id" is-pk="true"/>
