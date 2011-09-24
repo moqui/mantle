@@ -344,11 +344,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="percentage" type="number-decimal"/>
         <relationship type="one" related-entity-name="Invoice"/>
         <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one-nofk" related-entity-name="RoleType"/>
-        <relationship type="one" related-entity-name="PartyRole">
-            <key-map field-name="partyId"/>
-            <key-map field-name="roleTypeId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="RoleType"/>
     </entity>
     <entity entity-name="InvoiceTerm" package-name="mantle.accounting.account.invoice">
         <field name="invoiceId" type="id"/>
@@ -520,23 +516,35 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="Payment" package-name="mantle.accounting.account.payment">
         <field name="paymentId" type="id" is-pk="true"/>
         <field name="paymentTypeEnumId" type="id"/>
-        <field name="paymentMethodTypeEnumId" type="id"/>
-        <field name="paymentMethodId" type="id"/>
-        <!-- Add later with payment gateway integrations: <field name="paymentGatewayResponseId" type="id"/> -->
-        <field name="orderPaymentPreferenceId" type="id"/>
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
+
+        <field name="paymentMethodTypeEnumId" type="id"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="orderId" type="id"><description>Set if the Payment represents the payment settings for an order.</description></field>
+
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="effectiveDate" type="date-time"/>
+        <field name="paymentAuthCode" type="text-short"/>
         <field name="paymentRefNum" type="text-short"/>
+
         <field name="amount" type="currency-amount"/>
         <field name="amountUomId" type="id"/>
+
         <field name="comments" type="text-long"/>
+        <field name="finAccountAuthId" type="id"/>
         <field name="finAccountTransId" type="id"/>
         <field name="overrideGlAccountId" type="id"/>
+
         <!-- The Original Currency amount and uomId are for the values coming from the bank (if known) and are to be used for reconciliation and such later, and not for PaymentApplication. -->
         <field name="originalCurrencyAmount" type="currency-amount"/>
         <field name="originalCurrencyUomId" type="id"/>
+
+        <field name="presentFlag" type="text-indicator"/>
+        <field name="swipedFlag" type="text-indicator"/>
+        <field name="processAttempt" type="number-integer"/>
+        <field name="needsNsfRetry" type="text-indicator"/>
+
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="paymentTypeEnumId"/>
         </relationship>
@@ -544,6 +552,8 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="paymentMethodTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="PaymentMethod"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+
         <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
             <key-map field-name="amountUomId"/>
         </relationship>
@@ -555,6 +565,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="From" related-entity-name="Party"><key-map field-name="fromPartyId"/></relationship>
         <relationship type="one" title="To" related-entity-name="Party"><key-map field-name="toPartyId"/></relationship>
         <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" related-entity-name="FinancialAccountAuth"/>
         <relationship type="one" related-entity-name="FinancialAccountTrans"/>
         <relationship type="one" title="Override" related-entity-name="GlAccount">
             <key-map field-name="overrideGlAccountId"/>
@@ -599,14 +610,48 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
     </entity>
     <entity entity-name="PaymentBudgetAllocation" package-name="mantle.accounting.account.payment">
+        <field name="paymentId" type="id" is-pk="true"/>
         <field name="budgetId" type="id" is-pk="true"/>
         <field name="budgetItemSeqId" type="id" is-pk="true"/>
-        <field name="paymentId" type="id" is-pk="true"/>
         <field name="amount" type="currency-amount"/>
         <relationship type="one" related-entity-name="BudgetItem">
             <key-map field-name="budgetId"/>
             <key-map field-name="budgetItemSeqId"/>
         </relationship>
         <relationship type="one" related-entity-name="Payment"/>
+    </entity>
+    <entity entity-name="PaymentGatewayResponse" package-name="mantle.accounting.account.payment">
+        <field name="paymentGatewayResponseId" type="id" is-pk="true"/>
+        <field name="paymentServiceTypeEnumId" type="id"/>
+        <field name="orderPaymentPreferenceId" type="id"/>
+        <field name="paymentId" type="id"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="transCodeEnumId" type="id"/>
+        <field name="amount" type="currency-amount"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="referenceNum" type="text-short"/>
+        <field name="altReference" type="text-short"/>
+        <field name="subReference" type="text-short"/>
+        <field name="gatewayCode" type="text-short"/>
+        <field name="gatewayFlag" type="text-short"/>
+        <field name="gatewayAvsResult" type="text-short"/>
+        <field name="gatewayCvResult" type="text-short"/>
+        <field name="gatewayScoreResult" type="text-short"/>
+        <field name="gatewayMessage" type="text-long"/>
+        <field name="transactionDate" type="date-time"/>
+        <field name="resultDeclined" type="text-indicator"/>
+        <field name="resultNsf" type="text-indicator"/>
+        <field name="resultBadExpire" type="text-indicator"/>
+        <field name="resultBadCardNumber" type="text-indicator"/>
+        <relationship type="one" title="ServiceType" related-entity-name="Enumeration">
+            <key-map field-name="paymentServiceTypeEnumId" related-field-name="enumId"/>
+        </relationship>
+        <relationship type="one" title="TranCode" related-entity-name="Enumeration">
+            <key-map field-name="transCodeEnumId" related-field-name="enumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Uom"><key-map field-name="currencyUomId"/></relationship>
+        <relationship type="one" related-entity-name="OrderPaymentPreference"/>
+        <relationship type="one" related-entity-name="Payment"/>
+        <relationship type="one" related-entity-name="PaymentMethod"/>
     </entity>
 </entities>

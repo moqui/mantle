@@ -295,9 +295,11 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="groupName" type="text-medium"/>
 
         <field name="vendorPartyId" type="id"><description>The vendor (seller) of the items in the group.</description></field>
-        <field name="placingPartyId" type="id"><description>The customer who placed the order.</description></field>
-        <field name="shipToPartyId" type="id"><description>The customer to ship the order to.</description></field>
+        <field name="vendorAgentPartyId" type="id"><description>The agent (sales representative) of the vendor of the items in the group.</description></field>
+        <field name="customerPartyId" type="id"><description>The customer (buyer) of the items in the group.</description></field>
+        <field name="customerAgentPartyId" type="id"><description>The customer agent who placed the order.</description></field>
         <field name="customerPoId" type="id"/>
+        <field name="shipToPartyId" type="id"><description>The customer to ship the order to.</description></field>
 
         <field name="facilityId" type="id"><description>The facility to fulfill the order from (if null look up from ProductStore).</description></field>
 
@@ -345,64 +347,6 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Telecom" related-entity-name="ContactMech">
             <key-map field-name="telecomContactMechId"/>
         </relationship>
-    </entity>
-    <entity entity-name="OrderItemParty" package-name="mantle.order.order">
-        <field name="orderId" type="id" is-pk="true"/>
-        <field name="orderItemSeqId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="OrderItem"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
-    </entity>
-    <entity entity-name="OrderPaymentPreference" package-name="mantle.order.order">
-        <field name="orderPaymentPreferenceId" type="id" is-pk="true"/>
-        <field name="orderId" type="id"/>
-        <field name="orderItemSeqId" type="id"/>
-        <field name="shipGroupSeqId" type="id"/>
-        <field name="productPricePurposeEnumId" type="id"/>
-        <field name="paymentMethodTypeEnumId" type="id"/>
-        <field name="paymentMethodId" type="id"/>
-        <field name="finAccountId" type="id">
-            <description>For paying with a fin account instead of payment method on file</description>
-        </field>
-        <field name="securityCode" type="text-long" encrypt="true">
-            <description>NOTE: THIS SHOULD NEVER BE PERSISTED OUTSIDE THE SCOPE OF A SINGLE TRANSACTION,
-                TYPICALLY ONLY FOR AUTHORIZATION PURPOSES, SHOULD BE REMOVED IMMEDIATELY FOLLOWING USE;
-                this is the 3 digit on back (for Visa, MC, etc) or 4 digit on front (Amex, etc) card
-                verification code; also note that this field is longer than needed to accommodate encryption.
-            </description>
-        </field>
-        <field name="track2" type="text-long" encrypt="true">
-            <description>NOTE: THIS SHOULD NEVER BE PERSISTED OUTSIDE THE SCOPE OF A SINGLE TRANSACTION,
-                TYPICALLY ONLY FOR AUTHORIZATION PURPOSES, SHOULD BE REMOVED IMMEDIATELY FOLLOWING USE;
-                this is raw track2 data, exactly as read by the magnetic swipe reader;
-                also note that this field is longer than needed to accommodate encryption.
-            </description>
-        </field>
-        <field name="presentFlag" type="text-indicator"/>
-        <field name="swipedFlag" type="text-indicator"/>
-        <field name="overflowFlag" type="text-indicator"/>
-        <field name="maxAmount" type="currency-amount"/>
-        <field name="processAttempt" type="number-integer"/>
-        <field name="billingPostalCode" type="text-short"/>
-        <field name="manualAuthCode" type="text-short"/>
-        <field name="manualRefNum" type="text-short"/>
-        <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="needsNsfRetry" type="text-indicator"/>
-        <relationship type="one" related-entity-name="OrderHeader"/>
-        <relationship type="one-nofk" related-entity-name="OrderItem"/>
-        <relationship type="one-nofk" related-entity-name="OrderShipGroup"/>
-        <relationship type="one" title="ProductPricePurpose" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="productPricePurposeEnumId"/>
-        </relationship>
-        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="paymentMethodTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="PaymentMethod"/>
-        <relationship type="one" related-entity-name="FinancialAccount"/>
-        <relationship type="one" title="OrderPaymentPreference" related-entity-name="moqui.basic.StatusItem"/>
-        <index name="NSF_RETRY_CHECK"><index-field name="needsNsfRetry"/></index>
     </entity>
     <entity entity-name="OrderParty" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
