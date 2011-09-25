@@ -170,6 +170,181 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
 
     <!-- ========================================================= -->
+    <!-- mantle.product.inventory -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="InventoryItem" package-name="mantle.product.inventory">
+        <field name="inventoryItemId" type="id" is-pk="true"/>
+        <field name="isSerialized" type="text-indicator"/>
+        <field name="productId" type="id" enable-audit-log="true"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="ownerPartyId" type="id" enable-audit-log="true"/>
+        <field name="receiveDate" type="date-time"/>
+        <field name="manufactureDate" type="date-time"/>
+        <field name="expireDate" type="date-time"/>
+        <field name="facilityId" type="id"/>
+        <field name="containerId" type="id"/>
+        <field name="lotId" type="id"/>
+        <field name="binNumber" type="id"/>
+        <field name="locationSeqId" type="id"/>
+        <field name="comments" type="text-long"/>
+        <field name="quantityOnHandTotal" type="number-decimal"/>
+        <field name="availableToPromiseTotal" type="number-decimal"/>
+        <field name="serialNumber" type="text-long"/>
+        <field name="softIdentifier" type="text-long"/>
+        <field name="activationNumber" type="text-long"/>
+        <field name="activationValidThru" type="date-time"/>
+        <field name="unitCost" type="number-decimal"/>
+        <field name="unitCostUomId" type="id"/>
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" title="Owner" related-entity-name="Party">
+            <key-map field-name="ownerPartyId"/>
+        </relationship>
+        <relationship type="one" title="InventoryItem" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" related-entity-name="Container"/>
+        <relationship type="one" related-entity-name="Lot"/>
+        <relationship type="one-nofk" related-entity-name="ProductFacility">
+            <key-map field-name="productId"/>
+            <key-map field-name="facilityId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="FacilityLocation">
+            <key-map field-name="facilityId"/>
+            <key-map field-name="locationSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="ProductFacilityLocation">
+            <key-map field-name="productId"/>
+            <key-map field-name="facilityId"/>
+            <key-map field-name="locationSeqId"/>
+        </relationship>
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="currencyUomId"/>
+        </relationship>
+        <index name="INVITEM_SN"><index-field name="serialNumber"/></index>
+        <index name="INVITEM_SOFID" unique="true"><index-field name="softIdentifier"/></index>
+        <index name="INVITEM_ACTNM" unique="true"><index-field name="activationNumber"/></index>
+    </entity>
+    <entity entity-name="InventoryItemDetail" package-name="mantle.product.inventory">
+        <field name="inventoryItemId" type="id" is-pk="true"/>
+        <field name="inventoryItemDetailSeqId" type="id" is-pk="true"/>
+        <field name="effectiveDate" type="date-time"/>
+        <field name="quantityOnHandDiff" type="number-decimal"/>
+        <field name="availableToPromiseDiff" type="number-decimal"/>
+        <field name="unitCost" type="number-decimal"/>
+        <field name="inventoryReservationId" type="id"/>
+        <field name="shipmentId" type="id"/>
+        <field name="shipmentItemSeqId" type="id"/>
+        <field name="returnId" type="id"/>
+        <field name="returnItemSeqId" type="id"/>
+        <field name="workEffortId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="assetMaintenanceId" type="id"/>
+        <field name="itemIssuanceId" type="id"/>
+        <field name="receiptId" type="id"/>
+        <field name="physicalInventoryId" type="id"/>
+        <field name="varianceReasonEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
+        <relationship type="one" related-entity-name="InventoryReservation"/>
+        <relationship type="one" related-entity-name="AssetMaintenance"/>
+        <relationship type="one" related-entity-name="ItemIssuance"/>
+        <relationship type="one-nofk" related-entity-name="WorkEffortInventoryAssign">
+            <key-map field-name="workEffortId"/>
+            <key-map field-name="inventoryItemId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="WorkEffortInventoryProduced">
+            <key-map field-name="workEffortId"/>
+            <key-map field-name="inventoryItemId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ShipmentReceipt"/>
+        <relationship type="one" related-entity-name="PhysicalInventory"/>
+        <relationship type="one" title="InventoryVarianceReason" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="varianceReasonEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="InventoryReservation" package-name="mantle.product.inventory">
+        <field name="inventoryReservationId" type="id" is-pk="true"/>
+        <field name="orderId" type="id"/>
+        <field name="shipGroupSeqId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="inventoryItemId" type="id"/>
+        <field name="reserveOrderEnumId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="quantityNotAvailable" type="number-decimal"/>
+        <field name="reservedDatetime" type="date-time"/>
+        <field name="createdDatetime" type="date-time"/>
+        <field name="promisedDatetime" type="date-time"/>
+        <field name="currentPromisedDate" type="date-time"/>
+        <field name="priority" type="text-indicator">
+            <description>Sets priority for Inventory Reservation</description>
+        </field>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one-nofk" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="OrderShipGroup">
+            <key-map field-name="orderId"/>
+            <key-map field-name="shipGroupSeqId"/>
+        </relationship>
+        <relationship type="one-nofk" related-entity-name="OrderShipGroupAssoc">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+            <key-map field-name="shipGroupSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+    </entity>
+    <entity entity-name="InventoryTransfer" package-name="mantle.product.inventory">
+        <field name="inventoryTransferId" type="id" is-pk="true"/>
+        <field name="statusId" type="id"/>
+        <field name="inventoryItemId" type="id"/>
+        <field name="facilityId" type="id"/>
+        <field name="locationSeqId" type="id"/>
+        <field name="containerId" type="id"/>
+        <field name="toFacilityId" type="id"/>
+        <field name="toLocationSeqId" type="id"/>
+        <field name="toContainerId" type="id"/>
+        <field name="itemIssuanceId" type="id"/>
+        <field name="sendDate" type="date-time"/>
+        <field name="receiveDate" type="date-time"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one" related-entity-name="InventoryItem"/>
+        <relationship type="one" title="InventoryTransfer" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one-nofk" related-entity-name="FacilityLocation">
+            <key-map field-name="facilityId"/>
+            <key-map field-name="locationSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Container"/>
+        <relationship type="one" title="To" related-entity-name="Facility">
+            <key-map field-name="toFacilityId"/>
+        </relationship>
+        <relationship type="one-nofk" title="To" related-entity-name="FacilityLocation">
+            <key-map field-name="toFacilityId"/>
+            <key-map field-name="toLocationSeqId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="Container">
+            <key-map field-name="toContainerId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="ItemIssuance"/>
+    </entity>
+    <entity entity-name="Lot" package-name="mantle.product.inventory">
+        <field name="lotId" type="id" is-pk="true"/>
+        <field name="creationDate" type="date-time"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="expirationDate" type="date-time"/>
+    </entity>
+    <entity entity-name="PhysicalInventory" package-name="mantle.product.inventory">
+        <field name="physicalInventoryId" type="id" is-pk="true"/>
+        <field name="physicalInventoryDate" type="date-time"/>
+        <field name="partyId" type="id"/>
+        <field name="generalComments" type="text-long"/>
+    </entity>
+
+    <!-- ========================================================= -->
     <!-- mantle.product.maintenance -->
     <!-- ========================================================= -->
 
