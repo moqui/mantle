@@ -194,19 +194,6 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <index name="ORDEREXT_ID_IDX"><index-field name="externalId"/></index>
     </entity>
-    <entity entity-name="OrderNote" package-name="mantle.order.order">
-        <field name="orderId" type="id" is-pk="true"/>
-        <field name="noteDate" type="date-time" is-pk="true"/>
-        <field name="noteText" type="text-very-long"/>
-        <field name="internalNote" type="text-indicator"/>
-        <relationship type="one" related-entity-name="OrderHeader"/>
-    </entity>
-    <entity entity-name="OrderWorkEffort" package-name="mantle.order.order">
-        <field name="orderId" type="id" is-pk="true"/>
-        <field name="workEffortId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="OrderHeader"/>
-        <relationship type="one" related-entity-name="WorkEffort"/>
-    </entity>
     <entity entity-name="OrderItem" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderItemSeqId" type="id" is-pk="true"/>
@@ -288,6 +275,13 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="ShipmentReceipt"/>
         <relationship type="one" related-entity-name="ItemIssuance"/>
     </entity>
+    <entity entity-name="OrderNote" package-name="mantle.order.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="noteDate" type="date-time" is-pk="true"/>
+        <field name="noteText" type="text-very-long"/>
+        <field name="internalNote" type="text-indicator"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+    </entity>
     <entity entity-name="OrderPart" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderPartSeqId" type="id" is-pk="true"/>
@@ -295,11 +289,13 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="groupName" type="text-medium"/>
 
         <field name="vendorPartyId" type="id"><description>The vendor (seller) of the items in the group.</description></field>
-        <field name="vendorAgentPartyId" type="id"><description>The agent (sales representative) of the vendor of the items in the group.</description></field>
         <field name="customerPartyId" type="id"><description>The customer (buyer) of the items in the group.</description></field>
-        <field name="customerAgentPartyId" type="id"><description>The customer agent who placed the order.</description></field>
         <field name="customerPoId" type="id"/>
+        <!-- Planning to remove these, use OrderPartParty for all parties other than vendor and customer:
+        <field name="vendorAgentPartyId" type="id"><description>The agent (sales representative) of the vendor of the items in the group.</description></field>
+        <field name="customerAgentPartyId" type="id"><description>The customer agent who placed the order.</description></field>
         <field name="shipToPartyId" type="id"><description>The customer to ship the order to.</description></field>
+        -->
 
         <field name="facilityId" type="id"><description>The facility to fulfill the order from (if null look up from ProductStore).</description></field>
 
@@ -348,11 +344,12 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="telecomContactMechId"/>
         </relationship>
     </entity>
-    <entity entity-name="OrderParty" package-name="mantle.order.order">
+    <entity entity-name="OrderPartParty" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderPartSeqId" type="id" is-pk="true"/>
         <field name="partyId" type="id" is-pk="true"/>
         <field name="roleTypeId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="OrderPart"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
     </entity>
@@ -360,7 +357,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="orderShipmentId" type="id" is-pk="true"/>
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"/>
-        <field name="shipGroupSeqId" type="id"/>
         <field name="shipmentId" type="id"/>
         <field name="shipmentItemSeqId" type="id"/>
         <field name="quantity" type="number-decimal"/>
@@ -377,13 +373,12 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one-nofk" related-entity-name="OrderItem"/>
         <relationship type="one" related-entity-name="SettlementTerm"/>
     </entity>
-    <entity entity-name="WorkOrderItemFulfillment" package-name="mantle.order.order">
-        <field name="workEffortId" type="id" is-pk="true"/>
+    <entity entity-name="OrderItemWorkEffort" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderItemSeqId" type="id" is-pk="true"/>
-        <field name="shipGroupSeqId" type="id"/>
-        <relationship type="one" related-entity-name="WorkEffort"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="OrderItem"/>
+        <relationship type="one" related-entity-name="WorkEffort"/>
     </entity>
 
     <!-- ========================================================= -->
