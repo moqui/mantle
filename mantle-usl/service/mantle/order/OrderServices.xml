@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.0.xsd">
+
+<!-- STATUS: EXPERIMENTAL -->
+
+<!--
+h1. General Order Services
+
+h2. General Ecommerce Usage
+
+| create customer | |
+| create/update/delete customer address | |
+| create/update/delete customer credit card | |
+
+| init cart (auto on add to cart) | create#Order |
+| add to cart                     | create#OrderItem |
+| change cart quantity            | update#OrderItem |
+| remove from cart                | delete#OrderItem |
+| set shipping options            | |
+| set payment options             | |
+| split order                     | create#OrderPart |
+| confirm/complete order          | place#Order |
+
+-->
+
+    <!-- Order/Part Services -->
+    <service verb="create" noun="Order" type="inline">
+        <description>
+            Create an Order (OrderHeader and one OrderPart).
+            All parameters are optional so that this can be called transparently to create a shell/empty order.
+        </description>
+        <in-parameters>
+            <parameter name="orderName" type="String"/>
+            <parameter name="statusId" type="String" default-value="ORDER_BEING_EDITED"/>
+
+            <parameter name="currencyUomId" type="String"/>
+            <parameter name="billingAccountId" type="String"/>
+            <parameter name="productStoreId" type="String"/>
+            <parameter name="salesChannelEnumId" type="String"/>
+
+            <parameter name="terminalId" type="String"/>
+            <parameter name="externalId" type="String"/>
+            <parameter name="syncStatusId" type="String"/>
+            <parameter name="firstAttemptOrderId" type="String"/>
+
+            <!-- parameters for the initial OrderPart -->
+            <parameter name="vendorPartyId" type="String"/>
+            <parameter name="customerPartyId" type="String"/>
+            <parameter name="customerPoId" type="String"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+            <parameter name="orderPartSeqId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-make-value entity-name="OrderHeader" value-field="orderHeader"/>
+            <entity-set value-field="orderHeader" include="nonpk"/>
+            <set field="orderHeader.entryDate" from="ec.user.nowTimestamp"/>
+            <set field="orderHeader.visitId" from="ec.user.visitId"/>
+            <entity-sequenced-id-primary value-field="orderHeader"/>
+            <entity-create value-field="orderHeader"/>
+
+            <entity-make-value entity-name="OrderPart" value-field="orderPart"/>
+            <entity-set value-field="orderHeader" include="nonpk"/>
+            <set field="orderPart.orderId" from="orderHeader.orderId"/>
+            <entity-sequenced-id-secondary value-field="orderHeader"/>
+            <entity-create value-field="orderPart"/>
+
+            <set field="result.orderId" from="orderHeader.orderId"/>
+            <set field="result.orderPartSeqId" from="orderPart.orderPartSeqId"/>
+        </actions>
+    </service>
+    <service verb="create" noun="OrderPart" type="inline">
+        <in-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+
+            <parameter name="vendorPartyId" type="String"/>
+            <parameter name="customerPartyId" type="String"/>
+            <parameter name="customerPoId" type="String"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="orderPartSeqId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-make-value entity-name="OrderPart" value-field="orderPart"/>
+            <entity-set value-field="orderHeader" include="nonpk"/>
+            <set field="orderPart.orderId" from="orderHeader.orderId"/>
+            <entity-sequenced-id-secondary value-field="orderHeader"/>
+            <entity-create value-field="orderPart"/>
+
+            <set field="result.orderPartSeqId" from="orderPart.orderPartSeqId"/>
+        </actions>
+    </service>
+
+    <!-- OrderItem Services -->
+    <service verb="create" noun="OrderItem" type="inline">
+        <in-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+            <parameter name="orderPartSeqId" type="String" required="true"/>
+
+            <!-- TODO: other order item fields -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="orderItemSeqId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-make-value entity-name="OrderItem" value-field="orderItem"/>
+            <entity-set value-field="orderItem" include="all"/>
+            <entity-sequenced-id-secondary value-field="orderItem"/>
+            <entity-create value-field="orderItem"/>
+
+            <set field="result.orderItemSeqId" from="orderItem.orderItemSeqId"/>
+        </actions>
+    </service>
+    <service verb="update" noun="OrderItem" type="inline">
+        <in-parameters>
+            <auto-parameters include="pk" required="true"/>
+            <auto-parameters include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderItem" value-field="orderItem"/>
+            <entity-set value-field="orderItem"/>
+            <entity-update value-field="orderItem"/>
+        </actions>
+    </service>
+    <service verb="delete" noun="OrderItem" type="inline">
+        <in-parameters>
+            <auto-parameters include="pk" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-make-value entity-name="OrderItem" value-field="orderItem"/>
+            <entity-set value-field="orderItem" include="pk"/>
+            <entity-delete value-field="orderItem"/>
+        </actions>
+    </service>
+
+    <!-- Order Status Change Services -->
+    <service verb="propose" noun="Order" type="inline">
+        <in-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <set field="orderHeader.statusId" value="ORDER_PROPOSED"/>
+            <entity-update value-field="orderHeader"/>
+        </actions>
+    </service>
+    <service verb="place" noun="Order" type="inline">
+        <in-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <set field="orderHeader.statusId" value="ORDER_PLACED"/>
+            <entity-update value-field="orderHeader"/>
+        </actions>
+    </service>
+    <service verb="cancel" noun="Order" type="inline">
+        <description>Call when customer cancels the order.</description>
+        <in-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <set field="orderHeader.statusId" value="ORDER_CANCELLED"/>
+            <entity-update value-field="orderHeader"/>
+        </actions>
+    </service>
+</services>
