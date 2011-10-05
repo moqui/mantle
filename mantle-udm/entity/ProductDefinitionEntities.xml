@@ -350,6 +350,16 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="ProductPrice" package-name="mantle.product.price">
         <field name="productPriceId" type="id" is-pk="true"/>
         <field name="productId" type="id"/>
+        <field name="productStoreId" type="id"><description>For pricing per store. Leave null to apply to all stores.</description></field>
+        <field name="vendorPartyId" type="id"><description>
+            For sales from internal organization (ie company) set to internal organization's ID.
+            For supplier prices set to supplier's ID.
+        </description></field>
+        <field name="customerPartyId" type="id"><description>
+            For general consumer prices leave null.
+            For a price for a specific customer (or group of customers), set to that customer's ID.
+            For supplier prices this is the internal organization's (ie company's) ID.
+        </description></field>
         <field name="priceTypeEnumId" type="id"/>
         <field name="pricePurposeEnumId" type="id"/>
         <field name="fromDate" type="date-time"/>
@@ -357,16 +367,20 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="minQuantity" type="number-decimal"/>
         <field name="price" type="currency-precise" enable-audit-log="true"/>
         <field name="priceUomId" type="id"/>
-        <field name="termUomId" type="id">
-            <description>For recurring and usage prices to specify a time/freq measure, or a usage unit measure (bits, minutes, etc).</description>
-        </field>
+        <field name="termUomId" type="id"><description>For recurring and usage prices to specify a time/freq measure,
+            or a usage unit measure (bits, minutes, etc).</description></field>
+
         <field name="taxAmount" type="currency-precise"/>
         <field name="taxPercentage" type="number-decimal"/>
         <field name="taxAuthPartyId" type="id"/>
         <field name="taxAuthGeoId" type="id"/>
-        <field name="taxInPrice" type="text-indicator">
-            <description>If Y the price field has tax included for the given taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description>
-        </field>
+        <field name="taxInPrice" type="text-indicator"><description>If Y the price field has tax included for the given
+            taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description></field>
+
+        <field name="agreementId" type="id"/>
+        <field name="agreementItemSeqId" type="id"><description>Use along with agreementId to associate the price with
+            an AgreementItem.</description></field>
+
         <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" title="ProductPriceType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="priceTypeEnumId"/>
@@ -656,29 +670,6 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" title="Quantity" related-entity-name="moqui.basic.Uom">
             <key-map field-name="quantityUomId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="SupplierProductPrice" package-name="mantle.product.supplier">
-        <field name="supplierProductPriceId" type="id" is-pk="true"/>
-        <field name="supplierPartyId" type="id"/>
-        <field name="productId" type="id"/>
-        <field name="minQuantity" type="number-decimal"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="price" type="currency-precise"/>
-        <field name="priceUomId" type="id"/>
-        <field name="agreementId" type="id"/>
-        <field name="agreementItemSeqId" type="id"/>
-        <relationship type="one" related-entity-name="Product"/>
-        <relationship type="one" title="Supplier" related-entity-name="Party">
-            <key-map field-name="supplierPartyId"/>
-        </relationship>
-        <relationship type="one" title="Price" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="priceUomId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="AgreementItem">
-            <key-map field-name="agreementId"/>
-            <key-map field-name="agreementItemSeqId"/>
         </relationship>
     </entity>
 </entities>
