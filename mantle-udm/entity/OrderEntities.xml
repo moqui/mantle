@@ -165,31 +165,27 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="syncStatusId" type="id"/>
 
         <field name="visitId" type="id"/>
-        <field name="firstAttemptOrderId" type="id"/>
-        <field name="autoOrderShoppingListId" type="id"/>
+        <field name="parentOrderId" type="id"/>
+        <field name="recurrenceInfoId" type="id"><!-- TODO: replace this with something else to configure the recurrence pattern for auto reorder --></field>
+        <field name="lastOrderedDate" type="date-time"/>
 
         <field name="remainingSubTotal" type="currency-amount"/>
         <field name="grandTotal" type="currency-amount"/>
 
-        <relationship type="one" title="OrderType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="orderTypeEnumId"/>
-        </relationship>
-        <relationship type="one" title="Supplier" related-entity-name="Party"><key-map field-name="supplierPartyId"/></relationship>
-        <relationship type="one" title="Customer" related-entity-name="Party"><key-map field-name="customerPartyId"/></relationship>
         <relationship type="one" title="OrderHeader" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="SalesChannel" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="salesChannelEnumId"/>
-        </relationship>
         <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
             <key-map field-name="currencyUomId"/>
         </relationship>
         <relationship type="one" related-entity-name="BillingAccount"/>
         <relationship type="one" related-entity-name="ProductStore"/>
-        <relationship type="one" title="AutoOrder" related-entity-name="ShoppingList">
-            <key-map field-name="autoOrderShoppingListId"/>
+        <relationship type="one" title="SalesChannel" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="salesChannelEnumId"/>
         </relationship>
         <relationship type="one" title="Sync" related-entity-name="moqui.basic.StatusItem">
             <key-map field-name="syncStatusId"/>
+        </relationship>
+        <relationship type="one" title="Parent" related-entity-name="OrderHeader">
+            <key-map field-name="parentOrderId" related-field-name="orderId"/>
         </relationship>
         <index name="ORDEREXT_ID_IDX"><index-field name="externalId"/></index>
     </entity>
@@ -215,7 +211,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="isModifiedPrice" type="text-indicator"/>
 
         <field name="externalItemId" type="id"/>
-        <field name="fromAssetId" type="id"/>
+        <field name="fromAssetId" type="id"><description>Order for a particular Asset, not just any associated with Product.</description></field>
         <field name="budgetId" type="id"/>
         <field name="budgetItemSeqId" type="id"/>
         <field name="supplierProductId" type="id"/>
@@ -328,8 +324,7 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
 
         <relationship type="one" title="Vendor" related-entity-name="Party"><key-map field-name="vendorPartyId"/></relationship>
-        <relationship type="one" title="Placing" related-entity-name="Party"><key-map field-name="placingPartyId"/></relationship>
-        <relationship type="one" title="ShipTo" related-entity-name="Party"><key-map field-name="shipToPartyId"/></relationship>
+        <relationship type="one" title="Customer" related-entity-name="Party"><key-map field-name="customerPartyId"/></relationship>
 
         <relationship type="one" title="Carrier" related-entity-name="Party"><key-map field-name="carrierPartyId"/></relationship>
         <relationship type="one" related-entity-name="Facility"/>
@@ -518,59 +513,5 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="quantity" type="number-decimal"/>
         <relationship type="one" related-entity-name="ReturnItem"/>
         <relationship type="one" related-entity-name="ShipmentItem"/>
-    </entity>
-
-    <!-- ========================================================= -->
-    <!-- mantle.order.shoppinglist -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="ShoppingList" package-name="mantle.order.shoppinglist">
-        <field name="shoppingListId" type="id" is-pk="true"/>
-        <field name="shoppingListTypeEnumId" type="id"/>
-        <field name="parentShoppingListId" type="id"/>
-        <field name="listName" type="text-medium"/>
-        <field name="productStoreId" type="id"/>
-        <field name="visitorId" type="id"/>
-        <field name="partyId" type="id"/>
-        <field name="description" type="text-long"/>
-        <field name="isPublic" type="text-indicator"/>
-        <field name="isActive" type="text-indicator"/>
-        <field name="currencyUomId" type="id"/>
-        <field name="shipmentMethodEnumId" type="id"/>
-        <field name="carrierPartyId" type="id"/>
-        <field name="postalContactMechId" type="id"/>
-        <field name="paymentMethodId" type="id"/>
-        <field name="recurrenceInfoId" type="id"><!-- TODO: replace this with something else... --></field>
-        <field name="lastOrderedDate" type="date-time"/>
-        <relationship type="one" title="Parent" related-entity-name="ShoppingList">
-            <key-map field-name="parentShoppingListId" related-field-name="shoppingListId"/>
-        </relationship>
-        <relationship type="one" title="ShoppingListType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="shoppingListTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="ProductStore"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="moqui.server.Visitor"/>
-        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="currencyUomId"/>
-        </relationship>
-        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="shipmentMethodEnumId"/>
-        </relationship>
-        <relationship type="one" title="Postal" related-entity-name="ContactMech">
-            <key-map field-name="postalContactMechId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="PaymentMethod"/>
-    </entity>
-    <entity entity-name="ShoppingListItem" package-name="mantle.order.shoppinglist">
-        <field name="shoppingListId" type="id" is-pk="true"/>
-        <field name="shoppingListItemSeqId" type="id" is-pk="true"/>
-        <field name="productId" type="id"/>
-        <field name="quantity" type="number-decimal"/>
-        <field name="quantityPurchased" type="number-decimal"/>
-        <field name="productConfigSavedId" type="id"/>
-        <relationship type="one" related-entity-name="ShoppingList"/>
-        <relationship type="one" related-entity-name="Product"/>
-        <relationship type="one" related-entity-name="ProductConfigSaved"/>
     </entity>
 </entities>
