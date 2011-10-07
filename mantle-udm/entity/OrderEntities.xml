@@ -190,17 +190,20 @@ and those parts may be licensed under the Apache License 2.0.
         <seed-data>
             <!-- Order Header Status -->
             <moqui.basic.StatusType description="Order Header Status" statusTypeId="OrderHeader"/>
-            <moqui.basic.StatusItem description="Being Edited" sequenceNum="0" statusId="ORDER_BEING_EDITED" statusTypeId="OrderHeader"/>
+            <!-- Use Being Changed to disable automatic changes such as promotions, tax calc, shipping calc, etc -->
+            <moqui.basic.StatusItem description="Being Changed" sequenceNum="0" statusId="ORDER_BEING_CHANGED" statusTypeId="OrderHeader"/>
 
-            <moqui.basic.StatusItem description="Proposed by Vendor" sequenceNum="1" statusId="ORDER_PROPOSED" statusTypeId="OrderHeader"/>
-            <moqui.basic.StatusItem description="Placed (Accepted by Placing Customer)" sequenceNum="2" statusId="ORDER_PLACED" statusTypeId="OrderHeader"/>
+            <!-- An Open Order is like a shopping cart -->
+            <moqui.basic.StatusItem description="Open (Tentative)" sequenceNum="1" statusId="ORDER_OPEN" statusTypeId="OrderHeader"/>
+            <moqui.basic.StatusItem description="Proposed by Vendor" sequenceNum="2" statusId="ORDER_PROPOSED" statusTypeId="OrderHeader"/>
+            <moqui.basic.StatusItem description="Placed (Accepted by Customer)" sequenceNum="3" statusId="ORDER_PLACED" statusTypeId="OrderHeader"/>
 
-            <moqui.basic.StatusItem description="Processing" sequenceNum="4" statusId="ORDER_PROCESSING" statusTypeId="OrderHeader"/>
-            <moqui.basic.StatusItem description="Approved by Vendor" sequenceNum="5" statusId="ORDER_APPROVED" statusTypeId="OrderHeader"/>
-            <moqui.basic.StatusItem description="Sent" sequenceNum="6" statusId="ORDER_SENT" statusTypeId="OrderHeader"/>
+            <moqui.basic.StatusItem description="Processing" sequenceNum="11" statusId="ORDER_PROCESSING" statusTypeId="OrderHeader"/>
+            <moqui.basic.StatusItem description="Approved by Vendor" sequenceNum="12" statusId="ORDER_APPROVED" statusTypeId="OrderHeader"/>
+            <moqui.basic.StatusItem description="Sent" sequenceNum="13" statusId="ORDER_SENT" statusTypeId="OrderHeader"/>
 
-            <moqui.basic.StatusItem description="Completed" sequenceNum="10" statusId="ORDER_COMPLETED" statusTypeId="OrderHeader"/>
-            <moqui.basic.StatusItem description="Held" sequenceNum="11" statusId="ORDER_HOLD" statusTypeId="OrderHeader"/>
+            <moqui.basic.StatusItem description="Completed" sequenceNum="21" statusId="ORDER_COMPLETED" statusTypeId="OrderHeader"/>
+            <moqui.basic.StatusItem description="Held" sequenceNum="22" statusId="ORDER_HOLD" statusTypeId="OrderHeader"/>
 
             <moqui.basic.StatusItem description="Rejected" sequenceNum="98" statusId="ORDER_REJECTED" statusTypeId="OrderHeader"/>
             <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="ORDER_CANCELLED" statusTypeId="OrderHeader"/>
@@ -209,33 +212,42 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusItem description="Gift Registry" sequenceNum="102" statusId="ORDER_GIFT_REGISTRY" statusTypeId="OrderHeader"/>
             <moqui.basic.StatusItem description="Auto Reorder" sequenceNum="103" statusId="ORDER_AUTO_REORDER" statusTypeId="OrderHeader"/>
 
-            <moqui.basic.StatusValidChange statusId="ORDER_BEING_EDITED" statusIdTo="ORDER_PROPOSED" transitionName="Propose"/>
-            <moqui.basic.StatusValidChange statusId="ORDER_PROPOSED" statusIdTo="ORDER_BEING_EDITED" transitionName="Propose"/>
-            <moqui.basic.StatusValidChange statusId="ORDER_BEING_EDITED" statusIdTo="ORDER_PLACED" transitionName="Place"/>
+            <moqui.basic.StatusValidChange statusId="ORDER_BEING_CHANGED" statusIdTo="ORDER_OPEN" transitionName="Make Open/Tentative"/>
+            <moqui.basic.StatusValidChange statusId="ORDER_OPEN" statusIdTo="ORDER_BEING_CHANGED" transitionName="Begin Changes"/>
+            <moqui.basic.StatusValidChange statusId="ORDER_OPEN" statusIdTo="ORDER_PROPOSED" transitionName="Propose"/>
+            <moqui.basic.StatusValidChange statusId="ORDER_OPEN" statusIdTo="ORDER_PLACED" transitionName="Place"/>
 
+            <moqui.basic.StatusValidChange statusId="ORDER_BEING_CHANGED" statusIdTo="ORDER_PROPOSED" transitionName="Propose"/>
+            <moqui.basic.StatusValidChange statusId="ORDER_PROPOSED" statusIdTo="ORDER_BEING_CHANGED" transitionName="Begin Changes"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PROPOSED" statusIdTo="ORDER_PLACED" transitionName="Place"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PROPOSED" statusIdTo="ORDER_REJECTED" transitionName="Reject"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PROPOSED" statusIdTo="ORDER_CANCELLED" transitionName="Cancel"/>
+
+            <moqui.basic.StatusValidChange statusId="ORDER_BEING_CHANGED" statusIdTo="ORDER_PLACED" transitionName="Place"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PLACED" statusIdTo="ORDER_PROCESSING" transitionName="Process"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PLACED" statusIdTo="ORDER_APPROVED" transitionName="Approve"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PLACED" statusIdTo="ORDER_HOLD" transitionName="Hold"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PLACED" statusIdTo="ORDER_REJECTED" transitionName="Reject"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PLACED" statusIdTo="ORDER_CANCELLED" transitionName="Cancel"/>
+
             <moqui.basic.StatusValidChange statusId="ORDER_PROCESSING" statusIdTo="ORDER_HOLD" transitionName="Hold"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PROCESSING" statusIdTo="ORDER_APPROVED" transitionName="Approve"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PROCESSING" statusIdTo="ORDER_REJECTED" transitionName="Reject"/>
             <moqui.basic.StatusValidChange statusId="ORDER_PROCESSING" statusIdTo="ORDER_CANCELLED" transitionName="Cancel"/>
+
             <moqui.basic.StatusValidChange statusId="ORDER_APPROVED" statusIdTo="ORDER_SENT" transitionName="Send"/>
             <moqui.basic.StatusValidChange statusId="ORDER_APPROVED" statusIdTo="ORDER_PROCESSING" transitionName="Process"/>
             <moqui.basic.StatusValidChange statusId="ORDER_APPROVED" statusIdTo="ORDER_COMPLETED" transitionName="Complete"/>
             <moqui.basic.StatusValidChange statusId="ORDER_APPROVED" statusIdTo="ORDER_CANCELLED" transitionName="Cancel"/>
             <moqui.basic.StatusValidChange statusId="ORDER_APPROVED" statusIdTo="ORDER_HOLD" transitionName="Hold"/>
+
             <moqui.basic.StatusValidChange statusId="ORDER_HOLD" statusIdTo="ORDER_PROCESSING" transitionName="Process"/>
             <moqui.basic.StatusValidChange statusId="ORDER_HOLD" statusIdTo="ORDER_APPROVED" transitionName="Approve"/>
             <moqui.basic.StatusValidChange statusId="ORDER_HOLD" statusIdTo="ORDER_CANCELLED" transitionName="Cancel"/>
+
             <moqui.basic.StatusValidChange statusId="ORDER_SENT" statusIdTo="ORDER_COMPLETED" transitionName="Order Completed"/>
             <moqui.basic.StatusValidChange statusId="ORDER_SENT" statusIdTo="ORDER_CANCELLED" transitionName="Order Cancelled"/>
-            <moqui.basic.StatusValidChange statusId="ORDER_COMPLETED" statusIdTo="ORDER_APPROVED" transitionName="Approve"/>
+            <moqui.basic.StatusValidChange statusId="ORDER_COMPLETED" statusIdTo="ORDER_APPROVED" transitionName="Approve (un-complete)"/>
 
             <!-- Sales Channel -->
             <moqui.basic.EnumerationType description="Sales Channel" enumTypeId="SalesChannel"/>
