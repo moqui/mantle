@@ -87,21 +87,18 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="finAccountName" type="text-medium"/>
         <field name="finAccountCode" type="text-long" encrypt="true"/>
         <field name="finAccountPin" type="text-long" encrypt="true"/>
-        <field name="organizationPartyId" type="id">
-            <description>The internal organization Party that is liable for the account.</description>
-        </field>
+        <field name="organizationPartyId" type="id"><description>The internal organization Party that is liable for the
+            account.</description></field>
         <field name="ownerPartyId" type="id"/>
         <field name="postToGlAccountId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="isRefundable" type="text-indicator"/>
         <field name="balanceUomId" type="id"/>
-        <field name="actualBalance" type="currency-amount">
-            <description>Calculated as the sum of FinancialAccountTrans.amount</description>
-        </field>
-        <field name="availableBalance" type="currency-amount">
-            <description>Calculated as actualBalance minus sum of outstanding FinancialAccountAuth.amount</description>
-        </field>
+        <field name="actualBalance" type="currency-amount"><description>Calculated as the sum of
+            FinancialAccountTrans.amount</description></field>
+        <field name="availableBalance" type="currency-amount"><description>Calculated as actualBalance minus sum of
+            outstanding FinancialAccountAuth.amount</description></field>
         <field name="replenishPaymentId" type="id"/>
         <field name="replenishLevel" type="currency-amount"/>
         <relationship type="one" related-entity-name="FinancialAccountType">
@@ -158,11 +155,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="amount" type="currency-amount"/>
         <field name="paymentId" type="id"/>
         <field name="orderId" type="id"/>
-        <field name="orderItemSeqId" type="id">
-            <description>To be used along with orderId to point to an OrderItem that represents the purchase of a
-                product to add money to the account.
-            </description>
-        </field>
+        <field name="orderItemSeqId" type="id"><description>To be used along with orderId to point to an OrderItem that
+            represents the purchase of a product to add money to the account.</description></field>
         <field name="performedByPartyId" type="id"/>
         <field name="reasonEnumId" type="id"/>
         <field name="comments" type="text-long"/>
@@ -262,14 +256,10 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="invoiceId" type="id" is-pk="true"/>
         <field name="invoiceItemSeqId" type="id" is-pk="true"/>
         <field name="itemTypeEnumId" type="id"/>
-        <field name="overrideGlAccountId" type="id">
-            <description>used to specify the override or actual glAccountId used for the invoice, avoids problems if
-                configuration changes after initial posting, etc
-            </description>
-        </field>
-        <field name="overrideOrgPartyId" type="id">
-            <description>Used to specify the organization override rather than using the payToPartyId</description>
-        </field>
+        <field name="overrideGlAccountId" type="id"><description>used to specify the override or actual glAccountId
+            used for the invoice, avoids problems if configuration changes after initial posting, etc</description></field>
+        <field name="overrideOrgPartyId" type="id"><description>Used to specify the organization override rather than
+            using the payToPartyId</description></field>
         <field name="assetId" type="id"/>
         <field name="productId" type="id"/>
         <field name="parentInvoiceId" type="id"/>
@@ -391,6 +381,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="postalContactMechId" type="id"/>
         <field name="telecomContactMechId" type="id"/>
         <field name="trustLevelEnumId" type="id"/>
+        <field name="paymentFraudEvidenceId" type="id"><description>Refer to evidence here if trustLevelEnumId is gray
+            listed or black listed.</description></field>
         <field name="glAccountId" type="id"/>
         <field name="finAccountId" type="id"/>
         <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration">
@@ -408,6 +400,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="ContactPaymentTrustLevel" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="trustLevelEnumId"/>
         </relationship>
+        <relationship type="one" related-entity-name="PaymentFraudEvidence"/>
         <relationship type="one" related-entity-name="GlAccount"/>
         <relationship type="one" related-entity-name="FinancialAccount"/>
     </entity>
@@ -415,17 +408,11 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="creditCardTypeEnumId" type="id"/>
         <field name="cardNumber" type="text-medium" encrypt="true"/>
-        <field name="cardNumberLookupHash" type="text-medium">
-            <description>A one-way hash (SHA, etc) of the cardNumber used for looking up a credit card by its number
-                in a secure way.</description>
-        </field>
-        <field name="validFromDate" type="text-short">
-            <description>Not common in some parts of the world.</description>
-        </field>
+        <field name="cardNumberLookupHash" type="text-medium"><description>A one-way hash (SHA, etc) of the cardNumber
+            used for looking up a credit card by its number in a secure way.</description></field>
+        <field name="validFromDate" type="text-short"><description>Not common in some parts of the world.</description></field>
         <field name="expireDate" type="text-short"/>
-        <field name="issueNumber" type="text-short">
-            <description>Single digit number on some Switch and Maestro cards.</description>
-        </field>
+        <field name="issueNumber" type="text-short"><description>Single digit number on some Switch and Maestro cards.</description></field>
 
         <field name="companyNameOnCard" type="text-medium"/>
         <field name="titleOnCard" type="text-medium"/>
@@ -573,19 +560,38 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="overrideGlAccountId"/>
         </relationship>
     </entity>
+    <entity entity-name="PaymentFraudEvidence" package-name="mantle.accounting.account.payment">
+        <description>
+            Evidence of payment fraud with references to the Payment and possibly OrderHeader that represents the fraud.
+
+            Other entities like ContactMech and PaymentMethod have a reference to this entity when they are gray- or
+            black-listed based on this evidence.
+        </description>
+        <field name="paymentFraudEvidenceId" type="id"/>
+        <field name="fraudTypeEnumId" type="id"/>
+        <field name="comments" type="text-long"/>
+        <field name="paymentId" type="id"/>
+        <field name="orderId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="visitId" type="id"/>
+        <relationship type="one" title="FraudType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="fraudTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="Payment"/>
+        <relationship type="one" related-entity-name="OrderHeader"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="moqui.server.Visit"/>
+    </entity>
     <entity entity-name="PaymentApplication" package-name="mantle.accounting.account.payment">
         <field name="paymentApplicationId" type="id" is-pk="true"/>
         <field name="paymentId" type="id"/>
         <field name="invoiceId" type="id"/>
         <field name="invoiceItemSeqId" type="id"/>
         <field name="billingAccountId" type="id"/>
-        <field name="overrideGlAccountId" type="id">
-            <description>If filled in, payment is applied directly against this GL account</description>
-        </field>
-        <field name="toPaymentId" type="id">
-            <description>To be used when a payment is based on or comes from another payment, like a payment that is a
-                return of a mistaken or over-payment</description>
-        </field>
+        <field name="overrideGlAccountId" type="id"><description>If filled in, payment is applied directly against this
+            GL account</description></field>
+        <field name="toPaymentId" type="id"><description>To be used when a payment is based on or comes from another
+            payment, like a payment that is a return of a mistaken or over-payment</description></field>
         <field name="taxAuthGeoId" type="id"/>
         <field name="amountApplied" type="currency-amount"/>
         <relationship type="one" related-entity-name="Payment">
