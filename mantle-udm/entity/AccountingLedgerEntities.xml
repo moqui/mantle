@@ -57,6 +57,195 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="glXbrlClassEnumId"/>
         </relationship>
         <index name="GLACCT_UNQCD" unique="true"><index-field name="accountCode"/></index>
+        <seed-data>
+            <!-- These classes are used to classify gl accounts for financial statement purposes: balance sheet, income statement, cash flow statement,
+                statement of shareholders' equity.  We could get fancier with different types of accounts: Investments vs PP&E, classes of equity,
+                classes of debt, etc. over time -->
+            <!--
+
+                DEBIT
+                    |___> NON_POSTING
+                    |
+                    |___> CONTRA_REVENUE
+                    |
+                    |___> ASSET
+                    |         |_________> LONGTERM_ASSET
+                    |         |
+                    |         |_________> CURRENT_ASSET
+                    |                                 |____> CASH_EQUIVALENT
+                    |                                 |
+                    |                                 |____> INVENTORY_ASSET
+                    |
+                    |___> DISTRIBUTION
+                    |               |___> RETURN_OF_CAPITAL
+                    |               |
+                    |               |___> DIVIDEND
+                    |
+                    |___> EXPENSE
+                              |_________> CASH_EXPENSE
+                              |                       |____> INTEREST_EXPENSE
+                              |                       |
+                              |                       |____> COGS_EXPENSE
+                              |                       |
+                              |                       |____> SGA_EXPENSE
+                              |
+                              |_________> NON_CASH_EXPENSE
+                                                      |____> DEPRECIATION
+                                                      |
+                                                      |____> AMORTIZATION
+                                                      |
+                                                      |____> INVENTORY_ADJUST
+
+                CREDIT
+                    |___> CONTRA_ASSET
+                    |              |___> ACCUM_DEPRECIATION
+                    |              |
+                    |              |___> ACCUM_AMORTIZATION
+                    |
+                    |___> LIABILITY
+                    |         |_________> CURRENT_LIABILITY
+                    |         |
+                    |         |_________> LONGTERM_LIABILITY
+                    |
+                    |___> EQUITY
+                    |         |_________> OWNERS_EQUITY
+                    |         |
+                    |         |_________> RETAINED_EARNINGS
+                    |
+                    |___> REVENUE
+                    |
+                    |___> INCOME
+                               |________> CASH_INCOME
+                               |
+                               |________> NON_CASH_INCOME
+
+                RESOURCE
+
+            -->
+            <!-- GL Account Class -->
+            <moqui.basic.EnumerationType description="GL Account Class" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Debit" enumId="DEBIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Credit" enumId="CREDIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Resource" enumId="RESOURCE" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Asset" enumId="ASSET" parentEnumId="DEBIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Current Asset" enumId="CURRENT_ASSET" parentEnumId="ASSET" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Cash and Equivalent" enumId="CASH_EQUIVALENT" parentEnumId="CURRENT_ASSET" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Inventory Asset" enumId="INVENTORY_ASSET" parentEnumId="CURRENT_ASSET" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Long Term Asset" enumId="LONGTERM_ASSET" parentEnumId="ASSET" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Liability" enumId="LIABILITY" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Current Liability" enumId="CURRENT_LIABILITY" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Long Term Liability" enumId="LONGTERM_LIABILITY" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Equity" enumId="EQUITY" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Owners Equity" enumId="OWNERS_EQUITY" parentEnumId="EQUITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Retained Earnings" enumId="RETAINED_EARNINGS" parentEnumId="EQUITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Equity Distribution" enumId="DISTRIBUTION" parentEnumId="DEBIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Return of Capital" enumId="RETURN_OF_CAPITAL" parentEnumId="DISTRIBUTION" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Dividends" enumId="DIVIDEND" parentEnumId="DISTRIBUTION" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Revenue" enumId="REVENUE" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Contra Revenue" enumId="CONTRA_REVENUE" parentEnumId="DEBIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Income" enumId="INCOME" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Cash Income" enumId="CASH_INCOME" parentEnumId="INCOME" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Non-Cash Income" enumId="NON_CASH_INCOME" parentEnumId="INCOME" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Expense" enumId="EXPENSE" parentEnumId="DEBIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Cash Expense" enumId="CASH_EXPENSE" parentEnumId="EXPENSE" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Interest Expense" enumId="INTEREST_EXPENSE" parentEnumId="CASH_EXPENSE" enumTypeId="GlAccountClass"/> <!-- useful for EBITDA, coverage ratios, etc. -->
+            <moqui.basic.Enumeration description="Cost of Goods Sold Expense" enumId="COGS_EXPENSE" parentEnumId="CASH_EXPENSE" enumTypeId="GlAccountClass"/> <!-- used for Gross Profit -->
+            <moqui.basic.Enumeration description="Selling, General, and Administrative Expense" enumId="SGA_EXPENSE" parentEnumId="CASH_EXPENSE" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Non-Cash Expense" enumId="NON_CASH_EXPENSE" parentEnumId="EXPENSE" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Depreciation" enumId="DEPRECIATION" parentEnumId="NON_CASH_EXPENSE" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Amortization" enumId="AMORTIZATION" parentEnumId="NON_CASH_EXPENSE" enumTypeId="GlAccountClass"/>
+            <!-- a special class for non-cash inventory adjustment expenses to avoid duplicating operating cash flow adjustments for inventory
+                 account transactions, which adjust operating cash flows -->
+            <moqui.basic.Enumeration description="Inventory Adjustment" enumId="INVENTORY_ADJUST" parentEnumId="NON_CASH_EXPENSE" enumTypeId="GlAccountClass"/>
+            <!-- same idea: these avoid double counting of depreciation & amortization -->
+            <moqui.basic.Enumeration description="Contra Asset" enumId="CONTRA_ASSET" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Accumulated Depreciation" enumId="ACCUM_DEPRECIATION" parentEnumId="CONTRA_ASSET" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Accumulated Amortization" enumId="ACCUM_AMORTIZATION" parentEnumId="CONTRA_ASSET" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Non-Posting" enumId="NON_POSTING" parentEnumId="DEBIT" enumTypeId="GlAccountClass"/>
+
+            <!-- GL Account Type -->
+            <moqui.basic.EnumerationType description="GL Account Type" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Accounts Receivable" enumId="ACCOUNTS_RECEIVABLE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Accounts Payable" enumId="ACCOUNTS_PAYABLE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Balance" enumId="BALANCE_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Bank Settlement" enumId="BANK_STLMNT_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Undeposited Receipts" enumId="UNDEPOSITED_RECEIPTS" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Merchant Account Settlement" enumId="MRCH_STLMNT_ACCOUNT" parentEnumId="ACCOUNTS_RECEIVABLE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Current Asset" enumId="CURRENT_ASSET" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Fixed Asset" enumId="FIXED_ASSET" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Fixed Asset Maintenance" enumId="FIXED_ASSET_MAINT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Other Asset" enumId="OTHER_ASSET" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Credit Card" enumId="CREDIT_CARD" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Current Liability" enumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Long Term Liability" enumId="LONG_TERM_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Customer" enumId="CUSTOMER_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Supplier" enumId="SUPPLIER_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Product" enumId="PRODUCT_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Inventory" enumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Inventory Adjustment from Average Cost" enumId="INV_ADJ_AVG_COST" parentEnumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Inventory Item Value Adjustment" enumId="INV_ADJ_VAL" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Raw Materials Inventory" enumId="RAWMAT_INVENTORY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Work In Progress Inventory" enumId="WIP_INVENTORY" enumTypeId="GlAccountType"/>
+
+            <moqui.basic.Enumeration description="Tax" enumId="TAX_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Profit Loss" enumId="PROFIT_LOSS_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Sales" enumId="SALES_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Customer Returns" enumId="SALES_RETURNS" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Discounts" enumId="DISCOUNTS_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Cost of Goods Sold" enumId="COGS_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="COGS - Average Cost Adjustment" enumId="COGS_ADJ_AVG_COST" parentEnumId="COGS_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Purchase" enumId="PURCHASE_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Inventory Change" enumId="INV_CHANGE_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Expense" enumId="EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Operating Expense" enumId="OPERATING_EXPENSE" parentEnumId="EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Other Expense" enumId="OTHER_EXPENSE" parentEnumId="EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Owner's Equity" enumId="OWNERS_EQUITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Retained Earnings" enumId="RETAINED_EARNINGS" enumTypeId="GlAccountType"/>
+
+            <moqui.basic.Enumeration description="Customer Deposits" enumId="CUSTOMER_DEPOSIT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Customer Credits" enumId="CUSTOMER_CREDIT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Customer Gift Certificate Balances" enumId="CUSTOMER_GC_DEPOSIT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Uninvoiced Shipment Receipts" enumId="UNINVOICED_SHIP_RCPT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Purchase Price Variance" enumId="PURCHASE_PRICE_VAR" parentEnumId="OTHER_EXPENSE" enumTypeId="GlAccountType"/>
+
+            <moqui.basic.Enumeration description="Income" enumId="INCOME" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Other Income" enumId="OTHER_INCOME" parentEnumId="INCOME" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Interest Income" enumId="INTEREST_INCOME" parentEnumId="INCOME" enumTypeId="GlAccountType"/>
+
+            <moqui.basic.Enumeration description="Interest Income Receivables" enumId="INTRSTINC_RECEIVABLE" parentEnumId="ACCOUNTS_RECEIVABLE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Prepaid Expenses" enumId="PREPAID_EXPENSES" parentEnumId="CURRENT_ASSET" enumTypeId="GlAccountType"/>
+
+            <moqui.basic.Enumeration description="Receivable from Inventory Transferred Out" enumId="INVENTORY_XFER_OUT" parentEnumId="CURRENT_ASSET" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Payable from Inventory Transferred In" enumId="INVENTORY_XFER_IN" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Accounts Payable - Unapplied Payments" enumId="ACCPAYABLE_UNAPPLIED" parentEnumId="ACCOUNTS_PAYABLE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Accounts Receivable - Unapplied Payments" enumId="ACCREC_UNAPPLIED" parentEnumId="ACCOUNTS_RECEIVABLE" enumTypeId="GlAccountType"/>
+
+            <moqui.basic.Enumeration description="Commission Expense" enumId="COMMISSION_EXPENSE" parentEnumId="OPERATING_EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Commissions Payables" enumId="COMMISSIONS_PAYABLE" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Write Off" enumId="WRITEOFF" parentEnumId="OTHER_EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Accounts Receivables Write Off" enumId="ACCTRECV_WRITEOFF" parentEnumId="WRITEOFF" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Accounts Payables Write Off" enumId="ACCTPAY_WRITEOFF" parentEnumId="WRITEOFF" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Commissions Payables Write Off" enumId="COMMISSIONS_WRITEOFF" parentEnumId="WRITEOFF" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Interest Income Write Off" enumId="INTRSTINC_WRITEOFF" parentEnumId="WRITEOFF" enumTypeId="GlAccountType"/>
+
+            <moqui.basic.Enumeration description="Foreign Exchange Gain/Loss" enumId="FX_GAIN_LOSS_ACCT" parentEnumId="OTHER_EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Foreign Exchange Gain" enumId="FX_GAIN_ACCOUNT" parentEnumId="FX_GAIN_LOSS_ACCT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Foreign Exchange Loss" enumId="FX_LOSS_ACCOUNT" parentEnumId="FX_GAIN_LOSS_ACCT" enumTypeId="GlAccountType"/>
+
+            <!-- GL Resource Type -->
+            <moqui.basic.EnumerationType description="GL Resource Type" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Money" enumId="GLRT_MONEY" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Raw Materials" enumId="GLRT_RAW_MATERIALS" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Labor" enumId="GLRT_LABOR" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Services" enumId="GLRT_SERVICES" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Finished Goods" enumId="GLRT_FINISHED_GOODS" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Delivered Goods" enumId="GLRT_DELIVERED_GOODS" enumTypeId="GlResourceType"/>
+
+            <!-- GL XBRL Class -->
+            <moqui.basic.EnumerationType description="GL XBRL Class" enumTypeId="GlXbrlClass"/>
+            <moqui.basic.Enumeration description="US GAAP" enumId="US_GAAP" enumTypeId="GlXbrlClass"/>
+            <moqui.basic.Enumeration description="IAS" enumId="IAS" enumTypeId="GlXbrlClass"/>
+        </seed-data>
     </entity>
 
     <entity entity-name="GlAccountCategory" package-name="mantle.accounting.ledger.account">
@@ -66,6 +255,11 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="GlAccountCategoryType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="categoryTypeEnumId"/>
         </relationship>
+        <seed-data>
+            <!-- GL Account Category Type -->
+            <moqui.basic.EnumerationType description="GL Account Category Type" enumTypeId="GlAccountCategoryType"/>
+            <moqui.basic.Enumeration enumId="COST_CENTER" description="Cost Center Category" enumTypeId="GlAccountCategoryType"/>
+        </seed-data>
     </entity>
     <entity entity-name="GlAccountCategoryMember" package-name="mantle.accounting.ledger.account">
         <field name="glAccountId" type="id" is-pk="true"/>
@@ -374,7 +568,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="TaxForm" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="taxFormEnumId"/>
         </relationship>
-        <relationship type="one" title="Cogs" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="CogsMethod" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="cogsMethodEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="moqui.basic.Uom">
@@ -395,6 +589,36 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="OrderSequence" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="orderSequenceEnumId"/>
         </relationship>
+        <seed-data>
+            <!-- Tax Forms (for accounting preferences) -->
+            <moqui.basic.EnumerationType description="Tax Form" enumTypeId="TaxForm"/>
+            <moqui.basic.Enumeration description="Form 1120 (US IRS)" enumId="US_IRS_1120" sequenceNum="1" enumTypeId="TaxForm"/>
+            <moqui.basic.Enumeration description="Form 1120S (US IRS)" enumId="US_IRS_1120S" sequenceNum="2" enumTypeId="TaxForm"/>
+            <moqui.basic.Enumeration description="Form 1065 (US IRS)" enumId="US_IRS_1065" sequenceNum="3" enumTypeId="TaxForm"/>
+            <moqui.basic.Enumeration description="Form 990 (US IRS)" enumId="US_IRS_990" sequenceNum="4" enumTypeId="TaxForm"/>
+            <moqui.basic.Enumeration description="Form 990-PF (US IRS)" enumId="US_IRS_990PF" sequenceNum="5" enumTypeId="TaxForm"/>
+            <moqui.basic.Enumeration description="Form 990-T (US IRS)" enumId="US_IRS_990T" sequenceNum="6" enumTypeId="TaxForm"/>
+            <moqui.basic.Enumeration description="Form 1040 (US IRS)" enumId="US_IRS_1040" sequenceNum="7" enumTypeId="TaxForm"/>
+
+            <!-- Cost Of Goods Sold methods (for accounting preferences) -->
+            <moqui.basic.EnumerationType description="COGS Method" enumTypeId="CogsMethod"/>
+            <moqui.basic.Enumeration description="LIFO" enumId="COGS_LIFO" sequenceNum="1" enumTypeId="CogsMethod"/>
+            <moqui.basic.Enumeration description="FIFO" enumId="COGS_FIFO" sequenceNum="2" enumTypeId="CogsMethod"/>
+            <moqui.basic.Enumeration description="Average Cost" enumId="COGS_AVG_COST" sequenceNum="3" enumTypeId="CogsMethod"/>
+            <moqui.basic.Enumeration description="Inventory Item Cost" enumId="COGS_INV_COST" sequenceNum="4" enumTypeId="CogsMethod"/>
+
+            <!-- Accounting Preference Sequencing Modes -->
+            <moqui.basic.EnumerationType description="Invoice Sequence Mode" enumTypeId="InvoiceSequence"/>
+            <moqui.basic.Enumeration description="Standard (faster, may have gaps, per system)" enumId="INVSQ_STANDARD" sequenceNum="1" enumTypeId="InvoiceSequence"/>
+            <moqui.basic.Enumeration description="Enforced Sequence (no gaps, per organization)" enumId="INVSQ_ENF_SEQ" sequenceNum="2" enumTypeId="InvoiceSequence"/>
+            <moqui.basic.Enumeration description="Restart on Fiscal Year (no gaps, per org, reset to 1 each year)" enumId="INVSQ_RESTARTYR" sequenceNum="3" enumTypeId="InvoiceSequence"/>
+            <moqui.basic.EnumerationType description="Quote Sequence Mode" enumTypeId="QuoteSequence"/>
+            <moqui.basic.Enumeration description="Standard (faster, may have gaps, per system)" enumId="QTESQ_STANDARD" sequenceNum="1" enumTypeId="QuoteSequence"/>
+            <moqui.basic.Enumeration description="Enforced Sequence (no gaps, per organization)" enumId="QTESQ_ENF_SEQ" sequenceNum="2" enumTypeId="QuoteSequence"/>
+            <moqui.basic.EnumerationType description="Order Sequence Mode" enumTypeId="OrderSequence"/>
+            <moqui.basic.Enumeration description="Standard (faster, may have gaps, per system)" enumId="ODRSQ_STANDARD" sequenceNum="1" enumTypeId="OrderSequence"/>
+            <moqui.basic.Enumeration description="Enforced Sequence (no gaps, per organization)" enumId="ODRSQ_ENF_SEQ" sequenceNum="2" enumTypeId="OrderSequence"/>
+        </seed-data>
     </entity>
 
     <!-- ========================================================= -->
@@ -415,7 +639,14 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Organization" related-entity-name="Party">
             <key-map field-name="organizationPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" title="GlReconciliation" related-entity-name="moqui.basic.StatusItem"/>
+        <seed-data>
+            <!-- GlReconciliation Status -->
+            <moqui.basic.StatusType statusTypeId="GlReconciliation" description="GL Reconciliation Status"/>
+            <moqui.basic.StatusItem statusId="GLREC_CREATED" statusTypeId="GlReconciliation" sequenceNum="1" description="Created"/>
+            <moqui.basic.StatusItem statusId="GLREC_RECONCILED" statusTypeId="GlReconciliation" sequenceNum="2" description="Reconciled"/>
+            <moqui.basic.StatusValidChange statusId="GLREC_CREATED" statusIdTo="GLREC_RECONCILED" transitionName="Set Created to Reconciled"/>
+        </seed-data>
     </entity>
     <entity entity-name="GlReconciliationEntry" package-name="mantle.accounting.ledger.reconciliation">
         <field name="glReconciliationId" type="id" is-pk="true"/>
@@ -478,11 +709,58 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Shipment"/>
         <relationship type="one" related-entity-name="ShipmentReceipt"/>
         <relationship type="one" related-entity-name="WorkEffort"/>
+        <seed-data>
+            <!-- Accounting Transaction Type -->
+            <moqui.basic.EnumerationType description="Accounting Transaction Type" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="INTERNAL_ACCTG_TRANS" description="Internal" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AMORTIZATION" description="Amortization" parentEnumId="INTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="DEPRECIATION" description="Depreciation" parentEnumId="INTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="CAPITALIZATION" description="Capitalization" parentEnumId="INTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="INVENTORY" description="Inventory" parentEnumId="INTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="ITEM_VARIANCE" description="Inventory Item Variance" parentEnumId="INTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="OTHER_INTERNAL" description="Other Internal" parentEnumId="INTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="PERIOD_CLOSING" description="Period Closing" parentEnumId="INTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="EXTERNAL_ACCTG_TRANS" description="External" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="OBLIGATION_ACCTG_TRA" description="Obligation" parentEnumId="EXTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="CREDIT_LINE" description="Credit Line" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="CREDIT_MEMO" description="Credit Memo" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="NOTE" description="Note" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="OTHER_OBLIGATION" description="Other Obligation" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="SALES" description="Sales" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="TAX_DUE" description="Tax Due" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="PAYMENT_ACCTG_TRANS" description="Payment" parentEnumId="EXTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="DISBURSEMENT" description="Disbursement" parentEnumId="PAYMENT_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="RECEIPT" description="Receipt" parentEnumId="PAYMENT_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="INVENTORY_RETURN" description="Inventory from Return" parentEnumId="EXTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="SALES_INVOICE" description="Sales Invoice" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/><!-- FIXME: replace with "SALES" -->
+            <moqui.basic.Enumeration enumId="PURCHASE_INVOICE" description="Purchase Invoice" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/><!-- FIXME: replace with "SALES" -->
+            <moqui.basic.Enumeration enumId="CUST_RTN_INVOICE" description="Customer Return" parentEnumId="OBLIGATION_ACCTG_TRA" enumTypeId="AcctgTransType"/><!-- FIXME: replace with "SALES" -->
+            <moqui.basic.Enumeration enumId="SALES_SHIPMENT" description="Sales Shipment" parentEnumId="EXTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="SHIPMENT_RECEIPT" description="Shipment Receipt" parentEnumId="EXTERNAL_ACCTG_TRANS" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="MANUFACTURING" description="Manufacturing" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="INCOMING_PAYMENT" description="Incoming Payment (Receipt)" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="OUTGOING_PAYMENT" description="Outgoing Payment (Disbursement)" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="PAYMENT_APPL" description="Payment Applied" enumTypeId="AcctgTransType"/>
+
+            <!-- GL Fiscal Type -->
+            <moqui.basic.EnumerationType description="GL Fiscal Type" enumTypeId="GlFiscalType"/>
+            <moqui.basic.Enumeration description="Actual" enumId="GLFT_ACTUAL" enumTypeId="GlFiscalType"/>
+            <moqui.basic.Enumeration description="Budget" enumId="GLFT_BUDGET" enumTypeId="GlFiscalType"/>
+            <moqui.basic.Enumeration description="Forecast" enumId="GLFT_FORECAST" enumTypeId="GlFiscalType"/>
+            <moqui.basic.Enumeration description="Plan" enumId="GLFT_PLAN" enumTypeId="GlFiscalType"/>
+            <moqui.basic.Enumeration description="Scenario" enumId="GLFT_SCENARIO" enumTypeId="GlFiscalType"/>
+        </seed-data>
     </entity>
     <entity entity-name="AcctgTransEntry" package-name="mantle.accounting.ledger.transaction">
         <field name="acctgTransId" type="id" is-pk="true"/>
         <field name="acctgTransEntrySeqId" type="id" is-pk="true"/>
-        <field name="acctgTransEntryTypeEnumId" type="id"/>
         <field name="description" type="text-long"/>
         <field name="voucherRef" type="text-short"/>
         <field name="partyId" type="id"/>
@@ -505,9 +783,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="reconcileStatusId" type="id"/>
         <field name="settlementTermId" type="id"/>
         <field name="isSummary" type="text-indicator"/>
-        <relationship type="one" title="AcctgTransEntryType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="acctgTransEntryTypeEnumId"/>
-        </relationship>
         <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
             <key-map field-name="amountUomId"/>
         </relationship>
@@ -529,6 +804,13 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="reconcileStatusId"/>
         </relationship>
         <relationship type="one" related-entity-name="SettlementTerm"/>
+        <seed-data>
+            <!-- Accounting Transaction Entry Reconcile Status -->
+            <moqui.basic.StatusType description="Accounting Transaction Entry Reconcile Status" statusTypeId="AcctgTransEntryReconcile"/>
+            <moqui.basic.StatusItem description="Not Reconciled" sequenceNum="1" statusId="AES_NOT_RECONCILED" statusTypeId="AcctgTransEntryReconcile"/>
+            <moqui.basic.StatusItem description="Partly Reconciled" sequenceNum="2" statusId="AES_PARTLY_RECON" statusTypeId="AcctgTransEntryReconcile"/>
+            <moqui.basic.StatusItem description="Reconciled" sequenceNum="3" statusId="AES_RECONCILED" statusTypeId="AcctgTransEntryReconcile"/>
+        </seed-data>
     </entity>
     <entity entity-name="GlJournal" package-name="mantle.accounting.ledger.transaction">
         <field name="glJournalId" type="id" is-pk="true"/>

@@ -74,6 +74,10 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="termUomId"/>
         </relationship>
         <relationship type="one" related-entity-name="BillingAccount"/>
+        <seed-data>
+            <!-- Billing Account Term Type -->
+            <moqui.basic.EnumerationType description="Billing Account Term Type" enumTypeId="BillingAccountTermType"/>
+        </seed-data>
     </entity>
 
     <!-- ========================================================= -->
@@ -120,6 +124,26 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Replenish" related-entity-name="PaymentMethod">
             <key-map field-name="replenishPaymentId"/>
         </relationship>
+        <seed-data>
+            <!-- Financial Account Status -->
+            <moqui.basic.StatusType description="Financial Account Status" statusTypeId="FinancialAccount"/>
+            <moqui.basic.StatusItem description="Active" sequenceNum="1" statusId="FNACT_ACTIVE" statusTypeId="FinancialAccount"/>
+            <!-- This is set automatically by the auto-replenishment code to allow one transaction to bring the balance below
+                zero and then if any other transactions are attempted during replenishment they will be rejected. -->
+            <moqui.basic.StatusItem description="Negative Pending Replenishment" sequenceNum="2" statusId="FNACT_NEGPENDREPL" statusTypeId="FinancialAccount"/>
+            <!-- This is meant to be set manually by a company representative to freeze an account so further transactions are
+                not allowed. -->
+            <moqui.basic.StatusItem description="Manually Frozen" sequenceNum="3" statusId="FNACT_MANFROZEN" statusTypeId="FinancialAccount"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="9" statusId="FNACT_CANCELLED" statusTypeId="FinancialAccount"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_ACTIVE" statusIdTo="FNACT_NEGPENDREPL" transitionName="Set Negative Pending Replenishment"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_ACTIVE" statusIdTo="FNACT_MANFROZEN" transitionName="Set Manually Frozen"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_ACTIVE" statusIdTo="FNACT_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_NEGPENDREPL" statusIdTo="FNACT_ACTIVE" transitionName="Re-activate"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_NEGPENDREPL" statusIdTo="FNACT_MANFROZEN" transitionName="Manually Freeze"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_NEGPENDREPL" statusIdTo="FNACT_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_MANFROZEN" statusIdTo="FNACT_ACTIVE" transitionName="Re-activate"/>
+            <moqui.basic.StatusValidChange statusId="FNACT_MANFROZEN" statusIdTo="FNACT_CANCELLED" transitionName="Cancel"/>
+        </seed-data>
     </entity>
     <entity entity-name="FinancialAccountAuth" package-name="mantle.accounting.account.financial">
         <field name="finAccountAuthId" type="id" is-pk="true"/>
@@ -148,6 +172,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="finAccountTransId" type="id" is-pk="true"/>
         <field name="finAccountTransTypeEnumId" type="id"/>
         <field name="finAccountId" type="id"/>
+        <field name="statusId" type="id"/>
         <field name="partyId" type="id"/>
         <field name="glReconciliationId" type="id"/>
         <field name="transactionDate" type="date-time"/>
@@ -160,11 +185,11 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="performedByPartyId" type="id"/>
         <field name="reasonEnumId" type="id"/>
         <field name="comments" type="text-long"/>
-        <field name="statusId" type="id"/>
         <relationship type="one" title="FinancialAccountTransType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="finAccountTransTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="FinancialAccount"/>
+        <relationship type="one" title="FinancialAccountTrans" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="Payment"/>
         <relationship type="one" related-entity-name="OrderItem">
@@ -177,8 +202,30 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="FinancialAccountTransReason" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="reasonEnumId"/>
         </relationship>
-        <relationship type="one" title="FinancialAccountTrans" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" related-entity-name="GlReconciliation"/>
+        <seed-data>
+            <!-- Financial Account Trans Type -->
+            <moqui.basic.EnumerationType description="Financial Account Trans Type" enumTypeId="FinancialAccountTransType"/>
+            <moqui.basic.Enumeration description="Deposit" enumId="FATT_DEPOSIT" enumTypeId="FinancialAccountTransType"/>
+            <moqui.basic.Enumeration description="Withdraw" enumId="FATT_WITHDRAWAL" enumTypeId="FinancialAccountTransType"/>
+            <moqui.basic.Enumeration description="Adjustment" enumId="FATT_ADJUSTMENT" enumTypeId="FinancialAccountTransType"/>
+
+            <!-- Financial Account Trans Status -->
+            <moqui.basic.StatusType statusTypeId="FinancialAccountTrans" description="Financial Account Trans Status"/>
+            <moqui.basic.StatusItem statusId="FINACT_TRNS_APPROVED" statusTypeId="FinancialAccountTrans" sequenceNum="1" description="Approved"/>
+            <moqui.basic.StatusItem statusId="FINACT_TRNS_CREATED" statusTypeId="FinancialAccountTrans" sequenceNum="2" description="Created"/>
+            <moqui.basic.StatusItem statusId="FINACT_TRNS_CANCELLD" statusTypeId="FinancialAccountTrans" sequenceNum="9" description="Cancelled"/>
+            <moqui.basic.StatusValidChange statusId="FINACT_TRNS_CREATED" statusIdTo="FINACT_TRNS_APPROVED" transitionName="Approve"/>
+            <moqui.basic.StatusValidChange statusId="FINACT_TRNS_CREATED" statusIdTo="FINACT_TRNS_CANCELLD" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="FINACT_TRNS_APPROVED" statusIdTo="FINACT_TRNS_CANCELLD" transitionName="Cancel"/>
+
+            <!-- Financial Account Trans Reason -->
+            <moqui.basic.EnumerationType description="Financial Account Trans Reason" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Purchase" enumId="FATR_PURCHASE" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Initial Deposit" enumId="FATR_IDEPOSIT" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Replenishment" enumId="FATR_REPLENISH" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Refund" enumId="FATR_REFUND" enumTypeId="FinancialAccountTransReason"/>
+        </seed-data>
     </entity>
     <entity entity-name="FinancialAccountType" package-name="mantle.accounting.account.financial">
         <field name="finAccountTypeId" type="id" is-pk="true"/>
@@ -207,6 +254,40 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="FinancialAccountReplenishType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="replenishTypeEnumId"/>
         </relationship>
+        <seed-data>
+            <!-- Financial Account Replenish Type -->
+            <moqui.basic.EnumerationType description="Financial Account Replenish Type" enumTypeId="FinancialAccountReplenishType"/>
+            <moqui.basic.Enumeration description="Automatic Replenish" enumId="FARP_AUTOMATIC" enumTypeId="FinancialAccountReplenishType"/>
+            <moqui.basic.Enumeration description="Manual Replenish" enumId="FARP_MANUAL" enumTypeId="FinancialAccountReplenishType"/>
+            <moqui.basic.Enumeration description="No Replenish" enumId="FARP_NONE" enumTypeId="FinancialAccountReplenishType"/>
+
+            <!-- Financial Account Replenish Method -->
+            <moqui.basic.EnumerationType description="Financial Account Replenish Method" enumTypeId="FinancialAccountReplenishMethod"/>
+            <moqui.basic.Enumeration description="Top-off" enumId="FARP_TOP_OFF" enumTypeId="FinancialAccountReplenishMethod"/>
+            <moqui.basic.Enumeration description="Replenish-level" enumId="FARP_REPLENISH_LEVEL" enumTypeId="FinancialAccountReplenishMethod"/>
+
+            <!-- Financial Account Type (NOTE: not an Enumeration because has additional fields) -->
+            <FinancialAccountType description="Gift Certificate" finAccountTypeId="GIFTCERT_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="N"/>
+            <FinancialAccountType description="Deposit Account" finAccountTypeId="DEPOSIT_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="Y"/>
+            <FinancialAccountType description="Bank Account" finAccountTypeId="BANK_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+            <FinancialAccountType description="Store Credit Account" finAccountTypeId="STORE_CREDIT_ACCT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+            <FinancialAccountType description="Investment Account" finAccountTypeId="INVESTMENT_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+            <FinancialAccountType description="Replenish Account" finAccountTypeId="REPLENISH_ACCOUNT"
+                                  replenishTypeEnumId="FARP_AUTOMATIC" isRefundable="Y" parentTypeId="DEPOSIT_ACCOUNT"/>
+            <FinancialAccountType description="Service Credit Account" finAccountTypeId="SVCCRED_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="N"/>
+            <FinancialAccountType description="Loan Account" finAccountTypeId="LOAN_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="Y"/>
+            <FinancialAccountType description="Credit Card Account" finAccountTypeId="CREDIT_CARD_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="LOAN_ACCOUNT"/>
+            <FinancialAccountType description="Equity Line Account" finAccountTypeId="EQUITY_LINE_ACCOUNT"
+                                  replenishTypeEnumId="FARP_MANUAL" isRefundable="Y" parentTypeId="LOAN_ACCOUNT"/>
+        </seed-data>
     </entity>
 
     <!-- ========================================================= -->
@@ -241,6 +322,69 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
             <key-map field-name="currencyUomId"/>
         </relationship>
+        <seed-data>
+            <!-- Invoice Type -->
+            <moqui.basic.EnumerationType description="Invoice Type" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Order" enumId="INVOICE_ORDER" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Return" enumId="INVOICE_RETURN" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Payroll" enumId="INVOICE_PAYROLL" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Commission" enumId="INVOICE_COMMISSION" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Template" enumId="INVOICE_TEMPLATE" enumTypeId="InvoiceType"/>
+            <!-- the old approach, not from/to Party sensitive:
+            <moqui.basic.Enumeration description="Payable Invoice" enumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Purchase Invoice" enumId="PURCHASE_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Customer Return" enumId="CUST_RTN_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Commission" enumId="COMMISSION_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Payroll" enumId="PAYROLL_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
+
+            <moqui.basic.Enumeration description="Receivable Invoice" enumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Sales Invoice" enumId="SALES_INVOICE" parentEnumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Vendor Return" enumId="VEND_RTN_INVOICE" parentEnumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
+
+            <moqui.basic.Enumeration description="Invoice Template" enumId="TEMPLATE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Sales Invoice Template" enumId="SALES_INV_TEMPLATE" parentEnumId="TEMPLATE" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Purchase Invoice Template" enumId="PUR_INV_TEMPLATE" parentEnumId="TEMPLATE" enumTypeId="InvoiceType"/>
+            -->
+
+            <!-- Invoice Status -->
+            <moqui.basic.StatusType description="Invoice Status" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="In-Process" sequenceNum="1" statusId="INVOICE_IN_PROCESS" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="Approved" sequenceNum="2" statusId="INVOICE_APPROVED" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="Sent" sequenceNum="10" statusId="INVOICE_SENT" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="Received" sequenceNum="11" statusId="INVOICE_RECEIVED" statusTypeId="Invoice"/>
+            <!-- READY is a very important state - it triggers general ledger postings.  Make sure your invoices go through this state -->
+            <moqui.basic.StatusItem description="Ready for Posting" sequenceNum="20" statusId="INVOICE_READY" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="Paid" sequenceNum="30" statusId="INVOICE_PAID" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="Write Off" sequenceNum="31" statusId="INVOICE_WRITEOFF" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="INVOICE_CANCELLED" statusTypeId="Invoice"/>
+            <!-- this is the simplest process: IN_PROCESS -> READY or CANCELLED -->
+            <moqui.basic.StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_READY" transitionName="Mark Ready"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+            <!-- this is a more complicated process: IN_PROCESS -> SENT -> (optionally RECEIVED) -> READY or CANCELLED -->
+            <moqui.basic.StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_SENT" transitionName="Send"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_RECEIVED" transitionName="Receive"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_APPROVED" transitionName="Mark Approved"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_READY" transitionName="Mark Ready"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_RECEIVED" transitionName="Receive"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_READY" transitionName="Mark Receive"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+            <!-- this is a process to enable modification via the Status IN_PROCESS when the receiver/sender wants an invoice change or to cancel it -->
+            <moqui.basic.StatusValidChange statusId="INVOICE_SENT" statusIdTo="INVOICE_IN_PROCESS" transitionName="Enable sales invoice update"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_IN_PROCESS" transitionName="Enable purch.invoice update"/>
+            <!-- an optional approval state is put in before invoice is sent or after it is received -->
+            <moqui.basic.StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_APPROVED" transitionName="Approve"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_APPROVED" statusIdTo="INVOICE_SENT" transitionName="Send"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_IN_PROCESS" statusIdTo="INVOICE_RECEIVED" transitionName="Receive"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_RECEIVED" statusIdTo="INVOICE_APPROVED" transitionName="Approve"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_APPROVED" statusIdTo="INVOICE_READY" transitionName="Mark Ready"/>
+            <!-- finally the invoice can be paid or written off.   -->
+            <moqui.basic.StatusValidChange statusId="INVOICE_READY" statusIdTo="INVOICE_PAID" transitionName="Pay"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_READY" statusIdTo="INVOICE_WRITEOFF" transitionName="Write Off"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_PAID" statusIdTo="INVOICE_READY" transitionName="Unpay"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_READY" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="INVOICE_PAID" statusIdTo="INVOICE_CANCELLED" transitionName="Cancel"/>
+        </seed-data>
     </entity>
     <entity entity-name="InvoiceContactMech" package-name="mantle.accounting.account.invoice">
         <field name="invoiceId" type="id" is-pk="true"/>
@@ -271,7 +415,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="description" type="text-long"/>
         <field name="taxAuthPartyId" type="id"/>
         <field name="taxAuthGeoId" type="id"/>
-        <field name="taxAuthorityRateSalesId" type="id"/>
+        <field name="taxAuthorityRateId" type="id"/>
         <field name="salesOpportunityId" type="id"/>
         <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="itemTypeEnumId"/>
@@ -293,7 +437,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Tax" related-entity-name="Geo">
             <key-map field-name="taxAuthGeoId"/>
         </relationship>
-        <relationship type="one" related-entity-name="TaxAuthorityRateSales"/>
+        <relationship type="one" related-entity-name="TaxAuthorityRate"/>
         <relationship type="one" title="OverrideOrg" related-entity-name="Party">
             <key-map field-name="overrideOrgPartyId"/>
         </relationship>
@@ -329,6 +473,12 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="To" related-entity-name="Party">
             <key-map field-name="toPartyId"/>
         </relationship>
+        <seed-data>
+            <!-- Invoice Item Assoc Type -->
+            <moqui.basic.EnumerationType description="Invoice Item Assoc Type" enumTypeId="InvoiceItemAssocType"/>
+            <moqui.basic.Enumeration description="Commission" enumId="COMMISSION_INVOICE" enumTypeId="InvoiceItemAssocType"/>
+            <moqui.basic.Enumeration description="Withdraw" enumId="WITHDRAW_INVOICE" enumTypeId="InvoiceItemAssocType"/>
+        </seed-data>
     </entity>
     <entity entity-name="InvoiceParty" package-name="mantle.accounting.account.invoice">
         <field name="invoiceId" type="id" is-pk="true"/>
@@ -365,6 +515,14 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="TermValue" related-entity-name="moqui.basic.Uom">
             <key-map field-name="termValueUomId"/>
         </relationship>
+        <seed-data>
+            <!-- NOTE: this is not an Enumeration because it needs additional fields -->
+            <SettlementTerm settlementTermId="IMMED" description="Immediate (Due on Delivery)" termValue="0" termValueUomId="TF_day"/>
+            <SettlementTerm settlementTermId="NET_15" description="Net Due in 15 Days" termValue="15" termValueUomId="TF_day"/>
+            <SettlementTerm settlementTermId="NET_30" description="Net Due in 30 Days" termValue="30" termValueUomId="TF_day"/>
+            <SettlementTerm settlementTermId="NET_60" description="Net Due in 60 Days" termValue="60" termValueUomId="TF_day"/>
+            <SettlementTerm settlementTermId="NET_90" description="Net Due in 90 Days" termValue="90" termValueUomId="TF_day"/>
+        </seed-data>
     </entity>
 
     <!-- ========================================================= -->
@@ -403,6 +561,24 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="PaymentFraudEvidence"/>
         <relationship type="one" related-entity-name="GlAccount"/>
         <relationship type="one" related-entity-name="FinancialAccount"/>
+        <seed-data>
+            <!-- Payment Method Type -->
+            <moqui.basic.EnumerationType description="Payment Method Type" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Credit Card" enumId="PMT_CREDIT_CARD" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Gift Card" enumId="PMT_GIFT_CARD" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Gift Certificate" enumId="PMT_GIFT_CERTIFICATE" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Cash" enumId="PMT_CASH" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Electronic Funds Transfer" enumId="PMT_EFT_ACCOUNT" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Financial Account" enumId="PMT_FIN_ACCOUNT" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Personal Check" enumId="PMT_PERSONAL_CHECK" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Company Check" enumId="PMT_COMPANY_CHECK" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Certified Check" enumId="PMT_CERTIFIED_CHECK" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Money Order" enumId="PMT_MONEY_ORDER" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Company Account" enumId="PMT_COMPANY_ACCOUNT" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Billing Account" enumId="PMT_EXT_BILLACT" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Cash On Delivery" enumId="PMT_EXT_COD" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Offline Payment" enumId="PMT_EXT_OFFLINE" enumTypeId="PaymentMethodType"/>
+        </seed-data>
     </entity>
     <entity entity-name="CreditCard" package-name="mantle.accounting.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
@@ -430,6 +606,22 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="creditCardTypeEnumId"/>
         </relationship>
         <index name="CC_NUMBER_LOOKUP"><index-field name="cardNumberLookupHash"/></index>
+        <seed-data>
+            <!-- Credit Card Type -->
+            <moqui.basic.EnumerationType description="Credit Card Type" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Visa" enumId="CCT_VISA" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Master Card" enumId="CCT_MASTERCARD" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="American Express" enumId="CCT_AMERICANEXPRESS" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Diners Club" enumId="CCT_DINERSCLUB" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Discover" enumId="CCT_DISCOVER" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="EnRoute" enumId="CCT_ENROUTE" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Carte Blanche" enumId="CCT_CARTEBLANCHE" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="JCB" enumId="CCT_JCB" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Solo" enumId="CCT_SOLO" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Switch" enumId="CCT_SWITCH" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Visa Electron" enumId="CCT_VISAELECTRON" enumTypeId="CreditCardType"/>
+            <moqui.basic.Enumeration description="Universal Air Travel Plan" enumId="CCT_UATP" enumTypeId="CreditCardType"/>
+        </seed-data>
     </entity>
     <entity entity-name="EftAccount" package-name="mantle.accounting.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
@@ -559,6 +751,71 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Override" related-entity-name="GlAccount">
             <key-map field-name="overrideGlAccountId"/>
         </relationship>
+        <seed-data>
+            <!-- Payment Type -->
+            <moqui.basic.EnumerationType description="Payment Type" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Disbursement" enumId="PAYMENT_DISBURSE" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Refund" enumId="PAYMENT_REFUND" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Invoice Payment" enumId="PAYMENT_INVOICE" enumTypeId="PaymentType"/>
+            <!-- OLD payment types, not party or invoice type sensitive:
+            <moqui.basic.Enumeration description="Disbursement" enumId="DISBURSEMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Customer Refund" parentEnumId="DISBURSEMENT" enumId="CUSTOMER_REFUND" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Vendor Payment" parentEnumId="DISBURSEMENT" enumId="VENDOR_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Vendor Prepayment" parentEnumId="DISBURSEMENT" enumId="VENDOR_PREPAY" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Commission Payment" parentEnumId="DISBURSEMENT" enumId="COMMISSION_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Payroll Payment" parentEnumId="DISBURSEMENT" enumId="PAYROLL_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Pay Check" parentEnumId="DISBURSEMENT" enumId="PAY_CHECK" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Tax Payment" parentEnumId="DISBURSEMENT" enumId="TAX_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Sales Tax Payment" parentEnumId="TAX_PAYMENT" enumId="SALES_TAX_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Payroll Tax Payment" parentEnumId="TAX_PAYMENT" enumId="PAYROLL_TAX_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Income Tax Payment" parentEnumId="TAX_PAYMENT" enumId="INCOME_TAX_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Gift Certificate Withdrawal"  parentEnumId="DISBURSEMENT" enumId="GC_WITHDRAWAL" enumTypeId="PaymentType"/>
+
+            <moqui.basic.Enumeration description="Receipt" enumId="RECEIPT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Customer Payment" parentEnumId="RECEIPT" enumId="CUSTOMER_PAYMENT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Customer Deposit" parentEnumId="RECEIPT" enumId="CUSTOMER_DEPOSIT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Interest Receipt" parentEnumId="RECEIPT" enumId="INTEREST_RECEIPT" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Gift Certificate Deposit"  parentEnumId="RECEIPT" enumId="GC_DEPOSIT" enumTypeId="PaymentType"/>
+            -->
+
+            <!-- Payment Status -->
+            <moqui.basic.StatusType description="Payment Status" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Proposed" sequenceNum="1" statusId="PMNT_PROPOSED" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Promised" sequenceNum="2" statusId="PMNT_PROMISED" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Authorized" sequenceNum="3" statusId="PMNT_AUTHORIZED" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Sent/Settled" sequenceNum="4" statusId="PMNT_SENT" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Received" sequenceNum="5" statusId="PMNT_RECEIVED" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Confirmed Paid" sequenceNum="6" statusId="PMNT_CONFIRMED" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="91" statusId="PMNT_CANCELLED" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Void" sequenceNum="92" statusId="PMNT_VOID" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Declined" sequenceNum="93" statusId="PMNT_DECLINED" statusTypeId="Payment"/>
+            <moqui.basic.StatusItem description="Refunded" sequenceNum="94" statusId="PMNT_REFUNDED" statusTypeId="Payment"/>
+
+            <moqui.basic.StatusValidChange statusId="PMNT_PROPOSED" statusIdTo="PMNT_PROMISED" transitionName="Promised"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_PROMISED" statusIdTo="PMNT_AUTHORIZED" transitionName="Sent"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_PROMISED" statusIdTo="PMNT_SENT" transitionName="Sent"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_PROMISED" statusIdTo="PMNT_RECEIVED" transitionName="Received"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_PROMISED" statusIdTo="PMNT_CANCELLED" transitionName="Cancelled"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_PROMISED" statusIdTo="PMNT_DECLINED" transitionName="Sent"/>
+
+            <moqui.basic.StatusValidChange statusId="PMNT_AUTHORIZED" statusIdTo="PMNT_SENT" transitionName="Sent"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_AUTHORIZED" statusIdTo="PMNT_VOID" transitionName="Voided"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_AUTHORIZED" statusIdTo="PMNT_DECLINED" transitionName="Declined"/>
+
+            <moqui.basic.StatusValidChange statusId="PMNT_SENT" statusIdTo="PMNT_REFUNDED" transitionName="Refunded"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_RECEIVED" statusIdTo="PMNT_REFUNDED" transitionName="Refunded"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_CONFIRMED" statusIdTo="PMNT_REFUNDED" transitionName="Refunded"/>
+
+            <moqui.basic.StatusValidChange statusId="PMNT_SENT" statusIdTo="PMNT_CONFIRMED" transitionName="Confirmed"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_RECEIVED" statusIdTo="PMNT_CONFIRMED" transitionName="Confirmed"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_SENT" statusIdTo="PMNT_VOID" transitionName="Voided"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_RECEIVED" statusIdTo="PMNT_VOID" transitionName="Voided"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_PROMISED" statusIdTo="PMNT_VOID" transitionName="Voided"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_SENT" statusIdTo="PMNT_PROMISED" transitionName="Not Paid"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_RECEIVED" statusIdTo="PMNT_PROMISED" transitionName="Not Paid"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_CONFIRMED" statusIdTo="PMNT_SENT" transitionName="Confirmed to Sent"/>
+            <moqui.basic.StatusValidChange statusId="PMNT_CONFIRMED" statusIdTo="PMNT_RECEIVED" transitionName="Confirmed to Received"/>
+        </seed-data>
     </entity>
     <entity entity-name="PaymentFraudEvidence" package-name="mantle.accounting.account.payment">
         <description>
