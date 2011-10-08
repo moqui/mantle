@@ -52,6 +52,21 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom">
             <key-map field-name="costUomId"/>
         </relationship>
+        <seed-data>
+            <!-- Marketing Campaign Status -->
+            <moqui.basic.StatusType description="Marketing Campaign" statusTypeId="MarketingCampaign"/>
+            <moqui.basic.StatusItem description="Planned" sequenceNum="1" statusId="MKTG_CAMP_PLANNED" statusTypeId="MarketingCampaign"/>
+            <moqui.basic.StatusItem description="Approved" sequenceNum="2" statusId="MKTG_CAMP_APPROVED" statusTypeId="MarketingCampaign"/>
+            <moqui.basic.StatusItem description="In Progress" sequenceNum="3" statusId="MKTG_CAMP_INPROGRESS" statusTypeId="MarketingCampaign"/>
+            <moqui.basic.StatusItem description="Completed" sequenceNum="4" statusId="MKTG_CAMP_COMPLETED" statusTypeId="MarketingCampaign"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="5" statusId="MKTG_CAMP_CANCELLED" statusTypeId="MarketingCampaign"/>
+            <moqui.basic.StatusValidChange statusId="MKTG_CAMP_PLANNED" statusIdTo="MKTG_CAMP_APPROVED" transitionName="Approve Marketing Campaign"/>
+            <moqui.basic.StatusValidChange statusId="MKTG_CAMP_APPROVED" statusIdTo="MKTG_CAMP_INPROGRESS" transitionName="Marketing Campaign In Progress"/>
+            <moqui.basic.StatusValidChange statusId="MKTG_CAMP_INPROGRESS" statusIdTo="MKTG_CAMP_COMPLETED" transitionName="Complete Marketing Campaign"/>
+            <moqui.basic.StatusValidChange statusId="MKTG_CAMP_PLANNED" statusIdTo="MKTG_CAMP_CANCELLED" transitionName="Cancel Marketing Campaign"/>
+            <moqui.basic.StatusValidChange statusId="MKTG_CAMP_APPROVED" statusIdTo="MKTG_CAMP_CANCELLED" transitionName="Cancel Marketing Campaign"/>
+            <moqui.basic.StatusValidChange statusId="MKTG_CAMP_INPROGRESS" statusIdTo="MKTG_CAMP_CANCELLED" transitionName="Cancel Marketing Campaign"/>
+        </seed-data>
     </entity>
     <entity entity-name="MarketingCampaignNote" package-name="mantle.marketing.campaign">
         <field name="marketingCampaignId" type="id" is-pk="true"/>
@@ -102,6 +117,13 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Owner" related-entity-name="Party">
             <key-map field-name="ownerPartyId"/>
         </relationship>
+        <seed-data>
+            <!-- Contact List Type -->
+            <moqui.basic.EnumerationType description="Contact List Type" enumTypeId="ContactListType"/>
+            <moqui.basic.Enumeration enumId="MARKETING" description="Marketing" enumTypeId="ContactListType"/>
+            <moqui.basic.Enumeration enumId="NEWSLETTER" description="Newsletter" enumTypeId="ContactListType"/>
+            <moqui.basic.Enumeration enumId="ANNOUNCEMENT" description="Announcement" enumTypeId="ContactListType"/>
+        </seed-data>
     </entity>
     <entity entity-name="ContactListEmail" package-name="mantle.marketing.contact">
         <field name="contactListId" type="id" is-pk="true"/>
@@ -114,6 +136,14 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="emailTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="moqui.basic.email.EmailTemplate"/>
+        <seed-data>
+            <!-- Contact List Email Type -->
+            <moqui.basic.EnumerationType description="Contact List Email Type" enumTypeId="ContactListEmailType"/>
+            <moqui.basic.Enumeration description="Unsubscribe Contact List Notification" enumId="CONT_UNSUB_NOT" enumTypeId="ContactListEmailType"/>
+            <moqui.basic.Enumeration description="Subscribe Contact List Notification" enumId="CONT_SUB_NOT" enumTypeId="ContactListEmailType"/>
+            <moqui.basic.Enumeration description="Unsubscribe Contact List Verify" enumId="CONT_UNSUB_VER" enumTypeId="ContactListEmailType"/>
+            <moqui.basic.Enumeration description="Contact List E-mail Template" enumId="CONT_EMAIL_TEMPLATE" enumTypeId="ContactListEmailType"/>
+        </seed-data>
     </entity>
     <entity entity-name="ContactListCommStatus" package-name="mantle.marketing.contact">
         <field name="contactListId" type="id" is-pk="true"/>
@@ -143,6 +173,32 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Preferred" related-entity-name="ContactMech">
             <key-map field-name="preferredContactMechId"/>
         </relationship>
+        <seed-data>
+            <!-- Contact List Party Status -->
+            <moqui.basic.StatusType description="Contact List Party" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusItem description="Pending Acceptance" sequenceNum="1" statusId="CLPT_PENDING" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusItem description="Accepted" sequenceNum="2" statusId="CLPT_ACCEPTED" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusItem description="Rejected" sequenceNum="3" statusId="CLPT_REJECTED" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusItem description="In Use" sequenceNum="4" statusId="CLPT_IN_USE" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusItem description="Invalid" sequenceNum="5" statusId="CLPT_INVALID" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusItem description="Unsubscription pending" sequenceNum="6" statusId="CLPT_UNSUBS_PENDING" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusItem description="Unsubscribed" sequenceNum="7" statusId="CLPT_UNSUBSCRIBED" statusTypeId="ContactListParty"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_PENDING" statusIdTo="CLPT_ACCEPTED" transitionName="Accept"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_PENDING" statusIdTo="CLPT_REJECTED" transitionName="Reject"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_ACCEPTED" statusIdTo="CLPT_REJECTED" transitionName="Reject"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_REJECTED" statusIdTo="CLPT_ACCEPTED" transitionName="Accept"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_REJECTED" statusIdTo="CLPT_PENDING" transitionName="Pending Accept"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_ACCEPTED" statusIdTo="CLPT_IN_USE" transitionName="Locked - In Use"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_ACCEPTED" statusIdTo="CLPT_INVALID" transitionName="Invalid"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_ACCEPTED" statusIdTo="CLPT_UNSUBS_PENDING" transitionName="Subscription Accepted - Unsubscription Pending"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_PENDING" statusIdTo="CLPT_UNSUBS_PENDING" transitionName="Subscription Pending - Unsubscription Pending"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_IN_USE" statusIdTo="CLPT_UNSUBS_PENDING" transitionName="Subscription In Use - Unsubscription Pending"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_INVALID" statusIdTo="CLPT_UNSUBS_PENDING" transitionName="Subscription Invalid - Unsubscription Pending"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_ACCEPTED" statusIdTo="CLPT_UNSUBSCRIBED" transitionName="Subscription Accepted - Unsubscribed"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_PENDING" statusIdTo="CLPT_UNSUBSCRIBED" transitionName="Subscription Accepted - Unsubscribed"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_IN_USE" statusIdTo="CLPT_UNSUBSCRIBED" transitionName="Subscription In Use - Unsubscribed"/>
+            <moqui.basic.StatusValidChange statusId="CLPT_INVALID" statusIdTo="CLPT_UNSUBSCRIBED" transitionName="Subscription Invalid - Unsubscribed"/>
+        </seed-data>
     </entity>
 
     <!-- ========================================================= -->
@@ -166,6 +222,12 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="marketSegmentTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="ProductStore"/>
+        <seed-data>
+            <!-- Market Segment Type -->
+            <moqui.basic.EnumerationType description="Market Segment Type" enumTypeId="MarketSegmentType"/>
+            <moqui.basic.Enumeration enumId="MARKET_SEGMENT" description="Market Segment" enumTypeId="MarketSegmentType"/>
+            <moqui.basic.Enumeration enumId="SALES_SEGMENT" description="Sales Segment" enumTypeId="MarketSegmentType"/>
+        </seed-data>
     </entity>
     <entity entity-name="MarketSegmentClassification" package-name="mantle.marketing.segment">
         <field name="marketSegmentId" type="id" is-pk="true"/>
@@ -209,6 +271,14 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="TrackingCodeType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="trackingCodeTypeEnumId"/>
         </relationship>
+        <seed-data>
+            <!-- Tracking Code Type -->
+            <moqui.basic.EnumerationType description="Tracking Code Type" enumTypeId="TrackingCodeType"/>
+            <moqui.basic.Enumeration enumId="ACCESS" description="Access Code" enumTypeId="TrackingCodeType"/>
+            <moqui.basic.Enumeration enumId="INTERNAL" description="Internal" enumTypeId="TrackingCodeType"/>
+            <moqui.basic.Enumeration enumId="EXTERNAL" description="External" enumTypeId="TrackingCodeType"/>
+            <moqui.basic.Enumeration enumId="PARTNER_MGD" description="Partner Managed" enumTypeId="TrackingCodeType"/>
+        </seed-data>
     </entity>
     <entity entity-name="TrackingCodeOrder" package-name="mantle.marketing.tracking">
         <field name="orderId" type="id" is-pk="true"/>
@@ -251,5 +321,11 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="TrackingCodeSource" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="sourceEnumId"/>
         </relationship>
+        <seed-data>
+            <!-- Tracking Code Source -->
+            <moqui.basic.EnumerationType description="Tracking Code Source" enumTypeId="TrackingCodeSource"/>
+            <moqui.basic.Enumeration description="Cookie" enumId="TKCDSRC_COOKIE" enumTypeId="TrackingCodeSource"/>
+            <moqui.basic.Enumeration description="URL Parameter" enumId="TKCDSRC_URL_PARAM" enumTypeId="TrackingCodeSource"/>
+        </seed-data>
     </entity>
 </entities>
