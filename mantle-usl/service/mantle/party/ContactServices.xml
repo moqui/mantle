@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.0.xsd">
+
+<!-- STATUS: EXPERIMENTAL -->
+
+
+    <!-- PostalAddress Services -->
+    <service verb="create" noun="PostalAddress" type="inline">
+        <description>
+            Create a Postal Address (and the corresponding ContactMech record).
+            If partyId and contactMechPurposeId are also passed will create a PartyContactMech record.
+        </description>
+        <in-parameters>
+            <auto-parameters entity-name="PostalAddress" include="nonpk"/>
+
+            <parameter name="partyId" type="String" required="false"/>
+            <parameter name="contactMechPurposeId" type="String" required="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contactMechId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-make-value entity-name="ContactMech" value-field="contactMech" map="[contactMechTypeEnumId:'POSTAL_ADDRESS']"/>
+            <entity-sequenced-id-primary value-field="contactMech"/>
+            <entity-create value-field="contactMech"/>
+
+            <entity-make-value entity-name="PostalAddress" value-field="postalAddress"/>
+            <set field="postalAddress.contactMechId" from="contactMech.contactMechId"/>
+            <entity-set value-field="postalAddress" include="nonpk"/>
+            <entity-create value-field="postalAddress"/>
+
+            <if condition="partyId &amp;&amp; contactMechPurposeId">
+                <entity-make-value entity-name="PartyContactMech" value-field="partyContactMech"
+                    map="[partyId:partyId, contactMechId:contactMech.contactMechId, contactMechPurposeId:contactMechPurposeId, fromDate:ec.user.nowTimestamp]"/>
+                <entity-create value-field="partyContactMech"/>
+            </if>
+
+            <set field="result.contactMechId" from="contactMech.contactMechId"/>
+        </actions>
+    </service>
+    <service verb="update" noun="PartyPostalAddress" type="inline">
+        <description>
+            Update a Postal Address for a Party. PostalAddress is immutable, so this creates a new one and associates
+            it with the Party, expiring the old associations (PartyContactMech records).
+
+            If a contactMechPurposeId is passed in it will only update for that purpose, otherwise it will update for
+            all purposes.
+
+            NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
+            directly on the ContactMech entity (do not use this service).
+        </description>
+        <in-parameters>
+            <auto-parameters entity-name="PostalAddress" include="nonpk"/>
+
+            <parameter name="partyId" type="String" required="true"/>
+            <parameter name="contactMechId" type="String" required="true"/>
+            <parameter name="contactMechPurposeId" type="String" required="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="newContactMechId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="PostalAddress" value-field="origPostalAddress"/>
+            <script>newPostalAddress = origPostalAddress.cloneValue()</script>
+            <entity-set value-field="newPostalAddress" include="nonpk"/>
+            <if condition="newPostalAddress == origPostalAddress">
+                <return error="false" message="No fields were different for Postal Address with ID [${contactMechId}], not updating."/>
+            </if>
+
+            <entity-find entity-name="PartyContactMech" list="origPcmList">
+                <date-filter/>
+                <econdition field-name="partyId" from="partyId"/>
+                <econdition field-name="contactMechId" from="contactMechId"/>
+                <econdition field-name="contactMechPurposeId" from="contactMechPurposeId" ignore-if-empty="true"/>
+            </entity-find>
+            <if condition="!origPcmList">
+                <return error="true" message="Postal Address with ID [${contactMechId}] is not associated with party ID [${partyId}] and purpose [${contactMechPurposeId?:'N/A'}], not updating."/>
+            </if>
+
+            <!-- at this point we have at least one PCM, so create the updated PostalAddress and then expire/update the PCMs -->
+            <entity-find-one entity-name="ContactMech" value-field="newContactMech"/>
+            <set field="newContactMech.contactMechId" from="null"/>
+            <entity-sequenced-id-primary value-field="newContactMech"/>
+            <entity-create value-field="newContactMech"/>
+
+            <set field="newPostalAddress.contactMechId" from="newContactMech.contactMechId"/>
+            <entity-create value-field="newPostalAddress"/>
+
+            <iterate list="origPcmList" entry="origPcm">
+                <!-- expire origPcm, create new for new contactMechId -->
+                <set field="origPcm.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="origPcm"/>
+
+                <entity-make-value entity-name="PartyContactMech" value-field="newPcm"
+                        map="[partyId:partyId, contactMechId:newContactMech.contactMechId, fromDate:ec.user.nowTimestamp]"/>
+                <set field="newPcm.contactMechPurposeId" from="origPcm.contactMechPurposeId"/>
+                <set field="newPcm.extension" from="origPcm.extension"/>
+                <set field="newPcm.comments" from="origPcm.comments"/>
+                <set field="newPcm.allowSolicitation" from="origPcm.allowSolicitation"/>
+                <entity-create value-field="newPcm"/>
+            </iterate>
+
+            <set field="result.newContactMechId" from="newContactMech.contactMechId"/>
+        </actions>
+    </service>
+
+    <!-- Email Services -->
+    <service verb="create" noun="EmailAddress">
+        <in-parameters>
+            <parameter name="emailAddress" type="String" required="true"/>
+
+            <parameter name="partyId" type="String" required="false"/>
+            <parameter name="contactMechPurposeId" type="String" required="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contactMechId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-make-value entity-name="ContactMech" value-field="contactMech"
+                map="[contactMechTypeEnumId:'EMAIL_ADDRESS', infoString:emailAddress]"/>
+            <entity-sequenced-id-primary value-field="contactMech"/>
+            <entity-create value-field="contactMech"/>
+
+            <if condition="partyId &amp;&amp; contactMechPurposeId">
+                <entity-make-value entity-name="PartyContactMech" value-field="partyContactMech"
+                    map="[partyId:partyId, contactMechId:contactMech.contactMechId, contactMechPurposeId:contactMechPurposeId, fromDate:ec.user.nowTimestamp]"/>
+                <entity-create value-field="partyContactMech"/>
+            </if>
+
+            <set field="result.contactMechId" from="contactMech.contactMechId"/>
+        </actions>
+    </service>
+
+    <!-- Other ContactMech Services -->
+    <service verb="update" noun="PartyContactOther" type="inline">
+        <description>
+            Update 'Other' contact info (not PostalAddress or TelecomNumber) for a Party. ContactMech is immutable, so
+            this creates a new one and associates it with the Party, expiring the old associations (PartyContactMech
+            records).
+
+            If a contactMechPurposeId is passed in it will only update for that purpose, otherwise it will update for
+            all purposes.
+
+            NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
+            directly on the ContactMech entity (do not use this service).
+        </description>
+        <in-parameters>
+            <parameter name="infoString" type="String" required="true"/>
+
+            <parameter name="partyId" type="String" required="true"/>
+            <parameter name="contactMechId" type="String" required="true"/>
+            <parameter name="contactMechPurposeId" type="String" required="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="newContactMechId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="ContactMech" value-field="origContactMech"/>
+            <script>newContactMech = origContactMech.cloneValue()</script>
+            <set field="newContactMech.infoString" from="infoString"/>
+            <if condition="newContactMech == origContactMech">
+                <return error="false" message="No fields were different for Postal Address with ID [${contactMechId}], not updating."/>
+            </if>
+
+            <entity-find entity-name="PartyContactMech" list="origPcmList">
+                <date-filter/>
+                <econdition field-name="partyId" from="partyId"/>
+                <econdition field-name="contactMechId" from="contactMechId"/>
+                <econdition field-name="contactMechPurposeId" from="contactMechPurposeId" ignore-if-empty="true"/>
+            </entity-find>
+            <if condition="!origPcmList">
+                <return error="true" message="Email Address with ID [${contactMechId}] is not associated with party ID [${partyId}] and purpose [${contactMechPurposeId?:'N/A'}], not updating."/>
+            </if>
+
+            <!-- at this point we have at least one PCM, so create the updated ContactMech and then expire/update the PCMs -->
+            <set field="newContactMech.contactMechId" from="null"/>
+            <entity-sequenced-id-primary value-field="newContactMech"/>
+            <entity-create value-field="newContactMech"/>
+
+            <iterate list="origPcmList" entry="origPcm">
+                <!-- expire origPcm, create new for new contactMechId -->
+                <set field="origPcm.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="origPcm"/>
+
+                <entity-make-value entity-name="PartyContactMech" value-field="newPcm"
+                        map="[partyId:partyId, contactMechId:newContactMech.contactMechId, fromDate:ec.user.nowTimestamp]"/>
+                <set field="newPcm.contactMechPurposeId" from="origPcm.contactMechPurposeId"/>
+                <set field="newPcm.extension" from="origPcm.extension"/>
+                <set field="newPcm.comments" from="origPcm.comments"/>
+                <set field="newPcm.allowSolicitation" from="origPcm.allowSolicitation"/>
+                <entity-create value-field="newPcm"/>
+            </iterate>
+
+            <set field="result.newContactMechId" from="newContactMech.contactMechId"/>
+        </actions>
+    </service>
+</services>

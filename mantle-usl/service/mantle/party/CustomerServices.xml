@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.0.xsd">
+
+<!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="create" noun="Account" type="inline" authenticate="false">
+        <description>
+            Create a basic customer account including:
+            - Party/Person
+            - UserAccount (with emailAddress for username)
+            - ContactMech/PartyContactMech for emailAddress (with PRIMARY_EMAIL purpose)
+
+            At the end this also logs the user in (for this to work it must be run locally).
+        </description>
+        <in-parameters>
+            <parameter name="firstName" type="String" required="true"/>
+            <parameter name="middleName" type="String" required="false"/>
+            <parameter name="lastName" type="String" required="true"/>
+
+            <parameter name="emailAddress" type="String" required="true"/>
+            <parameter name="newPassword" type="String" required="true"/>
+            <parameter name="newPasswordVerify" type="String" required="true"/>
+
+            <parameter name="currencyUomId" required="false"/>
+            <parameter name="locale" required="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="partyId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <!-- do this first to get a password validation ASAP -->
+            <set field="userFullName" value="${firstName} ${middleName? middleName + ' ' : ''}${lastName}"/>
+            <service-call name="org.moqui.impl.UserServices.create#UserAccount" out-map="newUaOut"
+                in-map="[username:emailAddress, newPassword:newPassword, newPasswordVerify:newPasswordVerify, userFullName:userFullName, currencyUomId:currencyUomId, locale:locale]"/>
+
+            <service-call name="create#Party" in-map="[partyTypeEnumId:'PERSON']" out-map="newPartyOut"/>
+            <service-call name="create#Person"
+                in-map="[partyId:newPartyOut.partyId, firstName:firstName, middleName:middleName, lastName:lastName]"/>
+            <set field="result.partyId" from="newPartyOut.partyId"/>
+
+            <service-call name="update#UserAccount" in-map="[userId:newUaOut.userId, partyId:newPartyOut.partyId]"/>
+
+            <!-- login the user -->
+            <script>ec.user.loginUser(emailAddress, newPassword, null)</script>
+
+            <!-- add the emailAddress -->
+            <service-call name="mantle.party.ContactServices.create#EmailAddress"
+                in-map="[emailAddress:emailAddress, partyId:newPartyOut.partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/>
+        </actions>
+    </service>
+</services>
