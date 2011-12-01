@@ -56,6 +56,14 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Best Selling" enumId="BEST_SELL_CATEGORY" enumTypeId="ProductCategoryType"/>
         </seed-data>
     </entity>
+    <view-entity entity-name="ProductCategoryChildren" package-name="mantle.product.category">
+        <member-entity entity-alias="PCR" entity-name="ProductCategoryRollup"/>
+        <member-entity entity-alias="PCAT" entity-name="ProductCategory" join-from-alias="PCR">
+            <key-map field-name="productCategoryId"/>
+        </member-entity>
+        <alias-all entity-alias="PCAT"><exclude field="productCategoryId"/></alias-all>
+        <alias-all entity-alias="PCR"/>
+    </view-entity>
     <entity entity-name="ProductCategoryContent" package-name="mantle.product.category">
         <field name="productCategoryId" type="id" is-pk="true"/>
         <field name="contentLocation" type="text-medium" is-pk="true"/>
@@ -464,87 +472,6 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
 
     <!-- ========================================================= -->
-    <!-- mantle.product.price -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="ProductPrice" package-name="mantle.product.price">
-        <field name="productPriceId" type="id" is-pk="true"/>
-        <field name="productId" type="id"/>
-        <field name="productStoreId" type="id"><description>For pricing per store. Leave null to apply to all stores.</description></field>
-        <field name="vendorPartyId" type="id"><description>
-            For sales from internal organization (ie company) set to internal organization's ID.
-            For supplier prices set to supplier's ID.
-        </description></field>
-        <field name="customerPartyId" type="id"><description>
-            For general consumer prices leave null.
-            For a price for a specific customer (or group of customers), set to that customer's ID.
-            For supplier prices this is the internal organization's (ie company's) ID.
-        </description></field>
-        <field name="priceTypeEnumId" type="id"/>
-        <field name="pricePurposeEnumId" type="id"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="minQuantity" type="number-decimal"/>
-        <field name="price" type="currency-precise" enable-audit-log="true"/>
-        <field name="priceUomId" type="id"/>
-        <field name="termUomId" type="id"><description>For recurring and usage prices to specify a time/freq measure,
-            or a usage unit measure (bits, minutes, etc).</description></field>
-
-        <field name="taxAmount" type="currency-precise"/>
-        <field name="taxPercentage" type="number-decimal"/>
-        <field name="taxAuthPartyId" type="id"/>
-        <field name="taxAuthGeoId" type="id"/>
-        <field name="taxInPrice" type="text-indicator"><description>If Y the price field has tax included for the given
-            taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description></field>
-
-        <field name="agreementId" type="id"/>
-        <field name="agreementItemSeqId" type="id"><description>Use along with agreementId to associate the price with
-            an AgreementItem.</description></field>
-
-        <relationship type="one" related-entity-name="Product"/>
-        <relationship type="one" title="ProductPriceType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="priceTypeEnumId"/>
-        </relationship>
-        <relationship type="one" title="ProductPricePurpose" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="pricePurposeEnumId"/>
-        </relationship>
-        <relationship type="one" title="Price" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="priceUomId"/>
-        </relationship>
-        <relationship type="one" title="Term" related-entity-name="moqui.basic.Uom"><key-map field-name="termUomId"/></relationship>
-        <relationship type="one" related-entity-name="ProductStoreGroup"/>
-        <relationship type="one" title="TaxAuthority" related-entity-name="Party">
-            <key-map field-name="taxAuthPartyId"/>
-        </relationship>
-        <relationship type="one" title="TaxAuthority" related-entity-name="Geo">
-            <key-map field-name="taxAuthGeoId"/>
-        </relationship>
-        <seed-data>
-            <!-- Product Price Purpose -->
-            <moqui.basic.EnumerationType description="Product Price Purpose" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Purchase/Initial" enumId="PPP_PURCHASE" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Recurring Charge" enumId="PPP_RECURRING_CHARGE" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Usage Charge" enumId="PPP_USAGE_CHARGE" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Component Price" enumId="PPP_COMPONENT_PRICE" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Sale" enumId="PPP_SALE" enumTypeId="ProductPricePurpose"/>
-
-            <!-- Product Price Type -->
-            <moqui.basic.EnumerationType description="Product Price Type" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="List Price" enumId="LIST_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Default Price" enumId="DEFAULT_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Average Cost" enumId="AVERAGE_COST" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Minimum Price" enumId="MINIMUM_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Maximum Price" enumId="MAXIMUM_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Promotional Price" enumId="PROMO_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Competitive Price" enumId="COMPETITIVE_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Wholesale Price" enumId="WHOLESALE_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Special Promo Price" enumId="SPECIAL_PROMO_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Box Price" enumId="BOX_PRICE" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Minimum Order Price" enumId="MINIMUM_ORDER_PRICE" enumTypeId="ProductPriceType"/>
-        </seed-data>
-    </entity>
-
-    <!-- ========================================================= -->
     <!-- mantle.product.product -->
     <!-- ========================================================= -->
 
@@ -563,7 +490,6 @@ and those parts may be licensed under the Apache License 2.0.
 
         <field name="requireInventory" type="text-indicator"/>
         <field name="requirementMethodEnumId" type="id"/>
-        <field name="taxable" type="text-indicator"/>
         <field name="chargeShipping" type="text-indicator"/>
         <field name="inShippingBox" type="text-indicator"/>
         <field name="defaultShipmentBoxTypeId" type="id"/>
@@ -603,7 +529,6 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Marketing Package: Manufactured" parentEnumId="PHYSICAL_GOOD" enumId="MARKETING_PKG_AUTO" enumTypeId="ProductType"/>
             <moqui.basic.Enumeration description="Marketing Package: Pick Assembly" parentEnumId="PHYSICAL_GOOD" enumId="MARKETING_PKG_PICK" enumTypeId="ProductType"/>
             <moqui.basic.Enumeration description="Configurable Good" parentEnumId="PHYSICAL_GOOD" enumId="CONFIGURABLE" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Configurable Good Configuration" enumId="CONFIGURABLE_CONF" enumTypeId="ProductType"/>
         </seed-data>
     </entity>
     <entity entity-name="ProductAssoc" package-name="mantle.product.product">
@@ -784,6 +709,82 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="ProductPrice" package-name="mantle.product.price">
+        <field name="productPriceId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="productStoreId" type="id"><description>For pricing per store. Leave null to apply to all stores.</description></field>
+        <field name="vendorPartyId" type="id"><description>
+            For sales from internal organization (ie company) set to internal organization's ID.
+            For supplier prices set to supplier's ID.
+        </description></field>
+        <field name="customerPartyId" type="id"><description>
+            For general consumer prices leave null.
+            For a price for a specific customer (or group of customers), set to that customer's ID.
+            For supplier prices this is the internal organization's (ie company's) ID.
+        </description></field>
+        <field name="priceTypeEnumId" type="id"/>
+        <field name="pricePurposeEnumId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="minQuantity" type="number-decimal"/>
+        <field name="price" type="currency-precise" enable-audit-log="true"/>
+        <field name="priceUomId" type="id"/>
+        <field name="termUomId" type="id"><description>For recurring and usage prices to specify a time/freq measure,
+            or a usage unit measure (bits, minutes, etc).</description></field>
+
+        <field name="taxInPrice" type="text-indicator"><description>If Y the price field has tax included for the given
+            taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description></field>
+        <field name="taxAmount" type="currency-precise"/>
+        <field name="taxPercentage" type="number-decimal"/>
+        <field name="taxAuthPartyId" type="id"/>
+        <field name="taxAuthGeoId" type="id"/>
+
+        <field name="agreementId" type="id"/>
+        <field name="agreementItemSeqId" type="id"><description>Use along with agreementId to associate the price with
+            an AgreementItem.</description></field>
+
+        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" title="ProductPriceType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="priceTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="ProductPricePurpose" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="pricePurposeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Price" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="priceUomId"/>
+        </relationship>
+        <relationship type="one" title="Term" related-entity-name="moqui.basic.Uom"><key-map field-name="termUomId"/></relationship>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" title="TaxAuthority" related-entity-name="Party">
+            <key-map field-name="taxAuthPartyId"/>
+        </relationship>
+        <relationship type="one" title="TaxAuthority" related-entity-name="Geo">
+            <key-map field-name="taxAuthGeoId"/>
+        </relationship>
+        <seed-data>
+            <!-- Product Price Type -->
+            <moqui.basic.EnumerationType description="Product Price Type" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="List Price" enumId="LIST_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Current Price" enumId="CURRENT_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Average Cost" enumId="AVERAGE_COST" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Minimum Price" enumId="MINIMUM_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Maximum Price" enumId="MAXIMUM_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Promotional Price" enumId="PROMO_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Competitive Price" enumId="COMPETITIVE_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Wholesale Price" enumId="WHOLESALE_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Special Promo Price" enumId="SPECIAL_PROMO_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Box Price" enumId="BOX_PRICE" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Minimum Order Price" enumId="MINIMUM_ORDER_PRICE" enumTypeId="ProductPriceType"/>
+
+            <!-- Product Price Purpose -->
+            <moqui.basic.EnumerationType description="Product Price Purpose" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Purchase/Initial" enumId="PPP_PURCHASE" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Recurring Charge" enumId="PPP_RECURRING_CHARGE" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Usage Charge" enumId="PPP_USAGE_CHARGE" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Component Price" enumId="PPP_COMPONENT_PRICE" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Sale" enumId="PPP_SALE" enumTypeId="ProductPricePurpose"/>
+        </seed-data>
     </entity>
     <entity entity-name="ProductReview" package-name="mantle.product.product">
         <field name="productReviewId" type="id" is-pk="true"/>
