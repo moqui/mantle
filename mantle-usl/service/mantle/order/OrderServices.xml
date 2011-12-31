@@ -19,9 +19,10 @@ h1. General Order Services
 
 h2. General Ecommerce Usage
 
-| create customer | TODO |
-| create/update/delete customer address | TODO |
-| create/update/delete customer credit card | TODO |
+| create customer | CustomerServices.create#Account |
+| create/update/delete customer address | ContactServices.create#PostalAddress, .update#PartyPostalAddress |
+| create/update/delete customer phone | ContactServices.create#TelecomNumber, .update#PartyTelecomNumber |
+| create/update/delete customer credit card | PaymentMethodServices.create#CreditCard, .update#CreditCard |
 
 | login: merge with previous open | merge#Orders - TODO |
 | find customer open orders       | find#OpenOrders - TODO |
@@ -114,7 +115,21 @@ h2. General Ecommerce Usage
             <parameter name="orderId" type="String" required="true"/>
             <parameter name="orderPartSeqId" type="String" required="true"/>
 
-            <!-- TODO: other order item fields -->
+            <parameter name="itemTypeEnumId" type="String" default-value="PROD_ITEM"/>
+            <parameter name="statusId" type="String" default-value="ITEM_CREATED"/>
+
+            <parameter name="productId" type="String"/>
+            <parameter name="productConfigSavedId" type="String"/>
+
+            <parameter name="itemDescription" type="String"/>
+            <parameter name="comments" type="String"/>
+
+            <parameter name="quantity" type="BigDecimal"/>
+            <parameter name="selectedAmount" type="BigDecimal"/>
+
+            <parameter name="unitPrice" type="BigDecimal"/>
+            <parameter name="unitListPrice" type="BigDecimal"/>
+            <parameter name="isModifiedPrice" type="String"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderItemSeqId" type="String" required="true"/>
@@ -123,6 +138,10 @@ h2. General Ecommerce Usage
             <entity-make-value entity-name="OrderItem" value-field="orderItem"/>
             <entity-set value-field="orderItem" include="all"/>
             <entity-sequenced-id-secondary value-field="orderItem"/>
+            <if condition="!itemDescription &amp;&amp; productId">
+                <entity-find-one entity-name="Product" value-field="product"/>
+                <set field="orderItem.itemDescription" from="product.productName"/>
+            </if>
             <entity-create value-field="orderItem"/>
 
             <set field="result.orderItemSeqId" from="orderItem.orderItemSeqId"/>
@@ -147,6 +166,34 @@ h2. General Ecommerce Usage
             <entity-make-value entity-name="OrderItem" value-field="orderItem"/>
             <entity-set value-field="orderItem" include="pk"/>
             <entity-delete value-field="orderItem"/>
+        </actions>
+    </service>
+    <service verb="add" noun="OrderProductQuantity" type="inline">
+        <description>A simple service for an add-to-cart sort of operation, including:
+            1. create an Order if no orderId is passed in
+            2. determine the price to charge for the Product
+            3. find a OrderItem matching the productId, and if found update quantity
+            4. if no existing OrderItem is found create a new OrderItem
+        </description>
+        <in-parameters>
+            <parameter name="orderId" type="String" required="false"/>
+            <parameter name="orderPartSeqId" type="String" required="false"/>
+
+            <parameter name="productId" type="String" required="true"/>
+            <parameter name="quantity" type="BigDecimal" default-value="1"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+            <parameter name="orderPartSeqId" type="String" required="true"/>
+            <parameter name="orderItemSeqId" type="String" required="true"/>
+        </out-parameters>
+        <actions>
+            <if condition="!orderId">
+                <service-call name="mantle.order.OrderServices.create#Order" out-map="createOrderResult"/>
+                <set field="orderId" from="createOrderResult.orderId"/>
+                <set field="orderPartSeqId" from="createOrderResult.orderPartSeqId"/>
+            </if>
+            <!-- TODO: impl this -->
         </actions>
     </service>
 
