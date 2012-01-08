@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.0.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="Process" noun="SalesOrder" type="inline">
+        <description>This is based on the ProcessSalesOrder BOD from OAGIS 9.5.1.</description>
+        <in-parameters>
+            <parameter name="ProcessSalesOrder" type="Node">
+                <parameter name="ApplicationArea" type="Node">
+                    <!-- TODO what do we need here? -->
+                </parameter>
+                <parameter name="DataArea" type="Node">
+                    <parameter name="Process" type="Node">
+                        <!-- TODO what do we need here? -->
+                    </parameter>
+                    <parameter name="SalesOrder" type="Node">
+                        <parameter name="SalesOrderHeader" type="Node">
+                            <parameter name="DocumentID" type="Node">
+                                <parameter name="ID" type="String"/>
+                                <parameter name="RevisionID" type="String"/>
+                                <parameter name="VariationID" type="String"/>
+                            </parameter>
+                            <parameter name="LastModificationDateTime" type="Date" format="yyyy-MM-dd"/>
+                            <parameter name="DocumentDateTime" type="Date" format="yyyy-MM-dd"/>
+                            <parameter name="Description" type="String"/>
+                            <parameter name="Note" type="Node">
+                                <parameter name="languageID" type="String"/>
+                                <parameter name="author" type="String"/>
+                                <parameter name="entryDateTime" type="Date" format="yyyy-MM-dd"/>
+                                <parameter name="status" type="String"/>
+                                <parameter name="_VALUE" type="String"/><!-- the text under the "Note" XML Element/Node -->
+                            </parameter>
+                            <!-- TODO: DocumentReference, Attachment -->
+                            <parameter name="Status" type="Node">
+                                <parameter name="Code" type="String"/>
+                                <parameter name="Description" type="String"/>
+                                <parameter name="EffectiveDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                <parameter name="ReasonCode" type="String"/>
+                                <parameter name="Reason" type="String"/>
+                                <parameter name="TimePeriod" type="Node">
+                                    <parameter name="StartDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                    <parameter name="Duration" type="String"/>
+                                </parameter>
+                            </parameter>
+
+                            <parameter name="Party" type="Node">
+                                <parameter name="category" type="String" default-value="Organization">
+                                    <description>Could also be Person?</description>
+                                </parameter>
+                                <parameter name="role" type="String">
+                                    <description>Can be: Customer, Supplier, ShipTo, BillTo, Carrier, PayFrom</description>
+                                </parameter>
+
+                                <parameter name="PartyIDs" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="TaxID" type="String"/>
+                                    <parameter name="DUNSID" type="String"/>
+                                </parameter>
+                                <parameter name="Name" type="String"/>
+                                <parameter name="CustomerAccountID" type="String"/>
+                                <parameter name="Location" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="Name" type="String"/>
+                                    <parameter name="Directions" type="String"/>
+                                    <parameter name="Address" type="Node">
+                                        <parameter name="ID" type="String"/>
+                                        <parameter name="AttentionOfName" type="String"/>
+                                        <parameter name="CareOfName" type="String"/>
+                                        <parameter name="AddressLine" type="String"/><!-- NOTE: need to support the "sequence" attribute here? if so make it a Node with a _VALUE under it... -->
+                                        <parameter name="CitySubDivisionName" type="String"/>
+                                        <parameter name="CityName" type="String"/>
+                                        <parameter name="CountrySubDivisionCode" type="String"/>
+                                        <parameter name="CountryCode" type="String"/>
+                                        <parameter name="PostalCode" type="String"/>
+                                        <parameter name="Status" type="Node">
+                                            <parameter name="Code" type="String"/>
+                                            <parameter name="Description" type="String"/>
+                                            <parameter name="EffectiveDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                            <parameter name="ReasonCode" type="String"/>
+                                            <parameter name="Reason" type="String"/>
+                                            <parameter name="TimePeriod" type="Node">
+                                                <parameter name="StartDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                                <parameter name="Duration" type="String"/>
+                                            </parameter>
+                                        </parameter>
+                                        <!-- NOTE: do we need the Preference node under here? -->
+                                    </parameter>
+                                </parameter>
+
+                                <parameter name="Contact" type="Node">
+                                    <!-- NOTE: do we need the generic Contact with type attribute,
+                                        or just use the other *Contact elements? -->
+
+                                    <!-- can be: Requester, Planner, Buyer, Receiving -->
+                                    <parameter name="type" type="String"/>
+
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="Name" type="String"/>
+                                    <parameter name="JobTitle" type="String"/>
+                                    <parameter name="Responsibility" type="String"/>
+                                    <parameter name="DepartmentName" type="String"/>
+                                    <parameter name="Communication" type="Node">
+                                        <!-- left out: ChannelCode, UseCode, Access -->
+                                        <parameter name="CountryDialing" type="String"/>
+                                        <parameter name="AreaDialing" type="String"/>
+                                        <parameter name="DialNumber" type="String"/>
+                                        <parameter name="Extension" type="String"/>
+                                    </parameter>
+                                </parameter>
+                            </parameter>
+
+                            <parameter name="ExtendedAmount" type="Node">
+                                <parameter name="currencyID" type="String"/>
+                                <parameter name="_VALUE" type="BigDecimal"/>
+                            </parameter>
+                            <parameter name="TotalAmount" type="Node">
+                                <parameter name="currencyID" type="String"/>
+                                <parameter name="_VALUE" type="BigDecimal"/>
+                            </parameter>
+
+                            <!-- TODO: PlannerContact, CatalogReference, ContractReference, EnterpriseUnit -->
+
+                            <parameter name="PartialShipmentAllowedIndicator" type="Boolean"/>
+                            <parameter name="DropShipmentAllowedIndicator" type="Boolean"/>
+                            <parameter name="EarlyShipmentAllowedIndicator" type="Boolean"/>
+                            <parameter name="LicenseIndicator" type="Node">
+                                <parameter name="name" type="String"/>
+                                <parameter name="_VALUE" type="Boolean"/>
+                            </parameter>
+                            <parameter name="TaxExemptIndicator" type="Boolean"/>
+
+                            <!-- TODO: TransportationTerm, PaymentTerm, DistributedCharge, DistributedTax, Distribution -->
+
+                            <parameter name="SpecialPriceAuthorizationCode" type="String"/>
+                            <parameter name="EarliestShipDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                            <parameter name="RequestedShipDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                            <parameter name="PromisedShipDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                            <parameter name="PromisedDeliveryDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+
+                            <parameter name="PaymentMethodCode" type="String"/>
+                            <parameter name="Payment" type="Node">
+                                <parameter name="CashIndicator" type="Boolean"/>
+                                <parameter name="Amount" type="Node">
+                                    <parameter name="currencyID" type="String"/>
+                                    <parameter name="_VALUE" type="BigDecimal"/>
+                                </parameter>
+                            </parameter>
+
+                            <parameter name="BackOrderIndicator" type="Boolean"/>
+
+                            <parameter name="SalesOrganizationIDs" type="Node">
+                                <parameter name="ID" type="String"/>
+                            </parameter>
+                            <parameter name="DistributionCenterCode" type="String"/>
+
+                            <!-- TODO: OrderCommission, PurchaseOrderReference,  -->
+                        </parameter>
+
+                        <parameter name="SalesOrderLine">
+                            <parameter name="LineNumber" type="String"/>
+                            <parameter name="Description" type="String"/>
+                            <parameter name="Note" type="String"/>
+
+                            <!-- TODO: DocumentReference, Attachment -->
+
+                            <parameter name="Status" type="Node">
+                                <parameter name="Code" type="String"/>
+                                <parameter name="Description" type="String"/>
+                                <parameter name="EffectiveDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                <parameter name="ReasonCode" type="String"/>
+                                <parameter name="Reason" type="String"/>
+                                <parameter name="TimePeriod" type="Node">
+                                    <parameter name="StartDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                    <parameter name="Duration" type="String"/>
+                                </parameter>
+                            </parameter>
+
+                            <parameter name="Item" type="Node">
+                                <parameter name="ItemID" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="RevisionID" type="String"/>
+                                    <parameter name="VariationID" type="String"/>
+                                </parameter>
+                                <parameter name="CustomerItemID" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="RevisionID" type="String"/>
+                                    <parameter name="VariationID" type="String"/>
+                                </parameter>
+                                <parameter name="ManufacturerItemID" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="RevisionID" type="String"/>
+                                    <parameter name="VariationID" type="String"/>
+                                </parameter>
+                                <parameter name="SupplierItemID" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="RevisionID" type="String"/>
+                                    <parameter name="VariationID" type="String"/>
+                                </parameter>
+
+                                <parameter name="UPCID" type="String"/>
+                                <parameter name="EPCID" type="String"/>
+
+                                <parameter name="ServiceIndicator" type="Boolean"/>
+                                <parameter name="Description" type="String"/>
+                                <parameter name="Note" type="String"/>
+
+                                <!-- TODO: Classification, Specification, HazardousMaterial, Packaging -->
+
+                                <parameter name="RFID" type="String"/>
+                                <parameter name="SerialNumber" type="String"/>
+                            </parameter>
+
+                            <parameter name="SerialNumber" type="String"/>
+                            <parameter name="RFID" type="String"/>
+
+                            <parameter name="Quantity" type="Node">
+                                <parameter name="unitCode" type="String"/>
+                                <parameter name="_VALUE" type="BigDecimal"/>
+                            </parameter>
+                            <parameter name="UnitPrice" type="Node">
+                                <parameter name="Amount" type="Node">
+                                    <parameter name="currencyID" type="String"/>
+                                    <parameter name="_VALUE" type="BigDecimal"/>
+                                </parameter>
+                                <parameter name="PerQuantity" type="Node">
+                                    <parameter name="unitCode" type="String"/>
+                                    <parameter name="_VALUE" type="BigDecimal"/>
+                                </parameter>
+                                <parameter name="Code" type="String"/>
+                                <parameter name="TimePeriod" type="Node">
+                                    <parameter name="StartDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                    <parameter name="Duration" type="String"/>
+                                </parameter>
+                            </parameter>
+                            <parameter name="ExtendedAmount" type="Node">
+                                <parameter name="currencyID" type="String"/>
+                                <parameter name="_VALUE" type="BigDecimal"/>
+                            </parameter>
+                            <parameter name="TotalAmount" type="Node">
+                                <parameter name="currencyID" type="String"/>
+                                <parameter name="_VALUE" type="BigDecimal"/>
+                            </parameter>
+
+                            <!-- TODO: CatalogReference -->
+
+                            <parameter name="RequiredDeliveryDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                            <parameter name="AllowSubstitutionIndicator" type="Boolean"/>
+
+                            <parameter name="ShipToParty" type="Node">
+                                <parameter name="category" type="String" default-value="Organization">
+                                    <description>Could also be Person?</description>
+                                </parameter>
+
+                                <parameter name="PartyIDs" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="TaxID" type="String"/>
+                                    <parameter name="DUNSID" type="String"/>
+                                </parameter>
+                                <parameter name="Name" type="String"/>
+                                <parameter name="CustomerAccountID" type="String"/>
+                                <parameter name="Location" type="Node">
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="Name" type="String"/>
+                                    <parameter name="Directions" type="String"/>
+                                    <parameter name="Address" type="Node">
+                                        <parameter name="ID" type="String"/>
+                                        <parameter name="AttentionOfName" type="String"/>
+                                        <parameter name="CareOfName" type="String"/>
+                                        <parameter name="AddressLine" type="String"/><!-- NOTE: need to support the "sequence" attribute here? if so make it a Node with a _VALUE under it... -->
+                                        <parameter name="CitySubDivisionName" type="String"/>
+                                        <parameter name="CityName" type="String"/>
+                                        <parameter name="CountrySubDivisionCode" type="String"/>
+                                        <parameter name="CountryCode" type="String"/>
+                                        <parameter name="PostalCode" type="String"/>
+                                        <parameter name="Status" type="Node">
+                                            <parameter name="Code" type="String"/>
+                                            <parameter name="Description" type="String"/>
+                                            <parameter name="EffectiveDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                            <parameter name="ReasonCode" type="String"/>
+                                            <parameter name="Reason" type="String"/>
+                                            <parameter name="TimePeriod" type="Node">
+                                                <parameter name="StartDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                                                <parameter name="Duration" type="String"/>
+                                            </parameter>
+                                        </parameter>
+                                        <!-- NOTE: do we need the Preference node under here? -->
+                                    </parameter>
+                                </parameter>
+
+                                <parameter name="Contact" type="Node">
+                                    <!-- NOTE: do we need the generic Contact with type attribute,
+                                        or just use the other *Contact elements? -->
+
+                                    <!-- can be: Requester, Planner, Buyer, Receiving -->
+                                    <parameter name="type" type="String"/>
+
+                                    <parameter name="ID" type="String"/>
+                                    <parameter name="Name" type="String"/>
+                                    <parameter name="JobTitle" type="String"/>
+                                    <parameter name="Responsibility" type="String"/>
+                                    <parameter name="DepartmentName" type="String"/>
+                                    <parameter name="Communication" type="Node">
+                                        <!-- left out: ChannelCode, UseCode, Access -->
+                                        <parameter name="CountryDialing" type="String"/>
+                                        <parameter name="AreaDialing" type="String"/>
+                                        <parameter name="DialNumber" type="String"/>
+                                        <parameter name="Extension" type="String"/>
+                                    </parameter>
+                                </parameter>
+                            </parameter>
+
+                            <parameter name="PartialShipmentAllowedIndicator" type="Boolean"/>
+                            <parameter name="DropShipmentAllowedIndicator" type="Boolean"/>
+                            <parameter name="EarlyShipmentAllowedIndicator" type="Boolean"/>
+                            <parameter name="LicenseIndicator" type="Node">
+                                <parameter name="name" type="String"/>
+                                <parameter name="_VALUE" type="Boolean"/>
+                            </parameter>
+
+                            <!-- TODO: TransportationTerm, PaymentTerm, DistributedCharge, DistributedTax, Distribution -->
+
+                            <!-- TODO: FreightClassification -->
+
+                            <parameter name="SpecialPriceAuthorizationCode" type="String"/>
+                            <parameter name="SubstituteItemIndicator" type="Boolean"/>
+
+                            <!-- TODO: RequisitionReference -->
+
+                            <parameter name="BackOrderIndicator" type="Boolean"/>
+
+                            <!-- TODO: PurchaseOrderReference, RouteReference, BOMReference -->
+
+                            <parameter name="ScheduledDeliveryDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                            <parameter name="ActualDeliveryDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+                            <parameter name="ActualShipDateTime" type="Date" format="yyyy-MM-dd hh:mm:ss"/>
+
+                            <parameter name="DistributionCenterCode" type="String"/>
+
+                            <!-- TODO: OrderCommission, SalesOrderSubLine, SalesOrderSchedule -->
+
+                        </parameter>
+                    </parameter>
+                </parameter>
+            </parameter>
+
+        </in-parameters>
+    </service>
+</services>
