@@ -220,7 +220,7 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- Email Services -->
     <service verb="create" noun="EmailAddress">
         <in-parameters>
-            <parameter name="emailAddress" type="String" required="true"/>
+            <parameter name="emailAddress" type="String" required="true"><text-email/></parameter>
 
             <parameter name="partyId" type="String" required="false"/>
             <parameter name="contactMechPurposeId" type="String" required="false"/>
@@ -305,6 +305,22 @@ This Work includes contributions authored by David E. Jones, not as a
             </iterate>
 
             <set field="result.contactMechId" from="newContactMech.contactMechId"/>
+        </actions>
+    </service>
+
+    <service verb="delete" noun="PartyContactMech">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="contactMechId" required="true"/>
+            <parameter name="contactMechPurposeId" type="String" required="false"/>
+        </in-parameters>
+        <actions>
+            <script><![CDATA[
+                def ef = ec.entity.makeFind("PartyContactMech")
+                ef.condition([partyId: partyId, contactMechId: contactMechId])
+                if (contactMechPurposeId) ef.condition("contactMechPurposeId", contactMechPurposeId)
+                ef.updateAll([thruDate: ec.user.getNowTimestamp()])
+                ]]></script>
         </actions>
     </service>
 </services>
