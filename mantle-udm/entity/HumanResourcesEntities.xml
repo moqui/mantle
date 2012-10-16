@@ -370,9 +370,10 @@ and those parts may be licensed under the Apache License 2.0.
 
     <entity entity-name="EmplPosition" package-name="mantle.humanres.position">
         <field name="emplPositionId" type="id" is-pk="true"/>
-        <field name="emplPositionTypeEnumId" type="id"/>
+        <field name="emplPositionClassId" type="id"/>
         <field name="statusId" type="id"/>
-        <field name="employerPartyId" type="id"/>
+        <field name="filledByPartyId" type="id"/>
+        <field name="employerOrganizationPartyId" type="id"/>
         <field name="payGradeId" type="id"/>
         <field name="budgetId" type="id"/>
         <field name="budgetItemSeqId" type="id"/>
@@ -385,32 +386,40 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="actualFromDate" type="date-time"/>
         <field name="actualThruDate" type="date-time"/>
         <field name="standardHoursPerWeek" type="number-integer"/>
-        <relationship type="one" title="EmplPositionType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="emplPositionTypeEnumId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="EmplPositionClass"/>
         <relationship type="one" title="EmplPosition" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="Employer" related-entity-name="Party">
-            <key-map field-name="employerPartyId"/>
+        <relationship type="one" title="FilledBy" related-entity-name="Party">
+            <key-map field-name="filledByPartyId"/>
+        </relationship>
+        <relationship type="one" title="EmployerOrganization" related-entity-name="Party">
+            <key-map field-name="employerOrganizationPartyId"/>
         </relationship>
         <relationship type="one" related-entity-name="BudgetItem">
             <key-map field-name="budgetId"/>
             <key-map field-name="budgetItemSeqId"/>
         </relationship>
         <seed-data>
-            <!-- Employment Position Type -->
-            <moqui.basic.EnumerationType description="Employment Position Type" enumTypeId="EmplPositionType"/>
-            <moqui.basic.Enumeration description="Programmer" enumId="PROGRAMMER" enumTypeId="EmplPositionType"/>
-            <moqui.basic.Enumeration description="System Administrator" enumId="SYS_ADMIN" enumTypeId="EmplPositionType"/>
-            <moqui.basic.Enumeration description="Business Analyst" enumId="BIZ_ANALYST" enumTypeId="EmplPositionType"/>
-
-            <!-- Employee Position Status -->
+            <!-- Employment Position Status -->
             <moqui.basic.StatusType description="Employment Position Status" statusTypeId="EmplPosition"/>
             <moqui.basic.StatusItem description="Planned For" statusId="EMPL_POS_PLANNEDFOR" statusTypeId="EmplPosition"/>
             <moqui.basic.StatusItem description="Active/Open" statusId="EMPL_POS_ACTIVE" statusTypeId="EmplPosition"/>
             <moqui.basic.StatusItem description="Inactive/Closed" statusId="EMPL_POS_INACTIVE" statusTypeId="EmplPosition"/>
         </seed-data>
     </entity>
+    <entity entity-name="EmplPositionClass" package-name="mantle.humanres.position">
+        <field name="emplPositionClassId" type="id" is-pk="true"/>
+        <field name="title" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <!-- TODO: associate skills with position type -->
+        <seed-data>
+            <!-- Employment Position Type -->
+            <EmplPositionClass title="Programmer" emplPositionClassId="PROGRAMMER"/>
+            <EmplPositionClass title="System Administrator" emplPositionClassId="SYS_ADMIN"/>
+            <EmplPositionClass title="Business Analyst" emplPositionClassId="BIZ_ANALYST"/>
+        </seed-data>
+    </entity>
     <entity entity-name="EmplPositionParty" package-name="mantle.humanres.position">
+        <!-- for manager, department/etc internal organization, etc -->
         <field name="emplPositionId" type="id" is-pk="true"/>
         <field name="partyId" type="id" is-pk="true"/>
         <field name="roleTypeId" type="id" is-pk="true"/>
