@@ -28,7 +28,7 @@ h2. General Ecommerce Usage
 | find customer open orders       | find#OpenOrders - TODO |
 
 | init cart (auto on add to cart) | create#Order |
-| add to cart                     | create#OrderItem |
+| add to cart                     | add#OrderProductQuantity, create#OrderItem |
 | change cart quantity            | update#OrderItem |
 | remove from cart                | delete#OrderItem |
 | set shipping options            | TODO |
@@ -41,7 +41,7 @@ h2. General Ecommerce Usage
 -->
 
     <!-- Order/Part Services -->
-    <service verb="create" noun="Order" type="inline">
+    <service verb="create" noun="Order">
         <description>
             Create an Order (OrderHeader and one OrderPart).
             All parameters are optional so that this can be called transparently to create a shell/empty order.
@@ -80,14 +80,14 @@ h2. General Ecommerce Usage
             <entity-make-value entity-name="OrderPart" value-field="orderPart"/>
             <entity-set value-field="orderHeader" include="nonpk"/>
             <set field="orderPart.orderId" from="orderHeader.orderId"/>
-            <entity-sequenced-id-secondary value-field="orderHeader"/>
+            <entity-sequenced-id-secondary value-field="orderPart"/>
             <entity-create value-field="orderPart"/>
 
             <set field="result.orderId" from="orderHeader.orderId"/>
             <set field="result.orderPartSeqId" from="orderPart.orderPartSeqId"/>
         </actions>
     </service>
-    <service verb="create" noun="OrderPart" type="inline">
+    <service verb="create" noun="OrderPart">
         <in-parameters>
             <parameter name="orderId" type="String" required="true"/>
 
@@ -102,7 +102,7 @@ h2. General Ecommerce Usage
             <entity-make-value entity-name="OrderPart" value-field="orderPart"/>
             <entity-set value-field="orderHeader" include="nonpk"/>
             <set field="orderPart.orderId" from="orderHeader.orderId"/>
-            <entity-sequenced-id-secondary value-field="orderHeader"/>
+            <entity-sequenced-id-secondary value-field="orderPart"/>
             <entity-create value-field="orderPart"/>
 
             <set field="result.orderPartSeqId" from="orderPart.orderPartSeqId"/>
@@ -110,7 +110,7 @@ h2. General Ecommerce Usage
     </service>
 
     <!-- OrderItem Services -->
-    <service verb="create" noun="OrderItem" type="inline">
+    <service verb="create" noun="OrderItem">
         <in-parameters>
             <parameter name="orderId" type="String" required="true"/>
             <parameter name="orderPartSeqId" type="String" required="true"/>
@@ -147,18 +147,18 @@ h2. General Ecommerce Usage
             <set field="result.orderItemSeqId" from="orderItem.orderItemSeqId"/>
         </actions>
     </service>
-    <service verb="update" noun="OrderItem" type="inline">
+    <service verb="update" noun="OrderItem">
         <in-parameters>
             <auto-parameters include="pk" required="true"/>
             <auto-parameters include="nonpk"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="OrderItem" value-field="orderItem"/>
-            <entity-set value-field="orderItem"/>
+            <entity-set value-field="orderItem" include="nonpk"/>
             <entity-update value-field="orderItem"/>
         </actions>
     </service>
-    <service verb="delete" noun="OrderItem" type="inline">
+    <service verb="delete" noun="OrderItem">
         <in-parameters>
             <auto-parameters include="pk" required="true"/>
         </in-parameters>
@@ -168,10 +168,10 @@ h2. General Ecommerce Usage
             <entity-delete value-field="orderItem"/>
         </actions>
     </service>
-    <service verb="add" noun="OrderProductQuantity" type="inline">
+    <service verb="add" noun="OrderProductQuantity" authenticate="anonymous-all">
         <description>A simple service for an add-to-cart sort of operation, including:
             1. create an Order if no orderId is passed in
-            2. determine the price to charge for the Product
+            2. determine the price to charge for the Product (and update based on quantity as needed)
             3. find a OrderItem matching the productId, and if found update quantity
             4. if no existing OrderItem is found create a new OrderItem
         </description>
@@ -189,16 +189,55 @@ h2. General Ecommerce Usage
         </out-parameters>
         <actions>
             <if condition="!orderId">
-                <service-call name="mantle.order.OrderServices.create#Order" out-map="createOrderResult"/>
-                <set field="orderId" from="createOrderResult.orderId"/>
-                <set field="orderPartSeqId" from="createOrderResult.orderPartSeqId"/>
+                <set field="customerPartyId" from="ec.user.userAccount?.partyId"/>
+                <service-call name="mantle.order.OrderServices.create#Order" in-map="context" out-map="createOrderOut"/>
+                <set field="orderId" from="createOrderOut.orderId"/>
+                <set field="orderPartSeqId" from="createOrderOut.orderPartSeqId"/>
             </if>
-            <!-- TODO: impl this -->
+
+            <!-- find an OrderItem for the productId and increment quantity if found, otherwise create OrderItem with quantity -->
+            <entity-find entity-name="OrderItem" list="orderItemList">
+                <econdition-object field="[orderId:orderId, productId:productId, productConfigSavedId:null, forAssetId:null, selectedAmount:null]"/>
+            </entity-find>
+            <!-- TODO: calculate the price based on quantity, etc, -->
+            <if condition="orderItemList">
+                <set field="orderItemSeqId" from="orderItemList[0].orderItemSeqId"/>
+                <set field="orderPartSeqId" from="orderItemList[0].orderPartSeqId" set-if-empty="false"/>
+                <set field="quantity" from="quantity + orderItemList[0].quantity"/>
+                <service-call name="mantle.order.OrderServices.update#OrderItem" in-map="true"/>
+
+                <else>
+                    <!-- lookup orderPartSeqId if not passed in -->
+                    <if condition="!orderPartSeqId">
+                        <entity-find entity-name="OrderPart" list="orderPartList">
+                            <econdition field-name="orderId"/>
+                            <order-by field-name="orderPartSeqId"/>
+                        </entity-find>
+                        <if condition="orderPartList"><set field="orderPartSeqId" from="orderPartList[0].orderPartSeqId"/></if>
+                    </if>
+
+                    <service-call name="mantle.order.OrderServices.create#OrderItem" in-map="context" out-map="createOrderItemOut"/>
+                    <set field="orderItemSeqId" from="createOrderItemOut.orderItemSeqId"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+    <service verb="update" noun="OrderProductQuantity" authenticate="anonymous-all">
+        <in-parameters>
+            <parameter name="orderId" type="String" required="true"/>
+            <parameter name="orderItemSeqId" type="String" required="true"/>
+
+            <parameter name="productId" type="String" required="true"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <actions>
+            <!-- TODO: if calculatePrice=true then calculate price based on updated quantity -->
+            <service-call name="mantle.order.OrderServices.update#OrderItem" in-map="context"/>
         </actions>
     </service>
 
     <!-- Order Status Change Services -->
-    <service verb="propose" noun="Order" type="inline">
+    <service verb="propose" noun="Order">
         <in-parameters>
             <parameter name="orderId" type="String" required="true"/>
         </in-parameters>
@@ -208,7 +247,7 @@ h2. General Ecommerce Usage
             <entity-update value-field="orderHeader"/>
         </actions>
     </service>
-    <service verb="place" noun="Order" type="inline">
+    <service verb="place" noun="Order">
         <in-parameters>
             <parameter name="orderId" type="String" required="true"/>
         </in-parameters>
@@ -218,7 +257,7 @@ h2. General Ecommerce Usage
             <entity-update value-field="orderHeader"/>
         </actions>
     </service>
-    <service verb="cancel" noun="Order" type="inline">
+    <service verb="cancel" noun="Order">
         <description>Call when customer cancels the order.</description>
         <in-parameters>
             <parameter name="orderId" type="String" required="true"/>
