@@ -199,7 +199,15 @@ h2. General Ecommerce Usage
             <entity-find entity-name="OrderItem" list="orderItemList">
                 <econdition-object field="[orderId:orderId, productId:productId, productConfigSavedId:null, forAssetId:null, selectedAmount:null]"/>
             </entity-find>
-            <!-- TODO: calculate the price based on quantity, etc, -->
+
+            <!-- TODO: where to get currency? get store in place... -->
+            <!-- calculate the price based on quantity, etc, -->
+            <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
+                          in-map="[productId:productId, quantity:quantity]"/>
+            <set field="unitPrice" from="priceMap.price" set-if-empty="false"/>
+            <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
+            <set field="isModifiedPrice" value="N"/>
+
             <if condition="orderItemList">
                 <set field="orderItemSeqId" from="orderItemList[0].orderItemSeqId"/>
                 <set field="orderPartSeqId" from="orderItemList[0].orderPartSeqId" set-if-empty="false"/>
@@ -231,7 +239,14 @@ h2. General Ecommerce Usage
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
-            <!-- TODO: if calculatePrice=true then calculate price based on updated quantity -->
+            <!-- TODO: where to get currency? get store in place... -->
+            <!-- calculate the price based on quantity, etc, -->
+            <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
+                          in-map="[productId:productId, quantity:quantity]"/>
+            <set field="unitPrice" from="priceMap.price" set-if-empty="false"/>
+            <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
+            <set field="isModifiedPrice" value="N"/>
+
             <service-call name="mantle.order.OrderServices.update#OrderItem" in-map="context"/>
         </actions>
     </service>

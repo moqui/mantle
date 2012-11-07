@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.2.xsd">
+
+<!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="get" noun="ProductPrice" authenticate="anonymous-view">
+        <description>
+            Use the ProductPrice entity to determine the price to charge for a Product.
+        </description>
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" default-value="1"/>
+
+            <parameter name="priceUomId" default-value="USD"/>
+            <parameter name="pricePurposeEnumId" default-value="PPP_PURCHASE"/>
+
+            <parameter name="productStoreId"/>
+            <parameter name="vendorPartyId"/>
+            <!-- TODO: to support look for records with this first and then with null: <parameter name="customerPartyId"/> -->
+
+            <!-- TODO: to support look for records with this first and then with null: <parameter name="agreementId"/> -->
+            <!-- TODO: to support look for records with this first and then with null: <parameter name="agreementItemSeqId"/> -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="price" type="BigDecimal"/>
+            <parameter name="listPrice" type="BigDecimal"/>
+            <parameter name="priceUomId"/>
+        </out-parameters>
+        <actions>
+            <!-- get current price -->
+            <entity-find entity-name="ProductPrice" list="productPriceList" cache="true">
+                <econdition-object field="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId]"/>
+                <econdition field-name="productStoreId" ignore-if-empty="true"/>
+                <econdition field-name="vendorPartyId" ignore-if-empty="true"/>
+
+                <econdition field-name="priceTypeEnumId" value="CURRENT_PRICE"/>
+                <econdition field-name="minQuantity" operator="less-equals" from="quantity"/>
+                <econdition field-name="customerPartyId" from="null"/>
+
+                <order-by field-name="-fromDate"/><!-- get most recent price records first -->
+            </entity-find>
+            <filter-map-list list="productPriceList"><date-filter/></filter-map-list>
+            <if condition="productPriceList"><set field="price" from="productPriceList.first.price"/></if>
+
+            <!-- get list price -->
+            <entity-find entity-name="ProductPrice" list="listProductPriceList" cache="true">
+                <econdition-object field="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId]"/>
+                <econdition field-name="productStoreId" ignore-if-empty="true"/>
+                <econdition field-name="vendorPartyId" ignore-if-empty="true"/>
+
+                <econdition field-name="priceTypeEnumId" value="CURRENT_PRICE"/>
+                <econdition field-name="minQuantity" operator="less-equals" from="quantity"/>
+                <econdition field-name="customerPartyId" from="null"/>
+
+                <order-by field-name="-fromDate"/><!-- get most recent price records first -->
+            </entity-find>
+            <filter-map-list list="listProductPriceList"><date-filter/></filter-map-list>
+            <if condition="listProductPriceList"><set field="listPrice" from="listProductPriceList.first.price"/></if>
+        </actions>
+    </service>
+</services>
