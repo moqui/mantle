@@ -50,7 +50,7 @@ h2. General Ecommerce Usage
             <parameter name="orderName"/>
             <parameter name="statusId" default-value="ORDER_OPEN"/>
 
-            <parameter name="currencyUomId"/>
+            <parameter name="currencyUomId" default-value="USD"/>
             <parameter name="billingAccountId"/>
             <parameter name="productStoreId"/>
             <parameter name="salesChannelEnumId"/>
@@ -169,7 +169,7 @@ h2. General Ecommerce Usage
         </actions>
     </service>
     <service verb="add" noun="OrderProductQuantity" authenticate="anonymous-all">
-        <description>A simple service for an add-to-cart sort of operation, including:
+        <description>A service for an add-to-cart sort of operation, including:
             1. create an Order if no orderId is passed in
             2. determine the price to charge for the Product (and update based on quantity as needed)
             3. find a OrderItem matching the productId, and if found update quantity
@@ -178,6 +178,9 @@ h2. General Ecommerce Usage
         <in-parameters>
             <parameter name="orderId"/>
             <parameter name="orderPartSeqId"/>
+            <parameter name="customerPartyId"/>
+            <parameter name="currencyUomId"/>
+            <parameter name="productStoreId"/>
 
             <parameter name="productId" required="true"/>
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
@@ -188,8 +191,13 @@ h2. General Ecommerce Usage
             <parameter name="orderItemSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="ProductStore" value-field="productStore"/>
+            <set field="vendorPartyId" from="productStore?.organizationPartyId"/>
+            <set field="currencyUomId" from="currencyUomId ?: productStore?.defaultCurrencyUomId"/>
+
+            <!-- have customerPartyId default to current user's partyId -->
+            <if condition="!customerPartyId"><set field="customerPartyId" from="ec.user.userAccount?.partyId"/></if>
             <if condition="!orderId">
-                <set field="customerPartyId" from="ec.user.userAccount?.partyId" set-if-empty="false"/>
                 <if condition="customerPartyId">
                     <entity-find entity-name="OrderHeaderAndPart" list="existingOrderList">
                         <econdition field-name="statusId" value="ORDER_OPEN"/>
@@ -204,7 +212,8 @@ h2. General Ecommerce Usage
                 </if>
                 <!-- no existing open (cart) order found? create one -->
                 <if condition="!orderId">
-                    <service-call name="mantle.order.OrderServices.create#Order" in-map="context" out-map="createOrderOut"/>
+                    <service-call name="mantle.order.OrderServices.create#Order" out-map="createOrderOut"
+                                  in-map="[customerPartyId:customerPartyId]"/>
                     <set field="orderId" from="createOrderOut.orderId"/>
                     <set field="orderPartSeqId" from="createOrderOut.orderPartSeqId"/>
                 </if>
@@ -218,7 +227,9 @@ h2. General Ecommerce Usage
             <!-- TODO: where to get currency? get store in place... -->
             <!-- calculate the price based on quantity, etc, -->
             <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
-                          in-map="[productId:productId, quantity:quantity]"/>
+                    in-map="[productId:productId, quantity:quantity, priceUomId:currencyUomId,
+                             productStoreId:productStoreId, customerPartyId:customerPartyId, vendorPartyId:vendorPartyId]"/>
+
             <set field="unitPrice" from="priceMap.price" set-if-empty="false"/>
             <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
             <set field="isModifiedPrice" value="N"/>
