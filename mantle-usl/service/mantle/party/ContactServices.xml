@@ -14,6 +14,43 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="PartyShippingInfo">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="postalContactMechId"/>
+            <parameter name="postalAddress" type="EntityValue"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="telecomNumber" type="EntityValue"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="PartyContactMech" list="postalPcmList">
+                <date-filter/>
+                <econdition field-name="partyId"/>
+                <econdition field-name="contactMechPurposeId" value="SHIPPING_DESTINATION"/>
+            </entity-find>
+            <if condition="postalPcmList">
+                <set field="postalContactMechId" from="postalPcmList[0].contactMechId"/>
+                <entity-find-one entity-name="PostalAddress" value-field="postalAddress">
+                    <field-map field-name="contactMechId" from="postalContactMechId"/>
+                </entity-find-one>
+            </if>
+
+            <entity-find entity-name="PartyContactMech" list="telecomPcmList">
+                <date-filter/>
+                <econdition field-name="partyId"/>
+                <econdition field-name="contactMechPurposeId" value="PHONE_SHIP_DEST"/>
+            </entity-find>
+            <if condition="telecomPcmList">
+                <set field="telecomContactMechId" from="telecomPcmList[0].contactMechId"/>
+                <entity-find-one entity-name="TelecomNumber" value-field="telecomNumber">
+                    <field-map field-name="contactMechId" from="telecomContactMechId"/>
+                </entity-find-one>
+            </if>
+            <!-- <log level="warn" message="get#PartyShippingInfo finish context=${context.context}"/> -->
+        </actions>
+    </service>
 
     <!-- PostalAddress Services -->
     <service verb="create" noun="PostalAddress" type="inline">
@@ -308,6 +345,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <!-- General "Delete" Service -->
     <service verb="delete" noun="PartyContactMech">
         <in-parameters>
             <parameter name="partyId" required="true"/>

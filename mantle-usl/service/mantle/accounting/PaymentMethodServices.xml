@@ -14,8 +14,41 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="PartyCreditCardInfo">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentMethodId"/>
+            <parameter name="paymentMethod" type="EntityValue"/>
+            <parameter name="postalContactMechId"/>
+            <parameter name="postalAddress" type="EntityValue"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="telecomNumber" type="EntityValue"/>
+            <parameter name="creditCard" type="EntityValue"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="PaymentMethod" list="paymentMethodList">
+                <date-filter/>
+                <econdition field-name="ownerPartyId" from="partyId"/>
+                <econdition field-name="paymentMethodTypeEnumId" value="PMT_CREDIT_CARD"/>
+                <order-by field-name="-fromDate"/><!-- get the most recent one if there is more than one -->
+            </entity-find>
+            <set field="paymentMethod" from="paymentMethodList.getAt(0)"/>
+            <set field="paymentMethodId" from="paymentMethod?.paymentMethodId"/>
+
+            <set field="postalContactMechId" from="paymentMethod?.postalContactMechId"/>
+            <entity-find-related-one value-field="paymentMethod" relationship-name="PostalAddress" to-value-field="postalAddress"/>
+            <set field="telecomContactMechId" from="paymentMethod?.telecomContactMechId"/>
+            <entity-find-related-one value-field="paymentMethod" relationship-name="TelecomNumber" to-value-field="telecomNumber"/>
+
+            <entity-find-related-one value-field="paymentMethod" relationship-name="CreditCard" to-value-field="creditCard"/>
+            <!-- <log level="warn" message="get#PartyCreditCardInfo finish context="/> -->
+        </actions>
+    </service>
+
     <!-- CreditCard Services -->
-    <service verb="create" noun="CreditCard" type="inline">
+    <service verb="create" noun="CreditCard">
         <description>
             Create a Credit Card (and the corresponding PaymentMethod record).
         </description>
@@ -53,7 +86,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="result.paymentMethodId" from="paymentMethod.paymentMethodId"/>
         </actions>
     </service>
-    <service verb="update" noun="CreditCard" type="inline">
+    <service verb="update" noun="CreditCard">
         <description>
             Update a Credit Card for a Party. CreditCard is immutable, so this creates a new one and associates
             it with the Party, expiring the old one (if there are any changes).

@@ -213,7 +213,8 @@ h2. General Ecommerce Usage
                 <!-- no existing open (cart) order found? create one -->
                 <if condition="!orderId">
                     <service-call name="mantle.order.OrderServices.create#Order" out-map="createOrderOut"
-                                  in-map="[customerPartyId:customerPartyId]"/>
+                            in-map="[currencyUomId:currencyUomId, productStoreId:productStoreId,
+                                    vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]"/>
                     <set field="orderId" from="createOrderOut.orderId"/>
                     <set field="orderPartSeqId" from="createOrderOut.orderPartSeqId"/>
                 </if>
@@ -224,7 +225,6 @@ h2. General Ecommerce Usage
                 <econdition-object field="[orderId:orderId, productId:productId, productConfigSavedId:null, forAssetId:null, selectedAmount:null]"/>
             </entity-find>
 
-            <!-- TODO: where to get currency? get store in place... -->
             <!-- calculate the price based on quantity, etc, -->
             <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
                     in-map="[productId:productId, quantity:quantity, priceUomId:currencyUomId,
@@ -260,15 +260,18 @@ h2. General Ecommerce Usage
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderItemSeqId" required="true"/>
-
-            <parameter name="productId" required="true"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
-            <!-- TODO: where to get currency? get store in place... -->
             <!-- calculate the price based on quantity, etc, -->
+            <!-- TODO: consider making this a separate service to either get a price for an OrderItem or update it in place -->
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="OrderItem" value-field="orderItem"/>
+            <entity-find-related-one value-field="orderItem" relationship-name="OrderPart" to-value-field="orderPart"/>
             <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
-                          in-map="[productId:productId, quantity:quantity]"/>
+                    in-map="[productId:orderItem.productId, quantity:quantity, priceUomId:orderHeader.currencyUomId,
+                            productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
+                            vendorPartyId:orderPart.vendorPartyId]"/>
             <set field="unitPrice" from="priceMap.price" set-if-empty="false"/>
             <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
             <set field="isModifiedPrice" value="N"/>
