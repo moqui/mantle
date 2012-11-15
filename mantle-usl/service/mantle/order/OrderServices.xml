@@ -17,28 +17,54 @@ This Work includes contributions authored by David E. Jones, not as a
 <!--
 h1. General Order Services
 
-h2. General Ecommerce Usage
+h2. General Order Placement and eCommerce Usage
 
 | create customer | CustomerServices.create#Account |
 | create/update/delete customer address | ContactServices.create#PostalAddress, .update#PartyPostalAddress |
 | create/update/delete customer phone | ContactServices.create#TelecomNumber, .update#PartyTelecomNumber |
 | create/update/delete customer credit card | PaymentMethodServices.create#CreditCard, .update#CreditCard |
 
-| login: merge with previous open | merge#Orders - TODO |
+| login: merge with previous open | merge#OrderItems |
 | find customer open orders       | find#OpenOrders - TODO |
 
 | init cart (auto on add to cart) | create#Order |
 | add to cart                     | add#OrderProductQuantity, create#OrderItem |
-| change cart quantity            | update#OrderItem |
+| change cart quantity            | update#OrderProductQuantity, update#OrderItem |
 | remove from cart                | delete#OrderItem |
-| set shipping options            | TODO |
-| set payment options             | TODO |
+| set billing and shipping info   | set#OrderBillingShippingInfo |
 | split order                     | create#OrderPart |
 | confirm/complete order          | place#Order |
 
-| create order from shopping list | clone#Order - TODO |
+| create order from shopping list (or other existing order) | clone#Order - TODO |
 
 -->
+
+    <service verb="get" noun="OrderDisplayInfo">
+        <in-parameters>
+            <parameter name="orderId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="orderHeader" type="org.moqui.entity.EntityValue"/>
+            <parameter name="orderPartList" type="List"/>
+            <parameter name="orderItemList" type="List"/>
+
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <entity-find-related value-field="orderHeader" relationship-name="OrderPart" list="orderPartList"/>
+            <entity-find-related value-field="orderHeader" relationship-name="OrderItem" list="orderItemList"
+                    order-by-list="['orderItemSeqId']"/>
+        </actions>
+    </service>
+    <service verb="get" noun="OrderItemsTotalCount">
+        <in-parameters><parameter name="orderId"/></in-parameters>
+        <out-parameters><parameter name="itemCount" type="BigDecimal"/></out-parameters>
+        <actions>
+            <set field="itemCount" from="0.0"/>
+            <entity-find entity-name="OrderItem" list="orderItemList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderItemList" entry="orderItem"><set field="itemCount" from="itemCount + orderItem.quantity"/></iterate>
+        </actions>
+    </service>
 
     <!-- Order/Part Services -->
     <service verb="create" noun="Order">
@@ -109,6 +135,75 @@ h2. General Ecommerce Usage
         </actions>
     </service>
 
+    <service verb="update" noun="OrderHeaderTotal">
+        <in-parameters>
+            <parameter name="orderId"/>
+        </in-parameters>
+        <actions>
+            <set field="totalSum" from="0.0" type="BigDecimal"/>
+            <entity-find entity-name="OrderPart" list="orderPartList">
+                <econdition field-name="orderId"/>
+            </entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <set field="totalSum" from="totalSum + orderPart.partTotal"/>
+            </iterate>
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <set field="orderHeader.grandTotal" from="totalSum"/>
+            <entity-update value-field="orderHeader"/>
+        </actions>
+    </service>
+    <service verb="update" noun="OrderPartTotal">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+        </in-parameters>
+        <actions>
+            <set field="totalSum" from="0.0" type="BigDecimal"/>
+            <entity-find entity-name="OrderItem" list="orderItemList">
+                <econdition field-name="orderId"/>
+                <econdition field-name="orderPartSeqId"/>
+            </entity-find>
+            <iterate list="orderItemList" entry="orderItem">
+                <service-call name="mantle.order.OrderServices.get#OrderItemTotal" out-map="itemTotalOut"
+                        in-map="[orderItem:orderItem]"/>
+                <set field="totalSum" from="totalSum + itemTotalOut.itemTotal"/>
+            </iterate>
+
+            <entity-find entity-name="OrderAdjustment" list="orderAdjustmentList">
+                <econdition field-name="orderId"/>
+                <econdition field-name="orderPartSeqId"/>
+                <econdition field-name="orderItemSeqId" from="null"/>
+            </entity-find>
+            <iterate list="orderAdjustmentList" entry="orderAdjustment">
+                <set field="totalSum" from="totalSum + orderAdjustment.amount"/>
+            </iterate>
+
+            <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
+            <set field="orderPart.partTotal" from="totalSum"/>
+            <entity-update value-field="orderPart"/>
+
+            <!-- now update the OrderHeader.grandTotal -->
+            <service-call name="mantle.order.OrderServices.update#OrderHeaderTotal" in-map="[orderId:orderId]"/>
+        </actions>
+    </service>
+    <service verb="get" noun="OrderItemTotal">
+        <in-parameters>
+            <parameter name="orderItem" type="org.moqui.entity.EntityValue"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="itemTotal" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <set field="itemTotal" from="0.0" type="BigDecimal"/>
+            <set field="itemTotal" from="itemTotal + (orderItem.unitPrice * orderItem.quantity)"/>
+
+            <entity-find-related value-field="orderItem" relationship-name="OrderAdjustment" list="orderAdjustmentList"/>
+            <iterate list="orderAdjustmentList" entry="orderAdjustment">
+                <set field="itemTotal" from="itemTotal + orderAdjustment.amount"/>
+            </iterate>
+        </actions>
+    </service>
+
     <!-- OrderItem Services -->
     <service verb="create" noun="OrderItem">
         <in-parameters>
@@ -168,6 +263,8 @@ h2. General Ecommerce Usage
             <entity-delete value-field="orderItem"/>
         </actions>
     </service>
+
+    <!-- OrderProductQuantity aka "Cart" Services -->
     <service verb="add" noun="OrderProductQuantity" authenticate="anonymous-all">
         <description>A service for an add-to-cart sort of operation, including:
             1. create an Order if no orderId is passed in
@@ -263,6 +360,12 @@ h2. General Ecommerce Usage
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
+            <if condition="quantity &lt;= 0">
+                <service-call name="mantle.order.OrderServices.delete#OrderItem"
+                        in-map="[orderId:orderId, orderItemSeqId:orderItemSeqId]"/>
+                <return/>
+            </if>
+
             <!-- calculate the price based on quantity, etc, -->
             <!-- TODO: consider making this a separate service to either get a price for an OrderItem or update it in place -->
             <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
@@ -292,6 +395,85 @@ h2. General Ecommerce Usage
                 <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
                               in-map="[orderId:orderId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
             </iterate>
+        </actions>
+    </service>
+
+    <service verb="set" noun="OrderBillingShippingInfo">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId"/>
+            <parameter name="paymentId"/>
+
+            <parameter name="paymentMethodId"/>
+            <parameter name="paymentMethodTypeId"/>
+            <parameter name="shippingPostalContactMechId"/>
+            <parameter name="shippingTelecomContactMechId"/>
+        </in-parameters>
+        <actions>
+            <if condition="orderPartSeqId">
+                <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
+
+                <else>
+                    <!-- just get the first part -->
+                    <entity-find entity-name="OrderPart" list="orderPartList">
+                        <econdition field-name="orderId"/>
+                        <order-by field-name="orderPartSeqId"/>
+                    </entity-find>
+                    <set field="orderPart" from="orderPartList.first"/>
+                    <set field="orderPartSeqId" from="orderPart.orderPartSeqId"/>
+                </else>
+            </if>
+
+            <set field="orderPart.postalContactMechId" from="shippingPostalContactMechId"/>
+            <set field="orderPart.telecomContactMechId" from="shippingTelecomContactMechId"/>
+            <entity-update value-field="orderPart"/>
+
+            <if condition="paymentId">
+                <entity-find-one entity-name="Payment" value-field="payment"/>
+
+                <else>
+                    <!-- just get the first part -->
+                    <entity-find entity-name="Payment" list="paymentList">
+                        <econdition field-name="orderId"/>
+                        <econdition field-name="orderPartSeqId"/>
+                        <order-by field-name="paymentId"/>
+                    </entity-find>
+                    <set field="payment" from="paymentList.first"/>
+
+                </else>
+            </if>
+            <if condition="payment">
+                <!-- update existing payment -->
+                <set field="payment.paymentMethodId" from="paymentMethodId"/>
+                <set field="payment.amount" from="orderPart.partTotal"/>
+                <entity-update value-field="payment"/>
+
+                <else>
+                    <!-- create a new Payment for the Order -->
+                    <service-call name="mantle.order.OrderServices.add#OrderPartPayment"
+                            in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
+                            paymentMethodTypeId:paymentMethodTypeId]"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+    <service verb="add" noun="OrderPartPayment">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+            <parameter name="paymentMethodId"/>
+            <parameter name="paymentMethodTypeId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
+            <service-call name="create#Payment" out-map="context"
+                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
+                    paymentMethodTypeId:paymentMethodTypeId, amount:orderPart.partTotal,
+                    amountUomId:orderHeader.currencyUomId]"/>
         </actions>
     </service>
 
