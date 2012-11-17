@@ -45,15 +45,54 @@ h2. General Order Placement and eCommerce Usage
         </in-parameters>
         <out-parameters>
             <parameter name="orderHeader" type="org.moqui.entity.EntityValue"/>
-            <parameter name="orderPartList" type="List"/>
             <parameter name="orderItemList" type="List"/>
-
+            <parameter name="paymentList" type="List"/>
+            <parameter name="orderPartList" type="List"/>
+            <parameter name="orderPartInfoList" type="List"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <entity-find-related value-field="orderHeader" relationship-name="OrderPart" list="orderPartList"/>
             <entity-find-related value-field="orderHeader" relationship-name="OrderItem" list="orderItemList"
                     order-by-list="['orderItemSeqId']"/>
+            <entity-find-related value-field="orderHeader" relationship-name="Payment" list="paymentList"
+                    order-by-list="['paymentId']"/>
+
+            <entity-find-related value-field="orderHeader" relationship-name="OrderPart" list="orderPartList"/>
+            <!-- get order info by part for more detailed display -->
+            <script>
+            import org.moqui.entity.EntityList
+            import org.moqui.entity.EntityValue
+
+            orderPartInfoList = []
+            for (EntityValue orderPart in orderPartList) {
+                partOrderItemList = orderItemList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
+                partPaymentList = paymentList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
+                partPaymentInfoList = []
+                for (EntityValue partPayment in partPaymentList) {
+                    Map partPaymentInfo = [partPayment:partPayment]
+                    EntityValue paymentMethod = partPayment.PaymentMethod
+                    EntityValue paymentMethodTypeEnum = partPayment."PaymentMethodType#moqui.basic.Enumeration"
+                    if (paymentMethod) {
+                        partPaymentInfo.paymentMethod = paymentMethod
+                        partPaymentInfo.creditCard = paymentMethod.CreditCard
+                        partPaymentInfo.creditCardTypeEnum = partPaymentInfo.creditCard."CreditCardType#moqui.basic.Enumeration"
+                        partPaymentInfo.postalAddress = paymentMethod.PostalAddress
+                        partPaymentInfo.postalAddressStateGeo = partPaymentInfo.postalAddress?."StateProvince#moqui.basic.Geo"
+                        partPaymentInfo.telecomNumber = paymentMethod.TelecomNumber
+                        if (!paymentMethodTypeEnum) paymentMethodTypeEnum = paymentMethod."PaymentMethodType#moqui.basic.Enumeration"
+                    }
+                    partPaymentInfo.paymentMethodTypeEnum = paymentMethodTypeEnum
+                    partPaymentInfoList.add(partPaymentInfo)
+                }
+
+                EntityValue postalAddress = orderPart.PostalAddress
+                orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
+                        partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
+                        postalAddress:postalAddress, postalAddressStateGeo:postalAddress?."StateProvince#moqui.basic.Geo",
+                        telecomNumber:orderPart.TelecomNumber])
+            }
+            </script>
+            <!-- <log level="warn" message="======== OrderDisplayInfo orderPartInfoList: ${orderPartInfoList}"/> -->
         </actions>
     </service>
     <service verb="get" noun="OrderItemsTotalCount">
@@ -104,7 +143,7 @@ h2. General Order Placement and eCommerce Usage
             <entity-create value-field="orderHeader"/>
 
             <entity-make-value entity-name="OrderPart" value-field="orderPart"/>
-            <entity-set value-field="orderHeader" include="nonpk"/>
+            <entity-set value-field="orderPart" include="nonpk"/>
             <set field="orderPart.orderId" from="orderHeader.orderId"/>
             <entity-sequenced-id-secondary value-field="orderPart"/>
             <entity-create value-field="orderPart"/>
@@ -405,7 +444,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="paymentId"/>
 
             <parameter name="paymentMethodId"/>
-            <parameter name="paymentMethodTypeId"/>
+            <parameter name="paymentMethodTypeEnumId"/>
             <parameter name="shippingPostalContactMechId"/>
             <parameter name="shippingTelecomContactMechId"/>
         </in-parameters>
@@ -452,7 +491,7 @@ h2. General Order Placement and eCommerce Usage
                     <!-- create a new Payment for the Order -->
                     <service-call name="mantle.order.OrderServices.add#OrderPartPayment"
                             in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                            paymentMethodTypeId:paymentMethodTypeId]"/>
+                            paymentMethodTypeEnumId:paymentMethodTypeEnumId]"/>
                 </else>
             </if>
         </actions>
@@ -462,7 +501,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="paymentMethodId"/>
-            <parameter name="paymentMethodTypeId"/>
+            <parameter name="paymentMethodTypeEnumId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentId"/>
@@ -472,7 +511,7 @@ h2. General Order Placement and eCommerce Usage
             <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
             <service-call name="create#Payment" out-map="context"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                    paymentMethodTypeId:paymentMethodTypeId, amount:orderPart.partTotal,
+                    paymentMethodTypeEnumId:paymentMethodTypeEnumId, amount:orderPart.partTotal,
                     amountUomId:orderHeader.currencyUomId]"/>
         </actions>
     </service>
@@ -485,6 +524,7 @@ h2. General Order Placement and eCommerce Usage
         <actions>
             <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
             <set field="orderHeader.statusId" value="ORDER_PROPOSED"/>
+            <set field="orderHeader.placedDate" from="ec.user.nowTimestamp"/>
             <entity-update value-field="orderHeader"/>
         </actions>
     </service>
