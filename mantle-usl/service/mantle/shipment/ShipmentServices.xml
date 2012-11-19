@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.2.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="ship" noun="OrderPart">
+        <in-parameters>
+            <parameter name="orderId"/>
+            <parameter name="orderPartSeqId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="shipmentId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="create#OrderPartShipment" in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]" out-map="context"/>
+
+            <!-- TODO issue items and assets to shipment (ie create AssetIssuance records) -->
+
+            <!-- set Shipment Packed -->
+            <service-call name="pack#Shipment" in-map="[shipmentId:shipmentId]"/>
+
+            <!-- TODO on Shipment Packed create Invoice for Shipment -->
+            <!-- TODO on Shipment Packed mark OrderItems and Order as Completed -->
+
+            <!-- set Shipment Shipped -->
+            <service-call name="ship#Shipment" in-map="[shipmentId:shipmentId]"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="OrderPartShipment">
+        <in-parameters>
+            <parameter name="orderId"/>
+            <parameter name="orderPartSeqId"/>
+            <parameter name="createPackage" type="Boolean" default-value="true"/>
+            <parameter name="createRouteSegment" type="Boolean" default-value="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="shipmentId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
+
+            <!-- create Shipment record, get shipmentId -->
+            <service-call name="create#Shipment" out-map="context"
+                    in-map="[shipmentTypeEnumId:'SALES_SHIPMENT', statusId:'SHIPMENT_INPUT',
+                        fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId]"/>
+
+            <if condition="createPackage">
+                <service-call name="create#ShipmentPackage" out-map="context"/>
+            </if>
+            <if condition="createRouteSegment">
+                <service-call name="create#ShipmentRouteSegment" out-map="context"
+                        in-map="[carrierPartyId:carrierPartyId, shipmentMethodEnumId:shipmentMethodEnumId,
+                            destPostalContactMechId:orderPart.postalContactMechId,
+                            destTelecomContactMechId:orderPart.telecomContactMechId]"/>
+            </if>
+
+            <!-- for each OrderItem in the part create ShipmentItem and ShipmentItemSource records -->
+            <entity-find-related value-field="orderPart" relationship-name="OrderItem" list="orderItemList"/>
+            <iterate list="orderItemList" entry="orderItem">
+                <service-call name="create#ShipmentItem" out-map="shipmentItemOut"
+                        in-map="[shipmentId:shipmentId, productId:orderItem.productId,
+                            quantity:orderItem.quantity, description:orderItem.itemDescription]"/>
+                <!-- TODO: change to support assetId once Asset Reservations are in place -->
+                <service-call name="create#ShipmentItemSource"
+                        in-map="[shipmentId:shipmentId, shipmentItemSeqId:shipmentItemOut.shipmentItemSeqId,
+                            quantity:orderItem.quantity, orderId:orderItem.orderId,
+                            orderItemSeqId:orderItem.orderItemSeqId]"/>
+
+                <if condition="shipmentPackageSeqId">
+                    <service-call name="create#ShipmentPackageContent"
+                            in-map="[shipmentId:shipmentId, shipmentItemSeqId:shipmentItemOut.shipmentItemSeqId,
+                                shipmentPackageSeqId:shipmentPackageSeqId, quantity:orderItem.quantity]"/>
+
+                    <if condition="shipmentRouteSegmentSeqId">
+                        <service-call name="create#ShipmentPackageRouteSeg"
+                                in-map="[shipmentId:shipmentId, shipmentPackageSeqId:shipmentPackageSeqId,
+                                shipmentRouteSegmentSeqId:shipmentRouteSegmentSeqId]"/>
+                    </if>
+                </if>
+            </iterate>
+
+        </actions>
+    </service>
+
+    <service verb="pack" noun="Shipment">
+        <in-parameters><parameter name="shipmentId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="Shipment" value-field="shipment"/>
+            <set field="shipment.statusId" value="SHIPMENT_PACKED"/>
+            <entity-update value-field="shipment"/>
+        </actions>
+    </service>
+    <service verb="ship" noun="Shipment">
+        <in-parameters><parameter name="shipmentId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="Shipment" value-field="shipment"/>
+            <set field="shipment.statusId" value="SHIPMENT_SHIPPED"/>
+            <entity-update value-field="shipment"/>
+        </actions>
+    </service>
+</services>

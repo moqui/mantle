@@ -193,60 +193,35 @@ and those parts may be licensed under the Apache License 2.0.
 
         <field name="estimatedReadyDate" type="date-time"/>
         <field name="estimatedShipDate" type="date-time"/>
-        <field name="estimatedShipWorkEffId" type="id"/>
         <field name="estimatedArrivalDate" type="date-time"/>
-        <field name="estimatedArrivalWorkEffId" type="id"/>
         <field name="latestCancelDate" type="date-time"/>
+
+        <field name="shipWorkEffortId" type="id"/>
+        <field name="arrivalWorkEffortId" type="id"/>
 
         <field name="estimatedShipCost" type="currency-amount"/>
         <field name="costUomId" type="id"/>
+        <field name="addtlShippingCharge" type="currency-amount"/>
+        <field name="addtlShippingChargeDesc" type="text-medium"/>
 
         <field name="handlingInstructions" type="text-medium"/>
 
-        <field name="originFacilityId" type="id"/>
-        <field name="originContactMechId" type="id"/>
-        <field name="originTelecomNumberId" type="id"/>
-        <field name="destinationFacilityId" type="id"/>
-        <field name="destinationContactMechId" type="id"/>
-        <field name="destinationTelecomNumberId" type="id"/>
-
-        <field name="toPartyId" type="id"/>
         <field name="fromPartyId" type="id"/>
-
-        <field name="additionalShippingCharge" type="currency-amount"/>
-        <field name="addtlShippingChargeDesc" type="text-medium"/>
+        <field name="toPartyId" type="id"/>
 
         <relationship type="one" title="ShipmentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="shipmentTypeEnumId"/>
         </relationship>
         <relationship type="one" title="Shipment" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" related-entity-name="Picklist"/>
-        <relationship type="one" title="EstimatedShip" related-entity-name="WorkEffort">
-            <key-map field-name="estimatedShipWorkEffId"/>
+        <relationship type="one" title="Ship" related-entity-name="WorkEffort">
+            <key-map field-name="shipWorkEffortId"/>
         </relationship>
-        <relationship type="one" title="EstimatedArrival" related-entity-name="WorkEffort">
-            <key-map field-name="estimatedArrivalWorkEffId"/>
+        <relationship type="one" title="Arrival" related-entity-name="WorkEffort">
+            <key-map field-name="arrivalWorkEffortId"/>
         </relationship>
         <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom">
             <key-map field-name="costUomId"/>
-        </relationship>
-        <relationship type="one" title="Origin" related-entity-name="Facility">
-            <key-map field-name="originFacilityId"/>
-        </relationship>
-        <relationship type="one" title="Origin" related-entity-name="PostalAddress">
-            <key-map field-name="originContactMechId"/>
-        </relationship>
-        <relationship type="one" title="Origin" related-entity-name="TelecomNumber">
-            <key-map field-name="originTelecomNumberId"/>
-        </relationship>
-        <relationship type="one" title="Destination" related-entity-name="Facility">
-            <key-map field-name="destinationFacilityId"/>
-        </relationship>
-        <relationship type="one" title="Destination" related-entity-name="PostalAddress">
-            <key-map field-name="destinationContactMechId"/>
-        </relationship>
-        <relationship type="one" title="Destination" related-entity-name="TelecomNumber">
-            <key-map field-name="destinationTelecomNumberId"/>
         </relationship>
         <relationship type="one" title="To" related-entity-name="Party"><key-map field-name="toPartyId"/></relationship>
         <relationship type="one" title="From" related-entity-name="Party"><key-map field-name="fromPartyId"/></relationship>
@@ -333,8 +308,9 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
     </entity>
     <entity entity-name="ShipmentItemSource" package-name="mantle.shipment.picklist">
-        <field name="shipmentId" type="id" is-pk="true"/>
-        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="shipmentItemSourceId" type="id" is-pk="true"/>
+        <field name="shipmentId" type="id"/>
+        <field name="shipmentItemSeqId" type="id"/>
         <field name="binLocationNumber" type="number-integer">
             <description>This overrides the corresponding Shipment.binLocationNumber so that a shipment may be split
                 across bins, such as when one bin per order on the shipment is needed.</description>
@@ -364,31 +340,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="shipmentId" type="id" is-pk="true"/>
         <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
         <field name="shipmentBoxTypeId" type="id"/>
-        <field name="dateCreated" type="date-time"/>
-        <field name="boxLength" type="number-decimal">
-            <description>This field store the length of package; if a shipmentBoxTypeId is specified then this overrides
-                the dimension specified there; this field is meant to be used when there is no applicable
-                ShipmentBoxType
-            </description>
-        </field>
-        <field name="boxHeight" type="number-decimal">
-            <description>This field store the height of package; if a shipmentBoxTypeId is specified then this overrides
-                the dimension specified there; this field is meant to be used when there is no applicable
-                ShipmentBoxType
-            </description>
-        </field>
-        <field name="boxWidth" type="number-decimal">
-            <description>This field store the width of package; if a shipmentBoxTypeId is specified then this overrides
-                the dimension specified there; this field is meant to be used when there is no applicable
-                ShipmentBoxType
-            </description>
-        </field>
-        <field name="dimensionUomId" type="id">
-            <description>This field store the unit of measurement of dimension (length, width and height)</description>
-        </field>
         <field name="weight" type="number-decimal"/>
         <field name="weightUomId" type="id"/>
-        <field name="insuredValue" type="currency-amount"/>
         <relationship type="one" related-entity-name="Shipment"/>
         <relationship type="one" related-entity-name="ShipmentBoxType"/>
         <relationship type="one" title="Dimension" related-entity-name="moqui.basic.Uom">
@@ -403,8 +356,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
         <field name="shipmentItemSeqId" type="id" is-pk="true"/>
         <field name="quantity" type="number-decimal"/>
-        <field name="subProductId" type="id"/>
-        <field name="subProductQuantity" type="number-decimal"/>
         <relationship type="one" related-entity-name="ShipmentPackage">
             <key-map field-name="shipmentId"/>
             <key-map field-name="shipmentPackageSeqId"/>
@@ -413,21 +364,20 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="shipmentId"/>
             <key-map field-name="shipmentItemSeqId"/>
         </relationship>
-        <relationship type="one" title="Sub" related-entity-name="Product">
-            <key-map field-name="subProductId"/>
-        </relationship>
     </entity>
     <entity entity-name="ShipmentPackageRouteSeg" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
         <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
-        <field name="shipmentRouteSegmentId" type="id" is-pk="true"/>
+        <field name="shipmentRouteSegmentSeqId" type="id" is-pk="true"/>
         <field name="trackingCode" type="text-short"/>
         <field name="boxNumber" type="text-short"/>
+
         <field name="labelImage" type="binary-very-long"/>
         <field name="labelIntlSignImage" type="binary-very-long"/>
         <field name="labelHtml" type="text-very-long"/>
         <field name="labelPrinted" type="text-indicator"/>
         <field name="internationalInvoice" type="binary-very-long"/>
+
         <field name="packageTransportCost" type="currency-amount"/>
         <field name="packageServiceCost" type="currency-amount"/>
         <field name="packageOtherCost" type="currency-amount"/>
@@ -440,7 +390,7 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" related-entity-name="ShipmentRouteSegment">
             <key-map field-name="shipmentId"/>
-            <key-map field-name="shipmentRouteSegmentId"/>
+            <key-map field-name="shipmentRouteSegmentSeqId"/>
         </relationship>
         <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
             <key-map field-name="amountUomId"/>
@@ -448,39 +398,49 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="ShipmentRouteSegment" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
-        <field name="shipmentRouteSegmentId" type="id" is-pk="true"/>
+        <field name="shipmentRouteSegmentSeqId" type="id" is-pk="true"/>
         <field name="deliveryId" type="id"/>
+
         <field name="originFacilityId" type="id"/>
-        <field name="originContactMechId" type="id"/>
-        <field name="originTelecomNumberId" type="id"/>
-        <field name="destFacilityId" type="id"/>
-        <field name="destContactMechId" type="id"/>
-        <field name="destTelecomNumberId" type="id"/>
+        <field name="originPostalContactMechId" type="id"/>
+        <field name="originTelecomContactMechId" type="id"/>
+        <field name="destinationFacilityId" type="id"/>
+        <field name="destPostalContactMechId" type="id"/>
+        <field name="destTelecomContactMechId" type="id"/>
+
         <field name="carrierPartyId" type="id"/>
         <field name="shipmentMethodEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="carrierDeliveryZone" type="text-short"/>
         <field name="carrierRestrictionCodes" type="text-short"/>
         <field name="carrierRestrictionDesc" type="text-very-long"/>
+
         <field name="billingWeight" type="number-decimal"/>
         <field name="billingWeightUomId" type="id"/>
+
         <field name="actualTransportCost" type="currency-amount"/>
         <field name="actualServiceCost" type="currency-amount"/>
         <field name="actualOtherCost" type="currency-amount"/>
         <field name="actualCost" type="currency-amount"/>
         <field name="costUomId" type="id"/>
+
         <field name="actualStartDate" type="date-time"/>
         <field name="actualArrivalDate" type="date-time"/>
         <field name="estimatedStartDate" type="date-time"/>
         <field name="estimatedArrivalDate" type="date-time"/>
+
         <field name="trackingIdNumber" type="text-short" enable-audit-log="true"/>
         <field name="trackingDigest" type="text-very-long"/>
+
         <field name="homeDeliveryType" type="id"/>
         <field name="homeDeliveryDate" type="date-time"/>
+
         <field name="thirdPartyAccountNumber" type="id"/>
         <field name="thirdPartyPostalCode" type="id"/>
         <field name="thirdPartyCountryGeoCode" type="id"/>
+
         <field name="upsHighValueReport" type="binary-very-long"/>
+
         <relationship type="one" related-entity-name="Shipment"/>
         <relationship type="one" related-entity-name="Delivery"/>
         <relationship type="one" title="Carrier" related-entity-name="Party">
@@ -493,19 +453,19 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="originFacilityId"/>
         </relationship>
         <relationship type="one" title="Origin" related-entity-name="PostalAddress">
-            <key-map field-name="originContactMechId"/>
+            <key-map field-name="originPostalContactMechId"/>
         </relationship>
         <relationship type="one" title="Origin" related-entity-name="TelecomNumber">
-            <key-map field-name="originTelecomNumberId"/>
+            <key-map field-name="originTelecomContactMechId"/>
         </relationship>
-        <relationship type="one" title="Dest" related-entity-name="Facility">
-            <key-map field-name="destFacilityId"/>
+        <relationship type="one" title="Destination" related-entity-name="Facility">
+            <key-map field-name="destinationFacilityId"/>
         </relationship>
-        <relationship type="one" title="Dest" related-entity-name="PostalAddress">
-            <key-map field-name="destContactMechId"/>
+        <relationship type="one" title="Destination" related-entity-name="PostalAddress">
+            <key-map field-name="destPostalContactMechId"/>
         </relationship>
-        <relationship type="one" title="Dest" related-entity-name="TelecomNumber">
-            <key-map field-name="destTelecomNumberId"/>
+        <relationship type="one" title="Destination" related-entity-name="TelecomNumber">
+            <key-map field-name="destTelecomContactMechId"/>
         </relationship>
         <relationship type="one" title="ShipmentRouteSegment" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom">
