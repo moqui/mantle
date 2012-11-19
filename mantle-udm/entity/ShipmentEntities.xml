@@ -91,41 +91,11 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
 
     <!-- ========================================================= -->
-    <!-- mantle.shipment.issuance -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="ItemIssuance" package-name="mantle.shipment.issuance">
-        <field name="itemIssuanceId" type="id" is-pk="true"/>
-        <field name="assetId" type="id"/>
-        <field name="assetReservationId" type="id"/>
-        <field name="orderId" type="id"/>
-        <field name="orderItemSeqId" type="id"/>
-        <field name="shipmentId" type="id"/>
-        <field name="shipmentItemSeqId" type="id"/>
-        <field name="assetMaintenanceId" type="id"/>
-        <field name="issuedDateTime" type="date-time"/>
-        <field name="quantity" type="number-decimal" enable-audit-log="true"/>
-        <field name="cancelQuantity" type="number-decimal"/>
-        <relationship type="one" related-entity-name="Asset"/>
-        <relationship type="one" related-entity-name="AssetReservation"/>
-        <relationship type="one" related-entity-name="OrderItem"/>
-        <relationship type="one" related-entity-name="ShipmentItem"/>
-        <relationship type="one" related-entity-name="AssetMaintenance"/>
-    </entity>
-    <entity entity-name="ItemIssuanceParty" package-name="mantle.shipment.issuance">
-        <field name="itemIssuanceId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="ItemIssuance"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
-    </entity>
-
-    <!-- ========================================================= -->
     <!-- mantle.shipment.picklist -->
     <!-- ========================================================= -->
 
     <entity entity-name="Picklist" package-name="mantle.shipment.picklist">
+        <description>A Picklist is a way to organize pending Shipments during a pick/pack process.</description>
         <field name="picklistId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
         <field name="facilityId" type="id"/>
@@ -137,61 +107,6 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="shipmentMethodEnumId"/>
         </relationship>
         <relationship type="one" title="Picklist" related-entity-name="moqui.basic.StatusItem"/>
-    </entity>
-    <entity entity-name="PicklistBin" package-name="mantle.shipment.picklist">
-        <field name="picklistBinId" type="id" is-pk="true">
-            <description>The PicklistBin has its own ID to make it easy to put on the pack sheet of the picklist as a
-                barcode, also so it can be moved to another picklist or bin location if necessary</description>
-        </field>
-        <field name="picklistId" type="id"/>
-        <field name="binLocationNumber" type="number-integer"/>
-        <field name="primaryOrderId" type="id"/>
-        <field name="primaryOrderPartSeqId" type="id"/>
-        <relationship type="one" related-entity-name="Picklist"/>
-        <relationship type="one" title="Primary" related-entity-name="OrderPart">
-            <key-map field-name="primaryOrderId" related-field-name="orderId"/>
-            <key-map field-name="primaryOrderPartSeqId" related-field-name="orderPartSeqId"/>
-        </relationship>
-        <seed-data>
-            <!-- Picklist Status -->
-            <moqui.basic.StatusType description="Picklist Status" statusTypeId="Picklist"/>
-            <moqui.basic.StatusItem description="Input" sequenceNum="1" statusId="PICKLIST_INPUT" statusTypeId="Picklist"/>
-            <moqui.basic.StatusItem description="Assigned" sequenceNum="2" statusId="PICKLIST_ASSIGNED" statusTypeId="Picklist"/>
-            <moqui.basic.StatusItem description="Printed" sequenceNum="3" statusId="PICKLIST_PRINTED" statusTypeId="Picklist"/>
-            <moqui.basic.StatusItem description="Picked" sequenceNum="10" statusId="PICKLIST_PICKED" statusTypeId="Picklist"/>
-            <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="PICKLIST_CANCELLED" statusTypeId="Picklist"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_INPUT" toStatusId="PICKLIST_ASSIGNED" transitionName="Assign"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_INPUT" toStatusId="PICKLIST_PRINTED" transitionName="Print"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_INPUT" toStatusId="PICKLIST_PICKED" transitionName="Pick"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_INPUT" toStatusId="PICKLIST_CANCELLED" transitionName="Cancel"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_ASSIGNED" toStatusId="PICKLIST_PICKED" transitionName="Pick"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_ASSIGNED" toStatusId="PICKLIST_PRINTED" transitionName="Print"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_ASSIGNED" toStatusId="PICKLIST_CANCELLED" transitionName="Cancel"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_PRINTED" toStatusId="PICKLIST_PICKED" transitionName="Pick"/>
-            <moqui.basic.StatusValidChange statusId="PICKLIST_PRINTED" toStatusId="PICKLIST_CANCELLED" transitionName="Cancel"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="PicklistBinItem" package-name="mantle.shipment.picklist">
-        <field name="picklistBinId" type="id" is-pk="true"/>
-        <field name="picklistBinItemSeqId" type="id" is-pk="true"/>
-        <field name="orderId" type="id"/>
-        <field name="orderItemSeqId" type="id"/>
-        <field name="assetId" type="id"/>
-        <field name="statusId" type="id"/>
-        <field name="quantity" type="number-decimal"/>
-        <relationship type="one" related-entity-name="PicklistBin"/>
-        <relationship type="one" related-entity-name="OrderItem"/>
-        <relationship type="one" title="PicklistBinItem" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" related-entity-name="Asset"/>
-        <seed-data>
-            <!-- Picklist Bin Item Status -->
-            <moqui.basic.StatusType description="Picklist Bin Item Status" statusTypeId="PicklistBinItem"/>
-            <moqui.basic.StatusItem description="Pending" sequenceNum="1" statusId="PICKITEM_PENDING" statusTypeId="PicklistBinItem"/>
-            <moqui.basic.StatusItem description="Completed" sequenceNum="50" statusId="PICKITEM_COMPLETED" statusTypeId="PicklistBinItem"/>
-            <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="PICKITEM_CANCELLED" statusTypeId="PicklistBinItem"/>
-            <moqui.basic.StatusValidChange statusId="PICKITEM_PENDING" toStatusId="PICKITEM_COMPLETED" transitionName="Complete"/>
-            <moqui.basic.StatusValidChange statusId="PICKITEM_PENDING" toStatusId="PICKITEM_CANCELLED" transitionName="Cancel"/>
-        </seed-data>
     </entity>
     <entity entity-name="PicklistParty" package-name="mantle.shipment.picklist">
         <field name="picklistId" type="id" is-pk="true"/>
@@ -272,34 +187,40 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="shipmentId" type="id" is-pk="true"/>
         <field name="shipmentTypeEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="picklistBinId" type="id"/>
-        <field name="primaryOrderId" type="id"/>
-        <field name="primaryOrderPartSeqId" type="id"/>
-        <field name="primaryReturnId" type="id"/>
+
+        <field name="picklistId" type="id"/>
+        <field name="binLocationNumber" type="number-integer"/>
+
         <field name="estimatedReadyDate" type="date-time"/>
         <field name="estimatedShipDate" type="date-time"/>
         <field name="estimatedShipWorkEffId" type="id"/>
         <field name="estimatedArrivalDate" type="date-time"/>
         <field name="estimatedArrivalWorkEffId" type="id"/>
         <field name="latestCancelDate" type="date-time"/>
+
         <field name="estimatedShipCost" type="currency-amount"/>
         <field name="costUomId" type="id"/>
+
         <field name="handlingInstructions" type="text-medium"/>
+
         <field name="originFacilityId" type="id"/>
         <field name="originContactMechId" type="id"/>
         <field name="originTelecomNumberId" type="id"/>
         <field name="destinationFacilityId" type="id"/>
         <field name="destinationContactMechId" type="id"/>
         <field name="destinationTelecomNumberId" type="id"/>
+
         <field name="toPartyId" type="id"/>
         <field name="fromPartyId" type="id"/>
+
         <field name="additionalShippingCharge" type="currency-amount"/>
         <field name="addtlShippingChargeDesc" type="text-medium"/>
+
         <relationship type="one" title="ShipmentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="shipmentTypeEnumId"/>
         </relationship>
         <relationship type="one" title="Shipment" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" related-entity-name="PicklistBin"/>
+        <relationship type="one" related-entity-name="Picklist"/>
         <relationship type="one" title="EstimatedShip" related-entity-name="WorkEffort">
             <key-map field-name="estimatedShipWorkEffId"/>
         </relationship>
@@ -326,16 +247,6 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" title="Destination" related-entity-name="TelecomNumber">
             <key-map field-name="destinationTelecomNumberId"/>
-        </relationship>
-        <relationship type="one" title="Primary" related-entity-name="OrderHeader">
-            <key-map field-name="primaryOrderId"/>
-        </relationship>
-        <relationship type="one" title="Primary" related-entity-name="ReturnHeader">
-            <key-map field-name="primaryReturnId"/>
-        </relationship>
-        <relationship type="one-nofk" title="Primary" related-entity-name="OrderPart">
-            <key-map field-name="primaryOrderId" related-field-name="orderId"/>
-            <key-map field-name="primaryOrderPartSeqId" related-field-name="orderPartSeqId"/>
         </relationship>
         <relationship type="one" title="To" related-entity-name="Party"><key-map field-name="toPartyId"/></relationship>
         <relationship type="one" title="From" related-entity-name="Party"><key-map field-name="fromPartyId"/></relationship>
@@ -420,6 +331,34 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="invoiceId"/>
             <key-map field-name="invoiceItemSeqId"/>
         </relationship>
+    </entity>
+    <entity entity-name="ShipmentItemSource" package-name="mantle.shipment.picklist">
+        <field name="shipmentId" type="id" is-pk="true"/>
+        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="binLocationNumber" type="number-integer">
+            <description>This overrides the corresponding Shipment.binLocationNumber so that a shipment may be split
+                across bins, such as when one bin per order on the shipment is needed.</description>
+        </field>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="returnId" type="id"/>
+        <field name="statusId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="ShipmentItem"/>
+        <relationship type="one" related-entity-name="OrderItem"/>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="ReturnHeader"/>
+        <relationship type="one" title="ShipmentItemPick" related-entity-name="moqui.basic.StatusItem"/>
+        <seed-data>
+            <!-- Shipment Item Pick Status -->
+            <moqui.basic.StatusType description="Shipment Item Pick Status" statusTypeId="ShipmentItemPick"/>
+            <moqui.basic.StatusItem description="Pending" sequenceNum="1" statusId="PICKITEM_PENDING" statusTypeId="ShipmentItemPick"/>
+            <moqui.basic.StatusItem description="Completed" sequenceNum="50" statusId="PICKITEM_COMPLETED" statusTypeId="ShipmentItemPick"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="PICKITEM_CANCELLED" statusTypeId="ShipmentItemPick"/>
+            <moqui.basic.StatusValidChange statusId="PICKITEM_PENDING" toStatusId="PICKITEM_COMPLETED" transitionName="Complete"/>
+            <moqui.basic.StatusValidChange statusId="PICKITEM_PENDING" toStatusId="PICKITEM_CANCELLED" transitionName="Cancel"/>
+        </seed-data>
     </entity>
     <entity entity-name="ShipmentPackage" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
