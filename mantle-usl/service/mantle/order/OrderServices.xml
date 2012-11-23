@@ -521,32 +521,35 @@ h2. General Order Placement and eCommerce Usage
 
     <!-- Order Status Change Services -->
     <service verb="propose" noun="Order">
-        <in-parameters>
-            <parameter name="orderId" required="true"/>
-        </in-parameters>
+        <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <actions>
             <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
             <set field="orderHeader.statusId" value="ORDER_PROPOSED"/>
-            <set field="orderHeader.placedDate" from="ec.user.nowTimestamp"/>
             <entity-update value-field="orderHeader"/>
         </actions>
     </service>
     <service verb="place" noun="Order">
-        <in-parameters>
-            <parameter name="orderId" required="true"/>
-        </in-parameters>
+        <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <actions>
             <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
             <set field="orderHeader.statusId" value="ORDER_PLACED"/>
+            <set field="orderHeader.placedDate" from="ec.user.nowTimestamp"/>
+            <entity-update value-field="orderHeader"/>
+        </actions>
+    </service>
+    <service verb="complete" noun="Order">
+        <in-parameters><parameter name="orderId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <set field="orderHeader.statusId" value="ORDER_COMPLETED"/>
             <entity-update value-field="orderHeader"/>
         </actions>
     </service>
     <service verb="cancel" noun="Order">
         <description>Call when customer cancels the order.</description>
-        <in-parameters>
-            <parameter name="orderId" required="true"/>
-        </in-parameters>
+        <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <actions>
+            <!-- TODO: do partial cancel if already partially shipped, and then set what is left as completed -->
             <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
             <set field="orderHeader.statusId" value="ORDER_CANCELLED"/>
             <entity-update value-field="orderHeader"/>

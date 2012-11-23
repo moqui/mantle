@@ -23,18 +23,29 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="shipmentId"/>
         </out-parameters>
         <actions>
-            <service-call name="create#OrderPartShipment" in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]" out-map="context"/>
+            <service-call name="mantle.shipment.ShipmentServices.create#OrderPartShipment" out-map="context"
+                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/>
 
-            <!-- TODO issue items and assets to shipment (ie create AssetIssuance records) -->
+            <!-- pack all items (creating ShipmentPackageContent and AssetIssuance records) -->
+            <entity-find entity-name="OrderItem" list="orderItemList">
+                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
+            </entity-find>
+            <iterate list="orderItemList" entry="orderItem">
+                <service-call name="mantle.shipment.ShipmentServices.pack#OrderItem"
+                        in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
+                        shipmentId:shipmentId, quantity:orderItem.quantity]"/>
+            </iterate>
 
             <!-- set Shipment Packed -->
-            <service-call name="pack#Shipment" in-map="[shipmentId:shipmentId]"/>
+            <service-call name="mantle.shipment.ShipmentServices.pack#Shipment" in-map="[shipmentId:shipmentId]"/>
+            <!-- TODO add SECA on Shipment Packed create Invoice for Shipment -->
 
-            <!-- TODO on Shipment Packed create Invoice for Shipment -->
-            <!-- TODO on Shipment Packed mark OrderItems and Order as Completed -->
+            <!-- on Shipment Packed mark Order as Completed -->
+            <!-- TODO: separate this to more generic code, like an ECA or some such? if more generic handle partly shipped orders... -->
+            <service-call name="mantle.order.OrderServices.complete#Order" in-map="[orderId:orderId]"/>
 
             <!-- set Shipment Shipped -->
-            <service-call name="ship#Shipment" in-map="[shipmentId:shipmentId]"/>
+            <service-call name="mantle.shipment.ShipmentServices.ship#Shipment" in-map="[shipmentId:shipmentId]"/>
         </actions>
     </service>
 
@@ -65,32 +76,104 @@ This Work includes contributions authored by David E. Jones, not as a
                             destPostalContactMechId:orderPart.postalContactMechId,
                             destTelecomContactMechId:orderPart.telecomContactMechId]"/>
             </if>
+            <if condition="shipmentPackageSeqId &amp;&amp; shipmentRouteSegmentSeqId">
+                <service-call name="create#ShipmentPackageRouteSeg"
+                        in-map="[shipmentId:shipmentId, shipmentPackageSeqId:shipmentPackageSeqId,
+                                shipmentRouteSegmentSeqId:shipmentRouteSegmentSeqId]"/>
+            </if>
 
             <!-- for each OrderItem in the part create ShipmentItem and ShipmentItemSource records -->
             <entity-find-related value-field="orderPart" relationship-name="OrderItem" list="orderItemList"/>
             <iterate list="orderItemList" entry="orderItem">
-                <service-call name="create#ShipmentItem" out-map="shipmentItemOut"
-                        in-map="[shipmentId:shipmentId, productId:orderItem.productId,
-                            quantity:orderItem.quantity, description:orderItem.itemDescription]"/>
-                <!-- TODO: change to support assetId once Asset Reservations are in place -->
+                <service-call name="create#ShipmentItem"
+                        in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
                 <service-call name="create#ShipmentItemSource"
-                        in-map="[shipmentId:shipmentId, shipmentItemSeqId:shipmentItemOut.shipmentItemSeqId,
-                            quantity:orderItem.quantity, orderId:orderItem.orderId,
-                            orderItemSeqId:orderItem.orderItemSeqId]"/>
-
-                <if condition="shipmentPackageSeqId">
-                    <service-call name="create#ShipmentPackageContent"
-                            in-map="[shipmentId:shipmentId, shipmentItemSeqId:shipmentItemOut.shipmentItemSeqId,
-                                shipmentPackageSeqId:shipmentPackageSeqId, quantity:orderItem.quantity]"/>
-
-                    <if condition="shipmentRouteSegmentSeqId">
-                        <service-call name="create#ShipmentPackageRouteSeg"
-                                in-map="[shipmentId:shipmentId, shipmentPackageSeqId:shipmentPackageSeqId,
-                                shipmentRouteSegmentSeqId:shipmentRouteSegmentSeqId]"/>
-                    </if>
-                </if>
+                        in-map="[shipmentId:shipmentId, productId:orderItem.productId,
+                            quantity:orderItem.quantity, quantityNotPacked:orderItem.quantity,
+                            orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
             </iterate>
 
+        </actions>
+    </service>
+
+    <service verb="pack" noun="ShipmentProduct">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="shipmentPackageSeqId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="ShipmentItemSource" list="shipmentItemSourceList" cache="false">
+                <econdition field-name="shipmentId"/><econdition field-name="productId"/>
+                <econdition field-name="quantityNotPacked" operator="greater" from="0"/>
+            </entity-find>
+            <set field="quantityRemaining" from="quantity"/>
+            <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
+                <set field="quantityToPack" from="shipmentItemSource.quantityNotPacked > quantityRemaining ?
+                        quantityRemaining : shipmentItemSource.quantityNotPacked"/>
+                <set field="quantityRemaining" from="quantityRemaining > shipmentItemSource.quantityNotPacked ?
+                        quantityRemaining - shipmentItemSource.quantityNotPacked : 0"/>
+                <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"
+                        in-map="[shipmentItemSource:shipmentItemSource, shipmentPackageSeqId:shipmentPackageSeqId,
+                            quantity:quantityToPack]"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="pack" noun="ShipmentItemSource">
+        <description>This is the lowest-level packing service and operates on a single ShipmentItemSource record.</description>
+        <in-parameters>
+            <parameter name="shipmentItemSource" type="org.moqui.entity.EntityValue" required="true"/>
+            <parameter name="shipmentPackageSeqId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <actions>
+            <!-- create ShipmentPackageContent or update if already exists -->
+            <entity-find-one entity-name="ShipmentPackageContent" value-field="shipmentPackageContent">
+                <field-map field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
+                <field-map field-name="productId" from="shipmentItemSource.productId"/>
+                <field-map field-name="shipmentPackageSeqId"/>
+            </entity-find-one>
+            <if condition="shipmentPackageContent">
+                <set field="shipmentPackageContent.quantity" from="shipmentPackageContent.quantity + quantity"/>
+                <entity-update value-field="shipmentPackageContent"/>
+
+                <else>
+                    <service-call name="create#ShipmentPackageContent"
+                            in-map="[shipmentId:shipmentItemSource.shipmentId, productId:shipmentItemSource.productId,
+                                shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantity]"/>
+                </else>
+            </if>
+
+            <!-- create AssetIssuance records based on AssetReservation records -->
+            <entity-find entity-name="AssetReservation" list="assetReservationList">
+                <econdition field-name="orderId" from="shipmentItemSource.orderId"/>
+                <econdition field-name="orderItemSeqId" from="shipmentItemSource.orderItemSeqId"/>
+                <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
+            </entity-find>
+            <if condition="assetReservationList">
+                <!-- issue based on reservations -->
+                <set field="quantityRemaining" from="quantity"/>
+                <iterate list="assetReservationList" entry="assetReservation">
+                    <set field="quantityToIssue" from="assetReservation.quantityNotIssued > quantityRemaining ?
+                        quantityRemaining : assetReservation.quantityNotIssued"/>
+                    <set field="quantityRemaining" from="quantityRemaining > assetReservation.quantityNotIssued ?
+                        quantityRemaining - assetReservation.quantityNotIssued : 0"/>
+                    <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"
+                            in-map="[assetReservation:assetReservation, shipmentId:shipmentId, quantity:quantityToIssue]"/>
+                </iterate>
+
+                <else>
+                    <!-- TODO do a non-reservation asset issuance -->
+                </else>
+            </if>
+
+            <!-- update quantityNotPacked to get ready for the next pack call -->
+            <set field="shipmentItemSource.quantityNotPacked" from="shipmentItemSource.quantityNotPacked - quantity"/>
+            <if condition="shipmentItemSource.quantityNotPacked &lt;= 0">
+                <set field="shipmentItemSource.statusId" value="PICKITEM_PACKED"/>
+            </if>
+            <entity-update value-field="shipmentItemSource"/>
         </actions>
     </service>
 

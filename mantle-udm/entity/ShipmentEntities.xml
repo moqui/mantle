@@ -127,7 +127,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="assetId" type="id"/>
         <field name="productId" type="id"/>
         <field name="shipmentId" type="id"/>
-        <field name="shipmentItemSeqId" type="id"/>
         <field name="shipmentPackageSeqId" type="id"/>
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"/>
@@ -157,7 +156,7 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" related-entity-name="ShipmentItem">
             <key-map field-name="shipmentId"/>
-            <key-map field-name="shipmentItemSeqId"/>
+            <key-map field-name="productId"/>
         </relationship>
         <relationship type="one" related-entity-name="ReturnItem">
             <key-map field-name="returnId"/>
@@ -286,21 +285,19 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="ShipmentItem" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
-        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
-        <field name="productId" type="id"/>
+        <field name="productId" type="id" is-pk="true"/>
         <field name="quantity" type="number-decimal"/>
-        <field name="description" type="text-medium"/>
         <relationship type="one" related-entity-name="Shipment"/>
         <relationship type="one" related-entity-name="Product"/>
     </entity>
     <entity entity-name="ShipmentItemBilling" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
-        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="productId" type="id" is-pk="true"/>
         <field name="invoiceId" type="id" is-pk="true"/>
         <field name="invoiceItemSeqId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="ShipmentItem">
             <key-map field-name="shipmentId"/>
-            <key-map field-name="shipmentItemSeqId"/>
+            <key-map field-name="productId"/>
         </relationship>
         <relationship type="one" related-entity-name="InvoiceItem">
             <key-map field-name="invoiceId"/>
@@ -310,27 +307,28 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="ShipmentItemSource" package-name="mantle.shipment.picklist">
         <field name="shipmentItemSourceId" type="id" is-pk="true"/>
         <field name="shipmentId" type="id"/>
-        <field name="shipmentItemSeqId" type="id"/>
+        <field name="productId" type="id"/>
         <field name="binLocationNumber" type="number-integer">
             <description>This overrides the corresponding Shipment.binLocationNumber so that a shipment may be split
                 across bins, such as when one bin per order on the shipment is needed.</description>
         </field>
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"/>
-        <field name="assetId" type="id"/>
         <field name="returnId" type="id"/>
+        <field name="returnItemSeqId" type="id"/>
         <field name="statusId" type="id"/>
         <field name="quantity" type="number-decimal"/>
+        <field name="quantityNotPacked" type="number-decimal"/>
         <relationship type="one" related-entity-name="ShipmentItem"/>
         <relationship type="one" related-entity-name="OrderItem"/>
-        <relationship type="one" related-entity-name="Asset"/>
         <relationship type="one" related-entity-name="ReturnHeader"/>
         <relationship type="one" title="ShipmentItemPick" related-entity-name="moqui.basic.StatusItem"/>
         <seed-data>
             <!-- Shipment Item Pick Status -->
             <moqui.basic.StatusType description="Shipment Item Pick Status" statusTypeId="ShipmentItemPick"/>
             <moqui.basic.StatusItem description="Pending" sequenceNum="1" statusId="PICKITEM_PENDING" statusTypeId="ShipmentItemPick"/>
-            <moqui.basic.StatusItem description="Completed" sequenceNum="50" statusId="PICKITEM_COMPLETED" statusTypeId="ShipmentItemPick"/>
+            <moqui.basic.StatusItem description="Picked" sequenceNum="5" statusId="PICKITEM_PICKED" statusTypeId="ShipmentItemPick"/>
+            <moqui.basic.StatusItem description="Packed" sequenceNum="9" statusId="PICKITEM_PACKED" statusTypeId="ShipmentItemPick"/>
             <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="PICKITEM_CANCELLED" statusTypeId="ShipmentItemPick"/>
             <moqui.basic.StatusValidChange statusId="PICKITEM_PENDING" toStatusId="PICKITEM_COMPLETED" transitionName="Complete"/>
             <moqui.basic.StatusValidChange statusId="PICKITEM_PENDING" toStatusId="PICKITEM_CANCELLED" transitionName="Cancel"/>
@@ -354,7 +352,7 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="ShipmentPackageContent" package-name="mantle.shipment.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
         <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
-        <field name="shipmentItemSeqId" type="id" is-pk="true"/>
+        <field name="productId" type="id" is-pk="true"/>
         <field name="quantity" type="number-decimal"/>
         <relationship type="one" related-entity-name="ShipmentPackage">
             <key-map field-name="shipmentId"/>
@@ -362,7 +360,7 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" related-entity-name="ShipmentItem">
             <key-map field-name="shipmentId"/>
-            <key-map field-name="shipmentItemSeqId"/>
+            <key-map field-name="productId"/>
         </relationship>
     </entity>
     <entity entity-name="ShipmentPackageRouteSeg" package-name="mantle.shipment.shipment">
