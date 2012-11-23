@@ -21,9 +21,18 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
-            <!-- TODO create AssetIssuance records -->
+            <service-call name="create#AssetIssuance" out-map="context"
+                    in-map="assetId:assetReservation.assetId, assetReservationId:assetReservation.assetReservationId,
+                        orderId:assetReservation.orderId, orderItemSeqId:assetReservation.orderItemSeqId,
+                        shipmentId:shipmentId, productId:assetReservation.productId,
+                        issuedDateTime:ec.user.nowTimestamp, quantity:quantity"/>
 
-            <!-- TODO create AssetDetail to decrement quantityOnHand -->
+            <!-- create AssetDetail to decrement quantityOnHand -->
+            <!-- NOTE: no availableToPromiseDiff because that was modified during the reservation -->
+            <service-call name="create#AssetDetail" in-map="[assetId:assetReservation.assetId,
+                    effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantity,
+                    assetReservationId:assetReservation.assetReservationId, shipmentId:shipmentId,
+                    productId:assetReservation.productId, assetIssuanceId:assetIssuanceId]"/>
 
             <set field="assetReservation.quantityNotIssued" from="assetReservation.quantityNotIssued - quantity"/>
             <entity-update value-field="assetReservation"/>
@@ -31,20 +40,38 @@ This Work includes contributions authored by David E. Jones, not as a
     </service>
     <service verb="issue" noun="Asset">
         <in-parameters>
-            <parameter name="assetId" required="true"/>
+            <parameter name="assetId"/>
             <parameter name="shipmentId" required="true"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderItemSeqId" required="true"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
-            <!-- TODO create AssetIssuance records -->
+            <entity-find-one entity-name="OrderItem" value-field="orderItem"/>
+            <set field="productId" from="orderItem.productId"/>
 
-            <!-- TODO create AssetDetail to decrement quantityOnHand -->
-
-            <set field="assetReservation.quantityNotIssued" from="shipmentItemSource.quantityNotIssued - quantity"/>
-            <if condition="shipmentItemSource.quantityNotPacked &lt;= 0">
-                <set field="shipmentItemSource.statusId" value="PICKITEM_PACKED"/>
+            <if condition="!assetId">
+                <!-- TODO: improve Asset selection code, maybe use the asset reservation selection process -->
+                <!-- TODO: limit to Facility for ProductStore -->
+                <!-- TODO: spread across multiple Asset records if necessary to satisfy the quantity -->
+                <entity-find entity-name="Asset" list="assetList">
+                    <econdition field-name="productId"/>
+                    <!-- get the one with the most inventory available, for now -->
+                    <order-by field-name="-availableToPromiseTotal"/>
+                </entity-find>
+                <set field="assetId" from="assetList?.getAt(0)?.assetId"/>
             </if>
-            <entity-update value-field="shipmentItemSource"/>
+
+            <entity-find-one entity-name="Asset" value-field="asset"/>
+
+            <service-call name="create#AssetIssuance" out-map="context"
+                    in-map="assetId:assetId, orderId:orderId, orderItemSeqId:orderItemSeqId, shipmentId:shipmentId,
+                        productId:asset.productId, issuedDateTime:ec.user.nowTimestamp, quantity:quantity"/>
+            <!-- create AssetDetail to decrement quantityOnHand -->
+            <service-call name="create#AssetDetail" in-map="[assetId:assetReservation.assetId,
+                    effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantity, availableToPromiseDiff:-quantity,
+                    assetReservationId:assetReservation.assetReservationId, shipmentId:shipmentId,
+                    productId:assetReservation.productId, assetIssuanceId:assetIssuanceId]"/>
         </actions>
     </service>
 </services>
