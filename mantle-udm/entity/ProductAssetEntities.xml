@@ -27,12 +27,14 @@ and those parts may be licensed under the Apache License 2.0.
 
     <entity entity-name="Asset" package-name="mantle.product.asset">
         <field name="assetId" type="id" is-pk="true"/>
-        <field name="assetTypeEnumId" type="id"/>
         <field name="parentAssetId" type="id"/>
-
-        <field name="instanceOfProductId" type="id"/>
+        <field name="assetTypeEnumId" type="id"/>
         <field name="classEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="ownerPartyId" type="id" enable-audit-log="true"/>
+
+        <field name="productId" type="id"><description>The Asset is an Instance of this Product (for maintenance
+            schedules/etc, content about what sort of thing the Asset is, etc)</description></field>
 
         <field name="hasQuantity" type="text-indicator"><description>If Y asset has a quantity and QOH/ATP may be
             greater than one. If N (default) asset is a single item and may have a serial number, etc.</description></field>
@@ -41,21 +43,15 @@ and those parts may be licensed under the Apache License 2.0.
 
         <field name="assetName" type="text-medium"/>
         <field name="comments" type="text-medium"/>
-        <field name="ownerPartyId" type="id" enable-audit-log="true"/>
-        <field name="acquireOrderId" type="id"/>
-        <field name="acquireOrderItemSeqId" type="id"/>
 
         <field name="serialNumber" type="text-medium"/>
         <field name="softIdentifier" type="text-medium"/>
         <field name="activationNumber" type="text-medium"/>
         <field name="activationValidThru" type="date-time"/>
 
-        <field name="receiveDate" type="date-time"/>
-
+        <field name="dateReceived" type="date-time"/>
         <field name="dateAcquired" type="date-time"/>
         <field name="dateManufactured" type="date-time"/>
-        <field name="dateLastServiced" type="date-time"/>
-        <field name="dateNextService" type="date-time"/>
         <field name="expectedEndOfLife" type="date"/>
         <field name="actualEndOfLife" type="date"/>
 
@@ -69,20 +65,21 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="containerId" type="id"/>
         <field name="lotId" type="id"/>
 
-        <field name="purchaseCost" type="currency-amount"/>
-        <field name="purchaseCostUomId" type="id"/>
+        <field name="acquireOrderId" type="id"/>
+        <field name="acquireOrderItemSeqId" type="id"/>
+        <field name="acquireCost" type="currency-amount"/>
+        <field name="acquireCostUomId" type="id"/>
         <field name="salvageValue" type="currency-amount"/>
         <field name="depreciation" type="currency-amount"/>
         <field name="depreciationTypeEnumId" type="id"/>
+
         <relationship type="one" title="AssetType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="assetTypeEnumId"/>
         </relationship>
         <relationship type="one" title="Parent" related-entity-name="Asset">
             <key-map field-name="parentAssetId" related-field-name="assetId"/>
         </relationship>
-        <relationship type="one" title="InstanceOf" related-entity-name="Product">
-            <key-map field-name="instanceOfProductId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" title="AssetClass" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="classEnumId"/>
         </relationship>
@@ -90,35 +87,36 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Owner" related-entity-name="Party">
             <key-map field-name="ownerPartyId"/>
         </relationship>
-        <relationship type="one" title="Acquire" related-entity-name="OrderItem">
-            <key-map field-name="acquireOrderId" related-field-name="orderId"/>
-            <key-map field-name="acquireOrderItemSeqId" related-field-name="orderItemSeqId"/>
-        </relationship>
-        <relationship type="one" title="ProductionCapacity" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="productionCapacityUomId"/>
-        </relationship>
         <relationship type="one" related-entity-name="Facility"/>
         <relationship type="one-nofk" related-entity-name="FacilityLocation"/>
         <relationship type="one" related-entity-name="Container"/>
         <relationship type="one" related-entity-name="Lot"/>
+        <relationship type="one" title="Acquire" related-entity-name="OrderItem">
+            <key-map field-name="acquireOrderId" related-field-name="orderId"/>
+            <key-map field-name="acquireOrderItemSeqId" related-field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="one" title="AcquireCost" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="acquireCostUomId"/>
+        </relationship>
         <relationship type="one" title="DepreciationType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="depreciationTypeEnumId"/>
         </relationship>
         <index name="INVITEM_SN"><index-field name="serialNumber"/></index>
-        <index name="INVITEM_SOFID" unique="true"><index-field name="softIdentifier"/></index>
-        <index name="INVITEM_ACTNM" unique="true"><index-field name="activationNumber"/></index>
+        <!-- might be useful in some cases:
+            <index name="INVITEM_SOFID" unique="true"><index-field name="softIdentifier"/></index>
+            <index name="INVITEM_ACTNM" unique="true"><index-field name="activationNumber"/></index>
+        -->
         <seed-data>
             <!-- Asset Type -->
             <moqui.basic.EnumerationType description="Asset Type" enumTypeId="AssetType"/>
+            <moqui.basic.Enumeration description="Inventory" enumId="INVENTORY" enumTypeId="AssetType"/>
             <moqui.basic.Enumeration description="Equipment" enumId="EQUIPMENT" enumTypeId="AssetType"/>
-            <moqui.basic.Enumeration description="The fixed asset used in the operation-routing definition" enumId="PRODUCTION_EQUIPMENT" enumTypeId="AssetType"/>
+            <moqui.basic.Enumeration description="The asset used in the operation-routing definition" enumId="PRODUCTION_EQUIPMENT" enumTypeId="AssetType"/>
             <moqui.basic.Enumeration description="Group of machines, used for task and routing definition" enumId="GROUP_EQUIPMENT" enumTypeId="AssetType"/>
-            <moqui.basic.Enumeration description="Other Fixed Asset" enumId="OTHER_FIXED_ASSET" enumTypeId="AssetType"/>
+            <moqui.basic.Enumeration description="Other Asset" enumId="OTHER_ASSET" enumTypeId="AssetType"/>
             <moqui.basic.Enumeration description="Property" enumId="PROPERTY" enumTypeId="AssetType"/>
             <moqui.basic.Enumeration description="Vehicle" enumId="VEHICLE" enumTypeId="AssetType"/>
             <moqui.basic.Enumeration description="Real Estate" enumId="REAL_ESTATE" enumTypeId="AssetType"/>
-            <moqui.basic.Enumeration description="Computer Software" enumId="COMPUTER_SOFTWARE" enumTypeId="AssetType"/>
-            <moqui.basic.Enumeration description="Computer Hardware" enumId="COMPUTER_HARDWARE" enumTypeId="AssetType"/>
 
             <!-- Asset Class -->
             <moqui.basic.EnumerationType description="Asset Class" enumTypeId="AssetClass"/>
@@ -141,7 +139,6 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Monitor" enumId="ACLS_MONITOR" parentEnumId="ACLS_HARDWARE" enumTypeId="AssetClass"/>
 
             <moqui.basic.Enumeration description="Computer Software" enumId="ACLS_SOFTWARE" enumTypeId="AssetClass"/>
-            <moqui.basic.Enumeration description="Computer Software" enumId="ACLS_PRG_SOFTWARE" parentEnumId="ACLS_SOFTWARE" enumTypeId="AssetClass"/>
             <moqui.basic.Enumeration description="Programming Software" enumId="ACLS_PRG_SOFTWARE" parentEnumId="ACLS_SOFTWARE" enumTypeId="AssetClass"/>
             <moqui.basic.Enumeration description="System Software" enumId="ACLS_SYS_SOFTWARE" parentEnumId="ACLS_SOFTWARE" enumTypeId="AssetClass"/>
             <moqui.basic.Enumeration description="Application Software" enumId="ACLS_APP_SOFTWARE" parentEnumId="ACLS_SOFTWARE" enumTypeId="AssetClass"/>

@@ -16,8 +16,8 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <service verb="ship" noun="OrderPart">
         <in-parameters>
-            <parameter name="orderId"/>
-            <parameter name="orderPartSeqId"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="shipmentId"/>
@@ -31,14 +31,14 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
             </entity-find>
             <iterate list="orderItemList" entry="orderItem">
-                <service-call name="mantle.shipment.ShipmentServices.pack#OrderItem"
-                        in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
-                        shipmentId:shipmentId, quantity:orderItem.quantity]"/>
+                <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentProduct"
+                        in-map="[productId:orderItem.productId, quantity:orderItem.quantity, shipmentId:shipmentId,
+                            shipmentPackageSeqId:shipmentPackageSeqId]"/>
             </iterate>
 
             <!-- set Shipment Packed -->
             <service-call name="mantle.shipment.ShipmentServices.pack#Shipment" in-map="[shipmentId:shipmentId]"/>
-            <!-- TODO add SECA on Shipment Packed create Invoice for Shipment -->
+            <!-- TODO add SECA on Shipment Packed create Invoice for Shipment (and don't create Invoice if OrderItems shipped are already invoiced) -->
 
             <!-- on Shipment Packed mark Order as Completed -->
             <!-- TODO: separate this to more generic code, like an ECA or some such? if more generic handle partly shipped orders... -->
@@ -51,13 +51,14 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <service verb="create" noun="OrderPartShipment">
         <in-parameters>
-            <parameter name="orderId"/>
-            <parameter name="orderPartSeqId"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
             <parameter name="createPackage" type="Boolean" default-value="true"/>
             <parameter name="createRouteSegment" type="Boolean" default-value="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="shipmentId"/>
+            <parameter name="shipmentPackageSeqId"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
@@ -68,11 +69,12 @@ This Work includes contributions authored by David E. Jones, not as a
                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId]"/>
 
             <if condition="createPackage">
-                <service-call name="create#ShipmentPackage" out-map="context"/>
+                <service-call name="create#ShipmentPackage" in-map="context" out-map="context"/>
             </if>
             <if condition="createRouteSegment">
                 <service-call name="create#ShipmentRouteSegment" out-map="context"
-                        in-map="[carrierPartyId:carrierPartyId, shipmentMethodEnumId:shipmentMethodEnumId,
+                        in-map="[shipmentId:shipmentId, carrierPartyId:carrierPartyId,
+                            shipmentMethodEnumId:shipmentMethodEnumId,
                             destPostalContactMechId:orderPart.postalContactMechId,
                             destTelecomContactMechId:orderPart.telecomContactMechId]"/>
             </if>
@@ -160,14 +162,15 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="quantityRemaining" from="quantityRemaining > assetReservation.quantityNotIssued ?
                         quantityRemaining - assetReservation.quantityNotIssued : 0"/>
                     <service-call name="mantle.product.AssetServices.issue#AssetReservation"
-                            in-map="[assetReservation:assetReservation, shipmentId:shipmentId, quantity:quantityToIssue]"/>
+                            in-map="[assetReservation:assetReservation, shipmentId:shipmentItemSource.shipmentId,
+                                quantity:quantityToIssue]"/>
                 </iterate>
 
                 <else>
                     <!-- do a non-reservation asset issuance -->
                     <service-call name="mantle.product.AssetServices.issue#Asset"
-                            in-map="[shipmentId:shipmentId, quantity:quantity, orderId:shipmentItemSource.orderId,
-                                orderItemSeqId:shipmentItemSource.orderItemSeqId]"/>
+                            in-map="[shipmentId:shipmentItemSource.shipmentId, quantity:quantity,
+                                orderId:shipmentItemSource.orderId, orderItemSeqId:shipmentItemSource.orderItemSeqId]"/>
                 </else>
             </if>
 
