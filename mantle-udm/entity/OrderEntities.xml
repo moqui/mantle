@@ -25,101 +25,6 @@ and those parts may be licensed under the Apache License 2.0.
     <!-- mantle.order.order -->
     <!-- ========================================================= -->
 
-    <entity entity-name="OrderAdjustment" package-name="mantle.order.order">
-        <field name="orderAdjustmentId" type="id" is-pk="true"/>
-        <field name="itemTypeEnumId" type="id"/>
-        <field name="orderId" type="id"/>
-        <field name="orderItemSeqId" type="id"/>
-        <field name="orderPartSeqId" type="id"/>
-        <field name="comments" type="text-medium"/>
-        <field name="description" type="text-medium"/>
-        <field name="amount" type="currency-precise"/>
-        <field name="recurringAmount" type="currency-precise"/>
-        <field name="amountAlreadyIncluded" type="currency-precise">
-            <description>The amount here is already represented in the item price, such as VAT taxes.</description>
-        </field>
-        <field name="productFeatureId" type="id"/>
-        <field name="correspondingProductId" type="id"/>
-        <field name="taxAuthorityRateId" type="id"/>
-        <field name="sourceReferenceId" type="id-long"/>
-        <field name="sourcePercentage" type="number-decimal">
-            <description>For tax entries this is the tax percentage</description>
-        </field>
-        <field name="customerReferenceId" type="id-long">
-            <description>For tax entries this is partyTaxId</description>
-        </field>
-        <field name="primaryGeoId" type="id">
-            <description>For tax entries this is the primary jurisdiction Geo (the smallest or most local Geo that this
-                tax is for, usually a state/province, perhaps a county or a city)
-            </description>
-        </field>
-        <field name="secondaryGeoId" type="id">
-            <description>For tax entries this is the secondary jurisdiction Geo (usually a country, or other Geo that
-                the primary is within)
-            </description>
-        </field>
-        <field name="exemptAmount" type="currency-amount">
-            <description>An amount that would normally apply, but not to this order; for tax exemption represents the
-                what the tax would have been.
-            </description>
-        </field>
-        <field name="taxAuthGeoId" type="id"/>
-        <field name="taxAuthPartyId" type="id"/>
-        <field name="overrideGlAccountId" type="id">
-            <description>The override or actual glAccountId used for the adjustment.</description>
-        </field>
-        <field name="includeInTax" type="text-indicator">
-            <description>Both includeInTax and includeInShipping should default to true, except in the case where
-                this adjustment is a tax or shipping adjustment then should be ignored.
-            </description>
-        </field>
-        <field name="includeInShipping" type="text-indicator"/>
-        <field name="originalAdjustmentId" type="id">
-            <description>Adjustment that this is based on such as tax on shipping charges.</description>
-        </field>
-        <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="itemTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="OrderHeader"/>
-        <relationship type="one-nofk" related-entity-name="OrderItem">
-            <key-map field-name="orderId"/>
-            <key-map field-name="orderItemSeqId"/>
-        </relationship>
-        <relationship type="one-nofk" related-entity-name="OrderPart">
-            <key-map field-name="orderId"/>
-            <key-map field-name="orderPartSeqId"/>
-        </relationship>
-        <relationship type="one" title="Primary" related-entity-name="Geo">
-            <key-map field-name="primaryGeoId"/>
-        </relationship>
-        <relationship type="one" title="Secondary" related-entity-name="Geo">
-            <key-map field-name="secondaryGeoId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="TaxAuthority">
-            <key-map field-name="taxAuthGeoId"/>
-            <key-map field-name="taxAuthPartyId"/>
-        </relationship>
-        <relationship type="one" title="Override" related-entity-name="GlAccount">
-            <key-map field-name="overrideGlAccountId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="TaxAuthorityRate"/>
-        <relationship type="one" title="Original" related-entity-name="OrderAdjustment">
-            <key-map field-name="originalAdjustmentId" related-field-name="orderAdjustmentId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="OrderAdjustmentBilling"
-            package-name="mantle.order.order">
-        <field name="orderAdjustmentId" type="id" is-pk="true"/>
-        <field name="invoiceId" type="id" is-pk="true"/>
-        <field name="invoiceItemSeqId" type="id" is-pk="true"/>
-        <field name="amount" type="currency-amount"/>
-        <relationship type="one" related-entity-name="OrderAdjustment"/>
-        <relationship type="one-nofk" related-entity-name="Invoice"/>
-        <relationship type="one" related-entity-name="InvoiceItem">
-            <key-map field-name="invoiceId"/>
-            <key-map field-name="invoiceItemSeqId"/>
-        </relationship>
-    </entity>
     <entity entity-name="OrderCommunicationEvent" package-name="mantle.order.order">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="communicationEventId" type="id" is-pk="true"/>
@@ -270,10 +175,12 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderItemSeqId" type="id" is-pk="true"/>
         <field name="orderPartSeqId" type="id"/>
+        <field name="parentItemSeqId" type="id"/>
 
         <field name="itemTypeEnumId" type="id"/>
         <field name="productId" type="id"/>
         <field name="productConfigSavedId" type="id"/>
+        <field name="productFeatureId" type="id"/>
 
         <field name="itemDescription" type="text-medium"/>
         <field name="comments" type="text-medium"/>
@@ -281,7 +188,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="quantityCancelled" type="number-decimal"/>
         <field name="selectedAmount" type="number-decimal"/>
 
-        <field name="unitPrice" type="currency-precise" enable-audit-log="true">
+        <field name="unitAmount" type="currency-precise" enable-audit-log="true">
             <description>For barter/exchange orders this represents the market value of the item at the time of the
                 exchange in terms of the OrderHeader.currencyUomId.</description>
         </field>
@@ -305,6 +212,20 @@ and those parts may be licensed under the Apache License 2.0.
             used for the item.</description></field>
         <field name="salesOpportunityId" type="id"/>
 
+        <!-- these fields are for sales/VAT/etc tax items -->
+        <field name="taxAuthorityRateId" type="id"/>
+        <field name="sourceReferenceId" type="id-long"/>
+        <field name="sourcePercentage" type="number-decimal"><description>For tax entries this is the tax percentage</description></field>
+        <field name="amountAlreadyIncluded" type="currency-precise"><description>The amount here is already represented
+            in the item price, such as VAT taxes.</description></field>
+        <field name="exemptAmount" type="currency-amount"><description>An amount that would normally apply, but not to
+            this order; for tax exemption represents the what the tax would have been.</description></field>
+        <field name="customerReferenceId" type="id-long"><description>For tax entries this is partyTaxId</description></field>
+        <field name="primaryGeoId" type="id"><description>For tax entries this is the primary jurisdiction Geo (the
+            smallest or most local Geo that this tax is for, usually a state/province, perhaps a county or a city)</description></field>
+        <field name="secondaryGeoId" type="id"><description>For tax entries this is the secondary jurisdiction Geo
+            (usually a country, or other Geo that the primary is within)</description></field>
+
         <relationship type="one" related-entity-name="OrderHeader"/>
         <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="itemTypeEnumId"/>
@@ -313,8 +234,17 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="orderId"/>
             <key-map field-name="orderPartSeqId"/>
         </relationship>
+        <relationship type="one-nofk" title="Parent" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="parentItemSeqId" related-field-name="orderItemSeqId"/>
+        </relationship>
+        <relationship type="many" title="Child" related-entity-name="OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId" related-field-name="parentItemSeqId"/>
+        </relationship>
         <relationship type="one" related-entity-name="Product"/>
         <relationship type="one" related-entity-name="ProductConfigSaved"/>
+        <relationship type="one" related-entity-name="ProductFeature"/>
         <relationship type="one" title="From" related-entity-name="Asset">
             <key-map field-name="fromAssetId"/>
         </relationship>
@@ -322,6 +252,15 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="overrideGlAccountId"/>
         </relationship>
         <relationship type="one" related-entity-name="SalesOpportunity"/>
+
+        <relationship type="one" title="Primary" related-entity-name="Geo">
+            <key-map field-name="primaryGeoId"/>
+        </relationship>
+        <relationship type="one" title="Secondary" related-entity-name="Geo">
+            <key-map field-name="secondaryGeoId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="TaxAuthorityRate"/>
+
         <index name="ORDITMEXT_ID_IDX"><index-field name="externalItemId"/></index>
     </entity>
     <entity entity-name="OrderItemBilling" package-name="mantle.order.order">
@@ -542,7 +481,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="description" type="text-medium"/>
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"/>
-        <field name="orderAdjustmentId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="expectedInventoryStatusId" type="id"/>
         <field name="returnQuantity" type="number-decimal" enable-audit-log="true">

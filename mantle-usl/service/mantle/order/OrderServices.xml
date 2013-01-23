@@ -209,15 +209,6 @@ h2. General Order Placement and eCommerce Usage
                 <set field="totalSum" from="totalSum + itemTotalOut.itemTotal"/>
             </iterate>
 
-            <entity-find entity-name="OrderAdjustment" list="orderAdjustmentList">
-                <econdition field-name="orderId"/>
-                <econdition field-name="orderPartSeqId"/>
-                <econdition field-name="orderItemSeqId" from="null"/>
-            </entity-find>
-            <iterate list="orderAdjustmentList" entry="orderAdjustment">
-                <set field="totalSum" from="totalSum + orderAdjustment.amount"/>
-            </iterate>
-
             <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
             <set field="orderPart.partTotal" from="totalSum"/>
             <entity-update value-field="orderPart"/>
@@ -235,11 +226,14 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <set field="itemTotal" from="0.0" type="BigDecimal"/>
-            <set field="itemTotal" from="itemTotal + (orderItem.unitPrice * orderItem.quantity)"/>
+            <set field="itemTotal" from="itemTotal + (orderItem.unitAmount * orderItem.quantity)"/>
 
-            <entity-find-related value-field="orderItem" relationship-name="OrderAdjustment" list="orderAdjustmentList"/>
-            <iterate list="orderAdjustmentList" entry="orderAdjustment">
-                <set field="itemTotal" from="itemTotal + orderAdjustment.amount"/>
+            <!-- recursively get total of child OrderItems -->
+            <entity-find-related value-field="orderItem" relationship-name="Child#OrderItem" list="childOrderItemList"/>
+            <iterate list="childOrderItemList" entry="childOrderItem">
+                <service-call name="mantle.order.OrderServices.get#OrderItemTotal" out-map="getOitResult"
+                        in-map="[orderItem:childOrderItem]"/>
+                <set field="itemTotal" from="itemTotal + getOitResult.itemTotal"/>
             </iterate>
         </actions>
     </service>
@@ -262,7 +256,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="quantity" type="BigDecimal"/>
             <parameter name="selectedAmount" type="BigDecimal"/>
 
-            <parameter name="unitPrice" type="BigDecimal"/>
+            <parameter name="unitAmount" type="BigDecimal"/>
             <parameter name="unitListPrice" type="BigDecimal"/>
             <parameter name="isModifiedPrice"/>
         </in-parameters>
@@ -367,7 +361,7 @@ h2. General Order Placement and eCommerce Usage
                     in-map="[productId:productId, quantity:quantity, priceUomId:currencyUomId,
                              productStoreId:productStoreId, customerPartyId:customerPartyId, vendorPartyId:vendorPartyId]"/>
 
-            <set field="unitPrice" from="priceMap.price" set-if-empty="false"/>
+            <set field="unitAmount" from="priceMap.price" set-if-empty="false"/>
             <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
             <set field="isModifiedPrice" value="N"/>
 
@@ -415,7 +409,7 @@ h2. General Order Placement and eCommerce Usage
                     in-map="[productId:orderItem.productId, quantity:quantity, priceUomId:orderHeader.currencyUomId,
                             productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
                             vendorPartyId:orderPart.vendorPartyId]"/>
-            <set field="unitPrice" from="priceMap.price" set-if-empty="false"/>
+            <set field="unitAmount" from="priceMap.price" set-if-empty="false"/>
             <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
             <set field="isModifiedPrice" value="N"/>
 
