@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.2.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="create" noun="Project">
+        <in-parameters>
+            <parameter name="workEffortName" required="true"/>
+            <parameter name="description"/>
+            <parameter name="estimatedStartDate"/>
+
+            <parameter name="clientPartyId"/>
+            <parameter name="clientBillingPartyId"/>
+            <parameter name="clientManagerPartyId"/>
+            <parameter name="vendorPartyId"/>
+            <parameter name="vendorManagerPartyId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="workEffortId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="create#WorkEffort" out-map="context"
+                    in-map="context + [workEffortTypeEnumId:'WET_TASK',
+                        purposeEnumId:'WEP_PROJECT', statusId:'WE_IN_PLANNING']"/>
+
+            <!-- always assign the user who creates the project as a manager -->
+            <service-call name="create#WorkEffortParty"
+                    in-map="[workEffortId:workEffortId, partyId:ec.user.userAccount.partyId,
+                        roleTypeId:'MANAGER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+
+            <if condition="clientPartyId">
+                <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:clientPartyId,
+                        roleTypeId:'BILL_TO_CUSTOMER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+            </if>
+            <if condition="clientBillingPartyId">
+                <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:clientBillingPartyId,
+                        roleTypeId:'CLIENT_BILLING', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+            </if>
+            <if condition="clientManagerPartyId">
+                <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:clientManagerPartyId,
+                        roleTypeId:'CLIENT_MANAGER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+            </if>
+            <if condition="vendorPartyId">
+                <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:vendorPartyId,
+                        roleTypeId:'BILL_FROM_VENDOR', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+            </if>
+            <if condition="vendorManagerPartyId &amp;&amp; vendorManagerPartyId != ec.user.userAccount.partyId">
+                <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:vendorManagerPartyId,
+                        roleTypeId:'MANAGER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="create" noun="Task">
+        <in-parameters>
+            <parameter name="rootWorkEffortId" required="true"><description>The ID of the Project</description></parameter>
+            <parameter name="parentWorkEffortId"/>
+            <parameter name="milestoneWorkEffortId"/>
+            <parameter name="workEffortName" required="true"/>
+            <parameter name="description"/>
+            <parameter name="statusId" default-value="WE_IN_PLANNING"/>
+            <parameter name="priority" default-value="5" type="Long"/>
+            <parameter name="purposeEnumId" default-value="WEP_TASK"/>
+            <parameter name="estimatedCompletionDate" type="Date"/>
+            <parameter name="assignToPartyId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="workEffortId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="create#WorkEffort" out-map="context"
+                    in-map="context + [workEffortTypeEnumId:'WET_TASK',
+                        purposeEnumId:'WEP_PROJECT', statusId:'WE_IN_PLANNING']"/>
+            <service-call name="create#WorkEffortParty"
+                    in-map="[workEffortId:workEffortId, partyId:ec.user.userAccount.partyId,
+                        roleTypeId:'WORKER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+        </actions>
+    </service>
+</services>
