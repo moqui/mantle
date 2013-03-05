@@ -16,6 +16,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <service verb="create" noun="Project">
         <in-parameters>
+            <parameter name="workEffortId" required="true"/>
             <parameter name="workEffortName" required="true"/>
             <parameter name="description"/>
             <parameter name="estimatedStartDate"/>
@@ -72,19 +73,30 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="statusId" default-value="WE_IN_PLANNING"/>
             <parameter name="priority" default-value="5" type="Long"/>
             <parameter name="purposeEnumId" default-value="WEP_TASK"/>
-            <parameter name="estimatedCompletionDate" type="Date"/>
+            <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="assignToPartyId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="workEffortId"/>
         </out-parameters>
         <actions>
+            <set field="seqName" value="Project_${rootWorkEffortId}"/>
+            <set field="workEffortId" value="${rootWorkEffortId}-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/>
             <service-call name="create#WorkEffort" out-map="context"
-                    in-map="context + [workEffortTypeEnumId:'WET_TASK',
-                        purposeEnumId:'WEP_PROJECT', statusId:'WE_IN_PLANNING']"/>
+                    in-map="context + [workEffortTypeEnumId:'WET_TASK']"/>
             <service-call name="create#WorkEffortParty"
                     in-map="[workEffortId:workEffortId, partyId:ec.user.userAccount.partyId,
                         roleTypeId:'WORKER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+        </actions>
+    </service>
+    <service verb="update" noun="Task">
+        <in-parameters>
+            <auto-parameters entity-name="WorkEffort" include="nonpk"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#WorkEffort" out-map="context" in-map="context"/>
         </actions>
     </service>
 </services>
