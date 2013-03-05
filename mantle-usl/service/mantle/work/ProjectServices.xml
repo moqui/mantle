@@ -74,6 +74,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="priority" default-value="5" type="Long"/>
             <parameter name="purposeEnumId" default-value="WEP_TASK"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
+            <parameter name="estimatedWorkTime" type="BigDecimal"/>
+            <parameter name="timeUomId" default-value="TF_hr"/>
             <parameter name="assignToPartyId"/>
         </in-parameters>
         <out-parameters>
@@ -94,9 +96,47 @@ This Work includes contributions authored by David E. Jones, not as a
             <auto-parameters entity-name="WorkEffort" include="nonpk"/>
             <parameter name="workEffortId" required="true"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
+            <parameter name="estimatedWorkTime" type="BigDecimal"/>
+            <parameter name="actualWorkTime" type="BigDecimal"/>
+            <parameter name="timeUomId" default-value="TF_hr"/>
         </in-parameters>
         <actions>
             <service-call name="update#WorkEffort" out-map="context" in-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="add" noun="TaskTime">
+        <in-parameters>
+            <parameter name="partyId" default-value="${ec.user.userAccount.partyId}"/>
+            <parameter name="hours" type="BigDecimal"/>
+            <parameter name="breakHours" type="BigDecimal"/>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="comments"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="timeEntryId"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO: add logic to calculate hours using fromDate/thruDate/breakHours -->
+            <service-call name="create#TimeEntry" out-map="context" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="TaskFromTime" authenticate="anonymous-all">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="TimeEntrySummary" list="timeEntrySummaryList">
+                <econdition field-name="workEffortId"/>
+                <select-field field-name="hours"/>
+            </entity-find>
+            <if condition="timeEntrySummaryList">
+                <entity-find-one entity-name="WorkEffort" value-field="workEffort"/>
+                <set field="workEffort.actualWorkTime" from="timeEntrySummaryList[0].hours"/>
+                <entity-update value-field="workEffort"/>
+            </if>
         </actions>
     </service>
 </services>

@@ -33,7 +33,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="hours" type="number-decimal"/>
-        <field name="comments" type="text-medium"/>
+        <field name="breakHours" type="number-decimal"/>
+        <field name="comments" type="text-long"/>
         <field name="workEffortId" type="id"/>
         <field name="invoiceId" type="id"/>
         <field name="invoiceItemSeqId" type="id"/>
@@ -79,6 +80,14 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
     </entity>
+    <view-entity entity-name="TimeEntrySummary" package-name="mantle.work.time">
+        <member-entity entity-alias="TENT" entity-name="TimeEntry"/>
+        <alias entity-alias="TENT" name="workEffortId"/>
+        <alias entity-alias="TENT" name="timesheetId"/>
+        <alias entity-alias="TENT" name="rateTypeEnumId"/>
+        <alias entity-alias="TENT" name="hours" function="sum"/>
+        <alias entity-alias="TENT" name="breakHours" function="sum"/>
+    </view-entity>
 
     <!-- ========================================================= -->
     <!-- mantle.work.effort -->
@@ -129,11 +138,11 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="actualCompletionDate" type="date-time"/>
 
         <!-- TODO: find an alternative to this, maybe a separate entity with enum for different time values -->
-        <field name="estimatedWorkTime" type="number-float"/>
-        <field name="estimatedSetupTime" type="number-float"/>
-        <field name="actualWorkTime" type="number-float"/>
-        <field name="actualSetupTime" type="number-float"/>
-        <field name="totalTimeAllowed" type="number-float"/>
+        <field name="estimatedWorkTime" type="number-decimal"/>
+        <field name="estimatedSetupTime" type="number-decimal"/>
+        <field name="actualWorkTime" type="number-decimal"/>
+        <field name="actualSetupTime" type="number-decimal"/>
+        <field name="totalTimeAllowed" type="number-decimal"/>
         <field name="timeUomId" type="id"/>
 
         <!-- TODO: replace this -->
@@ -425,6 +434,14 @@ and those parts may be licensed under the Apache License 2.0.
         <alias-all entity-alias="WEFF"/>
         <alias-all entity-alias="WEP"><exclude field="workEffortId"/><exclude field="statusId"/></alias-all>
         <alias name="partyStatusId" entity-alias="WEP" field="statusId"/>
+    </view-entity>
+    <view-entity entity-name="WorkEffortPartyAndPerson" package-name="mantle.work.effort">
+        <member-entity entity-alias="WEP" entity-name="WorkEffortParty"/>
+        <member-entity entity-alias="PTY" entity-name="Person" join-from-alias="WEP">
+            <key-map field-name="partyId"/>
+        </member-entity>
+        <alias-all entity-alias="WEP"/>
+        <alias-all entity-alias="PTY"><exclude field="partyId"/></alias-all>
     </view-entity>
 
     <entity entity-name="WorkEffortProduct" package-name="mantle.work.effort">
