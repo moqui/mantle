@@ -62,81 +62,40 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
-
-    <service verb="create" noun="Task">
-        <in-parameters>
-            <parameter name="rootWorkEffortId" required="true"><description>The ID of the Project</description></parameter>
-            <parameter name="parentWorkEffortId"/>
-            <parameter name="milestoneWorkEffortId"/>
-            <parameter name="workEffortName" required="true"/>
-            <parameter name="description"/>
-            <parameter name="statusId" default-value="WE_IN_PLANNING"/>
-            <parameter name="priority" default-value="5" type="Long"/>
-            <parameter name="purposeEnumId" default-value="WEP_TASK"/>
-            <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
-            <parameter name="estimatedWorkTime" type="BigDecimal"/>
-            <parameter name="timeUomId" default-value="TF_hr"/>
-            <parameter name="assignToPartyId"/>
-        </in-parameters>
-        <out-parameters>
-            <parameter name="workEffortId"/>
-        </out-parameters>
+    <service verb="get" noun="ProjectParties">
+        <in-parameters><parameter name="rootWorkEffortId"/></in-parameters>
+        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
         <actions>
-            <set field="seqName" value="Project_${rootWorkEffortId}"/>
-            <set field="workEffortId" value="${rootWorkEffortId}-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/>
-            <service-call name="create#WorkEffort" out-map="context"
-                    in-map="context + [workEffortTypeEnumId:'WET_TASK']"/>
-            <service-call name="create#WorkEffortParty"
-                    in-map="[workEffortId:workEffortId, partyId:ec.user.userAccount.partyId,
-                        roleTypeId:'WORKER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
-        </actions>
-    </service>
-    <service verb="update" noun="Task">
-        <in-parameters>
-            <auto-parameters entity-name="WorkEffort" include="nonpk"/>
-            <parameter name="workEffortId" required="true"/>
-            <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
-            <parameter name="estimatedWorkTime" type="BigDecimal"/>
-            <parameter name="actualWorkTime" type="BigDecimal"/>
-            <parameter name="timeUomId" default-value="TF_hr"/>
-        </in-parameters>
-        <actions>
-            <service-call name="update#WorkEffort" out-map="context" in-map="context"/>
-        </actions>
-    </service>
-
-    <service verb="add" noun="TaskTime">
-        <in-parameters>
-            <parameter name="partyId" default-value="${ec.user.userAccount.partyId}"/>
-            <parameter name="hours" type="BigDecimal"/>
-            <parameter name="breakHours" type="BigDecimal"/>
-            <parameter name="fromDate" type="Timestamp"/>
-            <parameter name="thruDate" type="Timestamp"/>
-            <parameter name="workEffortId" required="true"/>
-            <parameter name="comments"/>
-        </in-parameters>
-        <out-parameters>
-            <parameter name="timeEntryId"/>
-        </out-parameters>
-        <actions>
-            <!-- TODO: add logic to calculate hours using fromDate/thruDate/breakHours -->
-            <service-call name="create#TimeEntry" out-map="context" in-map="context"/>
-        </actions>
-    </service>
-    <service verb="update" noun="TaskFromTime" authenticate="anonymous-all">
-        <in-parameters>
-            <parameter name="workEffortId" required="true"/>
-        </in-parameters>
-        <actions>
-            <entity-find entity-name="TimeEntrySummary" list="timeEntrySummaryList">
-                <econdition field-name="workEffortId"/>
-                <select-field field-name="hours"/>
+            <entity-find entity-name="WorkEffortPartyAndPerson" list="wepapList">
+                <date-filter/>
+                <econdition field-name="workEffortId" from="rootWorkEffortId"/>
+                <order-by field-name="^firstName"/><order-by field-name="^lastName"/>
             </entity-find>
-            <if condition="timeEntrySummaryList">
-                <entity-find-one entity-name="WorkEffort" value-field="workEffort"/>
-                <set field="workEffort.actualWorkTime" from="timeEntrySummaryList[0].hours"/>
-                <entity-update value-field="workEffort"/>
-            </if>
+            <script>
+                resultList = []
+                for (def wepap in wepapList)
+                    resultList.add([partyId:wepap.partyId, name:"${wepap.firstName} ${wepap.lastName} (${wepap.partyId})"])
+            </script>
+        </actions>
+    </service>
+    <service verb="get" noun="ProjectTasks">
+        <in-parameters><parameter name="rootWorkEffortId"/></in-parameters>
+        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <actions>
+            <actions>
+                <entity-find entity-name="WorkEffort" list="taskList">
+                    <econdition field-name="rootWorkEffortId"/>
+                    <econdition field-name="workEffortTypeEnumId" value="WET_TASK"/>
+                    <econdition field-name="purposeEnumId" operator="not-equals" value="WEP_PROJECT"/>
+                    <econdition field-name="statusId" operator="not-in" value="WE_CLOSED,WE_CANCELLED"/>
+                    <order-by field-name="workEffortId"/>
+                </entity-find>
+                <script>
+                    resultList = [[workEffortId:"", taskLabel:"None"]]
+                    for (def task in taskList)
+                        resultList.add([workEffortId:task.workEffortId, taskLabel:"${task.workEffortId}: ${task.workEffortName}"])
+                </script>
+            </actions>
         </actions>
     </service>
 </services>
