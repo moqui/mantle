@@ -114,7 +114,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="universalId" type="text-medium"/>
         <field name="sourceReferenceId" type="id-long"/>
         <field name="parentWorkEffortId" type="id"><description>For task/etc breakdown</description></field>
-        <field name="rootWorkEffortId" type="id"><description>The root of the tree this is part of (if applicable)</description></field>
+        <field name="rootWorkEffortId" type="id"><description>The root of the tree this is part of (if applicable), like a project</description></field>
 
         <field name="workEffortTypeEnumId" type="id"/>
         <field name="purposeEnumId" type="id"/>
@@ -172,6 +172,8 @@ and those parts may be licensed under the Apache License 2.0.
         <seed-data>
             <!-- Work Effort Type -->
             <moqui.basic.EnumerationType description="Work Effort Type" enumTypeId="WorkEffortType"/>
+            <moqui.basic.Enumeration description="Project" enumId="WET_PROJECT" enumTypeId="WorkEffortType"/>
+            <moqui.basic.Enumeration description="Milestone" enumId="WET_MILESTONE" enumTypeId="WorkEffortType"/>
             <moqui.basic.Enumeration description="Task" enumId="WET_TASK" enumTypeId="WorkEffortType"/>
             <moqui.basic.Enumeration description="Event" enumId="WET_EVENT" enumTypeId="WorkEffortType"/>
             <moqui.basic.Enumeration description="Available" enumId="WET_AVAILABLE" enumTypeId="WorkEffortType"/>
@@ -180,15 +182,11 @@ and those parts may be licensed under the Apache License 2.0.
             <!-- Work Effort Purpose -->
             <moqui.basic.EnumerationType description="Work Effort Purpose" enumTypeId="WorkEffortPurpose"/>
 
-            <moqui.basic.Enumeration description="Project" enumId="WEP_PROJECT" enumTypeId="WorkEffortPurpose"/>
-            <moqui.basic.Enumeration description="Phase" enumId="WEP_PHASE" enumTypeId="WorkEffortPurpose"/>
-            <moqui.basic.Enumeration description="Milestone" enumId="WEP_MILESTONE" enumTypeId="WorkEffortPurpose"/>
-
-            <moqui.basic.Enumeration description="Task" enumId="WEP_TASK" enumTypeId="WorkEffortPurpose"/>
-            <moqui.basic.Enumeration description="Defect Fix" enumId="WEP_FIX" parentEnumId="WEP_TASK" enumTypeId="WorkEffortPurpose"/>
-            <moqui.basic.Enumeration description="New Feature" enumId="WEP_NEW_FEATURE" parentEnumId="WEP_TASK" enumTypeId="WorkEffortPurpose"/>
-            <moqui.basic.Enumeration description="Feature Enhancement" enumId="WEP_FEATURE_ENHANCE" parentEnumId="WEP_TASK" enumTypeId="WorkEffortPurpose"/>
-            <moqui.basic.Enumeration description="Feature Test" enumId="WEP_FEATURE_TEST" parentEnumId="WEP_TASK" enumTypeId="WorkEffortPurpose"/>
+            <moqui.basic.Enumeration description="Task" enumId="WEP_TASK" parentEnumId="WET_TASK" enumTypeId="WorkEffortPurpose"/>
+            <moqui.basic.Enumeration description="Defect Fix" enumId="WEP_FIX" parentEnumId="WET_TASK" enumTypeId="WorkEffortPurpose"/>
+            <moqui.basic.Enumeration description="New Feature" enumId="WEP_NEW_FEATURE" parentEnumId="WET_TASK" enumTypeId="WorkEffortPurpose"/>
+            <moqui.basic.Enumeration description="Feature Enhancement" enumId="WEP_FEATURE_ENHANCE" parentEnumId="WET_TASK" enumTypeId="WorkEffortPurpose"/>
+            <moqui.basic.Enumeration description="Feature Test" enumId="WEP_FEATURE_TEST" parentEnumId="WET_TASK" enumTypeId="WorkEffortPurpose"/>
 
             <moqui.basic.Enumeration description="Manufacturing" enumId="WEP_MANUFACTURING" enumTypeId="WorkEffortPurpose"/>
             <moqui.basic.Enumeration description="Assembling" enumId="WEP_ASSEMBLING" parentEnumId="WEP_MANUFACTURING" enumTypeId="WorkEffortPurpose"/>
@@ -309,8 +307,35 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Precedent" enumId="WEAT_PRECEDENCY" enumTypeId="WorkEffortAssocType"/>
             <moqui.basic.Enumeration description="Clone" enumId="WEAT_CLONE" enumTypeId="WorkEffortAssocType"/>
             <moqui.basic.Enumeration description="Routing Component" enumId="WEAT_ROUTING_COMP" enumTypeId="WorkEffortAssocType"/>
+            <moqui.basic.Enumeration description="Milestone" enumId="WEAT_MILESTONE" enumTypeId="WorkEffortAssocType"/>
         </seed-data>
     </entity>
+    <view-entity entity-name="WorkEffortAndRootByParty" package-name="mantle.work.effort">
+        <description>A view-entity to get WorkEffort records with a root WorkEffort that has a Party
+            associated with it. For this query by rootWorkEffortId, partyId, etc.</description>
+        <member-entity entity-alias="WEFF_ROOT" entity-name="WorkEffort"/>
+        <member-entity entity-alias="WEP" entity-name="WorkEffortParty" join-from-alias="WEFF_ROOT">
+            <key-map field-name="workEffortId"/>
+        </member-entity>
+        <member-entity entity-alias="WEFF" entity-name="WorkEffort" join-from-alias="WEFF_ROOT">
+            <key-map field-name="workEffortId" related-field-name="rootWorkEffortId"/>
+        </member-entity>
+        <alias-all entity-alias="WEFF_ROOT" prefix="root"><exclude field="workEffortId"/></alias-all>
+        <alias-all entity-alias="WEFF"/>
+        <alias-all entity-alias="WEP"><exclude field="workEffortId"/></alias-all>
+    </view-entity>
+    <view-entity entity-name="WorkEffortAssocAndTo" package-name="mantle.work.effort">
+        <description>A view-entity to get WorkEffort records associated with another WorkEffort (the from WorkEffort).
+            For this query by fromWorkEffortId, etc.</description>
+        <member-entity entity-alias="WEFF_ASSOC" entity-name="WorkEffortAssoc"/>
+        <member-entity entity-alias="WEFF" entity-name="WorkEffort" join-from-alias="WEFF_ASSOC">
+            <key-map field-name="toWorkEffortId" related-field-name="workEffortId"/>
+        </member-entity>
+        <alias-all entity-alias="WEFF_ASSOC"><exclude field="workEffortId"/><exclude field="toWorkEffortId"/></alias-all>
+        <alias-all entity-alias="WEFF"/>
+        <alias name="fromWorkEffortId" entity-alias="WEFF_ASSOC" field="workEffortId"/>
+    </view-entity>
+
     <entity entity-name="WorkEffortBilling" package-name="mantle.work.effort">
         <field name="workEffortId" type="id" is-pk="true"/>
         <field name="invoiceId" type="id" is-pk="true"/>
@@ -437,11 +462,11 @@ and those parts may be licensed under the Apache License 2.0.
     </view-entity>
     <view-entity entity-name="WorkEffortPartyAndPerson" package-name="mantle.work.effort">
         <member-entity entity-alias="WEP" entity-name="WorkEffortParty"/>
-        <member-entity entity-alias="PTY" entity-name="Person" join-from-alias="WEP">
+        <member-entity entity-alias="PER" entity-name="Person" join-from-alias="WEP">
             <key-map field-name="partyId"/>
         </member-entity>
         <alias-all entity-alias="WEP"/>
-        <alias-all entity-alias="PTY"><exclude field="partyId"/></alias-all>
+        <alias-all entity-alias="PER"><exclude field="partyId"/><exclude field="comments"/></alias-all>
     </view-entity>
 
     <entity entity-name="WorkEffortProduct" package-name="mantle.work.effort">
