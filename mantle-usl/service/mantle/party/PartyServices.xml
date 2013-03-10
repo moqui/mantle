@@ -42,4 +42,81 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="totalResults" type="Integer"/>
         </out-parameters>
     </service>
+
+    <service verb="create" noun="Account" authenticate="false">
+        <description>
+            Create a basic customer account including:
+            - Party/Person
+            - UserAccount (with emailAddress for username)
+            - ContactMech/PartyContactMech for emailAddress (with PRIMARY_EMAIL purpose)
+
+            At the end this optionally logs in the user (for this to work it must be run locally).
+        </description>
+        <in-parameters>
+            <parameter name="firstName" required="true"/>
+            <parameter name="middleName"/>
+            <parameter name="lastName" required="true"/>
+
+            <parameter name="emailAddress" required="true"><text-email/></parameter>
+            <parameter name="username" default-value="${emailAddress}"/>
+            <parameter name="newPassword" required="true"/>
+            <parameter name="newPasswordVerify" required="true"/>
+
+            <parameter name="currencyUomId"/>
+            <parameter name="locale"/>
+            <parameter name="timeZone"/>
+
+            <parameter name="loginAfterCreate" type="Boolean" default-value="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="partyId" required="true"/>
+        </out-parameters>
+        <actions>
+            <!-- do this first to get a password validation ASAP -->
+            <set field="userFullName" value="${firstName} ${middleName? middleName + ' ' : ''}${lastName}"/>
+            <service-call name="org.moqui.impl.UserServices.create#UserAccount" out-map="newUaOut" in-map="context"/>
+            <set field="userId" from="newUaOut.userId"/>
+
+            <service-call name="create#Party" in-map="[partyTypeEnumId:'PERSON']" out-map="newPartyOut"/>
+            <service-call name="create#Person"
+                    in-map="[partyId:newPartyOut.partyId, firstName:firstName, middleName:middleName, lastName:lastName]"/>
+            <set field="partyId" from="newPartyOut.partyId"/>
+
+            <service-call name="update#UserAccount" in-map="[userId:newUaOut.userId, partyId:newPartyOut.partyId]"/>
+
+            <!-- login the user -->
+            <if condition="loginAfterCreate">
+                <script>ec.user.loginUser(emailAddress, newPassword, null)</script>
+            </if>
+
+            <!-- add the emailAddress -->
+            <service-call name="mantle.party.ContactServices.create#EmailAddress"
+                    in-map="[emailAddress:emailAddress, partyId:newPartyOut.partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/>
+        </actions>
+    </service>
+    <service verb="update" noun="Account">
+        <in-parameters>
+            <parameter name="userId" required="true"/>
+            <parameter name="partyId" required="true"/>
+            <parameter name="firstName"/>
+            <parameter name="middleName"/>
+            <parameter name="lastName"/>
+
+            <parameter name="emailAddress"><text-email/></parameter>
+            <parameter name="username"/>
+
+            <parameter name="currencyUomId"/>
+            <parameter name="locale"/>
+            <parameter name="timeZone"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#UserAccount" in-map="context"/>
+            <service-call name="update#Person" in-map="context"/>
+
+            <!-- TODO: update the emailAddress ContactMech if one exists -->
+            <!-- <service-call name="mantle.party.ContactServices.update#EmailAddress"
+                    in-map="[emailAddress:emailAddress, partyId:newPartyOut.partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/> -->
+        </actions>
+    </service>
 </services>
