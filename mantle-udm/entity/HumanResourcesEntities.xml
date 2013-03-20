@@ -414,12 +414,23 @@ and those parts may be licensed under the Apache License 2.0.
         <seed-data>
             <!-- Employment Position Classes -->
             <EmplPositionClass title="Programmer" emplPositionClassId="PROGRAMMER"/>
+            <EmplPositionClass title="Senior Programmer" emplPositionClassId="SENIOR_PROGRAMMER"/>
             <EmplPositionClass title="System Administrator" emplPositionClassId="SYS_ADMIN"/>
             <EmplPositionClass title="Business Analyst" emplPositionClassId="BIZ_ANALYST"/>
         </seed-data>
     </entity>
+    <entity entity-name="EmplPositionClassParty" package-name="mantle.humanres.position">
+        <description>This can be used as a simpler alternative to EmplPosition and Employment to represent an employee in a position class for billing purposes, etc.</description>
+        <field name="emplPositionClassId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="comments" type="text-medium"/>
+        <relationship type="one" related-entity-name="EmplPositionClass"/>
+        <relationship type="one" related-entity-name="Party"/>
+    </entity>
     <entity entity-name="EmplPositionParty" package-name="mantle.humanres.position">
-        <!-- for manager, department/etc internal organization, etc -->
+        <description>For manager, department/etc internal organization, etc; use Employment entity for employee</description>
         <field name="emplPositionId" type="id" is-pk="true"/>
         <field name="partyId" type="id" is-pk="true"/>
         <field name="roleTypeId" type="id" is-pk="true"/>
@@ -452,14 +463,12 @@ and those parts may be licensed under the Apache License 2.0.
         </seed-data>
     </entity>
     <entity entity-name="EmplValidResponsibility" package-name="mantle.humanres.position">
-        <field name="emplPositionTypeEnumId" type="id" is-pk="true"/>
+        <field name="emplPositionClassId" type="id" is-pk="true"/>
         <field name="responsibilityEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="comments" type="text-medium"/>
-        <relationship type="one" title="EmplPositionType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="emplPositionTypeEnumId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="mantle.humanres.position.EmplPositionClass"/>
         <relationship type="one" title="EmploymentResponsibility" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="responsibilityEnumId"/>
         </relationship>
@@ -484,10 +493,10 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="RateAmount" package-name="mantle.humanres.rate">
         <field name="rateAmountId" type="id" is-pk="true"/>
         <field name="rateTypeEnumId" type="id"/>
-        <field name="timePeriodTypeId" type="id"/>
+        <field name="timePeriodUomId" type="id"/>
         <field name="workEffortId" type="id"/>
         <field name="partyId" type="id"/>
-        <field name="emplPositionTypeEnumId" type="id"/>
+        <field name="emplPositionClassId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="rateAmount" type="currency-amount"/>
@@ -495,42 +504,25 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="RateType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="rateTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="TimePeriodType"/>
+        <relationship type="one" title="TimePeriod" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="timePeriodUomId"/>
+        </relationship>
         <relationship type="one" related-entity-name="WorkEffort"/>
         <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" title="EmplPositionType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="emplPositionTypeEnumId"/>
-        </relationship>
+        <relationship type="one" related-entity-name="mantle.humanres.position.EmplPositionClass"/>
         <relationship type="one" title="RateCurrency" related-entity-name="moqui.basic.Uom">
             <key-map field-name="rateCurrencyUomId"/>
         </relationship>
         <seed-data>
             <!-- Rate Type -->
             <moqui.basic.EnumerationType description="Rate Type" enumTypeId="RateType"/>
-            <moqui.basic.Enumeration enumId="STANDARD" description="Standard Rate" enumTypeId="RateType"/>
-            <moqui.basic.Enumeration enumId="DISCOUNTED" description="Discounted Rate" enumTypeId="RateType"/>
-            <moqui.basic.Enumeration enumId="OVERTIME" description="Overtime Rate" enumTypeId="RateType"/>
-            <moqui.basic.Enumeration enumId="AVERAGE_PAY_RATE" description="Average Pay Rate" enumTypeId="RateType"/>
-            <moqui.basic.Enumeration enumId="HIGH_PAY_RATE" description="Highest Pay Rate" enumTypeId="RateType"/>
-            <moqui.basic.Enumeration enumId="LOW_PAY_RATE" description="Lowest Pay Rate" enumTypeId="RateType"/>
-
-            <!-- Rate Time Period Types -->
-            <TimePeriodType description="Rate per Hour" timePeriodTypeId="RATE_HOUR" periodLength="1" lengthUomId="TF_hr"/>
-            <TimePeriodType description="Rate per Week" timePeriodTypeId="RATE_WEEK" periodLength="1" lengthUomId="TF_wk"/>
-            <TimePeriodType description="Rate per Month" timePeriodTypeId="RATE_MONTH" periodLength="1" lengthUomId="TF_mon"/>
-            <TimePeriodType description="Rate per Quarter" timePeriodTypeId="RATE_QUARTER" periodLength="3" lengthUomId="TF_mon"/>
+            <moqui.basic.Enumeration enumId="RT_STANDARD" description="Standard Rate" enumTypeId="RateType"/>
+            <moqui.basic.Enumeration enumId="RT_DISCOUNTED" description="Discounted Rate" enumTypeId="RateType"/>
+            <moqui.basic.Enumeration enumId="RT_OVERTIME" description="Overtime Rate" enumTypeId="RateType"/>
+            <moqui.basic.Enumeration enumId="RT_AVERAGE_RATE" description="Average Pay Rate" enumTypeId="RateType"/>
+            <moqui.basic.Enumeration enumId="RT_HIGH_PAY_RATE" description="Highest Pay Rate" enumTypeId="RateType"/>
+            <moqui.basic.Enumeration enumId="RT_LOW_PAY_RATE" description="Lowest Pay Rate" enumTypeId="RateType"/>
         </seed-data>
-    </entity>
-    <entity entity-name="PartyRate" package-name="mantle.humanres.rate">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="rateTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="defaultRate" type="text-indicator"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" title="RateType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="rateTypeEnumId"/>
-        </relationship>
     </entity>
 
     <!-- ========================================================= -->
