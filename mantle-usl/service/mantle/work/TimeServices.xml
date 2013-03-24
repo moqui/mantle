@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.2.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="get" noun="TimeEntryRate">
+        <in-parameters>
+            <parameter name="timeEntryId" required="true"/>
+            <!-- TODO: where to get currency... project setting? client or internal org setting? -->
+            <parameter name="rateCurrencyUomId" default-value="USD"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="rateAmount"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="TimeEntry" value-field="timeEntry"/>
+            <log level="warn" message="=============== timeEntry=${timeEntry}"/>
+
+            <if condition="timeEntry.workEffortId">
+                <entity-find-one entity-name="WorkEffort" value-field="taskWorkEffort">
+                    <field-map field-name="workEffortId" from="timeEntry.workEffortId"/>
+                </entity-find-one>
+
+                <!-- what is the party's emplPositionClassId? try WorkEffortParty with task first, then root/project, then try EmplPositionClassParty -->
+                <entity-find entity-name="WorkEffortParty" list="workEffortPartyList">
+                    <date-filter valid-date="timeEntry.fromDate"/>
+                    <econdition field-name="workEffortId" operator="in"
+                            from="[taskWorkEffort.workEffortId, taskWorkEffort.rootWorkEffortId, null]"/>
+                    <econdition field-name="partyId" from="timeEntry.partyId"/>
+                    <order-by field-name="fromDate"/>
+                </entity-find>
+                <filter-map-list list="workEffortPartyList" to-list="taskWorkEffortPartyList">
+                    <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
+                </filter-map-list>
+                <iterate list="taskWorkEffortPartyList" entry="taskWorkEffortParty">
+                    <if condition="taskWorkEffortParty.emplPositionClassId">
+                        <set field="emplPositionClassId" from="taskWorkEffortParty.emplPositionClassId"/></if>
+                </iterate>
+                <if condition="!emplPositionClassId">
+                    <filter-map-list list="workEffortPartyList" to-list="projectWorkEffortPartyList">
+                        <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
+                    </filter-map-list>
+                    <iterate list="projectWorkEffortPartyList" entry="projectWorkEffortParty">
+                        <if condition="projectWorkEffortParty.emplPositionClassId">
+                            <set field="emplPositionClassId" from="projectWorkEffortParty.emplPositionClassId"/></if>
+                    </iterate>
+                </if>
+            </if>
+
+            <!-- TODO: look at Employment/EmplPosition for the emplPositionClassId -->
+            <if condition="!emplPositionClassId">
+                <entity-find entity-name="EmplPositionClassParty" list="emplPositionClassPartyList">
+                    <date-filter/>
+                    <econdition field-name="partyId" from="timeEntry.partyId"/>
+                    <order-by field-name="fromDate"/>
+                </entity-find>
+                <iterate list="emplPositionClassPartyList" entry="emplPositionClassParty">
+                    <if condition="emplPositionClassParty.emplPositionClassId">
+                        <set field="emplPositionClassId" from="emplPositionClassParty.emplPositionClassId"/></if>
+                </iterate>
+            </if>
+            <!-- at this point if there is no emplPositionClassId we'll consider it null and not applicable -->
+
+            <!-- get all possible rates in one query, then do maximal match -->
+            <entity-find entity-name="mantle.humanres.rate.RateAmount" list="rateAmountList">
+                <date-filter valid-date="timeEntry.fromDate"/>
+                <econdition field-name="partyId" operator="in" from="[timeEntry.partyId, null]"/>
+                <econdition field-name="workEffortId" operator="in"
+                        from="[taskWorkEffort.workEffortId, taskWorkEffort.rootWorkEffortId, null]"/>
+                <econdition field-name="emplPositionClassId" operator="in" from="[emplPositionClassId, null]"/>
+                <econdition field-name="rateTypeEnumId" from="timeEntry.rateTypeEnumId ?: 'RT_STANDARD'"/>
+                <econdition field-name="timePeriodUomId" value="TF_hr"/>
+                <econdition field-name="rateCurrencyUomId"/><!-- this comes from the parameter, maybe do a better default somehow -->
+            </entity-find>
+
+            <log level="warn" message="=============== rateAmountList=${rateAmountList}"/>
+
+            <!-- rates associated with the task? -->
+            <!--
+<mantle.work.time.TimeEntry timeEntryId="HM-004-01" partyId="EX_JOHN_DOE" hours="2" breakHours="3"
+        workEffortId="HM-004" comments="Create Task and My Tasks first pass"
+        fromDate="2013-03-02 12:00:00" thruDate="2013-03-02 17:00:00"/>
+<mantle.humanres.rate.RateAmount rateAmountId="HM-001" rateTypeEnumId="RT_STANDARD" timePeriodUomId="TF_hr"
+        workEffortId="HM" partyId="" emplPositionClassId="SENIOR_PROGRAMMER" fromDate="2010-02-03 00:00:00" thruDate=""
+        rateAmount="100.00" rateCurrencyUomId="USD"/>
+             -->
+
+            <!-- rates associated with the root/project? -->
+
+            <!-- no rate yet? get the default rate for the TimeEntry Party -->
+
+        </actions>
+    </service>
+</services>
