@@ -48,9 +48,26 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="estimatedWorkTime" type="BigDecimal"/>
             <parameter name="actualWorkTime" type="BigDecimal"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
+            <parameter name="milestoneWorkEffortId"/>
         </in-parameters>
         <actions>
             <service-call name="update#WorkEffort" out-map="context" in-map="context"/>
+            <if condition="milestoneWorkEffortId">
+                <service-call name="mantle.work.TaskServices.update#TaskMilestone" in-map="context"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="update" noun="TaskMilestone">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="milestoneWorkEffortId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <auto-parameters entity-name="WorkEffortAssoc"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO: if milestoneWorkEffortId is different from currently associated milestone,
+                    expire all milestones and assoc with new one -->
         </actions>
     </service>
 

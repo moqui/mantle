@@ -110,10 +110,29 @@ This Work includes contributions authored by David E. Jones, not as a
             </actions>
         </actions>
     </service>
+    <service verb="get" noun="ProjectMilestones">
+        <in-parameters><parameter name="rootWorkEffortId"/></in-parameters>
+        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <actions>
+            <actions>
+                <entity-find entity-name="WorkEffort" list="milestoneList">
+                    <econdition field-name="rootWorkEffortId"/>
+                    <econdition field-name="workEffortTypeEnumId" value="WET_MILESTONE"/>
+                    <order-by field-name="estimatedStartDate"/>
+                </entity-find>
+                <script>
+                    resultList = [[workEffortId:"", taskLabel:"None"]]
+                    for (def milestone in milestoneList)
+                        resultList.add([workEffortId:milestone.workEffortId, milestoneLabel:"${milestone.workEffortId}: ${milestone.workEffortName}"])
+                </script>
+            </actions>
+        </actions>
+    </service>
 
     <service verb="create" noun="Milestone">
         <in-parameters>
             <parameter name="rootWorkEffortId" required="true"/>
+            <parameter name="workEffortId" required="true"/>
             <parameter name="workEffortName" required="true"/>
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
@@ -121,8 +140,8 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters><parameter name="workEffortId"/></out-parameters>
         <actions>
-            <set field="seqName" value="Project_MS_${rootWorkEffortId}"/>
-            <set field="workEffortId" value="${rootWorkEffortId}-MS-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/>
+            <!-- decided to go with manual ID instead of auto <set field="seqName" value="Project_MS_${rootWorkEffortId}"/>
+            <set field="workEffortId" value="${rootWorkEffortId}-MS-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/> -->
             <service-call name="create#WorkEffort" out-map="context" in-map="context + [workEffortTypeEnumId:'WET_MILESTONE']"/>
         </actions>
     </service>
