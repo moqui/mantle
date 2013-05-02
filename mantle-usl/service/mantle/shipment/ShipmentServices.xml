@@ -38,7 +38,6 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- set Shipment Packed -->
             <service-call name="mantle.shipment.ShipmentServices.pack#Shipment" in-map="[shipmentId:shipmentId]"/>
-            <!-- TODO add SECA on Shipment Packed create Invoice for Shipment (and don't create Invoice if OrderItems shipped are already invoiced) -->
 
             <!-- on Shipment Packed mark Order as Completed -->
             <!-- TODO: separate this to more generic code, like an ECA or some such? if more generic handle partly shipped orders... -->
@@ -185,8 +184,10 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <service verb="pack" noun="Shipment">
         <in-parameters><parameter name="shipmentId"/></in-parameters>
+        <out-parameters><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
             <entity-find-one entity-name="Shipment" value-field="shipment"/>
+            <set field="statusChanged" from="shipment.statusId != 'SHIPMENT_PACKED'"/>
             <set field="shipment.statusId" value="SHIPMENT_PACKED"/>
             <entity-update value-field="shipment"/>
         </actions>
