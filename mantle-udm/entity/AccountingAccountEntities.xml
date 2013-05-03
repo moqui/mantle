@@ -675,7 +675,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="referenceNum" type="text-short"/>
         <field name="authCode" type="text-short"/>
         <field name="fulfillmentDate" type="date-time"/>
-        <relationship type="one" title="Type" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="GiftCardFulfillmentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="typeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="mantle.party.party.Party">
@@ -699,6 +699,62 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="correlationId" type="id"/>
         <field name="transactionId" type="text-short"/>
         <relationship type="one" related-entity-name="mantle.accounting.account.method.PaymentMethod"/>
+    </entity>
+
+    <entity entity-name="PaymentGatewayConfig" package-name="mantle.accounting.account.method">
+        <field name="paymentGatewayConfigId" type="id" is-pk="true"/>
+        <field name="paymentGatewayTypeEnumId" type="id"><description>Each payment gateway integration should define a
+            PaymentGatewayType Enumeration record plus an entity with a shared PK (ie PK is paymentGatewayConfigId).</description></field>
+        <field name="description" type="text-medium"/>
+        <field name="authorizeServiceName" type="text-medium"/>
+        <field name="captureServiceName" type="text-medium"/>
+        <field name="releaseServiceName" type="text-medium"/>
+        <field name="refundServiceName" type="text-medium"/>
+        <relationship type="one" title="PaymentGatewayType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="paymentGatewayTypeEnumId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PaymentGatewayResponse" package-name="mantle.accounting.account.method">
+        <field name="paymentGatewayResponseId" type="id" is-pk="true"/>
+        <field name="paymentGatewayConfigId" type="id"/>
+        <field name="paymentOperationEnumId" type="id"/>
+        <field name="paymentId" type="id"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="transCodeEnumId" type="id"/>
+        <field name="amount" type="currency-amount"/>
+        <field name="amountUomId" type="id"/>
+        <field name="referenceNum" type="text-short"/>
+        <field name="altReference" type="text-short"/>
+        <field name="subReference" type="text-short"/>
+        <field name="gatewayCode" type="text-short"/>
+        <field name="gatewayFlag" type="text-short"/>
+        <field name="gatewayAvsResult" type="text-short"/>
+        <field name="gatewayCvResult" type="text-short"/>
+        <field name="gatewayScoreResult" type="text-short"/>
+        <field name="gatewayMessage" type="text-medium"/>
+        <field name="transactionDate" type="date-time"/>
+        <field name="resultDeclined" type="text-indicator"/>
+        <field name="resultNsf" type="text-indicator"/>
+        <field name="resultBadExpire" type="text-indicator"/>
+        <field name="resultBadCardNumber" type="text-indicator"/>
+        <relationship type="one" title="PaymentOperation" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="paymentOperationEnumId" related-field-name="enumId"/>
+        </relationship>
+        <relationship type="one" title="TransCode" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="transCodeEnumId" related-field-name="enumId"/>
+        </relationship>
+        <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="amountUomId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.accounting.account.payment.Payment"/>
+        <relationship type="one" related-entity-name="mantle.accounting.account.method.PaymentMethod"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Payment Gateway Operation" enumTypeId="PaymentOperation"/>
+            <moqui.basic.Enumeration description="Authorize" enumId="PMTOP_AUTHORIZE" enumTypeId="PaymentOperation"/>
+            <moqui.basic.Enumeration description="Capture" enumId="PMTOP_CAPTURE" enumTypeId="PaymentOperation"/>
+            <moqui.basic.Enumeration description="Refund" enumId="PMTOP_REFUND" enumTypeId="PaymentOperation"/>
+            <moqui.basic.Enumeration description="Release" enumId="PMTOP_RELEASE" enumTypeId="PaymentOperation"/>
+        </seed-data>
     </entity>
 
     <!-- ========================================================= -->
@@ -905,39 +961,5 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="budgetItemSeqId"/>
         </relationship>
         <relationship type="one" related-entity-name="Payment"/>
-    </entity>
-    <entity entity-name="PaymentGatewayResponse" package-name="mantle.accounting.account.payment">
-        <field name="paymentGatewayResponseId" type="id" is-pk="true"/>
-        <field name="paymentServiceTypeEnumId" type="id"/>
-        <field name="paymentId" type="id"/>
-        <field name="paymentMethodId" type="id"/>
-        <field name="transCodeEnumId" type="id"/>
-        <field name="amount" type="currency-amount"/>
-        <field name="amountUomId" type="id"/>
-        <field name="referenceNum" type="text-short"/>
-        <field name="altReference" type="text-short"/>
-        <field name="subReference" type="text-short"/>
-        <field name="gatewayCode" type="text-short"/>
-        <field name="gatewayFlag" type="text-short"/>
-        <field name="gatewayAvsResult" type="text-short"/>
-        <field name="gatewayCvResult" type="text-short"/>
-        <field name="gatewayScoreResult" type="text-short"/>
-        <field name="gatewayMessage" type="text-medium"/>
-        <field name="transactionDate" type="date-time"/>
-        <field name="resultDeclined" type="text-indicator"/>
-        <field name="resultNsf" type="text-indicator"/>
-        <field name="resultBadExpire" type="text-indicator"/>
-        <field name="resultBadCardNumber" type="text-indicator"/>
-        <relationship type="one" title="ServiceType" related-entity-name="Enumeration">
-            <key-map field-name="paymentServiceTypeEnumId" related-field-name="enumId"/>
-        </relationship>
-        <relationship type="one" title="TranCode" related-entity-name="Enumeration">
-            <key-map field-name="transCodeEnumId" related-field-name="enumId"/>
-        </relationship>
-        <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="amountUomId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.accounting.account.payment.Payment"/>
-        <relationship type="one" related-entity-name="mantle.accounting.account.method.PaymentMethod"/>
     </entity>
 </entities>
