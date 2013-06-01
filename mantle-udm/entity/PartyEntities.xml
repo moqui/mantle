@@ -16,13 +16,387 @@ and those parts may be licensed under the Apache License 2.0.
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.3.xsd">
     <!-- ========================================================= -->
+    <!--  - mantle.party -->
     <!--  - mantle.party.agreement -->
     <!--  - mantle.party.communication -->
     <!--  - mantle.party.contact -->
-    <!--  - mantle.party.party -->
     <!--  - mantle.party.time -->
     <!-- ========================================================= -->
 
+
+    <!-- ========================================================= -->
+    <!-- mantle.party -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Party" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="partyTypeEnumId" type="id"/>
+        <field name="disabled" type="text-indicator" enable-audit-log="true"/>
+        <field name="externalId" type="id"/>
+        <field name="dataSourceId" type="id"/>
+        <relationship type="one" title="PartyType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="partyTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="DataSource"/>
+        <index name="PARTY_ID_EXT"><index-field name="externalId"/></index>
+        <seed-data>
+            <!-- Party Type -->
+            <moqui.basic.EnumerationType description="Party Type" enumTypeId="PartyType"/>
+            <moqui.basic.Enumeration description="Automated Agent" enumId="AUTOMATED_AGENT" enumTypeId="PartyType"/>
+            <moqui.basic.Enumeration description="Person" enumId="PERSON" enumTypeId="PartyType"/>
+            <moqui.basic.Enumeration description="Organization" enumId="ORGANIZATION" enumTypeId="PartyType"/>
+
+            <!-- _NA_ Party -->
+            <Party partyId="_NA_" partyTypeEnumId="PERSON"/>
+            <Person partyId="_NA_"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="Organization" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="organizationName" type="text-medium"/>
+        <field name="officeSiteName" type="text-medium"/>
+        <field name="annualRevenue" type="currency-amount"/>
+        <field name="numEmployees" type="number-integer"/>
+        <field name="comments" type="text-long"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <index name="PTY_ORG_NAME_IDX"><index-field name="organizationName"/></index>
+    </entity>
+    <entity entity-name="Person" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="salutation" type="text-medium"/>
+        <field name="firstName" type="text-medium"/>
+        <field name="middleName" type="text-medium"/>
+        <field name="lastName" type="text-medium" enable-audit-log="true"/>
+        <field name="personalTitle" type="text-medium"/>
+        <field name="suffix" type="text-medium"/>
+        <field name="nickname" type="text-medium"/>
+        <field name="gender" type="text-indicator"/>
+        <field name="birthDate" type="date"/>
+        <field name="deceasedDate" type="date"/>
+        <field name="height" type="number-float"/>
+        <field name="weight" type="number-float"/>
+        <field name="mothersMaidenName" type="text-medium" encrypt="true"/>
+        <field name="comments" type="text-long"/>
+        <field name="maritalStatusEnumId" type="id"/>
+        <field name="employmentStatusEnumId" type="id"/>
+        <field name="residenceStatusEnumId" type="id"/>
+        <field name="occupation" type="text-medium"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" title="MaritalStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="maritalStatusEnumId"/>
+        </relationship>
+        <relationship type="one" title="EmploymentStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="employmentStatusEnumId"/>
+        </relationship>
+        <relationship type="one" title="ResidenceStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="residenceStatusEnumId"/>
+        </relationship>
+        <index name="FIRST_NAME_IDX"><index-field name="firstName"/></index>
+        <index name="LAST_NAME_IDX"><index-field name="lastName"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Marital Status" enumTypeId="MaritalStatus"/>
+            <moqui.basic.Enumeration description="Single" enumId="MARS_SINGLE" enumTypeId="MaritalStatus"/>
+            <moqui.basic.Enumeration description="Married" enumId="MARS_MARRIED" enumTypeId="MaritalStatus"/>
+            <moqui.basic.Enumeration description="Divorced" enumId="MARS_DIVORCED" enumTypeId="MaritalStatus"/>
+            <moqui.basic.Enumeration description="Widowed/Widower" enumId="MARS_WIDOW" enumTypeId="MaritalStatus"/>
+
+            <moqui.basic.EnumerationType description="Employment Status" enumTypeId="EmploymentStatus"/>
+            <moqui.basic.Enumeration description="Full-time Employed" enumId="EMPS_FULLTIME" enumTypeId="EmploymentStatus"/>
+            <moqui.basic.Enumeration description="Part-time Employed" enumId="EMPS_PARTTIME" enumTypeId="EmploymentStatus"/>
+            <moqui.basic.Enumeration description="Self Employed" enumId="EMPS_SELF" enumTypeId="EmploymentStatus"/>
+            <moqui.basic.Enumeration description="House-Person" enumId="EMPS_HOUSE" enumTypeId="EmploymentStatus"/>
+            <moqui.basic.Enumeration description="Retired" enumId="EMPS_RETIRED" enumTypeId="EmploymentStatus"/>
+            <moqui.basic.Enumeration description="Student" enumId="EMPS_STUDENT" enumTypeId="EmploymentStatus"/>
+            <moqui.basic.Enumeration description="Unemployed" enumId="EMPS_UNEMP" enumTypeId="EmploymentStatus"/>
+
+            <moqui.basic.EnumerationType description="Residence Status" enumTypeId="ResidenceStatus"/>
+            <moqui.basic.Enumeration description="Own Home" enumId="PRESS_OWN" enumTypeId="ResidenceStatus"/>
+            <moqui.basic.Enumeration description="Private Tenant" enumId="PRESS_PVT_TENANT" enumTypeId="ResidenceStatus"/>
+            <moqui.basic.Enumeration description="Public Tenant" enumId="PRESS_PUB_TENANT" enumTypeId="ResidenceStatus"/>
+            <moqui.basic.Enumeration description="With Parents" enumId="PRESS_PARENTS" enumTypeId="ResidenceStatus"/>
+        </seed-data>
+    </entity>
+
+    <extend-entity entity-name="UserAccount" package-name="moqui.security">
+        <field name="partyId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+    </extend-entity>
+
+    <entity entity-name="PartyIdentification" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="partyIdTypeEnumId" type="id" is-pk="true"/>
+        <field name="idValue" type="id-long"/>
+        <field name="expireDate" type="date"/>
+        <relationship type="one" title="PartyIdType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="partyIdTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <index name="PARTY_ID_VALUE" unique="false"><index-field name="idValue"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Party Identification Type" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Passport Number" enumId="PTYID_PASSPORT" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Driver License Number" enumId="PTYID_DRLIC" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Social Security Number" enumId="PTYID_SSN" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Matricula Consular ID" enumId="PTYID_MCID" enumTypeId="PartyIdType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="PartyGeoPoint" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="geoPointId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="GeoPoint"/>
+    </entity>
+
+    <entity entity-name="PartyClassification" package-name="mantle.party">
+        <field name="partyClassificationId" type="id" is-pk="true"/>
+        <field name="classificationTypeEnumId" type="id"/>
+        <field name="parentClassificationId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" title="PartyClassificationType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="classificationTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Parent" related-entity-name="mantle.party.PartyClassification">
+            <key-map field-name="parentClassificationId" related-field-name="partyClassificationId"/>
+        </relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Party Classification Type" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="EEOC (Equal Opportunity)" enumId="EEOC_CLASSIFICATION" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Minority" enumId="MINORITY_CLASSIFICAT" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Income" enumId="INCOME_CLASSIFICATIO" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Industry" enumId="INDUSTRY_CLASSIFICAT" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Organization" enumId="ORGANIZATION_CLASSIF" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Person" enumId="PERSON_CLASSIFICATIO" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Size" enumId="SIZE_CLASSIFICATION" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Trade" enumId="TRADE_CLASSIFICATION" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Wholesale" parentEnumId="TRADE_CLASSIFICATION" enumId="TRADE_WHOLE_CLASSIFI" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Retail" parentEnumId="TRADE_CLASSIFICATION" enumId="TRADE_RETAIL_CLASSIF" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Annual Revenue" enumId="ANNUAL_REVENUE" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Number of Employees" enumId="NUMBER_OF_EMPLOYEES" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Value Rating" enumId="VALUE_RATING" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="SIC Code" enumId="SIC_CODE" enumTypeId="PartyClassificationType"/>
+            <moqui.basic.Enumeration description="Ownership" enumId="OWNERSHIP" enumTypeId="PartyClassificationType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="PartyClassificationAppl" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="partyClassificationId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.PartyClassification"/>
+    </entity>
+
+    <entity entity-name="PartyContent" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="contentLocation" type="text-medium" is-pk="true"/>
+        <field name="partyContentTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" title="PartyContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="partyContentTypeEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- Party Content Type -->
+            <moqui.basic.EnumerationType description="Party Content Type" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Internal Content" enumId="INTERNAL" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="User Defined Content"  enumId="USERDEF" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Logo Image URL"  enumId="LGOIMGURL" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Vendor Shipping Info"  enumId="VNDSHPINF" enumTypeId="PartyContentType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="PartyNote" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="noteDate" type="date-time" is-pk="true"/>
+        <field name="noteText" type="text-very-long"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+    </entity>
+    <entity entity-name="PartyRelationship" package-name="mantle.party">
+        <field name="partyRelationshipId" type="id" is-pk="true"/>
+        <field name="relationshipTypeEnumId" type="id"/>
+        <field name="fromPartyId" type="id"/>
+        <field name="fromRoleTypeId" type="id"/>
+        <field name="toPartyId" type="id"/>
+        <field name="toRoleTypeId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="statusId" type="id"/>
+        <field name="priorityTypeEnumId" type="id"/>
+        <field name="permissionsEnumId" type="id"/>
+        <field name="comments" type="text-medium"/>
+        <field name="relationshipName" type="text-medium">
+            <description>Official name of relationship, such as title in an organization.</description>
+        </field>
+        <relationship type="one" title="From" related-entity-name="mantle.party.Party">
+            <key-map field-name="fromPartyId"/>
+        </relationship>
+        <relationship type="one" title="From" related-entity-name="mantle.party.RoleType">
+            <key-map field-name="fromRoleTypeId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="mantle.party.Party">
+            <key-map field-name="toPartyId"/>
+        </relationship>
+        <relationship type="one" title="To" related-entity-name="mantle.party.RoleType">
+            <key-map field-name="toRoleTypeId"/>
+        </relationship>
+        <relationship type="one" title="PartyRelationship" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" title="PriorityType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="priorityTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="PartyRelationshipType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="relationshipTypeEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- NOTE: The partyRelationshipName describes the TO party, ie A is a customer of B, so A is the partyTo and B is the partyFrom -->
+            <moqui.basic.EnumerationType description="Party Relationship Type" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Agent" enumId="AGENT" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Child" enumId="CHILD" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Contact Relationship" enumId="CONTACT_REL" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Lead Relationship" enumId="LEAD_REL" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Lead Owned by" enumId="LEAD_OWNER" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Customer" enumId="CUSTOMER_REL" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Distributor" enumId="DISTRIBUTION_CHANNEL" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Employee" enumId="EMPLOYMENT" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Friend" enumId="FRIEND" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Group Member" enumId="GROUP_ROLLUP" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Host Server Visitor" enumId="HOST_SERVER_VISITOR" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="ISP Visitor" enumId="VISITOR_ISP" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Manager" enumId="MANAGER" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Parent" enumId="PARENT" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Partner" enumId="PARTNERSHIP" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Sales Affiliate" enumId="SALES_AFFILIATE" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Spouse" enumId="SPOUSE" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Supplier" enumId="SUPPLIER_REL" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Web Master" enumId="WEB_MASTER_ASSIGNMEN" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Account owned by" enumId="ACCOUNT" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Assistant" enumId="ASSISTANT" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Owned by" enumId="OWNER" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Parent Account" enumId="PARENT_ACCOUNT" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Reports To" enumId="REPORTS_TO" enumTypeId="PartyRelationshipType"/>
+            <moqui.basic.Enumeration description="Lead Owners/Managers" enumId="LEAD_OWN_GRP_MEMBER" enumTypeId="PartyRelationshipType"/>
+
+            <moqui.basic.StatusType description="Party Relationship" statusTypeId="PartyRelationship"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="PartyRole" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
+    </entity>
+    <entity entity-name="RoleType" package-name="mantle.party">
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="parentTypeId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" title="Parent" related-entity-name="mantle.party.RoleType">
+            <key-map field-name="parentTypeId" related-field-name="roleTypeId"/>
+        </relationship>
+        <seed-data>
+            <!-- NOTE: RoleType is not moved to Enumeration because there are many of them (ID conflicts) and it is referred to in many places. -->
+            <!-- top level role types -->
+            <RoleType description="Account Lead" roleTypeId="ACCOUNT_LEAD"/>
+            <RoleType description="Administrator" roleTypeId="ADMIN"/>
+            <RoleType description="Agent" roleTypeId="AGENT"/>
+            <RoleType description="Automated Agent" roleTypeId="AUTOMATED_AGENT_ROLE"/>
+            <RoleType description="Calendar" roleTypeId="CALENDAR_ROLE"/>
+            <RoleType description="Client" roleTypeId="CLIENT"/>
+            <RoleType description="Communication Participant" roleTypeId="COMM_PARTICIPANT"/>
+            <RoleType description="Consumer" roleTypeId="CONSUMER"/>
+            <RoleType description="Contractor" roleTypeId="CONTRACTOR"/>
+            <RoleType description="Customer" roleTypeId="CUSTOMER"/>
+            <RoleType description="Distribution Channel" roleTypeId="DISTRIBUTION_CHANNEL"/>
+            <RoleType description="ISP" roleTypeId="ISP"/>
+            <RoleType description="Hosting Server" roleTypeId="HOSTING_SERVER"/>
+            <RoleType description="Manufacturer" roleTypeId="MANUFACTURER"/>
+            <RoleType description="Not Applicable" roleTypeId="_NA_"/>
+            <RoleType description="Organization" roleTypeId="ORGANIZATION_ROLE"/>
+            <RoleType description="Owner"  roleTypeId="OWNER"/>
+            <RoleType description="Prospect" roleTypeId="PROSPECT"/>
+            <RoleType description="Person" roleTypeId="PERSON_ROLE"/>
+            <RoleType description="Referrer" roleTypeId="REFERRER"/>
+            <RoleType description="Request Manager" roleTypeId="REQ_MANAGER"/>
+            <RoleType description="Requesting Party" roleTypeId="REQ_REQUESTER"/>
+            <RoleType description="Request Taker" roleTypeId="REQ_TAKER"/>
+            <RoleType description="Sales Force Automation" roleTypeId="SFA_ROLE"/>
+            <RoleType description="Shareholder" roleTypeId="SHAREHOLDER"/>
+            <RoleType description="Subscriber" roleTypeId="SUBSCRIBER"/>
+            <RoleType description="Vendor" roleTypeId="VENDOR"/>
+            <RoleType description="Visitor" roleTypeId="VISITOR"/>
+            <RoleType description="Web Master" roleTypeId="WEB_MASTER"/>
+            <RoleType description="Workflow" roleTypeId="WORKFLOW_ROLE"/>
+            <RoleType description="Accountant" roleTypeId="ACCOUNTANT"/>
+
+            <!-- second level role types -->
+            <RoleType description="Account" parentTypeId="SFA_ROLE" roleTypeId="ACCOUNT"/>
+            <RoleType description="Association" parentTypeId="ORGANIZATION_ROLE" roleTypeId="ASSOCIATION"/>
+            <RoleType description="Bill-From Vendor" parentTypeId="VENDOR" roleTypeId="BILL_FROM_VENDOR"/>
+            <RoleType description="Bill-To Customer" parentTypeId="CUSTOMER" roleTypeId="BILL_TO_CUSTOMER"/>
+            <RoleType description="Bulk Customer" parentTypeId="CUSTOMER" roleTypeId="BULK_CUSTOMER"/>
+            <RoleType description="Calendar Attendee" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_ATTENDEE"/>
+            <RoleType description="Calendar Delegate" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_DELEGATE"/>
+            <RoleType description="Calendar Host" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_HOST"/>
+            <RoleType description="Calendar Organizer" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_ORGANIZER"/>
+            <RoleType description="Calendar Owner" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_OWNER"/>
+            <RoleType description="Carrier" parentTypeId="ORGANIZATION_ROLE" roleTypeId="CARRIER"/>
+            <RoleType description="Client Billing Rep" parentTypeId="PERSON_ROLE" roleTypeId="CLIENT_BILLING"/>
+            <RoleType description="Client Manager" parentTypeId="PERSON_ROLE" roleTypeId="CLIENT_MANAGER"/>
+            <RoleType description="Competitor" parentTypeId="ORGANIZATION_ROLE" roleTypeId="COMPETITOR"/>
+            <RoleType description="Contact" parentTypeId="SFA_ROLE" roleTypeId="CONTACT"/>
+            <RoleType description="Distributor" parentTypeId="DISTRIBUTION_CHANNEL" roleTypeId="DISTRIBUTOR"/>
+            <RoleType description="Email Administrator" parentTypeId="PERSON_ROLE" roleTypeId="EMAIL_ADMIN"/>
+            <RoleType description="Employee" parentTypeId="PERSON_ROLE" roleTypeId="EMPLOYEE"/>
+            <RoleType description="End-User Customer" parentTypeId="CUSTOMER" roleTypeId="END_USER_CUSTOMER"/>
+            <RoleType description="Household" parentTypeId="ORGANIZATION_ROLE" roleTypeId="HOUSEHOLD"/>
+            <RoleType description="Internal Organization" parentTypeId="ORGANIZATION_ROLE" roleTypeId="INTERNAL_ORGANIZATIO"/>
+            <RoleType description="Corporation" parentTypeId="ORGANIZATION_ROLE" roleTypeId="CORPORATION"/>
+            <RoleType description="Government Agency" parentTypeId="ORGANIZATION_ROLE" roleTypeId="GOVERNMENT_AGENCY"/>
+            <RoleType description="Family" parentTypeId="ORGANIZATION_ROLE" roleTypeId="FAMILY"/>
+            <RoleType description="Team" parentTypeId="ORGANIZATION_ROLE" roleTypeId="TEAM"/>
+            <RoleType description="Lead" parentTypeId="SFA_ROLE" roleTypeId="LEAD"/>
+            <RoleType description="Limited Administrator" parentTypeId="ADMIN" roleTypeId="LTD_ADMIN"/>
+            <RoleType description="Organization Unit" parentTypeId="ORGANIZATION_ROLE" roleTypeId="ORGANIZATION_UNIT"/>
+            <RoleType description="Partner" parentTypeId="ORGANIZATION_ROLE" roleTypeId="PARTNER"/>
+            <RoleType description="Placing Customer" parentTypeId="CUSTOMER" roleTypeId="PLACING_CUSTOMER"/>
+            <RoleType description="Regulatory Agency" parentTypeId="ORGANIZATION_ROLE" roleTypeId="REGULATORY_AGENCY"/>
+            <RoleType description="Sales Representative" parentTypeId="PERSON_ROLE" roleTypeId="SALES_REP"/>
+            <RoleType description="Ship-From Vendor" parentTypeId="VENDOR" roleTypeId="SHIP_FROM_VENDOR"/>
+            <RoleType description="Ship-To Customer" parentTypeId="CUSTOMER" roleTypeId="SHIP_TO_CUSTOMER"/>
+            <RoleType description="Sponsor" parentTypeId="PERSON_ROLE" roleTypeId="SPONSOR"/>
+            <RoleType description="Spouse" parentTypeId="PERSON_ROLE" roleTypeId="SPOUSE"/>
+            <RoleType description="Supplier Agent" parentTypeId="PERSON_ROLE" roleTypeId="SUPPLIER_AGENT"/>
+            <RoleType description="Supplier" parentTypeId="ORGANIZATION_ROLE" roleTypeId="SUPPLIER"/>
+            <RoleType description="Tax Authority" parentTypeId="ORGANIZATION_ROLE" roleTypeId="TAX_AUTHORITY"/>
+            <RoleType description="Union" parentTypeId="ORGANIZATION_ROLE" roleTypeId="UNION"/>
+            <RoleType description="Workflow Owner" parentTypeId="WORKFLOW_ROLE" roleTypeId="WF_OWNER"/>
+
+            <!-- third level role types -->
+            <RoleType description="Affiliate" parentTypeId="SALES_REP" roleTypeId="AFFILIATE"/>
+            <RoleType description="Buyer" parentTypeId="EMPLOYEE" roleTypeId="BUYER"/>
+            <RoleType description="Cashier" parentTypeId="EMPLOYEE" roleTypeId="CASHIER"/>
+            <RoleType description="Department" parentTypeId="ORGANIZATION_UNIT" roleTypeId="DEPARTMENT"/>
+            <RoleType description="Division" parentTypeId="ORGANIZATION_UNIT" roleTypeId="DIVISION"/>
+            <RoleType description="Family Member" parentTypeId="PERSON_ROLE" roleTypeId="FAMILY_MEMBER"/>
+            <RoleType description="Manager" parentTypeId="EMPLOYEE" roleTypeId="MANAGER"/>
+            <RoleType description="Order Clerk" parentTypeId="EMPLOYEE" roleTypeId="ORDER_CLERK"/>
+            <RoleType description="Other Internal" parentTypeId="INTERNAL_ORGANIZATIO" roleTypeId="OTHER_INTERNAL_ORGAN"/>
+            <RoleType description="Other Organization Unit" parentTypeId="ORGANIZATION_UNIT" roleTypeId="OTHER_ORGANIZATION_U"/>
+            <RoleType description="Parent Organization" parentTypeId="ORGANIZATION_UNIT" roleTypeId="PARENT_ORGANIZATION"/>
+            <RoleType description="Packer" parentTypeId="EMPLOYEE" roleTypeId="PACKER"/>
+            <RoleType description="Picker" parentTypeId="EMPLOYEE" roleTypeId="PICKER"/>
+            <RoleType description="Receiver" parentTypeId="EMPLOYEE" roleTypeId="RECEIVER"/>
+            <RoleType description="Shipment Clerk" parentTypeId="EMPLOYEE" roleTypeId="SHIPMENT_CLERK"/>
+            <RoleType description="Stocker" parentTypeId="EMPLOYEE" roleTypeId="STOCKER"/>
+            <RoleType description="Subsidiary" parentTypeId="ORGANIZATION_UNIT" roleTypeId="SUBSIDIARY"/>
+            <RoleType description="Worker" parentTypeId="EMPLOYEE" roleTypeId="WORKER"/>
+
+            <RoleType description="Fixed Asset Maint Assignee" roleTypeId="FAM_ASSIGNEE"/>
+            <RoleType description="Maintenance Supplier or Service" parentTypeId="FAM_ASSIGNEE" roleTypeId="FAM_SUPPLIER"/>
+            <RoleType description="Maintenance Manager or Supervisor" parentTypeId="FAM_ASSIGNEE" roleTypeId="FAM_MANAGER"/>
+            <RoleType description="Maintenance Worker" parentTypeId="FAM_ASSIGNEE" roleTypeId="FAM_WORKER"/>
+        </seed-data>
+    </entity>
 
     <!-- ========================================================= -->
     <!-- mantle.party.agreement -->
@@ -40,16 +414,16 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="thruDate" type="date-time"/>
         <field name="description" type="text-medium"/>
         <field name="textData" type="text-very-long"/>
-        <relationship type="one" title="From" related-entity-name="mantle.party.party.Party">
+        <relationship type="one" title="From" related-entity-name="mantle.party.Party">
             <key-map field-name="fromPartyId"/>
         </relationship>
-        <relationship type="one" title="From" related-entity-name="mantle.party.party.RoleType">
+        <relationship type="one" title="From" related-entity-name="mantle.party.RoleType">
             <key-map field-name="fromRoleTypeId"/>
         </relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.party.Party">
+        <relationship type="one" title="To" related-entity-name="mantle.party.Party">
             <key-map field-name="toPartyId"/>
         </relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.party.RoleType">
+        <relationship type="one" title="To" related-entity-name="mantle.party.RoleType">
             <key-map field-name="toRoleTypeId"/>
         </relationship>
         <relationship type="one" title="AgreementType" related-entity-name="moqui.basic.Enumeration">
@@ -85,8 +459,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="partyId" type="id" is-pk="true"/>
         <field name="roleTypeId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="mantle.party.agreement.Agreement"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <relationship type="one" related-entity-name="mantle.party.party.RoleType"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
     </entity>
     <entity entity-name="AgreementTerm" package-name="mantle.party.agreement">
         <field name="agreementTermId" type="id" is-pk="true"/>
@@ -206,8 +580,8 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="agreementId"/>
             <key-map field-name="agreementItemSeqId"/>
         </relationship>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <relationship type="one" related-entity-name="mantle.party.party.RoleType"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
     </entity>
     <entity entity-name="AgreementItemWorkEffort" package-name="mantle.party.agreement">
         <field name="agreementId" type="id" is-pk="true"/>
@@ -264,16 +638,16 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="To" related-entity-name="mantle.party.contact.ContactMech">
             <key-map field-name="toContactMechId"/>
         </relationship>
-        <relationship type="one" title="From" related-entity-name="mantle.party.party.Party">
+        <relationship type="one" title="From" related-entity-name="mantle.party.Party">
             <key-map field-name="fromPartyId"/>
         </relationship>
-        <relationship type="one" title="From" related-entity-name="mantle.party.party.RoleType">
+        <relationship type="one" title="From" related-entity-name="mantle.party.RoleType">
             <key-map field-name="fromRoleTypeId"/>
         </relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.party.Party">
+        <relationship type="one" title="To" related-entity-name="mantle.party.Party">
             <key-map field-name="toPartyId"/>
         </relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.party.RoleType">
+        <relationship type="one" title="To" related-entity-name="mantle.party.RoleType">
             <key-map field-name="toRoleTypeId"/>
         </relationship>
         <relationship type="one" related-entity-name="ContactList"/>
@@ -362,8 +736,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="contactMechId" type="id"/>
         <field name="statusId" type="id"/>
         <relationship type="one" related-entity-name="mantle.party.communication.CommunicationEvent"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <relationship type="one" related-entity-name="mantle.party.party.RoleType"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
         <relationship type="one" related-entity-name="ContactMech"/>
         <relationship type="one" title="CommunicationEventParty" related-entity-name="moqui.basic.StatusItem"/>
         <seed-data>
@@ -526,7 +900,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="allowSolicitation" type="text-indicator"/>
         <field name="usedSince" type="date"/>
         <field name="verifyCode" type="text-medium"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
         <relationship type="one" related-entity-name="mantle.party.contact.ContactMech"/>
         <relationship type="one" related-entity-name="mantle.party.contact.ContactMechPurpose"/>
     </entity>
@@ -606,380 +980,6 @@ and those parts may be licensed under the Apache License 2.0.
         <alias-all entity-alias="CM"/>
         <alias-all entity-alias="TN"/>
     </view-entity>
-
-    <!-- ========================================================= -->
-    <!-- mantle.party.party -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="Party" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="partyTypeEnumId" type="id"/>
-        <field name="disabled" type="text-indicator" enable-audit-log="true"/>
-        <field name="externalId" type="id"/>
-        <field name="dataSourceId" type="id"/>
-        <relationship type="one" title="PartyType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="partyTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="DataSource"/>
-        <index name="PARTY_ID_EXT"><index-field name="externalId"/></index>
-        <seed-data>
-            <!-- Party Type -->
-            <moqui.basic.EnumerationType description="Party Type" enumTypeId="PartyType"/>
-            <moqui.basic.Enumeration description="Automated Agent" enumId="AUTOMATED_AGENT" enumTypeId="PartyType"/>
-            <moqui.basic.Enumeration description="Person" enumId="PERSON" enumTypeId="PartyType"/>
-            <moqui.basic.Enumeration description="Organization" enumId="ORGANIZATION" enumTypeId="PartyType"/>
-
-            <!-- _NA_ Party -->
-            <Party partyId="_NA_" partyTypeEnumId="PERSON"/>
-            <Person partyId="_NA_"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="Organization" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="organizationName" type="text-medium"/>
-        <field name="officeSiteName" type="text-medium"/>
-        <field name="annualRevenue" type="currency-amount"/>
-        <field name="numEmployees" type="number-integer"/>
-        <field name="comments" type="text-long"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <index name="PTY_ORG_NAME_IDX"><index-field name="organizationName"/></index>
-    </entity>
-    <entity entity-name="Person" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="salutation" type="text-medium"/>
-        <field name="firstName" type="text-medium"/>
-        <field name="middleName" type="text-medium"/>
-        <field name="lastName" type="text-medium" enable-audit-log="true"/>
-        <field name="personalTitle" type="text-medium"/>
-        <field name="suffix" type="text-medium"/>
-        <field name="nickname" type="text-medium"/>
-        <field name="gender" type="text-indicator"/>
-        <field name="birthDate" type="date"/>
-        <field name="deceasedDate" type="date"/>
-        <field name="height" type="number-float"/>
-        <field name="weight" type="number-float"/>
-        <field name="mothersMaidenName" type="text-medium" encrypt="true"/>
-        <field name="comments" type="text-long"/>
-        <field name="maritalStatusEnumId" type="id"/>
-        <field name="employmentStatusEnumId" type="id"/>
-        <field name="residenceStatusEnumId" type="id"/>
-        <field name="occupation" type="text-medium"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" title="MaritalStatus" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="maritalStatusEnumId"/>
-        </relationship>
-        <relationship type="one" title="EmploymentStatus" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="employmentStatusEnumId"/>
-        </relationship>
-        <relationship type="one" title="ResidenceStatus" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="residenceStatusEnumId"/>
-        </relationship>
-        <index name="FIRST_NAME_IDX"><index-field name="firstName"/></index>
-        <index name="LAST_NAME_IDX"><index-field name="lastName"/></index>
-        <seed-data>
-            <moqui.basic.EnumerationType description="Marital Status" enumTypeId="MaritalStatus"/>
-            <moqui.basic.Enumeration description="Single" enumId="MARS_SINGLE" enumTypeId="MaritalStatus"/>
-            <moqui.basic.Enumeration description="Married" enumId="MARS_MARRIED" enumTypeId="MaritalStatus"/>
-            <moqui.basic.Enumeration description="Divorced" enumId="MARS_DIVORCED" enumTypeId="MaritalStatus"/>
-            <moqui.basic.Enumeration description="Widowed/Widower" enumId="MARS_WIDOW" enumTypeId="MaritalStatus"/>
-
-            <moqui.basic.EnumerationType description="Employment Status" enumTypeId="EmploymentStatus"/>
-            <moqui.basic.Enumeration description="Full-time Employed" enumId="EMPS_FULLTIME" enumTypeId="EmploymentStatus"/>
-            <moqui.basic.Enumeration description="Part-time Employed" enumId="EMPS_PARTTIME" enumTypeId="EmploymentStatus"/>
-            <moqui.basic.Enumeration description="Self Employed" enumId="EMPS_SELF" enumTypeId="EmploymentStatus"/>
-            <moqui.basic.Enumeration description="House-Person" enumId="EMPS_HOUSE" enumTypeId="EmploymentStatus"/>
-            <moqui.basic.Enumeration description="Retired" enumId="EMPS_RETIRED" enumTypeId="EmploymentStatus"/>
-            <moqui.basic.Enumeration description="Student" enumId="EMPS_STUDENT" enumTypeId="EmploymentStatus"/>
-            <moqui.basic.Enumeration description="Unemployed" enumId="EMPS_UNEMP" enumTypeId="EmploymentStatus"/>
-
-            <moqui.basic.EnumerationType description="Residence Status" enumTypeId="ResidenceStatus"/>
-            <moqui.basic.Enumeration description="Own Home" enumId="PRESS_OWN" enumTypeId="ResidenceStatus"/>
-            <moqui.basic.Enumeration description="Private Tenant" enumId="PRESS_PVT_TENANT" enumTypeId="ResidenceStatus"/>
-            <moqui.basic.Enumeration description="Public Tenant" enumId="PRESS_PUB_TENANT" enumTypeId="ResidenceStatus"/>
-            <moqui.basic.Enumeration description="With Parents" enumId="PRESS_PARENTS" enumTypeId="ResidenceStatus"/>
-        </seed-data>
-    </entity>
-
-    <extend-entity entity-name="UserAccount" package-name="moqui.security">
-        <field name="partyId" type="id"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-    </extend-entity>
-
-    <entity entity-name="PartyIdentification" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="partyIdTypeEnumId" type="id" is-pk="true"/>
-        <field name="idValue" type="id-long"/>
-        <field name="expireDate" type="date"/>
-        <relationship type="one" title="PartyIdType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="partyIdTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <index name="PARTY_ID_VALUE" unique="false"><index-field name="idValue"/></index>
-        <seed-data>
-            <moqui.basic.EnumerationType description="Party Identification Type" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Passport Number" enumId="PTYID_PASSPORT" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Driver License Number" enumId="PTYID_DRLIC" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Social Security Number" enumId="PTYID_SSN" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Matricula Consular ID" enumId="PTYID_MCID" enumTypeId="PartyIdType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="PartyGeoPoint" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="geoPointId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <relationship type="one" related-entity-name="GeoPoint"/>
-    </entity>
-
-    <entity entity-name="PartyClassification" package-name="mantle.party.party">
-        <field name="partyClassificationId" type="id" is-pk="true"/>
-        <field name="classificationTypeEnumId" type="id"/>
-        <field name="parentClassificationId" type="id"/>
-        <field name="description" type="text-medium"/>
-        <relationship type="one" title="PartyClassificationType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="classificationTypeEnumId"/>
-        </relationship>
-        <relationship type="one" title="Parent" related-entity-name="mantle.party.party.PartyClassification">
-            <key-map field-name="parentClassificationId" related-field-name="partyClassificationId"/>
-        </relationship>
-        <seed-data>
-            <moqui.basic.EnumerationType description="Party Classification Type" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="EEOC (Equal Opportunity)" enumId="EEOC_CLASSIFICATION" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Minority" enumId="MINORITY_CLASSIFICAT" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Income" enumId="INCOME_CLASSIFICATIO" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Industry" enumId="INDUSTRY_CLASSIFICAT" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Organization" enumId="ORGANIZATION_CLASSIF" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Person" enumId="PERSON_CLASSIFICATIO" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Size" enumId="SIZE_CLASSIFICATION" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Trade" enumId="TRADE_CLASSIFICATION" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Wholesale" parentEnumId="TRADE_CLASSIFICATION" enumId="TRADE_WHOLE_CLASSIFI" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Retail" parentEnumId="TRADE_CLASSIFICATION" enumId="TRADE_RETAIL_CLASSIF" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Annual Revenue" enumId="ANNUAL_REVENUE" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Number of Employees" enumId="NUMBER_OF_EMPLOYEES" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Value Rating" enumId="VALUE_RATING" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="SIC Code" enumId="SIC_CODE" enumTypeId="PartyClassificationType"/>
-            <moqui.basic.Enumeration description="Ownership" enumId="OWNERSHIP" enumTypeId="PartyClassificationType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="PartyClassificationAppl" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="partyClassificationId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <relationship type="one" related-entity-name="mantle.party.party.PartyClassification"/>
-    </entity>
-
-    <entity entity-name="PartyContent" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="partyContentTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <relationship type="one" title="PartyContentType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="partyContentTypeEnumId"/>
-        </relationship>
-        <seed-data>
-            <!-- Party Content Type -->
-            <moqui.basic.EnumerationType description="Party Content Type" enumTypeId="PartyContentType"/>
-            <moqui.basic.Enumeration description="Internal Content" enumId="INTERNAL" enumTypeId="PartyContentType"/>
-            <moqui.basic.Enumeration description="User Defined Content"  enumId="USERDEF" enumTypeId="PartyContentType"/>
-            <moqui.basic.Enumeration description="Logo Image URL"  enumId="LGOIMGURL" enumTypeId="PartyContentType"/>
-            <moqui.basic.Enumeration description="Vendor Shipping Info"  enumId="VNDSHPINF" enumTypeId="PartyContentType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="PartyNote" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="noteDate" type="date-time" is-pk="true"/>
-        <field name="noteText" type="text-very-long"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-    </entity>
-    <entity entity-name="PartyRelationship" package-name="mantle.party.party">
-        <field name="partyRelationshipId" type="id" is-pk="true"/>
-        <field name="relationshipTypeEnumId" type="id"/>
-        <field name="fromPartyId" type="id"/>
-        <field name="fromRoleTypeId" type="id"/>
-        <field name="toPartyId" type="id"/>
-        <field name="toRoleTypeId" type="id"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="statusId" type="id"/>
-        <field name="priorityTypeEnumId" type="id"/>
-        <field name="permissionsEnumId" type="id"/>
-        <field name="comments" type="text-medium"/>
-        <field name="relationshipName" type="text-medium">
-            <description>Official name of relationship, such as title in an organization.</description>
-        </field>
-        <relationship type="one" title="From" related-entity-name="mantle.party.party.Party">
-            <key-map field-name="fromPartyId"/>
-        </relationship>
-        <relationship type="one" title="From" related-entity-name="mantle.party.party.RoleType">
-            <key-map field-name="fromRoleTypeId"/>
-        </relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.party.Party">
-            <key-map field-name="toPartyId"/>
-        </relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.party.RoleType">
-            <key-map field-name="toRoleTypeId"/>
-        </relationship>
-        <relationship type="one" title="PartyRelationship" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="PriorityType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="priorityTypeEnumId"/>
-        </relationship>
-        <relationship type="one" title="PartyRelationshipType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="relationshipTypeEnumId"/>
-        </relationship>
-        <seed-data>
-            <!-- NOTE: The partyRelationshipName describes the TO party, ie A is a customer of B, so A is the partyTo and B is the partyFrom -->
-            <moqui.basic.EnumerationType description="Party Relationship Type" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Agent" enumId="AGENT" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Child" enumId="CHILD" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Contact Relationship" enumId="CONTACT_REL" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Lead Relationship" enumId="LEAD_REL" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Lead Owned by" enumId="LEAD_OWNER" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Customer" enumId="CUSTOMER_REL" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Distributor" enumId="DISTRIBUTION_CHANNEL" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Employee" enumId="EMPLOYMENT" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Friend" enumId="FRIEND" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Group Member" enumId="GROUP_ROLLUP" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Host Server Visitor" enumId="HOST_SERVER_VISITOR" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="ISP Visitor" enumId="VISITOR_ISP" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Manager" enumId="MANAGER" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Parent" enumId="PARENT" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Partner" enumId="PARTNERSHIP" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Sales Affiliate" enumId="SALES_AFFILIATE" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Spouse" enumId="SPOUSE" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Supplier" enumId="SUPPLIER_REL" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Web Master" enumId="WEB_MASTER_ASSIGNMEN" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Account owned by" enumId="ACCOUNT" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Assistant" enumId="ASSISTANT" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Owned by" enumId="OWNER" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Parent Account" enumId="PARENT_ACCOUNT" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Reports To" enumId="REPORTS_TO" enumTypeId="PartyRelationshipType"/>
-            <moqui.basic.Enumeration description="Lead Owners/Managers" enumId="LEAD_OWN_GRP_MEMBER" enumTypeId="PartyRelationshipType"/>
-
-            <moqui.basic.StatusType description="Party Relationship" statusTypeId="PartyRelationship"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="PartyRole" package-name="mantle.party.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="mantle.party.party.Party"/>
-        <relationship type="one" related-entity-name="mantle.party.party.RoleType"/>
-    </entity>
-    <entity entity-name="RoleType" package-name="mantle.party.party">
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <field name="parentTypeId" type="id"/>
-        <field name="description" type="text-medium"/>
-        <relationship type="one" title="Parent" related-entity-name="mantle.party.party.RoleType">
-            <key-map field-name="parentTypeId" related-field-name="roleTypeId"/>
-        </relationship>
-        <seed-data>
-            <!-- NOTE: RoleType is not moved to Enumeration because there are many of them (ID conflicts) and it is referred to in many places. -->
-            <!-- top level role types -->
-            <RoleType description="Account Lead" roleTypeId="ACCOUNT_LEAD"/>
-            <RoleType description="Administrator" roleTypeId="ADMIN"/>
-            <RoleType description="Agent" roleTypeId="AGENT"/>
-            <RoleType description="Automated Agent" roleTypeId="AUTOMATED_AGENT_ROLE"/>
-            <RoleType description="Calendar" roleTypeId="CALENDAR_ROLE"/>
-            <RoleType description="Client" roleTypeId="CLIENT"/>
-            <RoleType description="Communication Participant" roleTypeId="COMM_PARTICIPANT"/>
-            <RoleType description="Consumer" roleTypeId="CONSUMER"/>
-            <RoleType description="Contractor" roleTypeId="CONTRACTOR"/>
-            <RoleType description="Customer" roleTypeId="CUSTOMER"/>
-            <RoleType description="Distribution Channel" roleTypeId="DISTRIBUTION_CHANNEL"/>
-            <RoleType description="ISP" roleTypeId="ISP"/>
-            <RoleType description="Hosting Server" roleTypeId="HOSTING_SERVER"/>
-            <RoleType description="Manufacturer" roleTypeId="MANUFACTURER"/>
-            <RoleType description="Not Applicable" roleTypeId="_NA_"/>
-            <RoleType description="Organization" roleTypeId="ORGANIZATION_ROLE"/>
-            <RoleType description="Owner"  roleTypeId="OWNER"/>
-            <RoleType description="Prospect" roleTypeId="PROSPECT"/>
-            <RoleType description="Person" roleTypeId="PERSON_ROLE"/>
-            <RoleType description="Referrer" roleTypeId="REFERRER"/>
-            <RoleType description="Request Manager" roleTypeId="REQ_MANAGER"/>
-            <RoleType description="Requesting Party" roleTypeId="REQ_REQUESTER"/>
-            <RoleType description="Request Taker" roleTypeId="REQ_TAKER"/>
-            <RoleType description="Sales Force Automation" roleTypeId="SFA_ROLE"/>
-            <RoleType description="Shareholder" roleTypeId="SHAREHOLDER"/>
-            <RoleType description="Subscriber" roleTypeId="SUBSCRIBER"/>
-            <RoleType description="Vendor" roleTypeId="VENDOR"/>
-            <RoleType description="Visitor" roleTypeId="VISITOR"/>
-            <RoleType description="Web Master" roleTypeId="WEB_MASTER"/>
-            <RoleType description="Workflow" roleTypeId="WORKFLOW_ROLE"/>
-            <RoleType description="Accountant" roleTypeId="ACCOUNTANT"/>
-
-            <!-- second level role types -->
-            <RoleType description="Account" parentTypeId="SFA_ROLE" roleTypeId="ACCOUNT"/>
-            <RoleType description="Association" parentTypeId="ORGANIZATION_ROLE" roleTypeId="ASSOCIATION"/>
-            <RoleType description="Bill-From Vendor" parentTypeId="VENDOR" roleTypeId="BILL_FROM_VENDOR"/>
-            <RoleType description="Bill-To Customer" parentTypeId="CUSTOMER" roleTypeId="BILL_TO_CUSTOMER"/>
-            <RoleType description="Bulk Customer" parentTypeId="CUSTOMER" roleTypeId="BULK_CUSTOMER"/>
-            <RoleType description="Calendar Attendee" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_ATTENDEE"/>
-            <RoleType description="Calendar Delegate" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_DELEGATE"/>
-            <RoleType description="Calendar Host" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_HOST"/>
-            <RoleType description="Calendar Organizer" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_ORGANIZER"/>
-            <RoleType description="Calendar Owner" parentTypeId="CALENDAR_ROLE" roleTypeId="CAL_OWNER"/>
-            <RoleType description="Carrier" parentTypeId="ORGANIZATION_ROLE" roleTypeId="CARRIER"/>
-            <RoleType description="Client Billing Rep" parentTypeId="PERSON_ROLE" roleTypeId="CLIENT_BILLING"/>
-            <RoleType description="Client Manager" parentTypeId="PERSON_ROLE" roleTypeId="CLIENT_MANAGER"/>
-            <RoleType description="Competitor" parentTypeId="ORGANIZATION_ROLE" roleTypeId="COMPETITOR"/>
-            <RoleType description="Contact" parentTypeId="SFA_ROLE" roleTypeId="CONTACT"/>
-            <RoleType description="Distributor" parentTypeId="DISTRIBUTION_CHANNEL" roleTypeId="DISTRIBUTOR"/>
-            <RoleType description="Email Administrator" parentTypeId="PERSON_ROLE" roleTypeId="EMAIL_ADMIN"/>
-            <RoleType description="Employee" parentTypeId="PERSON_ROLE" roleTypeId="EMPLOYEE"/>
-            <RoleType description="End-User Customer" parentTypeId="CUSTOMER" roleTypeId="END_USER_CUSTOMER"/>
-            <RoleType description="Household" parentTypeId="ORGANIZATION_ROLE" roleTypeId="HOUSEHOLD"/>
-            <RoleType description="Internal Organization" parentTypeId="ORGANIZATION_ROLE" roleTypeId="INTERNAL_ORGANIZATIO"/>
-            <RoleType description="Corporation" parentTypeId="ORGANIZATION_ROLE" roleTypeId="CORPORATION"/>
-            <RoleType description="Government Agency" parentTypeId="ORGANIZATION_ROLE" roleTypeId="GOVERNMENT_AGENCY"/>
-            <RoleType description="Family" parentTypeId="ORGANIZATION_ROLE" roleTypeId="FAMILY"/>
-            <RoleType description="Team" parentTypeId="ORGANIZATION_ROLE" roleTypeId="TEAM"/>
-            <RoleType description="Lead" parentTypeId="SFA_ROLE" roleTypeId="LEAD"/>
-            <RoleType description="Limited Administrator" parentTypeId="ADMIN" roleTypeId="LTD_ADMIN"/>
-            <RoleType description="Organization Unit" parentTypeId="ORGANIZATION_ROLE" roleTypeId="ORGANIZATION_UNIT"/>
-            <RoleType description="Partner" parentTypeId="ORGANIZATION_ROLE" roleTypeId="PARTNER"/>
-            <RoleType description="Placing Customer" parentTypeId="CUSTOMER" roleTypeId="PLACING_CUSTOMER"/>
-            <RoleType description="Regulatory Agency" parentTypeId="ORGANIZATION_ROLE" roleTypeId="REGULATORY_AGENCY"/>
-            <RoleType description="Sales Representative" parentTypeId="PERSON_ROLE" roleTypeId="SALES_REP"/>
-            <RoleType description="Ship-From Vendor" parentTypeId="VENDOR" roleTypeId="SHIP_FROM_VENDOR"/>
-            <RoleType description="Ship-To Customer" parentTypeId="CUSTOMER" roleTypeId="SHIP_TO_CUSTOMER"/>
-            <RoleType description="Sponsor" parentTypeId="PERSON_ROLE" roleTypeId="SPONSOR"/>
-            <RoleType description="Spouse" parentTypeId="PERSON_ROLE" roleTypeId="SPOUSE"/>
-            <RoleType description="Supplier Agent" parentTypeId="PERSON_ROLE" roleTypeId="SUPPLIER_AGENT"/>
-            <RoleType description="Supplier" parentTypeId="ORGANIZATION_ROLE" roleTypeId="SUPPLIER"/>
-            <RoleType description="Tax Authority" parentTypeId="ORGANIZATION_ROLE" roleTypeId="TAX_AUTHORITY"/>
-            <RoleType description="Union" parentTypeId="ORGANIZATION_ROLE" roleTypeId="UNION"/>
-            <RoleType description="Workflow Owner" parentTypeId="WORKFLOW_ROLE" roleTypeId="WF_OWNER"/>
-
-            <!-- third level role types -->
-            <RoleType description="Affiliate" parentTypeId="SALES_REP" roleTypeId="AFFILIATE"/>
-            <RoleType description="Buyer" parentTypeId="EMPLOYEE" roleTypeId="BUYER"/>
-            <RoleType description="Cashier" parentTypeId="EMPLOYEE" roleTypeId="CASHIER"/>
-            <RoleType description="Department" parentTypeId="ORGANIZATION_UNIT" roleTypeId="DEPARTMENT"/>
-            <RoleType description="Division" parentTypeId="ORGANIZATION_UNIT" roleTypeId="DIVISION"/>
-            <RoleType description="Family Member" parentTypeId="PERSON_ROLE" roleTypeId="FAMILY_MEMBER"/>
-            <RoleType description="Manager" parentTypeId="EMPLOYEE" roleTypeId="MANAGER"/>
-            <RoleType description="Order Clerk" parentTypeId="EMPLOYEE" roleTypeId="ORDER_CLERK"/>
-            <RoleType description="Other Internal" parentTypeId="INTERNAL_ORGANIZATIO" roleTypeId="OTHER_INTERNAL_ORGAN"/>
-            <RoleType description="Other Organization Unit" parentTypeId="ORGANIZATION_UNIT" roleTypeId="OTHER_ORGANIZATION_U"/>
-            <RoleType description="Parent Organization" parentTypeId="ORGANIZATION_UNIT" roleTypeId="PARENT_ORGANIZATION"/>
-            <RoleType description="Packer" parentTypeId="EMPLOYEE" roleTypeId="PACKER"/>
-            <RoleType description="Picker" parentTypeId="EMPLOYEE" roleTypeId="PICKER"/>
-            <RoleType description="Receiver" parentTypeId="EMPLOYEE" roleTypeId="RECEIVER"/>
-            <RoleType description="Shipment Clerk" parentTypeId="EMPLOYEE" roleTypeId="SHIPMENT_CLERK"/>
-            <RoleType description="Stocker" parentTypeId="EMPLOYEE" roleTypeId="STOCKER"/>
-            <RoleType description="Subsidiary" parentTypeId="ORGANIZATION_UNIT" roleTypeId="SUBSIDIARY"/>
-            <RoleType description="Worker" parentTypeId="EMPLOYEE" roleTypeId="WORKER"/>
-
-            <RoleType description="Fixed Asset Maint Assignee" roleTypeId="FAM_ASSIGNEE"/>
-            <RoleType description="Maintenance Supplier or Service" parentTypeId="FAM_ASSIGNEE" roleTypeId="FAM_SUPPLIER"/>
-            <RoleType description="Maintenance Manager or Supervisor" parentTypeId="FAM_ASSIGNEE" roleTypeId="FAM_MANAGER"/>
-            <RoleType description="Maintenance Worker" parentTypeId="FAM_ASSIGNEE" roleTypeId="FAM_WORKER"/>
-        </seed-data>
-    </entity>
 
     <!-- ========================================================= -->
     <!-- mantle.party.time -->
