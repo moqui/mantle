@@ -16,16 +16,16 @@ and those parts may be licensed under the Apache License 2.0.
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.3.xsd">
     <!-- ========================================================= -->
-    <!--  - mantle.request.request -->
+    <!--  - mantle.request -->
     <!--  - mantle.request.requirement -->
     <!-- ========================================================= -->
 
 
     <!-- ========================================================= -->
-    <!-- mantle.request.request -->
+    <!-- mantle.request -->
     <!-- ========================================================= -->
 
-    <entity entity-name="Request" package-name="mantle.request.request">
+    <entity entity-name="Request" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="requestTypeEnumId" type="id"/>
         <field name="requestCategoryId" type="id"/>
@@ -61,8 +61,60 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
             <key-map field-name="currencyUomId"/>
         </relationship>
+
+        <seed-data>
+            <!-- Request Type -->
+            <moqui.basic.EnumerationType description="Request Type" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RF_BUGFIX" description="Request For Bug Fix" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RF_CATALOG" description="Request For Catalog" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RF_FEATURE" description="Request For Feature" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RF_INFO" description="Request For Information" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RF_PROPOSAL" description="Request For Proposal" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RF_QUOTE" description="Request For Quote" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RF_SUPPORT" description="Request For Support" enumTypeId="RequestType"/>
+
+            <!-- Request Status -->
+            <moqui.basic.StatusType description="Request Status" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Draft" sequenceNum="0" statusId="REQUEST_DRAFT" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Submitted" sequenceNum="1" statusId="REQUEST_SUBMITTED" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Accepted" sequenceNum="2" statusId="REQUEST_ACCEPTED" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Reviewed" sequenceNum="3" statusId="REQUEST_REVIEWED" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Pending Cust." sequenceNum="9" statusId="REQUEST_PENDING" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Completed" sequenceNum="4" statusId="REQUEST_COMPLETED" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Rejected" sequenceNum="98" statusId="REQUEST_REJECTED" statusTypeId="Request"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="REQUEST_CANCELLED" statusTypeId="Request"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_DRAFT" toStatusId="REQUEST_ACCEPTED" transitionName="Accept"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_DRAFT" toStatusId="REQUEST_SUBMITTED" transitionName="Submit"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_DRAFT" toStatusId="REQUEST_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_SUBMITTED" toStatusId="REQUEST_ACCEPTED" transitionName="Accept"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_SUBMITTED" toStatusId="REQUEST_COMPLETED" transitionName="Complete"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_SUBMITTED" toStatusId="REQUEST_REJECTED" transitionName="Reject"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_SUBMITTED" toStatusId="REQUEST_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_SUBMITTED" toStatusId="REQUEST_PENDING" transitionName="Pending customer"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_PENDING" toStatusId="REQUEST_SUBMITTED" transitionName="Submit"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_PENDING" toStatusId="REQUEST_ACCEPTED" transitionName="Accept"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_PENDING" toStatusId="REQUEST_REVIEWED" transitionName="Review"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_PENDING" toStatusId="REQUEST_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_ACCEPTED" toStatusId="REQUEST_REVIEWED" transitionName="Review"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_ACCEPTED" toStatusId="REQUEST_COMPLETED" transitionName="Complete"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_ACCEPTED" toStatusId="REQUEST_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_ACCEPTED" toStatusId="REQUEST_PENDING" transitionName="Pending Customer"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_REVIEWED" toStatusId="REQUEST_COMPLETED" transitionName="Complete"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_REVIEWED" toStatusId="REQUEST_CANCELLED" transitionName="Cancel"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_REVIEWED" toStatusId="REQUEST_PENDING" transitionName="Pending Customer"/>
+            <moqui.basic.StatusValidChange statusId="REQUEST_COMPLETED" toStatusId="REQUEST_REVIEWED" transitionName="Re-open"/>
+
+            <!-- Request Resolution -->
+            <moqui.basic.EnumerationType description="Request Resolution" enumTypeId="RequestResolution"/>
+            <moqui.basic.Enumeration enumId="FIXED" description="Fixed" enumTypeId="RequestResolution"/>
+            <moqui.basic.Enumeration enumId="CANTREP" description="Can't Reproduce" enumTypeId="RequestResolution"/>
+            <moqui.basic.Enumeration enumId="WONTFIX" description="Won't Fix" enumTypeId="RequestResolution"/>
+            <moqui.basic.Enumeration enumId="DUPLICATE" description="Duplicate" enumTypeId="RequestResolution"/>
+            <moqui.basic.Enumeration enumId="REJECTED" description="Rejected" enumTypeId="RequestResolution"/>
+            <moqui.basic.Enumeration enumId="IMPLEMENTED" description="Implemented" enumTypeId="RequestResolution"/>
+        </seed-data>
     </entity>
-    <entity entity-name="RequestCategory" package-name="mantle.request.request">
+    <entity entity-name="RequestCategory" package-name="mantle.request">
         <field name="requestCategoryId" type="id" is-pk="true"/>
         <field name="parentCategoryId" type="id"/>
         <field name="responsiblePartyId" type="id">
@@ -76,20 +128,20 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="responsiblePartyId"/>
         </relationship>
     </entity>
-    <entity entity-name="RequestCommEvent" package-name="mantle.request.request">
+    <entity entity-name="RequestCommEvent" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="communicationEventId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="Request"/>
         <relationship type="one" related-entity-name="CommunicationEvent"/>
     </entity>
-    <entity entity-name="RequestContent" package-name="mantle.request.request">
+    <entity entity-name="RequestContent" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="contentLocation" type="text-medium" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="Request"/>
     </entity>
-    <entity entity-name="RequestItem" package-name="mantle.request.request">
+    <entity entity-name="RequestItem" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="requestItemSeqId" type="id" is-pk="true"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
@@ -110,7 +162,7 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" related-entity-name="Product"/>
     </entity>
-    <entity entity-name="RequestNote" package-name="mantle.request.request">
+    <entity entity-name="RequestNote" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="noteDate" type="date-time" is-pk="true"/>
         <field name="requestItemSeqId" type="id"/>
@@ -121,7 +173,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="requestItemSeqId"/>
         </relationship>
     </entity>
-    <entity entity-name="RequestItemWorkEffort" package-name="mantle.request.request">
+    <entity entity-name="RequestItemWorkEffort" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="requestItemSeqId" type="id" is-pk="true"/>
         <field name="workEffortId" type="id" is-pk="true"/>
@@ -132,7 +184,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one-nofk" related-entity-name="Request"/>
         <relationship type="one" related-entity-name="WorkEffort"/>
     </entity>
-    <entity entity-name="RequestParty" package-name="mantle.request.request">
+    <entity entity-name="RequestParty" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="partyId" type="id" is-pk="true"/>
         <field name="roleTypeId" type="id" is-pk="true"/>
@@ -142,7 +194,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Party"/>
         <relationship type="one" related-entity-name="RoleType"/>
     </entity>
-    <entity entity-name="RequestWorkEffort" package-name="mantle.request.request">
+    <entity entity-name="RequestWorkEffort" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="workEffortId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="Request"/>
@@ -176,6 +228,29 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="Deliverable"/>
         <relationship type="one" related-entity-name="Asset"/>
         <relationship type="one" related-entity-name="Product"/>
+
+        <seed-data>
+            <!-- Requirement Type -->
+            <moqui.basic.EnumerationType description="Requirement Type" enumTypeId="RequirementType"/>
+            <moqui.basic.Enumeration description="Customer" enumId="CUSTOMER_REQUIREMENT" enumTypeId="RequirementType"/>
+            <moqui.basic.Enumeration description="Internal" enumId="INTERNAL_REQUIREMENT" enumTypeId="RequirementType"/>
+            <moqui.basic.Enumeration description="Product" enumId="PRODUCT_REQUIREMENT" enumTypeId="RequirementType"/>
+            <moqui.basic.Enumeration description="Work" enumId="WORK_REQUIREMENT" enumTypeId="RequirementType"/>
+
+            <!-- Requirement Status -->
+            <moqui.basic.StatusType description="Requirement Status" statusTypeId="Requirement"/>
+            <moqui.basic.StatusItem description="Proposed" sequenceNum="1" statusId="REQRMNT_PROPOSED" statusTypeId="Requirement"/>
+            <moqui.basic.StatusItem description="Created" sequenceNum="2" statusId="REQRMNT_CREATED" statusTypeId="Requirement"/>
+            <moqui.basic.StatusItem description="Approved" sequenceNum="3" statusId="REQRMNT_APPROVED" statusTypeId="Requirement"/>
+            <moqui.basic.StatusItem description="Ordered" sequenceNum="4" statusId="REQRMNT_ORDERED" statusTypeId="Requirement"/>
+            <moqui.basic.StatusItem description="Rejected" sequenceNum="9" statusId="REQRMNT_REJECTED" statusTypeId="Requirement"/>
+            <moqui.basic.StatusValidChange statusId="REQRMNT_PROPOSED" toStatusId="REQRMNT_APPROVED" transitionName="Accept"/>
+            <moqui.basic.StatusValidChange statusId="REQRMNT_PROPOSED" toStatusId="REQRMNT_REJECTED" transitionName="Reject"/>
+            <moqui.basic.StatusValidChange statusId="REQRMNT_CREATED" toStatusId="REQRMNT_APPROVED" transitionName="Accept"/>
+            <moqui.basic.StatusValidChange statusId="REQRMNT_CREATED" toStatusId="REQRMNT_REJECTED" transitionName="Reject"/>
+            <moqui.basic.StatusValidChange statusId="REQRMNT_APPROVED" toStatusId="REQRMNT_ORDERED" transitionName="Order"/>
+            <moqui.basic.StatusValidChange statusId="REQRMNT_APPROVED" toStatusId="REQRMNT_REJECTED" transitionName="Reject"/>
+        </seed-data>
     </entity>
     <entity entity-name="RequirementBudgetAllocation" package-name="mantle.request.requirement">
         <field name="requirementId" type="id" is-pk="true"/>
@@ -228,5 +303,15 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="WorkRequirementFulfillmentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="fulfillmentTypeEnumId"/>
         </relationship>
+
+        <seed-data>
+            <!-- Work Requirement Fulfillment Type -->
+            <moqui.basic.EnumerationType description="Work Requirement Fulfillment Type" enumTypeId="WorkRequirementFulfillmentType"/>
+            <moqui.basic.Enumeration description="Implements" enumId="WRF_IMPLEMENTS" enumTypeId="WorkRequirementFulfillmentType"/>
+            <moqui.basic.Enumeration description="Fixes" enumId="WRF_FIXES" enumTypeId="WorkRequirementFulfillmentType"/>
+            <moqui.basic.Enumeration description="Deploys" enumId="WRF_DEPLOYS" enumTypeId="WorkRequirementFulfillmentType"/>
+            <moqui.basic.Enumeration description="Tests" enumId="WRF_TESTS" enumTypeId="WorkRequirementFulfillmentType"/>
+            <moqui.basic.Enumeration description="Delivers" enumId="WRF_DELIVERS" enumTypeId="WorkRequirementFulfillmentType"/>
+        </seed-data>
     </entity>
 </entities>
