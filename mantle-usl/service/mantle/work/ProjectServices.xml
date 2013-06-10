@@ -39,8 +39,10 @@ This Work includes contributions authored by David E. Jones, not as a
                         roleTypeId:'MANAGER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
 
             <if condition="clientPartyId">
-                <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:clientPartyId,
-                        roleTypeId:'BILL_TO_CUSTOMER', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+                <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+                        partyId:clientPartyId, roleTypeId:'BILL_TO_CUSTOMER', fromDate:ec.user.nowTimestamp]"/>
+                <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+                        partyId:clientPartyId, roleTypeId:'CLIENT', fromDate:ec.user.nowTimestamp]"/>
             </if>
             <if condition="clientBillingPartyId">
                 <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:clientBillingPartyId,
@@ -52,7 +54,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
             <if condition="vendorPartyId">
                 <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:vendorPartyId,
-                        roleTypeId:'BILL_FROM_VENDOR', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+                        roleTypeId:'BILL_FROM_VENDOR', fromDate:ec.user.nowTimestamp]"/>
             </if>
             <if condition="vendorManagerPartyId &amp;&amp; vendorManagerPartyId != ec.user.userAccount.partyId">
                 <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:vendorManagerPartyId,
@@ -69,9 +71,27 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="statusId"/>
+
+            <parameter name="clientPartyId"/>
         </in-parameters>
         <actions>
-            <service-call name="update#WorkEffort" out-map="context" in-map="context"/>
+            <service-call name="update#mantle.work.effort.WorkEffort" out-map="context" in-map="context"/>
+
+            <if condition="clientPartyId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="wepList">
+                    <date-filter/>
+                    <econdition field-name="workEffortId"/>
+                    <econdition field-name="roleTypeId" operator="in" value="CLIENT,BILL_TO_CUSTOMER"/>
+                </entity-find>
+                <iterate list="wepList" entry="wepValue">
+                    <set field="wepValue.thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="wepValue"/>
+                </iterate>
+                <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+                        partyId:clientPartyId, roleTypeId:'BILL_TO_CUSTOMER', fromDate:ec.user.nowTimestamp]"/>
+                <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+                        partyId:clientPartyId, roleTypeId:'CLIENT', fromDate:ec.user.nowTimestamp]"/>
+            </if>
         </actions>
     </service>
 
