@@ -21,11 +21,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="rateCurrencyUomId" default-value="USD"/>
         </in-parameters>
         <out-parameters>
+            <parameter name="rateAmountId"/>
             <parameter name="rateAmount"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="TimeEntry" value-field="timeEntry"/>
-            <log level="warn" message="=============== timeEntry=${timeEntry}"/>
 
             <if condition="timeEntry.workEffortId">
                 <entity-find-one entity-name="WorkEffort" value-field="taskWorkEffort">
@@ -74,32 +74,74 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- get all possible rates in one query, then do maximal match -->
             <entity-find entity-name="mantle.humanres.rate.RateAmount" list="rateAmountList">
-                <date-filter valid-date="timeEntry.fromDate"/>
-                <econdition field-name="partyId" operator="in" from="[timeEntry.partyId, null]"/>
-                <econdition field-name="workEffortId" operator="in"
-                        from="[taskWorkEffort.workEffortId, taskWorkEffort.rootWorkEffortId, null]"/>
-                <econdition field-name="emplPositionClassId" operator="in" from="[emplPositionClassId, null]"/>
+                <date-filter valid-date="timeEntry.fromDate ?: ec.user.nowTimestamp"/>
+                <econditions combine="or">
+                    <econdition field-name="partyId" from="timeEntry.partyId"/>
+                    <econdition field-name="partyId" from="null"/>
+                </econditions>
+                <!-- <econdition field-name="partyId" operator="in" from="[timeEntry.partyId, null]"/> -->
+                <econditions combine="or">
+                    <econdition field-name="workEffortId" from="taskWorkEffort?.workEffortId"/>
+                    <econdition field-name="workEffortId" from="taskWorkEffort?.rootWorkEffortId"/>
+                    <econdition field-name="workEffortId" from="null"/>
+                </econditions>
+                <!-- <econdition field-name="workEffortId" operator="in"
+                        from="[taskWorkEffort.workEffortId, taskWorkEffort.rootWorkEffortId, null]"/> -->
+                <econditions combine="or">
+                    <econdition field-name="emplPositionClassId" from="emplPositionClassId"/>
+                    <econdition field-name="emplPositionClassId" from="null"/>
+                </econditions>
+                <!-- <econdition field-name="emplPositionClassId" operator="in" from="[emplPositionClassId, null]"/> -->
                 <econdition field-name="rateTypeEnumId" from="timeEntry.rateTypeEnumId ?: 'RT_STANDARD'"/>
                 <econdition field-name="timePeriodUomId" value="TF_hr"/>
                 <econdition field-name="rateCurrencyUomId"/><!-- this comes from the parameter, maybe do a better default somehow -->
             </entity-find>
 
-            <log level="warn" message="=============== rateAmountList=${rateAmountList}"/>
+            <!-- <log level="warn" message="=============== rateAmountList=${rateAmountList}"/> -->
+
+            <!-- rates associated with the task and party? -->
+            <filter-map-list list="rateAmountList" to-list="partyTaskList">
+                <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
+                <field-map field-name="partyId" from="timeEntry.partyId"/>
+            </filter-map-list>
+            <if condition="partyTaskList"><set field="raListToUse" from="partyTaskList"/></if>
+            <!-- rates associated with the root/project and party? -->
+            <if condition="!raListToUse">
+                <filter-map-list list="rateAmountList" to-list="partyProjectList">
+                    <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
+                    <field-map field-name="partyId" from="timeEntry.partyId"/>
+                </filter-map-list>
+                <if condition="partyProjectList"><set field="raListToUse" from="partyProjectList"/></if>
+            </if>
 
             <!-- rates associated with the task? -->
-            <!--
-<mantle.work.time.TimeEntry timeEntryId="HM-004-01" partyId="EX_JOHN_DOE" hours="2" breakHours="3"
-        workEffortId="HM-004" comments="Create Task and My Tasks first pass"
-        fromDate="2013-03-02 12:00:00" thruDate="2013-03-02 17:00:00"/>
-<mantle.humanres.rate.RateAmount rateAmountId="HM-001" rateTypeEnumId="RT_STANDARD" timePeriodUomId="TF_hr"
-        workEffortId="HM" partyId="" emplPositionClassId="SENIOR_PROGRAMMER" fromDate="2010-02-03 00:00:00" thruDate=""
-        rateAmount="100.00" rateCurrencyUomId="USD"/>
-             -->
-
+            <if condition="!raListToUse">
+                <filter-map-list list="rateAmountList" to-list="taskList">
+                    <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
+                </filter-map-list>
+                <if condition="taskList"><set field="raListToUse" from="taskList"/></if>
+            </if>
             <!-- rates associated with the root/project? -->
+            <if condition="!raListToUse">
+                <filter-map-list list="rateAmountList" to-list="projectList">
+                    <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
+                </filter-map-list>
+                <if condition="projectList"><set field="raListToUse" from="projectList"/></if>
+            </if>
 
             <!-- no rate yet? get the default rate for the TimeEntry Party -->
+            <if condition="!raListToUse">
+                <filter-map-list list="rateAmountList" to-list="partyList">
+                    <field-map field-name="partyId" from="timeEntry.partyId"/>
+                </filter-map-list>
+                <if condition="partyList"><set field="raListToUse" from="partyList"/></if>
+            </if>
 
+            <if condition="raListToUse">
+                <set field="rateAmountId" from="raListToUse[0].rateAmountId"/>
+                <set field="rateAmount" from="raListToUse[0].rateAmount"/>
+            </if>
+            <!-- <log level="warn" message="=============== rateAmountId=${rateAmountId}, rateAmount=${rateAmount}"/> -->
         </actions>
     </service>
 </services>
