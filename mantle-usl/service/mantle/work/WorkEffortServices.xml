@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.3.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="replace" noun="WorkEffortParty">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="roleTypeId" required="true"/>
+            <parameter name="newPartyId" required="true"/>
+            <parameter name="statusId"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="wepList">
+                <date-filter/><econdition field-name="workEffortId"/><econdition field-name="roleTypeId"/>
+            </entity-find>
+            <iterate list="wepList" entry="wepValue">
+                <set field="wepValue.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="wepValue"/>
+            </iterate>
+            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+                    partyId:newPartyId, roleTypeId:roleTypeId, fromDate:ec.user.nowTimestamp, statusId:statusId]"/>
+        </actions>
+    </service>
+</services>

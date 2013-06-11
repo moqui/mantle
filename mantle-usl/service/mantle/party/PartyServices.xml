@@ -78,21 +78,21 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
             <set field="userId" from="newUaOut.userId"/>
 
-            <service-call name="create#Party" in-map="[partyTypeEnumId:'PERSON']" out-map="newPartyOut"/>
-            <service-call name="create#Person"
-                    in-map="[partyId:newPartyOut.partyId, firstName:firstName, middleName:middleName, lastName:lastName]"/>
+            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PERSON']" out-map="newPartyOut"/>
             <set field="partyId" from="newPartyOut.partyId"/>
+            <service-call name="create#mantle.party.Person"
+                    in-map="[partyId:partyId, firstName:firstName, middleName:middleName, lastName:lastName]"/>
 
             <service-call name="update#UserAccount" in-map="[userId:newUaOut.userId, partyId:newPartyOut.partyId]"/>
+
+            <!-- add the emailAddress -->
+            <service-call name="mantle.party.ContactServices.create#EmailAddress"
+                    in-map="[emailAddress:emailAddress, partyId:partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/>
 
             <!-- login the user -->
             <if condition="loginAfterCreate">
                 <script>ec.user.loginUser(username, newPassword, null)</script>
             </if>
-
-            <!-- add the emailAddress -->
-            <service-call name="mantle.party.ContactServices.create#EmailAddress"
-                    in-map="[emailAddress:emailAddress, partyId:newPartyOut.partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/>
         </actions>
     </service>
     <service verb="update" noun="Account">
@@ -117,6 +117,23 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- TODO: update the emailAddress ContactMech if one exists -->
             <!-- <service-call name="mantle.party.ContactServices.update#EmailAddress"
                     in-map="[emailAddress:emailAddress, partyId:newPartyOut.partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/> -->
+        </actions>
+    </service>
+    
+    <service verb="create" noun="Organization">
+        <in-parameters>
+            <parameter name="organizationName" required="true"/>
+            <parameter name="roleTypeId"/>
+        </in-parameters>
+        <out-parameters><parameter name="partyId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'ORGANIZATION']" out-map="newPartyOut"/>
+            <set field="partyId" from="newPartyOut.partyId"/>
+            <service-call name="create#mantle.party.Organization" in-map="[partyId:partyId, organizationName:organizationName]"/>
+
+            <if condition="roleTypeId">
+                <service-call name="create#mantle.party.PartyRole" in-map="[partyId:partyId, roleTypeId:roleTypeId]"/>
+            </if>
         </actions>
     </service>
 </services>
