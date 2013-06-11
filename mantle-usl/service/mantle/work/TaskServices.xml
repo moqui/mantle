@@ -86,23 +86,45 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="timeEntryId"/>
         </out-parameters>
         <actions>
-            <!-- TODO: add logic to calculate hours using fromDate/thruDate/breakHours -->
+            <!-- calculate hours using fromDate/thruDate/breakHours -->
+            <if condition="!hours &amp;&amp; fromDate &amp;&amp; thruDate &amp;&amp; breakHours">
+                <set field="hours" from="((thruDate.time - fromDate.time)/(60*60*1000)) - breakHours"/>
+            </if>
             <service-call name="create#TimeEntry" out-map="context" in-map="context"/>
         </actions>
     </service>
     <service verb="update" noun="TaskFromTime" authenticate="anonymous-all">
-        <in-parameters>
-            <parameter name="workEffortId" required="true"/>
-        </in-parameters>
+        <in-parameters><parameter name="workEffortId" required="true"/></in-parameters>
         <actions>
-            <entity-find entity-name="TimeEntrySummary" list="timeEntrySummaryList">
+            <entity-find entity-name="mantle.work.time.TimeEntrySummary" list="timeEntrySummaryList">
                 <econdition field-name="workEffortId"/>
                 <select-field field-name="hours"/>
             </entity-find>
             <if condition="timeEntrySummaryList">
-                <entity-find-one entity-name="WorkEffort" value-field="workEffort"/>
+                <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
                 <set field="workEffort.actualWorkTime" from="timeEntrySummaryList[0].hours"/>
                 <entity-update value-field="workEffort"/>
+
+                <service-call name="mantle.work.TaskServices.update#ProjectTimeFromTask" async="true"
+                        in-map="[rootWorkEffortId:workEffort.rootWorkEffortId]"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="update" noun="ProjectTimeFromTask" authenticate="anonymous-all">
+        <in-parameters><parameter name="rootWorkEffortId"/></in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.work.time.TaskTimeSummary" list="ttsList">
+                <econdition field-name="rootWorkEffortId"/>
+                <select-field field-name="actualWorkTime"/>
+                <select-field field-name="estimatedWorkTime"/>
+            </entity-find>
+            <if condition="ttsList">
+                <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="rootWorkEffort">
+                    <field-map field-name="workEffortId" from="rootWorkEffortId"/>
+                </entity-find-one>
+                <set field="rootWorkEffort.actualWorkTime" from="ttsList[0].actualWorkTime"/>
+                <set field="rootWorkEffort.estimatedWorkTime" from="ttsList[0].estimatedWorkTime"/>
+                <entity-update value-field="rootWorkEffort"/>
             </if>
         </actions>
     </service>
