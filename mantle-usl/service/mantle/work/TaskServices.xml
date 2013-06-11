@@ -90,6 +90,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="!hours &amp;&amp; fromDate &amp;&amp; thruDate &amp;&amp; breakHours">
                 <set field="hours" from="((thruDate.time - fromDate.time)/(60*60*1000)) - breakHours"/>
             </if>
+            <!-- if empty set default from/thru dates based on hours and current time -->
+            <if condition="!thruDate">
+                <set field="thruDate" from="ec.l10n.parseTimestamp(ec.l10n.formatValue(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')"/>
+            </if>
+            <if condition="hours &amp;&amp; !fromDate">
+                <set field="fromDate" from="new Timestamp((Long) (thruDate.time - (hours*60*60*1000) - (breakHours ? (breakHours*60*60*1000) : 0)))"/>
+            </if>
             <service-call name="create#TimeEntry" out-map="context" in-map="context"/>
         </actions>
     </service>
