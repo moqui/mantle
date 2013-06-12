@@ -14,6 +14,20 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="InvoiceTotal">
+        <in-parameters><parameter name="invoiceId"/></in-parameters>
+        <out-parameters><parameter name="invoiceTotal"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.accounting.account.invoice.InvoiceItem" list="invoiceItemList">
+                <econdition field-name="invoiceId"/>
+            </entity-find>
+            <set field="invoiceTotal" from="0"/>
+            <iterate list="invoiceItemList" entry="invoiceItem">
+                <set field="invoiceTotal" from="invoiceTotal + (invoiceItem.quantity * invoiceItem.amount)"/>
+            </iterate>
+        </actions>
+    </service>
+
     <!-- Invoice based on Order -->
     <service verb="create" noun="EntireOrderInvoice">
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
@@ -73,7 +87,6 @@ This Work includes contributions authored by David E. Jones, not as a
                 </econditions>
                 <econdition field-name="invoiceId" operator="equals" from="null"/>
             </entity-find>
-            <log level="warn" message="============= timeEntryList=${timeEntryList}"/>
 
             <if condition="createSingleItem">
                 <set field="amountTotal" from="0"/>
@@ -95,7 +108,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </iterate>
                 <set field="description" value="Time entries for task ${workEffort.workEffortName} [${workEffortId}]"/>
                 <service-call name="create#mantle.accounting.account.invoice.InvoiceItem" out-map="iiOut"
-                        in-map="[invoiceId:invoiceId, itemTypeEnumId:'TIME_ENTRY_ITEM', amount:amountTotal, quantity:1,
+                        in-map="[invoiceId:invoiceId, itemTypeEnumId:'IT_TIME_ENTRY', amount:amountTotal, quantity:1,
                         description:description]"/>
 
                 <iterate list="timeEntryList" entry="timeEntry">
@@ -122,7 +135,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         </if>
 
                         <service-call name="create#mantle.accounting.account.invoice.InvoiceItem" out-map="iiOut"
-                                in-map="[invoiceId:invoiceId, itemTypeEnumId:'TIME_ENTRY_ITEM',
+                                in-map="[invoiceId:invoiceId, itemTypeEnumId:'IT_TIME_ENTRY',
                                 amount:rateAmount.rateAmount, quantity:timeEntry.hours, description:timeEntry.comments]"/>
 
                         <set field="timeEntry.invoiceId" from="invoiceId"/>
@@ -176,6 +189,8 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="[invoiceId:invoiceId, workEffortId:taskWorkEffort.workEffortId, thruDate:thruDate,
                         currencyUomId:currencyUomId]"/>
             </iterate>
+
+            <message>Created Invoice ${invoiceId}</message>
         </actions>
     </service>
 </services>
