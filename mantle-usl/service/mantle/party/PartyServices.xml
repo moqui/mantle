@@ -56,6 +56,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="firstName" required="true"/>
             <parameter name="middleName"/>
             <parameter name="lastName" required="true"/>
+            <parameter name="disabled" default-value="N"/>
 
             <parameter name="emailAddress" required="true"><text-email/></parameter>
             <parameter name="username" default-value="${emailAddress}"/>
@@ -78,7 +79,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
             <set field="userId" from="newUaOut.userId"/>
 
-            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PERSON']" out-map="newPartyOut"/>
+            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PERSON', disabled:disabled]" out-map="newPartyOut"/>
             <set field="partyId" from="newPartyOut.partyId"/>
             <service-call name="create#mantle.party.Person"
                     in-map="[partyId:partyId, firstName:firstName, middleName:middleName, lastName:lastName]"/>
@@ -102,6 +103,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="firstName"/>
             <parameter name="middleName"/>
             <parameter name="lastName"/>
+            <parameter name="disabled"/>
 
             <parameter name="emailAddress"><text-email/></parameter>
             <parameter name="username"/>
@@ -111,8 +113,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="timeZone"/>
         </in-parameters>
         <actions>
-            <service-call name="update#UserAccount" in-map="context"/>
-            <service-call name="update#Person" in-map="context"/>
+            <service-call name="update#moqui.security.UserAccount" in-map="context"/>
+            <service-call name="update#mantle.party.Party" in-map="context"/>
+            <service-call name="update#mantle.party.Person" in-map="context"/>
 
             <!-- TODO: update the emailAddress ContactMech if one exists -->
             <!-- <service-call name="mantle.party.ContactServices.update#EmailAddress"
@@ -127,12 +130,30 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters><parameter name="partyId"/></out-parameters>
         <actions>
-            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'ORGANIZATION']" out-map="newPartyOut"/>
-            <set field="partyId" from="newPartyOut.partyId"/>
+            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'ORGANIZATION']" out-map="context"/>
             <service-call name="create#mantle.party.Organization" in-map="[partyId:partyId, organizationName:organizationName]"/>
 
             <if condition="roleTypeId">
                 <service-call name="create#mantle.party.PartyRole" in-map="[partyId:partyId, roleTypeId:roleTypeId]"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="update" noun="PartyDetail">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.Party" include="nonpk"/>
+            <auto-parameters entity-name="mantle.party.Person" include="nonpk"/>
+            <auto-parameters entity-name="mantle.party.Organization" include="nonpk"/>
+            <parameter name="partyId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.Party" value-field="party"/>
+            <entity-set value-field="party" include="nonpk" map="context"/>
+            <entity-update value-field="party"/>
+            <if condition="party.partyTypeEnumId == 'PERSON'">
+                <service-call name="update#mantle.party.Person" in-map="context"/>
+            </if>
+            <if condition="party.partyTypeEnumId == 'ORGANIZATION'">
+                <service-call name="update#mantle.party.Organization" in-map="context"/>
             </if>
         </actions>
     </service>
