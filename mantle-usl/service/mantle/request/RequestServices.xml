@@ -22,14 +22,54 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="requestTypeEnumId" default-value="RF_SUPPORT"/>
             <parameter name="filedByPartyId" default-value="${ec.user.userAccount.partyId}"/>
             <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
+            <parameter name="clientPartyId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="requestId"/>
         </out-parameters>
         <actions>
-            <service-call name="create#Request" out-map="context" in-map="context"/>
-            <service-call name="create#RequestParty" in-map="[requestId:requestId, partyId:assignToPartyId,
+            <service-call name="create#mantle.request.Request" out-map="context" in-map="context"/>
+            <service-call name="create#mantle.request.RequestParty" in-map="[requestId:requestId, partyId:assignToPartyId,
                     roleTypeId:'WORKER', fromDate:ec.user.nowTimestamp]"/>
+
+            <if condition="clientPartyId">
+                <service-call name="create#mantle.request.RequestParty" in-map="[requestId:requestId,
+                        partyId:clientPartyId, roleTypeId:'BILL_TO_CUSTOMER', fromDate:ec.user.nowTimestamp]"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="update" noun="Request">
+        <in-parameters>
+            <auto-parameters include="nonpk"/>
+            <parameter name="requestId" required="true"/>
+            <parameter name="clientPartyId"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.request.Request" out-map="context" in-map="context"/>
+
+            <if condition="clientPartyId">
+                <service-call name="mantle.request.RequestServices.replace#RequestParty"
+                        in-map="[requestId:requestId, roleTypeId:'BILL_TO_CUSTOMER', newPartyId:clientPartyId]"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="replace" noun="RequestParty">
+        <in-parameters>
+            <parameter name="requestId" required="true"/>
+            <parameter name="roleTypeId" required="true"/>
+            <parameter name="newPartyId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.request.RequestParty" list="rpList">
+                <date-filter/><econdition field-name="requestId"/><econdition field-name="roleTypeId"/>
+            </entity-find>
+            <iterate list="rpList" entry="rpValue">
+                <set field="rpValue.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="rpValue"/>
+            </iterate>
+            <service-call name="create#mantle.request.RequestParty" in-map="[requestId:requestId,
+                    partyId:newPartyId, roleTypeId:roleTypeId, fromDate:ec.user.nowTimestamp]"/>
         </actions>
     </service>
 </services>
