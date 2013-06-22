@@ -27,7 +27,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/>
 
             <!-- pack all items (creating ShipmentPackageContent and AssetIssuance records) -->
-            <entity-find entity-name="OrderItem" list="orderItemList">
+            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
                 <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
             </entity-find>
             <iterate list="orderItemList" entry="orderItem">
@@ -63,22 +63,22 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
 
             <!-- create Shipment record, get shipmentId -->
-            <service-call name="create#Shipment" out-map="context"
+            <service-call name="create#mantle.shipment.Shipment" out-map="context"
                     in-map="[shipmentTypeEnumId:'SALES_SHIPMENT', statusId:'SHIPMENT_INPUT',
                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId]"/>
 
             <if condition="createPackage">
-                <service-call name="create#ShipmentPackage" in-map="context" out-map="context"/>
+                <service-call name="create#mantle.shipment.ShipmentPackage" in-map="context" out-map="context"/>
             </if>
             <if condition="createRouteSegment">
-                <service-call name="create#ShipmentRouteSegment" out-map="context"
+                <service-call name="create#mantle.shipment.ShipmentRouteSegment" out-map="context"
                         in-map="[shipmentId:shipmentId, carrierPartyId:carrierPartyId,
                             shipmentMethodEnumId:shipmentMethodEnumId,
                             destPostalContactMechId:orderPart.postalContactMechId,
                             destTelecomContactMechId:orderPart.telecomContactMechId]"/>
             </if>
             <if condition="shipmentPackageSeqId &amp;&amp; shipmentRouteSegmentSeqId">
-                <service-call name="create#ShipmentPackageRouteSeg"
+                <service-call name="create#mantle.shipment.ShipmentPackageRouteSeg"
                         in-map="[shipmentId:shipmentId, shipmentPackageSeqId:shipmentPackageSeqId,
                                 shipmentRouteSegmentSeqId:shipmentRouteSegmentSeqId]"/>
             </if>
@@ -86,9 +86,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- for each OrderItem in the part create ShipmentItem and ShipmentItemSource records -->
             <entity-find-related value-field="orderPart" relationship-name="OrderItem" list="orderItemList"/>
             <iterate list="orderItemList" entry="orderItem">
-                <service-call name="create#ShipmentItem"
+                <service-call name="create#mantle.shipment.ShipmentItem"
                         in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
-                <service-call name="create#ShipmentItemSource"
+                <service-call name="create#mantle.shipment.ShipmentItemSource"
                         in-map="[shipmentId:shipmentId, productId:orderItem.productId,
                             quantity:orderItem.quantity, quantityNotPacked:orderItem.quantity,
                             orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
@@ -140,7 +140,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-update value-field="shipmentPackageContent"/>
 
                 <else>
-                    <service-call name="create#ShipmentPackageContent"
+                    <service-call name="create#mantle.shipment.ShipmentPackageContent"
                             in-map="[shipmentId:shipmentItemSource.shipmentId, productId:shipmentItemSource.productId,
                                 shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantity]"/>
                 </else>
@@ -186,7 +186,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="shipmentId"/></in-parameters>
         <out-parameters><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="Shipment" value-field="shipment"/>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
             <set field="statusChanged" from="shipment.statusId != 'SHIPMENT_PACKED'"/>
             <set field="shipment.statusId" value="SHIPMENT_PACKED"/>
             <entity-update value-field="shipment"/>
@@ -195,7 +195,7 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="ship" noun="Shipment">
         <in-parameters><parameter name="shipmentId"/></in-parameters>
         <actions>
-            <entity-find-one entity-name="Shipment" value-field="shipment"/>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
             <set field="shipment.statusId" value="SHIPMENT_SHIPPED"/>
             <entity-update value-field="shipment"/>
         </actions>
