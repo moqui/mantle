@@ -26,6 +26,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="purposeEnumId" default-value="WEP_TASK"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedWorkTime" type="BigDecimal"/>
+            <parameter name="remainingWorkTime" type="BigDecimal" default-value="${estimatedWorkTime}"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
             <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
         </in-parameters>
@@ -46,6 +47,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="workEffortId" required="true"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedWorkTime" type="BigDecimal"/>
+            <parameter name="remainingWorkTime" type="BigDecimal"/>
             <parameter name="actualWorkTime" type="BigDecimal"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
             <parameter name="milestoneWorkEffortId"/>
@@ -73,12 +75,13 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <service verb="add" noun="TaskTime">
         <in-parameters>
+            <parameter name="workEffortId" required="true"/>
             <parameter name="partyId" default-value="${ec.user.userAccount.partyId}"/>
             <parameter name="hours" type="BigDecimal"/>
             <parameter name="breakHours" type="BigDecimal"/>
+            <parameter name="remainingWorkTime" type="BigDecimal"/>
             <parameter name="fromDate" type="Timestamp"/>
             <parameter name="thruDate" type="Timestamp"/>
-            <parameter name="workEffortId" required="true"/>
             <parameter name="rateTypeEnumId" default-value="RT_STANDARD"/>
             <parameter name="comments"/>
         </in-parameters>
@@ -97,9 +100,14 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="hours &amp;&amp; !fromDate">
                 <set field="fromDate" from="new Timestamp((Long) (thruDate.time - (hours*60*60*1000) - (breakHours ? (breakHours*60*60*1000) : 0)))"/>
             </if>
-            <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
 
+            <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
             <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="context" in-map="context"/>
+
+            <if condition="remainingWorkTime != null">
+                <service-call name="update#mantle.work.effort.WorkEffort"
+                        in-map="[workEffortId:workEffortId, remainingWorkTime:remainingWorkTime]"/>
+            </if>
         </actions>
     </service>
     <service verb="update" noun="TaskFromTime" authenticate="anonymous-all">
@@ -110,9 +118,8 @@ This Work includes contributions authored by David E. Jones, not as a
                 <select-field field-name="hours"/>
             </entity-find>
             <if condition="timeEntrySummaryList">
-                <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
-                <set field="workEffort.actualWorkTime" from="timeEntrySummaryList[0].hours"/>
-                <entity-update value-field="workEffort"/>
+                <service-call name="update#mantle.work.effort.WorkEffort"
+                        in-map="[workEffortId:workEffortId, actualWorkTime:timeEntrySummaryList[0].hours]"/>
             </if>
         </actions>
     </service>
