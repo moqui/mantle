@@ -611,7 +611,7 @@ and those parts may be licensed under the Apache License 2.0.
 
         <field name="subject" type="text-long"/>
         <field name="contentType" type="text-medium"/>
-        <field name="content" type="text-very-long"/>
+        <field name="body" type="text-very-long"/>
         <field name="note" type="text-long"/>
 
         <field name="reasonEnumId" type="id"/>
@@ -624,10 +624,10 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" title="CommunicationEvent" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="Parent" related-entity-name="mantle.party.communication.CommunicationEvent">
-            <key-map field-name="parentCommEventId"/>
+            <key-map field-name="parentCommEventId" related-field-name="communicationEventId"/>
         </relationship>
         <relationship type="one" title="Root" related-entity-name="mantle.party.communication.CommunicationEvent">
-            <key-map field-name="rootCommEventId"/>
+            <key-map field-name="rootCommEventId" related-field-name="communicationEventId"/>
         </relationship>
 
         <relationship type="one" title="From" related-entity-name="mantle.party.contact.ContactMech">
@@ -717,14 +717,15 @@ and those parts may be licensed under the Apache License 2.0.
         <seed-data>
             <!-- Communication Purpose -->
             <moqui.basic.EnumerationType description="Communication Purpose" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="ACTIVITY_REQUEST" description="Activity Request" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="CONFERENCE" description="Conference" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="CUSTOMER_SERVICE" description="Customer Service" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="CUSTOMER_SUPPORT" description="Customer Support" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="MEETING" description="Meeting" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="SALES_INQUIRY" description="Sales Inquiry" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="SALES_FOLLOW_UP" description="Sales Follow Up" enumTypeId="CommunicationPurpose"/>
-            <moqui.basic.Enumeration enumId="SEMINAR" description="Seminar" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpActivityRequest" description="Activity Request" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpComment" description="Comment" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpConference" description="Conference" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpCustomerService" description="Customer Service" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpCustomerSupport" description="Customer Support" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpMeeting" description="Meeting" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpSalesInquiry" description="Sales Inquiry" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpSalesFollowUp" description="Sales Follow-Up" enumTypeId="CommunicationPurpose"/>
+            <moqui.basic.Enumeration enumId="CpSeminar" description="Seminar" enumTypeId="CommunicationPurpose"/>
         </seed-data>
     </entity>
     <entity entity-name="CommunicationEventParty" package-name="mantle.party.communication">
@@ -763,23 +764,24 @@ and those parts may be licensed under the Apache License 2.0.
             <!--  - mantle.party.contact (partial data moved up to satisfy dependency) -->
             <!-- Contact Mechanism Type -->
             <moqui.basic.EnumerationType description="Contact Mechanism Type" enumTypeId="ContactMechType"/>
-            <moqui.basic.Enumeration enumId="POSTAL_ADDRESS" description="Postal Address" enumTypeId="ContactMechType"/>
-            <moqui.basic.Enumeration enumId="TELECOM_NUMBER" description="Phone Number" enumTypeId="ContactMechType"/>
-            <moqui.basic.Enumeration enumId="ELECTRONIC_ADDRESS" description="Electronic Address" enumTypeId="ContactMechType"/>
-            <moqui.basic.Enumeration enumId="EMAIL_ADDRESS" description="Email Address" parentEnumId="ELECTRONIC_ADDRESS" enumTypeId="ContactMechType"/>
-            <moqui.basic.Enumeration enumId="IP_ADDRESS" description="Internet IP Address" parentEnumId="ELECTRONIC_ADDRESS" enumTypeId="ContactMechType"/>
-            <moqui.basic.Enumeration enumId="DOMAIN_NAME" description="Internet Domain Name" parentEnumId="ELECTRONIC_ADDRESS" enumTypeId="ContactMechType"/>
-            <moqui.basic.Enumeration enumId="WEB_ADDRESS" description="Web URL/Address" parentEnumId="ELECTRONIC_ADDRESS" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtPostalAddress" description="Postal Address" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtTelecomNumber" description="Phone Number" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtElectronicAddress" description="Electronic Address" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtEmailAddress" description="Email Address" parentEnumId="CmtElectronicAddress" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtIpAddress" description="Internet IP Address" parentEnumId="CmtElectronicAddress" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtDomainName" description="Internet Domain Name" parentEnumId="CmtElectronicAddress" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtWebAddress" description="Web URL/Address" parentEnumId="CmtElectronicAddress" enumTypeId="ContactMechType"/>
+            <moqui.basic.Enumeration enumId="CmtWebForm" description="Web Form" parentEnumId="CmtElectronicAddress" enumTypeId="ContactMechType"/>
 
             <!-- NOTE: this is not an Enumeration because we need to track the contactMechTypeEnumId as applicable -->
-            <CommunicationEventType communicationEventTypeId="EMAIL_COMMUNICATION" description="Email" contactMechTypeEnumId="EMAIL_ADDRESS"/>
-            <CommunicationEventType communicationEventTypeId="FACE_TO_FACE_COMMUNI" description="Face-To-Face"/>
-            <CommunicationEventType communicationEventTypeId="FAX_COMMUNICATION" description="Fax" contactMechTypeEnumId="TELECOM_NUMBER"/>
-            <CommunicationEventType communicationEventTypeId="LETTER_CORRESPONDENC" description="Letter" contactMechTypeEnumId="POSTAL_ADDRESS"/>
-            <CommunicationEventType communicationEventTypeId="PHONE_COMMUNICATION" description="Phone" contactMechTypeEnumId="TELECOM_NUMBER"/>
-            <CommunicationEventType communicationEventTypeId="WEB_SITE_COMMUNICATI" description="Web Site" contactMechTypeEnumId="WEB_ADDRESS"/>
-            <CommunicationEventType communicationEventTypeId="COMMENT_NOTE" description="Comment/Note"/>
-            <CommunicationEventType communicationEventTypeId="AUTO_EMAIL_COMM" description="Auto Email" contactMechTypeEnumId="EMAIL_ADDRESS"/>
+            <CommunicationEventType communicationEventTypeId="Email" description="Email" contactMechTypeEnumId="CmtEmailAddress"/>
+            <CommunicationEventType communicationEventTypeId="FaceToFace" description="Face-To-Face"/>
+            <CommunicationEventType communicationEventTypeId="Fax" description="Fax" contactMechTypeEnumId="CmtTelecomNumber"/>
+            <CommunicationEventType communicationEventTypeId="Letter" description="Letter" contactMechTypeEnumId="CmtPostalAddress"/>
+            <CommunicationEventType communicationEventTypeId="Phone" description="Phone" contactMechTypeEnumId="CmtTelecomNumber"/>
+            <CommunicationEventType communicationEventTypeId="WebSite" description="Web Site" contactMechTypeEnumId="CmtWebAddress"/>
+            <CommunicationEventType communicationEventTypeId="Comment" description="Comment"/>
+            <CommunicationEventType communicationEventTypeId="AutoEmail" description="Auto Email" contactMechTypeEnumId="CmtEmailAddress"/>
         </seed-data>
     </entity>
 
@@ -821,69 +823,69 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="contactMechTypeEnumId"/>
         </relationship>
         <seed-data>
-            <ContactMechPurpose contactMechPurposeId="SHIPPING_DESTINATION" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="SHIPPING_DESTINATION" contactMechTypeEnumId="CmtPostalAddress"
                                 description="Shipping Destination Address"/>
-            <ContactMechPurpose contactMechPurposeId="SHIPPING_ORIGIN" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="SHIPPING_ORIGIN" contactMechTypeEnumId="CmtPostalAddress"
                                 description="Shipping Origin Address"/>
-            <ContactMechPurpose contactMechPurposeId="BILLING_LOCATION" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="BILLING_LOCATION" contactMechTypeEnumId="CmtPostalAddress"
                                 description="Billing (AP) Address"/>
-            <ContactMechPurpose contactMechPurposeId="PAYMENT_LOCATION" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="PAYMENT_LOCATION" contactMechTypeEnumId="CmtPostalAddress"
                                 description="Payment (AR) Address"/>
-            <ContactMechPurpose contactMechPurposeId="GENERAL_LOCATION" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="GENERAL_LOCATION" contactMechTypeEnumId="CmtPostalAddress"
                                 description="General Correspondence Address"/>
-            <ContactMechPurpose contactMechPurposeId="PUR_RET_LOCATION" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="PUR_RET_LOCATION" contactMechTypeEnumId="CmtPostalAddress"
                                 description="Purchase Return Address"/>
-            <ContactMechPurpose contactMechPurposeId="PRIMARY_LOCATION" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="PRIMARY_LOCATION" contactMechTypeEnumId="CmtPostalAddress"
                                 description="Primary Address"/>
-            <ContactMechPurpose contactMechPurposeId="PREVIOUS_LOCATION" contactMechTypeEnumId="POSTAL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="PREVIOUS_LOCATION" contactMechTypeEnumId="CmtPostalAddress"
                                 description="Previous Address"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_SHIP_DEST" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_SHIP_DEST" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Shipping Destination Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_SHIP_ORIG" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_SHIP_ORIG" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Shipping Origin Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_BILLING" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_BILLING" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Billing (AP) Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_DID" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_DID" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Direct Inward Dialing Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_PAYMENT" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_PAYMENT" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Payment (AR) Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_HOME" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_HOME" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Main Home Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_WORK" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_WORK" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Main Work Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_WORK_SEC" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_WORK_SEC" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Secondary Work Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="FAX_NUMBER" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="FAX_NUMBER" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Main Fax Number"/>
-            <ContactMechPurpose contactMechPurposeId="FAX_NUMBER_SEC" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="FAX_NUMBER_SEC" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Secondary Fax Number"/>
-            <ContactMechPurpose contactMechPurposeId="FAX_SHIPPING" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="FAX_SHIPPING" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Shipping Destination Fax Number"/>
-            <ContactMechPurpose contactMechPurposeId="FAX_BILLING" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="FAX_BILLING" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Billing Destination Fax Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_MOBILE" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_MOBILE" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Main Mobile Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_ASSISTANT" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_ASSISTANT" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Assistant's Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PRIMARY_PHONE" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PRIMARY_PHONE" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Primary Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="PHONE_QUICK" contactMechTypeEnumId="TELECOM_NUMBER"
+            <ContactMechPurpose contactMechPurposeId="PHONE_QUICK" contactMechTypeEnumId="CmtTelecomNumber"
                                 description="Quick Calls Phone Number"/>
-            <ContactMechPurpose contactMechPurposeId="MARKETING_EMAIL" contactMechTypeEnumId="EMAIL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="MARKETING_EMAIL" contactMechTypeEnumId="CmtEmailAddress"
                                 description="Primary Marketing Email Address"/>
-            <ContactMechPurpose contactMechPurposeId="PRIMARY_EMAIL" contactMechTypeEnumId="EMAIL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="PRIMARY_EMAIL" contactMechTypeEnumId="CmtEmailAddress"
                                 description="Primary Email Address"/>
-            <ContactMechPurpose contactMechPurposeId="BILLING_EMAIL" contactMechTypeEnumId="EMAIL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="BILLING_EMAIL" contactMechTypeEnumId="CmtEmailAddress"
                                 description="Billing (AP) Email"/>
-            <ContactMechPurpose contactMechPurposeId="PAYMENT_EMAIL" contactMechTypeEnumId="EMAIL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="PAYMENT_EMAIL" contactMechTypeEnumId="CmtEmailAddress"
                                 description="Payment (AR) Email"/>
-            <ContactMechPurpose contactMechPurposeId="OTHER_EMAIL" contactMechTypeEnumId="EMAIL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="OTHER_EMAIL" contactMechTypeEnumId="CmtEmailAddress"
                                 description="Other Email Address"/>
-            <ContactMechPurpose contactMechPurposeId="SUPPORT_EMAIL" contactMechTypeEnumId="EMAIL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="SUPPORT_EMAIL" contactMechTypeEnumId="CmtEmailAddress"
                                 description="Support Email"/>
-            <ContactMechPurpose contactMechPurposeId="ORDER_EMAIL" contactMechTypeEnumId="EMAIL_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="ORDER_EMAIL" contactMechTypeEnumId="CmtEmailAddress"
                                 description="Order Notification Email Address"/>
-            <ContactMechPurpose contactMechPurposeId="PRIMARY_WEB_URL" contactMechTypeEnumId="WEB_ADDRESS"
+            <ContactMechPurpose contactMechPurposeId="PRIMARY_WEB_URL" contactMechTypeEnumId="CmtWebAddress"
                                 description="Primary Website URL"/>
         </seed-data>
     </entity>
