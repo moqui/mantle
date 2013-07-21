@@ -48,7 +48,7 @@ This Work includes contributions authored by David E. Jones, not as a
             Create a basic customer account including:
             - Party/Person
             - UserAccount (with emailAddress for username)
-            - ContactMech/PartyContactMech for emailAddress (with PRIMARY_EMAIL purpose)
+            - ContactMech/PartyContactMech for emailAddress (with EmailPrimary purpose)
 
             At the end this optionally logs in the user (for this to work it must be run locally).
         </description>
@@ -79,7 +79,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
             <set field="userId" from="newUaOut.userId"/>
 
-            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PERSON', disabled:disabled]" out-map="newPartyOut"/>
+            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PtyPerson', disabled:disabled]" out-map="newPartyOut"/>
             <set field="partyId" from="newPartyOut.partyId"/>
             <service-call name="create#mantle.party.Person"
                     in-map="[partyId:partyId, firstName:firstName, middleName:middleName, lastName:lastName]"/>
@@ -88,7 +88,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- add the emailAddress -->
             <service-call name="mantle.party.ContactServices.create#EmailAddress"
-                    in-map="[emailAddress:emailAddress, partyId:partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/>
+                    in-map="[emailAddress:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
 
             <!-- login the user -->
             <if condition="loginAfterCreate">
@@ -119,7 +119,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- TODO: update the emailAddress ContactMech if one exists -->
             <!-- <service-call name="mantle.party.ContactServices.update#EmailAddress"
-                    in-map="[emailAddress:emailAddress, partyId:newPartyOut.partyId, contactMechPurposeId:'PRIMARY_EMAIL']"/> -->
+                    in-map="[emailAddress:emailAddress, partyId:newPartyOut.partyId, contactMechPurposeId:'EmailPrimary']"/> -->
         </actions>
     </service>
     
@@ -130,7 +130,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters><parameter name="partyId"/></out-parameters>
         <actions>
-            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'ORGANIZATION']" out-map="context"/>
+            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PtyOrganization']" out-map="context"/>
             <service-call name="create#mantle.party.Organization" in-map="[partyId:partyId, organizationName:organizationName]"/>
 
             <if condition="roleTypeId">
@@ -149,10 +149,10 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.party.Party" value-field="party"/>
             <entity-set value-field="party" include="nonpk" map="context"/>
             <entity-update value-field="party"/>
-            <if condition="party.partyTypeEnumId == 'PERSON'">
+            <if condition="party.partyTypeEnumId == 'PtyPerson'">
                 <service-call name="update#mantle.party.Person" in-map="context"/>
             </if>
-            <if condition="party.partyTypeEnumId == 'ORGANIZATION'">
+            <if condition="party.partyTypeEnumId == 'PtyOrganization'">
                 <service-call name="update#mantle.party.Organization" in-map="context"/>
             </if>
         </actions>

@@ -50,7 +50,7 @@ if (emailAddress) { ef.condition("emailAddress", emailAddress); ef.selectField("
 if (assetSerialNumber) { ef.condition("assetSerialNumber", assetSerialNumber); ef.selectField("assetSerialNumber") }
 if (contactOwnerPartyId) {
     ef.condition("contactOwnerPartyId", contactOwnerPartyId); ef.selectField("contactOwnerPartyId")
-    ef.condition("contactRelationshipTypeEnumId", "CONTACT_REL"); ef.selectField("contactRelationshipTypeEnumId")
+    ef.condition("contactRelationshipTypeEnumId", "PrtContact"); ef.selectField("contactRelationshipTypeEnumId")
 }
 
 if (orderByField) ef.orderBy(orderByField)
