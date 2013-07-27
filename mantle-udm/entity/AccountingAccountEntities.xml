@@ -361,6 +361,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusItem description="Ready for Posting" sequenceNum="20" statusId="InvoiceReady" statusTypeId="Invoice"/>
             <moqui.basic.StatusItem description="Paid" sequenceNum="30" statusId="InvoicePaid" statusTypeId="Invoice"/>
             <moqui.basic.StatusItem description="Write Off" sequenceNum="31" statusId="InvoiceWriteOff" statusTypeId="Invoice"/>
+            <moqui.basic.StatusItem description="Reimbursed" sequenceNum="40" statusId="InvoiceReimbursed" statusTypeId="Invoice"/>
             <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="InvoiceCancelled" statusTypeId="Invoice"/>
             <!-- this is the simplest process: IN_PROCESS -> READY or CANCELLED -->
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceInProcess" toStatusId="InvoiceReady" transitionName="Mark Ready"/>
@@ -368,15 +369,15 @@ and those parts may be licensed under the Apache License 2.0.
             <!-- this is a more complicated process: IN_PROCESS -> SENT -> (optionally RECEIVED) -> READY or CANCELLED -->
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceInProcess" toStatusId="InvoiceSent" transitionName="Send"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceInProcess" toStatusId="InvoiceReceived" transitionName="Receive"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceSent" toStatusId="InvoiceApproved" transitionName="Mark Approved"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceSent" toStatusId="InvoiceApproved" transitionName="Approve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceSent" toStatusId="InvoiceReady" transitionName="Mark Ready"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceSent" toStatusId="InvoiceReceived" transitionName="Receive"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReceived" toStatusId="InvoiceReady" transitionName="Mark Receive"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReceived" toStatusId="InvoiceReady" transitionName="Receive"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceSent" toStatusId="InvoiceCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReceived" toStatusId="InvoiceCancelled" transitionName="Cancel"/>
             <!-- this is a process to enable modification via the Status IN_PROCESS when the receiver/sender wants an invoice change or to cancel it -->
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceSent" toStatusId="InvoiceInProcess" transitionName="Enable sales invoice update"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReceived" toStatusId="InvoiceInProcess" transitionName="Enable purch.invoice update"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceSent" toStatusId="InvoiceInProcess" transitionName="Resume Changes"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReceived" toStatusId="InvoiceInProcess" transitionName="Resume Changes"/>
             <!-- an optional approval state is put in before invoice is sent or after it is received -->
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceInProcess" toStatusId="InvoiceApproved" transitionName="Approve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceApproved" toStatusId="InvoiceSent" transitionName="Send"/>
@@ -385,6 +386,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceApproved" toStatusId="InvoiceReady" transitionName="Mark Ready"/>
             <!-- finally the invoice can be paid or written off.   -->
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReady" toStatusId="InvoicePaid" transitionName="Pay"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoicePaid" toStatusId="InvoiceReimbursed" transitionName="Reimburse"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReady" toStatusId="InvoiceWriteOff" transitionName="Write Off"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoicePaid" toStatusId="InvoiceReady" transitionName="Unpay"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="InvoiceReady" toStatusId="InvoiceCancelled" transitionName="Cancel"/>
@@ -418,10 +420,13 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="quantityUomId" type="id"/>
         <field name="amount" type="currency-precise"/>
         <field name="description" type="text-medium"/>
-        <field name="taxAuthPartyId" type="id"/><!-- really needed? -->
-        <field name="taxAuthGeoId" type="id"/><!-- really needed? -->
-        <field name="taxAuthorityRateId" type="id"/><!-- really needed? -->
+        <field name="itemDate" type="date-time"/>
         <field name="salesOpportunityId" type="id"/>
+        <!-- really needed?
+        <field name="taxAuthPartyId" type="id"/>
+        <field name="taxAuthGeoId" type="id"/>
+        <field name="taxAuthorityRateId" type="id"/>
+        -->
         <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="itemTypeEnumId"/>
         </relationship>
@@ -435,9 +440,14 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Override" related-entity-name="GlAccount">
             <key-map field-name="overrideGlAccountId"/>
         </relationship>
+        <relationship type="one" title="OverrideOrg" related-entity-name="Party">
+            <key-map field-name="overrideOrgPartyId"/>
+        </relationship>
         <relationship type="one" title="Quantity" related-entity-name="moqui.basic.Uom">
             <key-map field-name="quantityUomId"/>
         </relationship>
+        <relationship type="one" related-entity-name="SalesOpportunity"/>
+        <!-- really needed?
         <relationship type="one" title="TaxAuthority" related-entity-name="Party">
             <key-map field-name="taxAuthPartyId"/>
         </relationship>
@@ -445,10 +455,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="taxAuthGeoId"/>
         </relationship>
         <relationship type="one" related-entity-name="TaxAuthorityRate"/>
-        <relationship type="one" title="OverrideOrg" related-entity-name="Party">
-            <key-map field-name="overrideOrgPartyId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="SalesOpportunity"/>
+        -->
     </entity>
     <entity entity-name="InvoiceItemAssoc" package-name="mantle.account.invoice">
         <field name="invoiceItemAssocId" type="id" is-pk="true"/>
@@ -485,6 +492,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.EnumerationType description="Invoice Item Assoc Type" enumTypeId="InvoiceItemAssocType"/>
             <moqui.basic.Enumeration description="Commission" enumId="IiatCommission" enumTypeId="InvoiceItemAssocType"/>
             <moqui.basic.Enumeration description="Withdraw" enumId="IiatWithdraw" enumTypeId="InvoiceItemAssocType"/>
+            <moqui.basic.Enumeration description="Bill Through" enumId="IiatBillThrough" enumTypeId="InvoiceItemAssocType"/>
         </seed-data>
     </entity>
     <entity entity-name="InvoiceParty" package-name="mantle.account.invoice">
