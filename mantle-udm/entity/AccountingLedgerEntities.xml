@@ -150,7 +150,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Cash Expense" enumId="CASH_EXPENSE" parentEnumId="EXPENSE" enumTypeId="GlAccountClass"/>
             <moqui.basic.Enumeration description="Interest Expense" enumId="INTEREST_EXPENSE" parentEnumId="CASH_EXPENSE" enumTypeId="GlAccountClass"/> <!-- useful for EBITDA, coverage ratios, etc. -->
             <moqui.basic.Enumeration description="Cost of Goods Sold Expense" enumId="COGS_EXPENSE" parentEnumId="CASH_EXPENSE" enumTypeId="GlAccountClass"/> <!-- used for Gross Profit -->
-            <moqui.basic.Enumeration description="Selling, General, and Administrative Expense" enumId="SGA_EXPENSE" parentEnumId="CASH_EXPENSE" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Sales, General, and Administrative Expense" enumId="SGA_EXPENSE" parentEnumId="CASH_EXPENSE" enumTypeId="GlAccountClass"/>
             <moqui.basic.Enumeration description="Non-Cash Expense" enumId="NON_CASH_EXPENSE" parentEnumId="EXPENSE" enumTypeId="GlAccountClass"/>
             <moqui.basic.Enumeration description="Depreciation" enumId="DEPRECIATION" parentEnumId="NON_CASH_EXPENSE" enumTypeId="GlAccountClass"/>
             <moqui.basic.Enumeration description="Amortization" enumId="AMORTIZATION" parentEnumId="NON_CASH_EXPENSE" enumTypeId="GlAccountClass"/>
@@ -234,12 +234,12 @@ and those parts may be licensed under the Apache License 2.0.
 
             <!-- GL Resource Type -->
             <moqui.basic.EnumerationType description="GL Resource Type" enumTypeId="GlResourceType"/>
-            <moqui.basic.Enumeration description="Money" enumId="GLRT_MONEY" enumTypeId="GlResourceType"/>
-            <moqui.basic.Enumeration description="Raw Materials" enumId="GLRT_RAW_MATERIALS" enumTypeId="GlResourceType"/>
-            <moqui.basic.Enumeration description="Labor" enumId="GLRT_LABOR" enumTypeId="GlResourceType"/>
-            <moqui.basic.Enumeration description="Services" enumId="GLRT_SERVICES" enumTypeId="GlResourceType"/>
-            <moqui.basic.Enumeration description="Finished Goods" enumId="GLRT_FINISHED_GOODS" enumTypeId="GlResourceType"/>
-            <moqui.basic.Enumeration description="Delivered Goods" enumId="GLRT_DELIVERED_GOODS" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Money" enumId="GlrtMoney" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Raw Material" enumId="GlrtRawMaterial" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Labor" enumId="GlrtLabor" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Service" enumId="GlrtService" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Finished Good" enumId="GlrtFinishedGood" enumTypeId="GlResourceType"/>
+            <moqui.basic.Enumeration description="Delivered Good" enumId="GlrtDeliveredGood" enumTypeId="GlResourceType"/>
 
             <!-- GL XBRL Class -->
             <moqui.basic.EnumerationType description="GL XBRL Class" enumTypeId="GlXbrlClass"/>
@@ -668,6 +668,7 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="AcctgTrans" package-name="mantle.ledger.transaction">
         <field name="acctgTransId" type="id" is-pk="true"/>
         <field name="acctgTransTypeEnumId" type="id"/>
+        <field name="organizationPartyId" type="id"/>
         <field name="description" type="text-medium"/>
         <field name="transactionDate" type="date-time"/>
         <field name="isPosted" type="text-indicator" enable-audit-log="true"/>
@@ -690,6 +691,9 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="theirAcctgTransId" type="id-long"/>
         <relationship type="one" title="AcctgTransType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="acctgTransTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
+            <key-map field-name="organizationPartyId"/>
         </relationship>
         <relationship type="one" related-entity-name="mantle.ledger.transaction.GlJournal"/>
         <relationship type="one" title="GlFiscalType" related-entity-name="moqui.basic.Enumeration">
@@ -758,27 +762,22 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="AcctgTransEntry" package-name="mantle.ledger.transaction">
         <field name="acctgTransId" type="id" is-pk="true"/>
         <field name="acctgTransEntrySeqId" type="id" is-pk="true"/>
+        <field name="debitCreditFlag" type="text-indicator"><description>If D is a debit, if C (or otherwise) is a credit.</description></field>
+        <field name="amount" type="currency-amount"/>
+        <field name="amountUomId" type="id"/>
         <field name="description" type="text-medium"/>
         <field name="voucherRef" type="text-short"/>
-        <field name="partyId" type="id"/>
-        <field name="theirPartyId" type="id"/>
         <field name="productId" type="id"/>
-        <field name="theirProductId" type="id"/>
+        <field name="externalProductId" type="id"/>
         <field name="assetId" type="id"/>
         <field name="glAccountTypeEnumId" type="id"/>
         <field name="glAccountId" type="id"/>
-        <field name="organizationPartyId" type="id"/>
-        <field name="amount" type="currency-amount"/>
-        <field name="amountUomId" type="id"/>
         <field name="origCurrencyAmount" type="currency-amount"/>
         <field name="origCurrencyUomId" type="id"/>
-        <field name="debitCreditFlag" type="text-indicator"/>
         <field name="dueDate" type="date"/>
-        <field name="groupId" type="id"/>
-        <field name="taxId" type="id"/>
         <field name="reconcileStatusId" type="id"/>
         <field name="settlementTermId" type="id"/>
-        <field name="isSummary" type="text-indicator"/>
+        <field name="isSummary" type="text-indicator"><description>Set to Y if this is a summary entry from a sub-ledger.</description></field>
         <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
             <key-map field-name="amountUomId"/>
         </relationship>
@@ -787,14 +786,10 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTrans"/>
         <relationship type="one" related-entity-name="Asset"/>
-        <relationship type="one" related-entity-name="mantle.party.Party"/>
         <relationship type="one" title="GlAccountType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="glAccountTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
-        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
-            <key-map field-name="organizationPartyId"/>
-        </relationship>
         <relationship type="one" title="AcctgTransEntryReconcile" related-entity-name="moqui.basic.StatusItem">
             <key-map field-name="reconcileStatusId"/>
         </relationship>
