@@ -14,8 +14,50 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="find" noun="PartyAcctgPreference">
+        <description>Get the PartyAcctgPreference record for the specified organizationPartyId and if not found find
+            record for ancestor organization(s).</description>
+        <in-parameters><parameter name="organizationPartyId" required="true"/></in-parameters>
+        <out-parameters><parameter name="partyAcctgPreference" type="org.moqui.entity.EntityValue"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference" cache="true">
+                <field-map field-name="organizationPartyId"/>
+            </entity-find-one>
+            <if condition="!partyAcctgPreference">
+                <entity-find entity-name="mantle.party.PartyRelationship" list="partyRelationshipList" cache="true">
+                    <date-filter/>
+                    <econdition field-name="fromPartyId" from="organizationPartyId"/>
+                    <econdition field-name="relationshipTypeEnumId" value="PrtOrgRollup"/>
+                    <econdition field-name="fromRoleTypeId" value="OrgInternal"/>
+                    <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                </entity-find>
+                <if condition="partyRelationshipList">
+                    <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                            in-map="[organizationPartyId:partyRelationshipList[0].toPartyId"/>
+                </if>
+            </if>
+        </actions>
+    </service>
+    <service verb="find" noun="RootGlAccountClassEnum">
+        <in-parameters><parameter name="glAccountClassEnumId"/></in-parameters>
+        <out-parameters><parameter name="rootGlAccountClassEnumId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="enum" cache="true">
+                <field-map field-name="enumId" from="glAccountClassEnumId"/>
+            </entity-find-one>
+            <if condition="enum.parentEnumId">
+                <service-call name="mantle.ledger.LedgerServices.find#RootGlAccountClassEnum" out-map="context"
+                        in-map="[glAccountClassEnumId:enum.parentEnumId]"/>
+                <else>
+                    <set field="rootGlAccountClassEnumId" from="glAccountClassEnumId"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
     <!-- Accounting Transaction (AcctgTrans) Posting Services -->
     <service verb="calculate" noun="AcctgTransTrialBalance">
+        <description>Add up debits and credits for an AcctgTrans and get the difference.</description>
         <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="debitTotal" type="BigDecimal"/>
@@ -23,15 +65,165 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="debitCreditDifference" type="BigDecimal"/>
         </out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
+                <econdition field-name="acctgTransId"/>
+                <order-by field-name="acctgTransEntrySeqId"/>
+            </entity-find>
+            <set field="debitTotal" from="0"/>
+            <set field="creditTotal" from="0"/>
+            <iterate entry="acctgTransEntry" list="acctgTransEntryList">
+                <if condition="acctgTransEntry.debitCreditFlag == 'D'">
+                    <set field="debitTotal" from="debitTotal + acctgTransEntry.amount"/>
+
+                    <else>
+                        <set field="creditTotal" from="creditTotal + acctgTransEntry.amount"/>
+                    </else>
+                </if>
+            </iterate>
+
+            <set field="debitCreditDifference" from="debitTotal - creditTotal"/>
         </actions>
     </service>
     <service verb="post" noun="AcctgTrans">
         <description>Posts an Accounting Transaction (AcctgTrans) after verifying it is ready for posting (with
             verify#AcctgTrans service).</description>
-        <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="acctgTransId" required="true"/>
+            <parameter name="verifyOnly" type="Boolean" default-value="false"/>
+        </in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" auto-field-map="true"/>
+
+            <!-- make sure the AcctgTrans has not already been posted -->
+            <if condition="acctgTrans.isPosted == 'Y'">
+                <message error="true">Not posting transaction [${acctgTransId}], already posted.</message>
+            </if>
+            <check-errors/>
+
+            <!-- check trial balance -->
+            <service-call name="mantle.ledger.LedgerServices.calculate#AcctgTransTrialBalance" out-map="context"
+                    in-map="[acctgTransId:acctgTransId]"/>
+            <if condition="debitTotal != creditTotal">
+                <message error="true">Not posting transaction [${acctgTransId}], credit and debit totals not equal.</message>
+            </if>
+
+            <!-- check the scheduled posting date, but only if it's set -->
+            <if condition="acctgTrans.scheduledPostingDate != null &amp;&amp; ec.user.nowTimestamp.before(acctgTrans.scheduledPostingDate)">
+                <message error="true">Not posting transaction [${acctgTransId}], before scheduled posting date.</message>
+            </if>
+
+            <check-errors/>
+
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
+                <econdition field-name="acctgTransId"/>
+                <order-by field-name="acctgTransEntrySeqId"/>
+            </entity-find>
+
+            <!-- get current period(s) and check if closed -->
+            <entity-find entity-name="mantle.party.time.TimePeriod" list="timePeriodList">
+                <date-filter valid-date="acctgTrans.transactionDate"/>
+                <econdition field-name="timePeriodTypeId" operator="in"
+                        value="FiscalYear,FiscalQuarter,FiscalMonth,FiscalWeek,FiscalBiWeek"/>
+                <!-- TODO: also include parent organizations -->
+                <econdition field-name="partyId" from="acctgTrans.organizationPartyId"/>
+            </entity-find>
+            <if condition="!timePeriodList">
+                <message error="true">Not posting transaction [${acctgTransId}], could not find time period.</message>
+            </if>
+            <iterate entry="timePeriod" list="timePeriodList">
+                <if condition="timePeriod.isClosed == 'Y'">
+                    <message error="true">Not posting transaction [${acctgTransId}], time period closed [${timePeriod.timePeriodId}, ${timePeriod.timePeriodTypeId}].</message>
+                </if>
+            </iterate>
+
+            <!-- make sure the glAccountId and amount fields are set -->
+            <iterate entry="acctgTransEntry" list="acctgTransEntryList">
+                <if condition="!acctgTransEntry.glAccountId">
+                    <message error="true">Accounting transaction [${acctgTransId}] entry [${acctgTransEntry.acctgTransEntrySeqId}] has no glAccountId.</message>
+                </if>
+                <if condition="acctgTransEntry.amount == null">
+                    <message error="true">Accounting transaction [${acctgTransId}] entry [${acctgTransEntry.acctgTransEntrySeqId}] has no amount.</message>
+                </if>
+            </iterate>
+
+            <if condition="verifyOnly">
+                <if condition="!ec.message.hasError()">
+                    <message>Accounting transaction [${acctgTransId}] is verified for posting.</message>
+                </if>
+                <return/>
+            </if>
+
+            <if condition="ec.message.hasError()">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                        in-map="[organizationPartyId:acctgTrans.organizationPartyId]"/>
+                <if condition="partyAcctgPreference?.errorGlJournalId">
+                    <service-call name="update#mantle.ledger.transaction.AcctgTrans"
+                            in-map="[acctgTransId:acctgTransId, glJournalId:partyAcctgPreference.errorGlJournalId]"/>
+                    <message>Accounting transaction [${acctgTransId}] has been saved in the Error Journal [${partyAcctgPreference.errorGlJournalId}].</message>
+                    <return/>
+
+                    <!-- if not errorGlJournalId return errors -->
+                    <else><check-errors/></else>
+                </if>
+            </if>
+
+
+            <!-- for each entry update posted balance -->
+            <iterate entry="acctgTransEntry" list="acctgTransEntryList">
+                <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" for-update="true">
+                    <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/>
+                </entity-find-one>
+                <entity-find-one entity-name="mantle.ledger.account.GlAccountOrganization" value-field="glAccountOrganization" for-update="true">
+                    <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/>
+                    <field-map field-name="organizationPartyId" from="acctgTrans.organizationPartyId"/>
+                </entity-find-one>
+
+                <!-- Debits add to debit accounts and subtract from credit accounts. Credits add to credit accounts and subtract from debit accounts. -->
+                <set field="postingAmount" from="0.0"/>
+                <service-call name="mantle.ledger.LedgerServices.find#RootGlAccountClassEnum" out-map="context"
+                        in-map="[glAccountClassEnumId:glAccount.glAccountClassEnumId]"/>
+
+                <if condition="rootGlAccountClassEnumId == 'DEBIT'">
+                    <set field="postingAmount" from="acctgTransEntry.debitCreditFlag == 'D' ? acctgTransEntry.amount : -acctgTransEntry.amount"/>
+                </if>
+                <if condition="rootGlAccountClassEnumId == 'CREDIT'">
+                    <set field="postingAmount" from="acctgTransEntry.debitCreditFlag == 'D' ? -acctgTransEntry.amount : acctgTransEntry.amount"/>
+                </if>
+
+                <!-- TODO: do anything with RESOURCE or potentially other root GL account classes? -->
+
+                <set field="glAccount.postedBalance" from="glAccount.postedBalance + postingAmount"/>
+                <entity-update value-field="glAccount"/>
+                <set field="glAccountOrganization.postedBalance" from="glAccountOrganization.postedBalance + postingAmount"/>
+                <entity-update value-field="glAccountOrganization"/>
+                
+                
+                <!-- create or update GlAccountHistory records -->
+                <iterate list="timePeriodList" entry="timePeriod">
+                    <entity-find-one entity-name="mantle.ledger.account.GlAccountOrgTimePeriod" value-field="glAccountOrgTimePeriod" for-update="true">
+                        <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/>
+                        <field-map field-name="organizationPartyId" from="acctgTrans.organizationPartyId"/>
+                        <field-map field-name="timePeriodId" from="timePeriod.timePeriodId"/>
+                    </entity-find-one>
+                    <if condition="!glAccountOrgTimePeriod">
+                        <entity-make-value entity-name="mantle.ledger.account.GlAccountOrgTimePeriod" value-field="glAccountOrgTimePeriod"
+                            map="[glAccountId:acctgTransEntry.glAccountId,  organizationPartyId:acctgTrans.organizationPartyId,
+                                timePeriodId:timePeriod.timePeriodId]"/>
+                    </if>
+
+                    <if condition="acctgTransEntry.debitCreditFlag == 'D'">
+                        <set field="glAccountOrgTimePeriod.postedDebits" from="glAccountOrgTimePeriod.postedDebits + acctgTransEntry.amount"/>
+                        <else><set field="glAccountOrgTimePeriod.postedCredits" from="glAccountOrgTimePeriod.postedCredits + acctgTransEntry.amount"/></else>
+                    </if>
+                    <entity-create value-field="glAccountOrgTimePeriod" or-update="true"/>
+                </iterate>
+            </iterate>
+
+            <check-errors/>
+
+            <!-- do the actual posting: set isPosted to Y and postedDate to now on AcctgTrans -->
+            <service-call name="update#mantle.ledger.transaction.AcctgTrans"
+                    in-map="[acctgTransId:acctgTransId, isPosted:'Y', postedDate:ec.user.nowTimestamp]"/>
         </actions>
     </service>
     <service verb="verify" noun="AcctgTrans">
