@@ -15,17 +15,102 @@ This Work includes contributions authored by David E. Jones, not as a
 <!-- STATUS: EXPERIMENTAL -->
 
     <service verb="post" noun="Invoice">
+        <description>Post an invoice if there is a PartyAcctgPreference for from and/or to parties.</description>
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+
+            <!-- is there a OrgInternal PartyRole for from/to parties, and PartyAcctgPreference for the from/to parties or parent orgs of them? -->
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="fromPartyRole">
+                <field-map field-name="partyId" from="invoice.fromPartyId"/>
+                <field-map field-name="roleTypeId" from="OrgInternal"/>
+            </entity-find-one>
+            <if condition="fromPartyRole">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="fromPapOut"
+                        in-map="[organizationPartyId:invoice.fromPartyId]"/>
+                <set field="fromPartyAcctgPreference" from="fromPapOut.partyAcctgPreference"/>
+            </if>
+
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="toPartyRole">
+                <field-map field-name="partyId" from="invoice.toPartyId"/>
+                <field-map field-name="roleTypeId" from="OrgInternal"/>
+            </entity-find-one>
+            <if condition="toPartyRole">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="toPapOut"
+                        in-map="[organizationPartyId:invoice.toPartyId]"/>
+                <set field="toPartyAcctgPreference" from="toPapOut.partyAcctgPreference"/>
+            </if>
+
+            <!-- if no preferences for from or to, we shouldn't post anything -->
+            <if condition="!fromPartyAcctgPreference &amp;&amp; !toPartyAcctgPreference">
+                <return/>
+            </if>
+
+            <!-- create the main record(s) -->
+            <if condition="fromPartyAcctgPreference">
+                <!-- org is to party and is sales invoice, so this is a sale -->
+                <if condition="invoice.invoiceTypeEnumId == 'InvoiceSales'"><set field="acctgTransTypeEnumId" value="AttSalesInvoice"/></if>
+                <!-- org is from party and is return invoice, so this is a vendor return -->
+                <if condition="invoice.invoiceTypeEnumId == 'InvoiceReturn'"><set field="acctgTransTypeEnumId" value="AttVendRtnInvoice"/></if>
+                <!-- TODO: handle other invoice types -->
+
+                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"
+                        map="[acctgTransTypeEnumId:acctgTransTypeEnumId]"/>
+                <entity-sequenced-id-primary value-field="acctgTrans"/>
+            </if>
+            <if condition="toPartyAcctgPreference">
+                <!-- org is to party and is sales invoice, so this is a purchase -->
+                <if condition="invoice.invoiceTypeEnumId == 'InvoiceSales'"><set field="acctgTransTypeEnumId" value="AttPurchaseInvoice"/></if>
+                <!-- org is to party and is return invoice, so this is a customer return -->
+                <if condition="invoice.invoiceTypeEnumId == 'InvoiceReturn'"><set field="acctgTransTypeEnumId" value="AttCustRtnInvoice"/></if>
+                <!-- TODO: handle other invoice types -->
+
+                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"
+                        map="[acctgTransTypeEnumId:acctgTransTypeEnumId]"/>
+                <entity-sequenced-id-primary value-field="acctgTrans"/>
+            </if>
+
+            <!--
+        <field name="organizationPartyId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <field name="transactionDate" type="date-time"/>
+        <field name="isPosted" type="text-indicator" enable-audit-log="true"/>
+        <field name="postedDate" type="date-time"/>
+        <field name="scheduledPostingDate" type="date-time"/>
+        <field name="glJournalId" type="id"/>
+        <field name="glFiscalTypeEnumId" type="id"/>
+        <field name="voucherRef" type="text-short"/>
+        <field name="voucherDate" type="date-time"/>
+        <field name="groupStatusId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="physicalInventoryId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="invoiceId" type="id"/>
+            -->
+
+            <!-- get all InvoiceItems, including sub-items and all types as we'll post them flat -->
+            <entity-find entity-name="mantle.account.invoice.InvoiceItem" list="invoiceItemList">
+                <econdition field-name="invoiceId"/>
+            </entity-find>
+
+            <set field="invoiceTotal" from="0"/>
+            <iterate list="invoiceItemList" entry="invoiceItem">
+                <set field="itemTotal" from="invoiceItem.amount * (invoiceItem.quantity ?: 1)"/>
+                <set field="invoiceTotal" from="invoiceTotal + itemTotal"/>
+
+
+            </iterate>
+
             <!-- TODO: implement this... -->
+
         </actions>
     </service>
     <service verb="post" noun="CustomerReturnInvoice">
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <!-- TODO: this may not be needed, post#Invoice should cover it -->
         </actions>
     </service>
     <service verb="revert" noun="InvoicePostOnCancel">
