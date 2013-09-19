@@ -76,21 +76,13 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="add" noun="TaskComment">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
-            <parameter name="parentCommEventId"/>
             <parameter name="subject"/>
             <parameter name="body"/>
             <parameter name="contentType" default-value="text/plain"/>
         </in-parameters>
         <actions>
-            <if condition="parentCommEventId">
-                <entity-find-one entity-name="mantle.party.communication.CommunicationEvent" value-field="parentCe">
-                    <field-map field-name="communicationEventId" from="parentCommEventId"/>
-                </entity-find-one>
-                <set field="rootCommEventId" from="parentCe?.rootCommEventId ?: parentCommEventId"/>
-            </if>
             <service-call name="create#mantle.party.communication.CommunicationEvent" out-map="context"
                     in-map="[communicationEventTypeId:'Comment', contactMechTypeEnumId:'CmtWebForm', statusId:'CeSent',
-                        parentCommEventId:parentCommEventId, rootCommEventId:rootCommEventId,
                         fromPartyId:ec.user.userAccount.partyId, entryDate:ec.user.nowTimestamp,
                         contentType:contentType, subject:subject, body:body]"/>
             <service-call name="create#mantle.work.effort.WorkEffortCommEvent"
