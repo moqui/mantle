@@ -33,7 +33,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </entity-find>
                 <if condition="partyRelationshipList">
                     <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                            in-map="[organizationPartyId:partyRelationshipList[0].toPartyId"/>
+                            in-map="[organizationPartyId:partyRelationshipList[0].toPartyId]"/>
                 </if>
             </if>
         </actions>
@@ -42,12 +42,12 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="glAccountClassEnumId"/></in-parameters>
         <out-parameters><parameter name="rootGlAccountClassEnumId"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="enum" cache="true">
+            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="enumValue" cache="true">
                 <field-map field-name="enumId" from="glAccountClassEnumId"/>
             </entity-find-one>
-            <if condition="enum.parentEnumId">
+            <if condition="enumValue.parentEnumId">
                 <service-call name="mantle.ledger.LedgerServices.find#RootGlAccountClassEnum" out-map="context"
-                        in-map="[glAccountClassEnumId:enum.parentEnumId]"/>
+                        in-map="[glAccountClassEnumId:enumValue.parentEnumId]"/>
                 <else>
                     <set field="rootGlAccountClassEnumId" from="glAccountClassEnumId"/>
                 </else>
@@ -111,7 +111,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="verifyOnly" type="Boolean" default-value="false"/>
         </in-parameters>
         <actions>
-            <entity-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" auto-field-map="true"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" auto-field-map="true"/>
 
             <!-- make sure the AcctgTrans has not already been posted -->
             <if condition="acctgTrans.isPosted == 'Y'">
@@ -142,6 +142,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
                     in-map="[organizationPartyId:acctgTrans.organizationPartyId]"/>
             <entity-find entity-name="mantle.party.time.TimePeriod" list="timePeriodList">
+                <!-- TODO: this may not work because on TimePeriod fromDate/thruDate are date values, not date-time, and for thru-date need the end of day not the default beginning of day -->
                 <date-filter valid-date="acctgTrans.transactionDate"/>
                 <econdition field-name="timePeriodTypeId" operator="in"
                         value="FiscalYear,FiscalQuarter,FiscalMonth,FiscalWeek,FiscalBiWeek"/>
@@ -193,10 +194,15 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" for-update="true">
                     <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/>
                 </entity-find-one>
+
                 <entity-find-one entity-name="mantle.ledger.account.GlAccountOrganization" value-field="glAccountOrganization" for-update="true">
                     <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/>
                     <field-map field-name="organizationPartyId" from="acctgTrans.organizationPartyId"/>
                 </entity-find-one>
+                <if condition="!glAccountOrganization">
+                    <entity-make-value entity-name="mantle.ledger.account.GlAccountOrganization" value-field="glAccountOrganization"
+                            map="[glAccountId:acctgTransEntry.glAccountId,  organizationPartyId:acctgTrans.organizationPartyId]"/>
+                </if>
 
                 <!-- Debits add to debit accounts and subtract from credit accounts. Credits add to credit accounts and subtract from debit accounts. -->
                 <set field="postingAmount" from="0.0"/>
@@ -212,10 +218,10 @@ This Work includes contributions authored by David E. Jones, not as a
 
                 <!-- TODO: do anything with RESOURCE or potentially other root GL account classes? -->
 
-                <set field="glAccount.postedBalance" from="glAccount.postedBalance + postingAmount"/>
+                <set field="glAccount.postedBalance" from="(glAccount.postedBalance ?: 0) + postingAmount"/>
                 <entity-update value-field="glAccount"/>
-                <set field="glAccountOrganization.postedBalance" from="glAccountOrganization.postedBalance + postingAmount"/>
-                <entity-update value-field="glAccountOrganization"/>
+                <set field="glAccountOrganization.postedBalance" from="(glAccountOrganization.postedBalance ?: 0) + postingAmount"/>
+                <entity-create value-field="glAccountOrganization" or-update="true"/>
                 
                 
                 <!-- create or update GlAccountHistory records -->
@@ -232,8 +238,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     </if>
 
                     <if condition="acctgTransEntry.debitCreditFlag == 'D'">
-                        <set field="glAccountOrgTimePeriod.postedDebits" from="glAccountOrgTimePeriod.postedDebits + acctgTransEntry.amount"/>
-                        <else><set field="glAccountOrgTimePeriod.postedCredits" from="glAccountOrgTimePeriod.postedCredits + acctgTransEntry.amount"/></else>
+                        <set field="glAccountOrgTimePeriod.postedDebits" from="(glAccountOrgTimePeriod.postedDebits ?: 0) + acctgTransEntry.amount"/>
+                        <else><set field="glAccountOrgTimePeriod.postedCredits" from="(glAccountOrgTimePeriod.postedCredits ?: 0) + acctgTransEntry.amount"/></else>
                     </if>
                     <entity-create value-field="glAccountOrgTimePeriod" or-update="true"/>
                 </iterate>
