@@ -113,7 +113,6 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
                         fromPartyId:billFromWep?.partyId, toPartyId:billToWep?.partyId,
                         invoiceDate:ec.user.nowTimestamp, currencyUomId:currencyUomId, description:description]"/>
-                <message>Created Invoice ${invoiceId}</message>
             </if>
 
             <!-- iterate through task WorkEffort records and add to Invoice with create#TimeEntryInvoiceItems service -->
@@ -148,7 +147,13 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="[invoiceId:weid.invoiceId, statusId:'InvoiceBilledThrough']"/>
             </iterate>
 
-            <message>Added ${invoiceItemCreatedCount} items to invoice ${invoiceId}</message>
+            <if condition="invoiceItemCreatedCount == 0">
+                <message error="true">No time entries or expenses found for Project [${workEffortId}], not creating invoice or adding items to existing invoice.</message>
+
+                <else>
+                    <message>Added ${invoiceItemCreatedCount} items to Invoice ${invoiceId}</message>
+                </else>
+            </if>
         </actions>
     </service>
 
