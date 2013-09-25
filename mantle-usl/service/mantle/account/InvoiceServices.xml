@@ -128,10 +128,10 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + createResult.invoiceItemCreatedCount"/>
             </iterate>
 
-            <!-- add items for all expense invoice items for project that are not yet reimbursed -->
+            <!-- add items for all expense invoice items for project that are not yet billed through -->
             <entity-find entity-name="mantle.work.effort.WorkEffortInvoiceDetail" list="weidList">
                 <econdition field-name="workEffortId"/>
-                <econdition field-name="statusId" value="InvoicePaid"/>
+                <econdition field-name="statusId" value="InvoicePmtSent"/>
                 <econdition field-name="invoiceDate" operator="less-equals" from="thruDate"/>
                 <!-- don't include invoices to project CustomerBillTo partyId -->
                 <econdition field-name="toPartyId" operator="not-equals" from="billToWep.partyId"/>
@@ -140,12 +140,12 @@ This Work includes contributions authored by David E. Jones, not as a
                 <order-by field-name="-invoiceDate"/>
             </entity-find>
             <iterate list="weidList" entry="weid">
-                <!-- create invoice items and InvoiceItemAssocs, set invoice statusId to InvoiceReimbursed -->
+                <!-- create invoice items and InvoiceItemAssocs, set invoice statusId -->
                 <service-call name="mantle.account.InvoiceServices.create#InvoiceBillThroughItems"
                         in-map="[originalInvoiceId:weid.invoiceId, newInvoiceId:invoiceId]" out-map="createResult"/>
                 <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + createResult.invoiceItemCreatedCount"/>
                 <service-call name="update#mantle.account.invoice.Invoice"
-                        in-map="[invoiceId:weid.invoiceId, statusId:'InvoiceReimbursed']"/>
+                        in-map="[invoiceId:weid.invoiceId, statusId:'InvoiceBilledThrough']"/>
             </iterate>
 
             <message>Added ${invoiceItemCreatedCount} items to invoice ${invoiceId}</message>
