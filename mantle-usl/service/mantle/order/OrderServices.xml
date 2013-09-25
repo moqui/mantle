@@ -516,37 +516,36 @@ h2. General Order Placement and eCommerce Usage
     <!-- Order Status Change Services -->
     <service verb="propose" noun="Order">
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <set field="orderHeader.statusId" value="OrderProposed"/>
-            <entity-update value-field="orderHeader"/>
+            <service-call name="update#mantle.order.OrderHeader" out-map="context"
+                    in-map="[orderId:orderId, statusId:'OrderProposed']"/>
         </actions>
     </service>
     <service verb="place" noun="Order">
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <set field="orderHeader.statusId" value="OrderPlaced"/>
-            <set field="orderHeader.placedDate" from="ec.user.nowTimestamp"/>
-            <entity-update value-field="orderHeader"/>
+            <service-call name="update#mantle.order.OrderHeader" out-map="context"
+                    in-map="[orderId:orderId, statusId:'OrderProposed', placedDate:ec.user.nowTimestamp]"/>
         </actions>
     </service>
     <service verb="complete" noun="Order">
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <set field="orderHeader.statusId" value="OrderCompleted"/>
-            <entity-update value-field="orderHeader"/>
+            <service-call name="update#mantle.order.OrderHeader" out-map="context"
+                    in-map="[orderId:orderId, statusId:'OrderCompleted']"/>
         </actions>
     </service>
     <service verb="cancel" noun="Order">
         <description>Call when customer cancels the order.</description>
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
             <!-- TODO: do partial cancel if already partially shipped, and then set what is left as completed -->
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <set field="orderHeader.statusId" value="OrderCancelled"/>
-            <entity-update value-field="orderHeader"/>
+            <service-call name="update#mantle.order.OrderHeader" out-map="context"
+                    in-map="[orderId:orderId, statusId:'OrderCancelled']"/>
         </actions>
     </service>
 </services>
