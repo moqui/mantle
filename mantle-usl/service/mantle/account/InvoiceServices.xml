@@ -16,7 +16,11 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <service verb="get" noun="InvoiceTotal">
         <in-parameters><parameter name="invoiceId"/></in-parameters>
-        <out-parameters><parameter name="invoiceTotal"/></out-parameters>
+        <out-parameters>
+            <parameter name="invoiceTotal"/>
+            <parameter name="appliedPaymentsTotal"/>
+            <parameter name="unpaidTotal"/>
+        </out-parameters>
         <actions>
             <entity-find entity-name="mantle.account.invoice.InvoiceItem" list="invoiceItemList">
                 <econdition field-name="invoiceId"/>
@@ -25,6 +29,16 @@ This Work includes contributions authored by David E. Jones, not as a
             <iterate list="invoiceItemList" entry="invoiceItem">
                 <set field="invoiceTotal" from="invoiceTotal + (invoiceItem.quantity * invoiceItem.amount)"/>
             </iterate>
+
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="invoiceId"/>
+            </entity-find>
+            <set field="appliedPaymentsTotal" from="0"/>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <set field="appliedPaymentsTotal" from="appliedPaymentsTotal + paymentApplication.amountApplied"/>
+            </iterate>
+
+            <set field="unpaidTotal" from="invoiceTotal - appliedPaymentsTotal"/>
         </actions>
     </service>
 
