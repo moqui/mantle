@@ -51,7 +51,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </description>
         <in-parameters>
             <parameter name="invoiceId" required="true"/>
-            <parameter name="statusId" default-value="PmntReceived"/>
+            <parameter name="statusId" default-value="PmntDelivered"/>
             <parameter name="amountUomId"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
@@ -83,13 +83,13 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="[invoiceId:invoiceId, statusId:'InvoiceApproved']"/>
             </if>
 
-            <!-- TODO: if statusId is the status of the GL posting trigger status of after it, set to previous status first then update as needed -->
+            <set field="initialStatusId" from="statusId == 'PmntProposed' ? statusId : 'PmntPromised'"/>
 
             <if condition="!amountUomId"><set field="amountUomId" from="invoice.currencyUomId"/></if>
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
                     in-map="[paymentTypeEnumId:'PtInvoicePayment', fromPartyId:invoice.toPartyId,
                         toPartyId:invoice.fromPartyId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
-                        statusId:statusId, effectiveDate:effectiveDate, paymentRefNum:paymentRefNum,
+                        statusId:initialStatusId, effectiveDate:effectiveDate, paymentRefNum:paymentRefNum,
                         amountUomId:amountUomId, amount:amount, comments:comments,
                         overrideGlAccountId:paymentOverrideGlAccountId]"/>
 
@@ -97,6 +97,13 @@ This Work includes contributions authored by David E. Jones, not as a
                     in-map="[paymentId:paymentId, invoiceId:invoiceId, amount:amount,
                         overrideGlAccountId:applicationOverrideGlAccountId]"/>
 
+            <!-- now that Payment is applied, move to target status (mainly so that we go through PmntDelivered for GL posting, etc) -->
+
+            <!-- if target status is PmntConfirmed go to PmntDelivered first -->
+            <if condition="statusId == 'PmntConfirmed'">
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:'PmntDelivered']"/>
+            </if>
+            <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:statusId]"/>
 
             <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" out-map="context"
                     in-map="[invoiceId:invoiceId]"/>
