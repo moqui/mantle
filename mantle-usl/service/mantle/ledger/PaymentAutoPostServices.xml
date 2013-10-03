@@ -18,9 +18,82 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
+            <!--
+                For incoming payments (internal org is toPartyId)
+                C side based on Payment type (and corresponding Invoice type?)
+                D side based on PaymentMethod
+
+                For outgoing payments (internal org is fromPartyId)
+                D side based on Payment type (and corresponding Invoice type?)
+                C side based on PaymentMethod
+            -->
+
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+
+            <!-- get applied and unapplied totals, are posted differently -->
+            <set field="appliedTotal" from="0"/>
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="paymentId"/>
+            </entity-find>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <set field="appliedTotal" from="appliedTotal + paymentApplication.amountApplied"/>
+            </iterate>
+            <set field="unappliedTotal" from="payment.amount - appliedTotal"/>
+
+            <!-- TODO: create entries for applied and unapplied totals, as applicable, based on Payment type -->
+
+            <!-- TODO: create balancing entry for PaymentMethod -->
+
             <!-- TODO: implement this... -->
+
         </actions>
     </service>
+    <service verb="get" noun="PaymentGlAccount">
+        <in-parameters>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="isApplied" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="glAccountId"/>
+            <parameter name="glAccountTypeEnumId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+
+            <set field="isPayable" from="organizationPartyId == payment.fromPartyId ? 'Y' : 'N'"/>
+            <entity-find entity-name="mantle.ledger.config.PaymentTypeGlAccount" list="paymentTypeGlAccountList" cache="true">
+                <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                <econdition field-name="paymentTypeEnumId" from="payment.paymentTypeEnumId"/>
+                <econdition field-name="isApplied"/>
+                <econdition field-name="isPayable"/>
+            </entity-find>
+            <set field="glAccountId" from="paymentTypeGlAccountList.getAt(0)?.glAccountId"/>
+        </actions>
+    </service>
+    <service verb="get" noun="PaymentMethodGlAccount">
+        <in-parameters>
+            <parameter name="paymentMethodTypeEnumId" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="otherPartyId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="glAccountId"/>
+            <parameter name="glAccountTypeEnumId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+
+            <!-- TODO: PaymentMethodTypeGlAccount -->
+            <!-- TODO: CreditCardTypeGlAccount -->
+            <!-- TODO: FinancialAccountTypeGlAccount -->
+        </actions>
+    </service>
+
+
     <service verb="post" noun="PaymentApplication">
         <in-parameters><parameter name="paymentApplicationId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
