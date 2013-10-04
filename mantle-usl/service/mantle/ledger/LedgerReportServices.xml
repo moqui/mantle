@@ -14,11 +14,11 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
-    <service verb="run" noun="PostedBalanceSummary">
+    <service verb="run" noun="PostedAmountSummary">
         <in-parameters>
             <parameter name="organizationPartyId" required="true"/>
-            <parameter name="fromDate" type="Timestamp" required="true"/>
-            <parameter name="thruDate" type="Timestamp" required="true"/>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
             <parameter name="amountUomId"/>
         </in-parameters>
         <out-parameters>
@@ -30,21 +30,21 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="!amountUomId"><set field="amountUomId" from="partyAcctgPreference.baseCurrencyUomId"/></if>
 
             <set field="accountResultMap" from="[:]"/>
-            <service-call name="mantle.ledger.LedgerReportServices.get#PostedBalanceSummarySide" out-map="context"
+            <service-call name="mantle.ledger.LedgerReportServices.get#PostedAmountSummarySide" out-map="context"
                     in-map="context + [debitCreditFlag:'D']"/>
-            <service-call name="mantle.ledger.LedgerReportServices.get#PostedBalanceSummarySide" out-map="context"
+            <service-call name="mantle.ledger.LedgerReportServices.get#PostedAmountSummarySide" out-map="context"
                     in-map="context + [debitCreditFlag:'C']"/>
 
             <set field="resultList" from="accountResultMap.values() as List"/>
             <order-map-list list="resultList"><order-by field-name="accountCode"/></order-map-list>
         </actions>
     </service>
-    <service verb="get" noun="PostedBalanceSummarySide">
+    <service verb="get" noun="PostedAmountSummarySide">
         <in-parameters>
             <parameter name="debitCreditFlag" required="true"/>
             <parameter name="organizationPartyId" required="true"/>
-            <parameter name="fromDate" type="Timestamp" required="true"/>
-            <parameter name="thruDate" type="Timestamp" required="true"/>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
             <parameter name="amountUomId" required="true"/>
             <parameter name="accountResultMap" type="Map"/>
         </in-parameters>
@@ -52,10 +52,10 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <if condition="accountResultMap == null"><set field="accountResultMap" from="[:]"/></if>
 
-            <entity-find entity-name="mantle.ledger.report.PostedBalanceSummary" list="postedBalanceSummaryList">
+            <entity-find entity-name="mantle.ledger.report.PostedAmountSummary" list="postedBalanceSummaryList">
                 <econdition field-name="debitCreditFlag"/>
-                <econdition field-name="postedDate" operator="greater-equals" from="fromDate"/>
-                <econdition field-name="postedDate" operator="less" from="thruDate"/>
+                <econdition field-name="postedDate" operator="greater-equals" from="fromDate" ignore-if-empty="true"/>
+                <econdition field-name="postedDate" operator="less" from="thruDate" ignore-if-empty="true"/>
                 <econdition field-name="amountUomId"/><econdition field-name="organizationPartyId"/>
                 <select-field field-name="glAccountId"/><select-field field-name="accountName"/>
                 <select-field field-name="accountCode"/><select-field field-name="glAccountClassEnumId"/>
