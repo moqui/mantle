@@ -42,6 +42,24 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="totalResults" type="Integer"/>
         </out-parameters>
     </service>
+    <service verb="search" noun="Person">
+        <in-parameters><parameter name="term"/></in-parameters>
+        <out-parameters><parameter name="outList" type="List"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.party.PersonAndUserAccount" list="pauList" limit="20">
+                <econditions combine="or">
+                    <econdition field-name="firstName" operator="like" value="%${term}%" ignore-case="true"/>
+                    <econdition field-name="lastName" operator="like" value="%${term}%" ignore-case="true"/>
+                    <econdition field-name="username" operator="like" value="%${term}%" ignore-case="true"/>
+                </econditions>
+                <order-by field-name="^firstName"/><order-by field-name="^lastName"/><order-by field-name="^username"/>
+            </entity-find>
+            <script>
+                outList = []
+                for (def pau in pauList) outList.add([value:pau.partyId, label:"${pau.firstName} ${pau.lastName} (${pau.username})".toString()])
+            </script>
+        </actions>
+    </service>
 
     <service verb="create" noun="Account" authenticate="false">
         <description>
