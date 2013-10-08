@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.3.xsd"
+        default-menu-include="false">
+
+    <!-- NOTE: this screen is not meant to be rendered, it is just a library of forms to extend in other screens -->
+
+    <parameter name="partyId"/>
+
+    <!-- an example of a transition to call store#PartyContactInfo; this does a create or update -->
+    <transition name="storeContactInfo">
+        <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
+        <default-response url="."/>
+    </transition>
+
+    <actions>
+        <!-- an example of a call to get#PartyContactInfo to populate the form, plus a call to flatten the Map for
+            simple use in the form -->
+        <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="billingContactInfo"
+                in-map="[partyId:partyId, postalContactMechPurposeId:'PostalBilling',
+                    telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling']"/>
+        <set field="contactInfoFlat" from="StupidUtilities.flattenNestedMap(billingContactInfo)"/>
+    </actions>
+    <widgets>
+        <form-single name="ContactInfo" transition="storeContactInfo" map="contactInfoFlat">
+            <field name="partyId"><default-field><hidden/></default-field></field>
+
+            <field name="postalContactMechId"><default-field><hidden/></default-field></field>
+            <field name="postalContactMechPurposeId"><default-field><hidden/></default-field></field>
+
+            <field name="countryGeoId"><default-field title="Country"><hidden default-value="USA"/></default-field></field>
+            <field name="address1"><default-field title="Address Line 1"><text-line size="30"/></default-field></field>
+            <field name="unitNumber"><default-field><text-line size="10"/></default-field></field>
+            <field name="address2"><default-field title="Address Line 2"><text-line size="30"/></default-field></field>
+            <field name="city"><default-field title="City/State/Zip"><text-line size="16"/></default-field></field>
+            <field name="stateProvinceGeoId"><default-field title="">
+                <drop-down><entity-options key="${toGeoId}" text="${geoName}">
+                    <entity-find entity-name="GeoAssocAndToDetail">
+                        <econdition field-name="geoId" value="USA"/>
+                        <econdition field-name="geoAssocTypeEnumId" value="GAT_REGIONS"/>
+                        <order-by field-name="geoName"/>
+                    </entity-find>
+                </entity-options></drop-down>
+            </default-field></field>
+            <field name="postalCode"><default-field title=""><text-line size="10"/></default-field></field>
+
+            <field name="telecomContactMechId"><default-field><hidden/></default-field></field>
+            <field name="telecomContactMechPurposeId"><default-field><hidden/></default-field></field>
+            <field name="countryCode"><default-field title="Phone"><text-line size="3" maxlength="3" default-value="+1"/></default-field></field>
+            <field name="areaCode"><default-field title=""><text-line size="4" maxlength="5"/></default-field></field>
+            <field name="contactNumber"><default-field title=""><text-line size="10" maxlength="10"/></default-field></field>
+
+            <field name="emailContactMechId"><default-field><hidden/></default-field></field>
+            <field name="emailContactMechPurposeId"><default-field><hidden/></default-field></field>
+            <field name="emailAddress"><default-field title="Email"><text-line size="40"/></default-field></field>
+
+            <field name="submitButton"><default-field title="Submit"><submit/></default-field></field>
+
+            <field-layout>
+                <fields-not-referenced/>
+                <field-row><field-ref name="address1"/><field-ref name="unitNumber"/></field-row>
+                <field-ref name="address2"/>
+                <field-row><field-ref name="city"/><field-ref name="stateProvinceGeoId"/><field-ref name="postalCode"/></field-row>
+                <field-row><field-ref name="countryCode"/><field-ref name="areaCode"/><field-ref name="contactNumber"/></field-row>
+                <field-ref name="emailAddress"/>
+                <field-ref name="submitButton"/>
+            </field-layout>
+        </form-single>
+    </widgets>
+</screen>
