@@ -100,13 +100,6 @@ This Work includes contributions authored by David E. Jones, not as a
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:'PmntDelivered']"/>
             </if>
             <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:statusId]"/>
-
-            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" out-map="context"
-                    in-map="[invoiceId:invoiceId]"/>
-            <if condition="unpaidTotal == 0">
-                <service-call name="update#mantle.account.invoice.Invoice"
-                        in-map="[invoiceId:invoiceId, statusId:'InvoicePmtRecvd']"/>
-            </if>
         </actions>
     </service>
     <service verb="apply" noun="InvoicePayment">
@@ -130,6 +123,17 @@ This Work includes contributions authored by David E. Jones, not as a
                     in-map="[paymentId:paymentId, invoiceId:invoiceId, billingAccountId:billingAccountId,
                         overrideGlAccountId:overrideGlAccountId, amountApplied:amountApplied,
                         appliedDate:ec.user.nowTimestamp]"/>
+
+            <!-- Payment Applied, now update Invoice status -->
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" out-map="context"
+                    in-map="[invoiceId:invoiceId]"/>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <if condition="unpaidTotal == 0">
+                <if condition="invoice.statusId == 'InvoiceSent' || invoice.statusId == 'InvoiceFinalized'">
+                    <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoicePmtRecvd']"/>
+                    <else><service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoicePmtSent']"/></else>
+                </if>
+            </if>
         </actions>
     </service>
     <service verb="apply" noun="PaymentToPayment">
