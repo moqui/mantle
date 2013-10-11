@@ -23,10 +23,57 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters>
             <parameter name="rateAmountId"/>
             <parameter name="rateAmount"/>
+            <parameter name="vendorRateAmountId"/>
+            <parameter name="vendorRateAmount"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry"/>
+            <entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry" for-update="true"/>
 
+            <if condition="!timeEntry.rateAmountId">
+                <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="clientRate"
+                        in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprClient', rateCurrencyUomId:rateCurrencyUomId]"/>
+                <if condition="clientRate.rateAmountId">
+                    <set field="timeEntry.rateAmountId" from="clientRate.rateAmountId"/>
+                    <set field="rateAmountId" from="clientRate.rateAmountId"/>
+                    <set field="rateAmount" from="clientRate.rateAmount"/>
+                </if>
+
+                <else>
+                    <set field="rateAmountId" from="timeEntry.rateAmountId"/>
+                    <set field="rateAmount" from="timeEntry.'mantle.humanres.rate.RateAmount'?.rateAmount"/>
+                </else>
+            </if>
+
+            <if condition="!timeEntry.vendorRateAmountId">
+                <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="vendorRate"
+                        in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprVendor', rateCurrencyUomId:rateCurrencyUomId]"/>
+                <if condition="vendorRate.rateAmountId">
+                    <set field="timeEntry.vendorRateAmountId" from="vendorRate.rateAmountId"/>
+                    <set field="vendorRateAmountId" from="vendorRate.rateAmountId"/>
+                    <set field="vendorRateAmount" from="vendorRate.rateAmount"/>
+                </if>
+
+                <else>
+                    <set field="vendorRateAmountId" from="timeEntry.vendorRateAmountId"/>
+                    <set field="vendorRateAmount" from="timeEntry.'Vendor#mantle.humanres.rate.RateAmount'?.rateAmount"/>
+                </else>
+            </if>
+
+            <entity-update value-field="timeEntry"/>
+            <!-- <log level="warn" message="=============== rateAmountId=${rateAmountId}, rateAmount=${rateAmount}, vendorRateAmountId=${vendorRateAmountId}, vendorRateAmount=${vendorRateAmount}"/> -->
+        </actions>
+    </service>
+    <service verb="find" noun="TimeEntryRateAmount">
+        <in-parameters>
+            <parameter name="timeEntry" type="org.moqui.entity.EntityValue" required="true"/>
+            <parameter name="ratePurposeEnumId" required="true"/>
+            <parameter name="rateCurrencyUomId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="rateAmountId"/>
+            <parameter name="rateAmount"/>
+        </out-parameters>
+        <actions>
             <if condition="timeEntry.workEffortId">
                 <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="taskWorkEffort">
                     <field-map field-name="workEffortId" from="timeEntry.workEffortId"/>
@@ -92,7 +139,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     <econdition field-name="emplPositionClassId" from="null"/>
                 </econditions>
                 <!-- <econdition field-name="emplPositionClassId" operator="in" from="[emplPositionClassId, null]"/> -->
-                <econdition field-name="rateTypeEnumId" from="timeEntry.rateTypeEnumId ?: 'RT_STANDARD'"/>
+                <econdition field-name="rateTypeEnumId" from="timeEntry.rateTypeEnumId ?: 'RatpStandard'"/>
+                <econdition field-name="ratePurposeEnumId"/>
                 <econdition field-name="timePeriodUomId" value="TF_hr"/>
                 <econdition field-name="rateCurrencyUomId"/><!-- this comes from the parameter, maybe do a better default somehow -->
             </entity-find>
@@ -137,13 +185,17 @@ This Work includes contributions authored by David E. Jones, not as a
                 <if condition="partyList"><set field="raListToUse" from="partyList"/></if>
             </if>
 
+            <!-- no rate yet? get the default rate for the EmplPositionClass -->
+            <if condition="!raListToUse &amp;&amp; emplPositionClassId">
+                <filter-map-list list="rateAmountList" to-list="emplPositionClassList">
+                    <field-map field-name="emplPositionClassId" from="emplPositionClassId"/>
+                </filter-map-list>
+                <if condition="emplPositionClassList"><set field="raListToUse" from="emplPositionClassList"/></if>
+            </if>
+
             <if condition="raListToUse">
                 <set field="rateAmountId" from="raListToUse[0].rateAmountId"/>
                 <set field="rateAmount" from="raListToUse[0].rateAmount"/>
-            </if>
-            <if condition="rateAmountId">
-                <set field="timeEntry.rateAmountId" from="rateAmountId"/>
-                <entity-update value-field="timeEntry"/>
             </if>
             <!-- <log level="warn" message="=============== rateAmountId=${rateAmountId}, rateAmount=${rateAmount}"/> -->
         </actions>
