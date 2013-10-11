@@ -185,7 +185,6 @@ This Work includes contributions authored by David E. Jones, not as a
                 <description>Only TimeEntry records before this date will be included. Defaults to now.</description></parameter>
             <parameter name="createSingleItem" type="Boolean" default-value="false"/>
             <parameter name="currencyUomId" default-value="USD"/>
-            <!-- TODO: support ratePurposeEnumId = RaprVendor -->
             <parameter name="ratePurposeEnumId" default-value="RaprClient"/>
         </in-parameters>
         <out-parameters>
@@ -208,16 +207,23 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="createSingleItem">
                 <set field="amountTotal" from="0"/>
                 <iterate list="timeEntryList" entry="timeEntry">
-                    <if condition="timeEntry.rateAmountId">
+                    <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+
+                    <if condition="rateAmountId">
                         <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                            <field-map field-name="rateAmountId" from="timeEntry.rateAmountId"/>
+                            <field-map field-name="rateAmountId"/>
                         </entity-find-one>
 
                         <else>
                             <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
                                     in-map="[timeEntryId:timeEntry.timeEntryId]"/>
+                            <!-- set the values in the timeEntry record for use below since the service updates the DB record and we don't want to re-query to get it -->
+                            <set field="timeEntry.rateAmountId" from="getTerOut.rateAmountId"/>
+                            <set field="timeEntry.vendorRateAmountId" from="getTerOut.vendorRateAmountId"/>
+
+                            <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
                             <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                <field-map field-name="rateAmountId" from="getTerOut.rateAmountId"/>
+                                <field-map field-name="rateAmountId"/>
                             </entity-find-one>
                         </else>
                     </if>
@@ -231,7 +237,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
 
                     <iterate list="timeEntryList" entry="timeEntry">
-                        <if condition="timeEntry.rateAmountId">
+                        <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+                        <if condition="rateAmountId">
                             <set field="timeEntry.invoiceId" from="invoiceId"/>
                             <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
                             <entity-update value-field="timeEntry"/>
@@ -242,16 +249,19 @@ This Work includes contributions authored by David E. Jones, not as a
 
                 <else>
                     <iterate list="timeEntryList" entry="timeEntry">
-                        <if condition="timeEntry.rateAmountId">
+                        <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+
+                        <if condition="rateAmountId">
                             <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                <field-map field-name="rateAmountId" from="timeEntry.rateAmountId"/>
+                                <field-map field-name="rateAmountId"/>
                             </entity-find-one>
 
                             <else>
                                 <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
                                         in-map="[timeEntryId:timeEntry.timeEntryId]"/>
+                                <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
                                 <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                    <field-map field-name="rateAmountId" from="getTerOut.rateAmountId"/>
+                                    <field-map field-name="rateAmountId"/>
                                 </entity-find-one>
                             </else>
                         </if>
