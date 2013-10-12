@@ -105,6 +105,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="thruDate" type="Timestamp" default-value="${ec.user.nowTimestamp}">
                 <description>Only TimeEntry records before this date will be included. Defaults to now.</description></parameter>
             <parameter name="currencyUomId" default-value="USD"/>
+            <parameter name="ratePurposeEnumId" default-value="RaprClient"/>
+            <parameter name="workerPartyId"><description>If specified only include time entries and expenses from this Party.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
@@ -122,46 +124,67 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <set field="billFromWep" from="billFromList ? billFromList[0] : null"/>
 
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="workerParty">
+                <field-map field-name="partyId" from="workerPartyId"/>
+            </entity-find-one>
+
             <!-- create Invoice associated with WorkEffort, use WorkEffortParty to find from/to parties -->
             <if condition="!invoiceId">
-                <set field="description" value="Invoice for project ${workEffort.workEffortName} [${workEffortId}]"/>
-                <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
-                        in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
-                        fromPartyId:billFromWep?.partyId, toPartyId:billToWep?.partyId,
-                        invoiceDate:ec.user.nowTimestamp, currencyUomId:currencyUomId, description:description]"/>
+                <set field="description" value="Invoice for ${workEffort ? 'project' + workEffort.workEffortName + ' [' + workEffortId + ']' : ''} ${workerParty ? 'worker' + workerParty.firstName?:'' + workerParty.lastName?:'' + workerParty.organizationName?:'' + ' [' + workerPartyId + ']' : ''}"/>
+                <if condition="ratePurposeEnumId == 'RaprClient'">
+                    <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
+                            in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
+                                fromPartyId:billFromWep?.partyId, toPartyId:billToWep?.partyId,
+                                invoiceDate:ec.user.nowTimestamp, currencyUomId:currencyUomId, description:description]"/>
+
+                    <else>
+                        <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
+                                in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceIncoming',
+                                    fromPartyId:workerPartyId, toPartyId:billFromWep?.partyId,
+                                    invoiceDate:ec.user.nowTimestamp, currencyUomId:currencyUomId, description:description]"/>
+                    </else>
+                </if>
             </if>
 
             <!-- iterate through task WorkEffort records and add to Invoice with create#TimeEntryInvoiceItems service -->
+            <!-- TODO: consider refactoring to query TimeEntry records by project workEffortId and workerPartyId
+                instead of doing a query for each task (was original approach when before workerPartyId support and
+                making project workEffortId optional -->
             <entity-find entity-name="mantle.work.effort.WorkEffort" list="taskWorkEffortList">
-                <econdition field-name="rootWorkEffortId" from="workEffortId"/>
+                <econdition field-name="rootWorkEffortId" from="workEffortId" ignore-if-empty="true"/>
+                <econdition field-name="workEffortTypeEnumId" value="WetTask"/>
             </entity-find>
             <set field="invoiceItemCreatedCount" from="0" type="Long"/>
             <iterate list="taskWorkEffortList" entry="taskWorkEffort">
-                <service-call name="mantle.account.InvoiceServices.create#TimeEntryInvoiceItems"
+                <service-call name="mantle.account.InvoiceServices.create#TimeEntryInvoiceItems" out-map="createResult"
                         in-map="[invoiceId:invoiceId, workEffortId:taskWorkEffort.workEffortId, thruDate:thruDate,
-                        currencyUomId:currencyUomId]" out-map="createResult"/>
+                        currencyUomId:currencyUomId, ratePurposeEnumId:ratePurposeEnumId, workerPartyId:workerPartyId]"/>
                 <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + createResult.invoiceItemCreatedCount"/>
             </iterate>
 
             <!-- add items for all expense invoice items for project that are not yet billed through -->
-            <entity-find entity-name="mantle.work.effort.WorkEffortInvoiceDetail" list="weidList">
-                <econdition field-name="workEffortId"/>
-                <econdition field-name="statusId" value="InvoicePmtSent"/>
-                <econdition field-name="invoiceDate" operator="less-equals" from="thruDate"/>
-                <!-- don't include invoices to project CustomerBillTo partyId -->
-                <econdition field-name="toPartyId" operator="not-equals" from="billToWep.partyId"/>
-                <!-- don't include invoices from project VendorBillFrom partyId -->
-                <econdition field-name="fromPartyId" operator="not-equals" from="billFromWep.partyId"/>
-                <order-by field-name="-invoiceDate"/>
-            </entity-find>
-            <iterate list="weidList" entry="weid">
-                <!-- create invoice items and InvoiceItemAssocs, set invoice statusId -->
-                <service-call name="mantle.account.InvoiceServices.create#InvoiceBillThroughItems"
-                        in-map="[originalInvoiceId:weid.invoiceId, newInvoiceId:invoiceId]" out-map="createResult"/>
-                <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + createResult.invoiceItemCreatedCount"/>
-                <service-call name="update#mantle.account.invoice.Invoice"
-                        in-map="[invoiceId:weid.invoiceId, statusId:'InvoiceBilledThrough']"/>
-            </iterate>
+            <if condition="ratePurposeEnumId == 'RaprClient'">
+                <entity-find entity-name="mantle.work.effort.WorkEffortInvoiceDetail" list="weidList">
+                    <econdition field-name="workEffortId" ignore-if-empty="true"/>
+                    <econdition field-name="statusId" value="InvoicePmtSent"/>
+                    <econdition field-name="invoiceDate" operator="less-equals" from="thruDate"/>
+                    <!-- don't include invoices to project CustomerBillTo partyId -->
+                    <econdition field-name="toPartyId" operator="not-equals" from="billToWep.partyId"/>
+                    <!-- don't include invoices from project VendorBillFrom partyId -->
+                    <econdition field-name="fromPartyId" operator="not-equals" from="billFromWep.partyId"/>
+                    <!-- filter by workerPartyId if specified, will be the fromPartyId on an expense invoice -->
+                    <econdition field-name="fromPartyId" from="workerPartyId" ignore-if-empty="true"/>
+                    <order-by field-name="-invoiceDate"/>
+                </entity-find>
+                <iterate list="weidList" entry="weid">
+                    <!-- create invoice items and InvoiceItemAssocs, set invoice statusId -->
+                    <service-call name="mantle.account.InvoiceServices.create#InvoiceBillThroughItems"
+                            in-map="[originalInvoiceId:weid.invoiceId, newInvoiceId:invoiceId]" out-map="createResult"/>
+                    <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + createResult.invoiceItemCreatedCount"/>
+                    <service-call name="update#mantle.account.invoice.Invoice"
+                            in-map="[invoiceId:weid.invoiceId, statusId:'InvoiceBilledThrough']"/>
+                </iterate>
+            </if>
 
             <if condition="invoiceItemCreatedCount == 0">
                 <message error="true">No time entries or expenses found for Project [${workEffortId}], not creating invoice or adding items to existing invoice.</message>
@@ -173,19 +196,18 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
-    <!-- TODO: implement create#VendorTimeInvoiceItems like create#ProjectInvoiceItems -->
-
     <!-- InvoiceItems based on TimeEntry -->
     <service verb="create" noun="TimeEntryInvoiceItems">
         <in-parameters>
             <parameter name="invoiceId" required="true"/>
-            <parameter name="workEffortId"><description>If specified get TimeEntry records constrained on it.</description></parameter>
+            <parameter name="workEffortId"><description>If specified get TimeEntry records constrained on it. Generally a task ID.</description></parameter>
             <parameter name="timesheetId"><description>If specified get TimeEntry records constrained on it.</description></parameter>
             <parameter name="thruDate" type="Timestamp" default-value="${ec.user.nowTimestamp}">
                 <description>Only TimeEntry records before this date will be included. Defaults to now.</description></parameter>
             <parameter name="createSingleItem" type="Boolean" default-value="false"/>
             <parameter name="currencyUomId" default-value="USD"/>
             <parameter name="ratePurposeEnumId" default-value="RaprClient"/>
+            <parameter name="workerPartyId"><description>If specified only include time entries from this Party.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceItemCreatedCount" type="Long"/>
@@ -193,16 +215,23 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
 
+            <if condition="ratePurposeEnumId == 'RaprVendor'">
+                <set field="timeEntryInvoiceCondition" from="[vendorInvoiceId:null]"/>
+                <else><set field="timeEntryInvoiceCondition" from="[invoiceId:null]"/></else>
+            </if>
             <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList">
+                <econdition-object field="timeEntryInvoiceCondition"/>
                 <econdition field-name="workEffortId" ignore-if-empty="true"/>
                 <econdition field-name="timesheetId" ignore-if-empty="true"/>
                 <econditions combine="or">
                     <econdition field-name="thruDate" operator="less-equals" from="thruDate"/>
                     <econdition field-name="thruDate" from="null"/>
                 </econditions>
-                <econdition field-name="invoiceId" operator="equals" from="null"/>
+                <!-- filter by workerPartyId if specified -->
+                <econdition field-name="partyId" from="workerPartyId" ignore-if-empty="true"/>
             </entity-find>
 
+            <set field="itemTypeEnumId" from="ratePurposeEnumId == 'RaprVendor' ? 'ItemExpServLabor' : 'ItemTimeEntry'"/>
             <set field="invoiceItemCreatedCount" from="0" type="Long"/>
             <if condition="createSingleItem">
                 <set field="amountTotal" from="0"/>
@@ -232,15 +261,22 @@ This Work includes contributions authored by David E. Jones, not as a
                 <if condition="amountTotal">
                     <set field="description" value="Time entries for task ${workEffort.workEffortName} [${workEffortId}]"/>
                     <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                            in-map="[invoiceId:invoiceId, itemTypeEnumId:'ItemTimeEntry', amount:amountTotal, quantity:1,
-                        description:description]"/>
+                            in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
+                                amount:amountTotal, quantity:1, description:description]"/>
                     <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
 
                     <iterate list="timeEntryList" entry="timeEntry">
                         <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
                         <if condition="rateAmountId">
-                            <set field="timeEntry.invoiceId" from="invoiceId"/>
-                            <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                            <if condition="ratePurposeEnumId == 'RaprVendor'">
+                                <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
+                                <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+
+                                <else>
+                                    <set field="timeEntry.invoiceId" from="invoiceId"/>
+                                    <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                </else>
+                            </if>
                             <entity-update value-field="timeEntry"/>
                         </if>
                     </iterate>
@@ -268,13 +304,20 @@ This Work includes contributions authored by David E. Jones, not as a
 
                         <if condition="rateAmount">
                             <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                    in-map="[invoiceId:invoiceId, itemTypeEnumId:'ItemTimeEntry',
-                                    amount:rateAmount.rateAmount, quantity:timeEntry.hours, description:timeEntry.comments,
-                                    itemDate:timeEntry.fromDate]"/>
+                                    in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
+                                        amount:rateAmount.rateAmount, quantity:timeEntry.hours, description:timeEntry.comments,
+                                        itemDate:timeEntry.fromDate]"/>
                             <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
 
-                            <set field="timeEntry.invoiceId" from="invoiceId"/>
-                            <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                            <if condition="ratePurposeEnumId == 'RaprVendor'">
+                                <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
+                                <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+
+                                <else>
+                                    <set field="timeEntry.invoiceId" from="invoiceId"/>
+                                    <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                </else>
+                            </if>
                             <entity-update value-field="timeEntry"/>
                         </if>
                     </iterate>
@@ -301,19 +344,26 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="invoiceId" from="originalInvoiceId"/>
             </entity-find>
             <iterate list="originalInvoiceItemList" entry="originalInvoiceItem">
-                <!-- create new InvoiceItem -->
-                <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                        in-map="[invoiceId:newInvoiceId, itemTypeEnumId:originalInvoiceItem.itemTypeEnumId,
+                <!-- if there is a TimeEntry with this as a vendor InvoiceItem skip it so it isn't double billed (and at the incorrect rate) -->
+                <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList">
+                    <econdition field-name="vendorInvoiceId" from="originalInvoiceItem.invoiceId"/>
+                    <econdition field-name="vendorInvoiceItemSeqId" from="originalInvoiceItem.invoiceItemSeqId"/>
+                </entity-find>
+                <if condition="!timeEntryList">
+                    <!-- create new InvoiceItem -->
+                    <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                            in-map="[invoiceId:newInvoiceId, itemTypeEnumId:originalInvoiceItem.itemTypeEnumId,
                                 amount:originalInvoiceItem.amount, quantity:originalInvoiceItem.quantity,
                                 description:originalInvoiceItem.description,
                                 itemDate:(originalInvoiceItem.itemDate ?: originalInvoice.invoiceDate)]"/>
-                <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
-                <!-- create InvoiceItemAssoc between original and new -->
-                <service-call name="create#mantle.account.invoice.InvoiceItemAssoc"
-                        in-map="[invoiceId:originalInvoiceItem.invoiceId, invoiceItemSeqId:originalInvoiceItem.invoiceItemSeqId,
+                    <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
+                    <!-- create InvoiceItemAssoc between original and new -->
+                    <service-call name="create#mantle.account.invoice.InvoiceItemAssoc"
+                            in-map="[invoiceId:originalInvoiceItem.invoiceId, invoiceItemSeqId:originalInvoiceItem.invoiceItemSeqId,
                                 toInvoiceId:newInvoiceId, toInvoiceItemSeqId:iiOut.invoiceItemSeqId,
                                 invoiceItemAssocTypeEnumId:'IiatBillThrough', amount:originalInvoiceItem.amount,
                                 quantity:originalInvoiceItem.quantity]"/>
+                </if>
             </iterate>
         </actions>
     </service>
