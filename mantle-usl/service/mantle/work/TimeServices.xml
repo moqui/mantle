@@ -200,4 +200,23 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- <log level="warn" message="=============== rateAmountId=${rateAmountId}, rateAmount=${rateAmount}"/> -->
         </actions>
     </service>
+
+    <service verb="clear" noun="TimeEntryInvoice">
+        <description>Called when an Invoice is cancelled to clear the invoiceId/vendorInvoiceId and related item seq IDs.</description>
+        <in-parameters><parameter name="invoiceId"/></in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList" for-update="true">
+                <econdition field-name="invoiceId"/></entity-find>
+            <iterate list="timeEntryList" entry="timeEntry">
+                <set field="timeEntry.invoiceId" from="null"/><set field="timeEntry.invoiceItemSeqId" from="null"/>
+                <entity-update value-field="timeEntry"/>
+            </iterate>
+            <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList" for-update="true">
+                <econdition field-name="vendorInvoiceId" from="invoiceId"/></entity-find>
+            <iterate list="timeEntryList" entry="timeEntry">
+                <set field="timeEntry.vendorInvoiceId" from="null"/><set field="timeEntry.vendorInvoiceItemSeqId" from="null"/>
+                <entity-update value-field="timeEntry"/>
+            </iterate>
+        </actions>
+    </service>
 </services>
