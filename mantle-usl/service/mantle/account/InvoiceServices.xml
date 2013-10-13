@@ -83,16 +83,23 @@ This Work includes contributions authored by David E. Jones, not as a
             <auto-parameters entity-name="mantle.account.invoice.Invoice" include="nonpk"/>
             <parameter name="workEffortId" required="true"/>
             <parameter name="fromPartyId" required="true"/>
+            <parameter name="toPartyId" required="true"/>
             <parameter name="invoiceTypeEnumId" default-value="InvoiceSales"/>
             <parameter name="statusId" default-value="InvoiceIncoming"/>
             <parameter name="invoiceDate" type="Timestamp" default-value="${ec.user.nowTimestamp}"/>
-            <parameter name="currencyUomId" default-value="USD"/>
+            <parameter name="currencyUomId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
             <parameter name="invoiceItemCreatedCount" type="Long"/>
         </out-parameters>
         <actions>
+            <if condition="!currencyUomId">
+                <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference">
+                    <field-map field-name="organizationPartyId" from="toPartyId"/>
+                </entity-find-one>
+                <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId ?: 'USD'"/>
+            </if>
             <service-call name="create#mantle.account.invoice.Invoice" in-map="context" out-map="context"/>
             <service-call name="create#mantle.work.effort.WorkEffortInvoice" in-map="context" out-map="context"/>
         </actions>
@@ -104,7 +111,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="workEffortId" required="true"/>
             <parameter name="thruDate" type="Timestamp" default-value="${ec.user.nowTimestamp}">
                 <description>Only TimeEntry records before this date will be included. Defaults to now.</description></parameter>
-            <parameter name="currencyUomId" default-value="USD"/>
+            <parameter name="currencyUomId"/>
             <parameter name="ratePurposeEnumId" default-value="RaprClient"/>
             <parameter name="workerPartyId"><description>If specified only include time entries and expenses from this Party.</description></parameter>
         </in-parameters>
@@ -130,7 +137,13 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- create Invoice associated with WorkEffort, use WorkEffortParty to find from/to parties -->
             <if condition="!invoiceId">
-                <set field="description" value="Invoice for ${workEffort ? 'project' + workEffort.workEffortName + ' [' + workEffortId + ']' : ''} ${workerParty ? 'worker' + workerParty.firstName?:'' + workerParty.lastName?:'' + workerParty.organizationName?:'' + ' [' + workerPartyId + ']' : ''}"/>
+                <if condition="!currencyUomId">
+                    <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference">
+                        <field-map field-name="organizationPartyId" from="ratePurposeEnumId == 'RaprClient' ? billToWep?.partyId : billFromWep?.partyId"/>
+                    </entity-find-one>
+                    <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId ?: 'USD'"/>
+                </if>
+                <set field="description" value="Invoice for ${workEffort ? 'project' + workEffort.workEffortName + ' [' + workEffortId + ']' : ''} ${workerParty ? 'worker' + workerParty.firstName?:'' + ' ' + workerParty.lastName?:'' + workerParty.organizationName?:'' + ' [' + workerPartyId + ']' : ''}"/>
                 <if condition="ratePurposeEnumId == 'RaprClient'">
                     <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
                             in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
