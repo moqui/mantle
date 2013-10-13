@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.3.xsd">
+
+<!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="update" noun="RateAmount">
+        <description>RateAmount is immutable (expire only), so creates a new record and expire the current one.</description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.humanres.rate.RateAmount" include="nonpk"/>
+            <parameter name="rateAmountId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="rateAmountId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="oldRateAmount"/>
+            <entity-make-value entity-name="mantle.humanres.rate.RateAmount" value-field="newRateAmount" map="oldRateAmount"/>
+
+            <set field="oldRateAmount.thruDate" from="ec.user.nowTimestamp"/>
+            <entity-update value-field="oldRateAmount"/>
+            
+            <entity-set value-field="newRateAmount" map="context" set-if-empty="true"/>
+            <entity-sequenced-id-primary value-field="newRateAmount"/>
+            <set field="rateAmountId" from="newRateAmount.rateAmountId"/>
+            <entity-create value-field="newRateAmount"/>
+        </actions>
+    </service>
+</services>
