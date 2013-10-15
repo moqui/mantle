@@ -81,9 +81,9 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="create" noun="ProjectExpenseInvoice">
         <in-parameters>
             <auto-parameters entity-name="mantle.account.invoice.Invoice" include="nonpk"/>
-            <parameter name="workEffortId" required="true"/>
+            <parameter name="workEffortId"/>
             <parameter name="fromPartyId" required="true"/>
-            <parameter name="toPartyId" required="true"/>
+            <parameter name="toPartyId"/>
             <parameter name="invoiceTypeEnumId" default-value="InvoiceSales"/>
             <parameter name="statusId" default-value="InvoiceIncoming"/>
             <parameter name="invoiceDate" type="Timestamp" default-value="${ec.user.nowTimestamp}"/>
@@ -91,17 +91,32 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
-            <parameter name="invoiceItemCreatedCount" type="Long"/>
         </out-parameters>
         <actions>
+            <if condition="!workEffortId &amp;&amp; !toPartyId">
+                <return error="true" message="Must specify either Project (workEffortId) or To Party (toPartyId)"/>
+            </if>
+
             <if condition="!currencyUomId">
                 <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference">
                     <field-map field-name="organizationPartyId" from="toPartyId"/>
                 </entity-find-one>
                 <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId ?: 'USD'"/>
             </if>
+            <if condition="!toPartyId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="vendorWepList">
+                    <date-filter/><econdition field-name="workEffortId"/>
+                    <econdition field-name="roleTypeId" value="VendorBillFrom"/>
+                </entity-find>
+                <set field="vendorWep" from="vendorWepList?.getAt(0)"/>
+                <set field="toPartyId" from="vendorWep.partyId"/>
+            </if>
+
             <service-call name="create#mantle.account.invoice.Invoice" in-map="context" out-map="context"/>
-            <service-call name="create#mantle.work.effort.WorkEffortInvoice" in-map="context" out-map="context"/>
+
+            <if condition="workEffortId">
+                <service-call name="create#mantle.work.effort.WorkEffortInvoice" in-map="context" out-map="context"/>
+            </if>
         </actions>
     </service>
 
@@ -117,6 +132,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
+            <parameter name="invoiceItemCreatedCount" type="Long"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
