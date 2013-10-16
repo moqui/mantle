@@ -18,8 +18,6 @@ import org.moqui.Moqui
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
-import java.sql.Timestamp
-
 class WorkProjectBasicFlow extends Specification {
     @Shared
     protected final static Logger logger = LoggerFactory.getLogger(WorkProjectBasicFlow.class)
@@ -84,8 +82,10 @@ class WorkProjectBasicFlow extends Specification {
                 .call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.work.effort.WorkEffort workEffortId="TEST-MS-01" rootWorkEffortId="TEST" workEffortTypeEnumId="WetMilestone" statusId="WeInProgress" workEffortName="Test Milestone 1" estimatedStartDate="2013-11-01 00:00:00.0" estimatedCompletionDate="2013-11-30 00:00:00.0"/>
-            <mantle.work.effort.WorkEffort workEffortId="TEST-MS-02" rootWorkEffortId="TEST" workEffortTypeEnumId="WetMilestone" statusId="WeApproved" workEffortName="Test Milestone 2" estimatedStartDate="2013-12-01 00:00:00.0" estimatedCompletionDate="2013-12-31 00:00:00.0"/>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-MS-01" rootWorkEffortId="TEST" workEffortTypeEnumId="WetMilestone"
+                statusId="WeInProgress" workEffortName="Test Milestone 1" estimatedStartDate="2013-11-01 00:00:00.0" estimatedCompletionDate="2013-11-30 00:00:00.0"/>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-MS-02" rootWorkEffortId="TEST" workEffortTypeEnumId="WetMilestone"
+                statusId="WeApproved" workEffortName="Test Milestone 2" estimatedStartDate="2013-12-01 00:00:00.0" estimatedCompletionDate="2013-12-31 00:00:00.0"/>
             <!-- how to handle seqId?
             <moqui.entity.EntityAuditLog auditHistorySeqId="100153" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST-MS-01" newValueText="WeInProgress" changedByUserId="EX_JOHN_DOE"/>
             <moqui.entity.EntityAuditLog auditHistorySeqId="100154" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST-MS-02" newValueText="WeApproved" changedByUserId="EX_JOHN_DOE"/>
@@ -117,9 +117,38 @@ class WorkProjectBasicFlow extends Specification {
                 assignToPartyId:'ORG_BIZI_JD', priority:4, purposeEnumId:'WepFix', estimatedWorkTime:2,
                 description:'Broken piece of the puzzle'])
                 .call()
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-001" rootWorkEffortId="TEST" workEffortTypeEnumId="WetTask"
+                purposeEnumId="WepTask" resolutionEnumId="WerUnresolved" statusId="WeApproved" priority="3"
+                workEffortName="Test Task 1" description="Will be really great when it's done"
+                estimatedCompletionDate="1384495200000" estimatedWorkTime="10" remainingWorkTime="10" timeUomId="TF_hr"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="TEST-001" partyId="ORG_BIZI_JD" roleTypeId="Worker"
+                fromDate="1383411600000" statusId="PRTYASGN_ASSIGNED"/>
+            <mantle.work.effort.WorkEffortAssoc workEffortId="TEST-MS-01" toWorkEffortId="TEST-001"
+                workEffortAssocTypeEnumId="WeatMilestone" fromDate="1383411600000"/>
+
+            <mantle.work.effort.WorkEffort workEffortId="TEST-001A" parentWorkEffortId="TEST-001" rootWorkEffortId="TEST"
+                workEffortTypeEnumId="WetTask" purposeEnumId="WepNewFeature" resolutionEnumId="WerUnresolved"
+                statusId="WeInPlanning" priority="4" workEffortName="Test Task 1A" description="One piece of the puzzle"
+                estimatedCompletionDate="1384495200000" estimatedWorkTime="2" remainingWorkTime="2" timeUomId="TF_hr"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="TEST-001A" partyId="ORG_BIZI_JD" roleTypeId="Worker"
+                fromDate="1383411600000" statusId="PRTYASGN_ASSIGNED"/>
+            <mantle.work.effort.WorkEffortAssoc workEffortId="TEST-MS-01" toWorkEffortId="TEST-001A"
+                workEffortAssocTypeEnumId="WeatMilestone" fromDate="1383411600000"/>
+
+            <mantle.work.effort.WorkEffort workEffortId="TEST-001B" parentWorkEffortId="TEST-001" rootWorkEffortId="TEST"
+                workEffortTypeEnumId="WetTask" purposeEnumId="WepFix" resolutionEnumId="WerUnresolved" statusId="WeApproved"
+                priority="4" workEffortName="Test Task 1B" description="Broken piece of the puzzle"
+                estimatedCompletionDate="1384495200000" estimatedWorkTime="2" remainingWorkTime="2" timeUomId="TF_hr"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="TEST-001B" partyId="ORG_BIZI_JD" roleTypeId="Worker"
+                fromDate="1383411600000" statusId="PRTYASGN_ASSIGNED"/>
+            <mantle.work.effort.WorkEffortAssoc workEffortId="TEST-MS-01" toWorkEffortId="TEST-001B"
+                workEffortAssocTypeEnumId="WeatMilestone" fromDate="1383411600000"/>
+            </entity-facade-xml>""").check()
+        logger.info("TEST Milestones data check results: " + dataCheckErrors)
 
         then:
-        true
+        dataCheckErrors.size() == 0
     }
 
     /*
