@@ -19,6 +19,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="rootWorkEffortId" required="true"><description>The ID of the Project</description></parameter>
             <parameter name="parentWorkEffortId"/>
             <parameter name="milestoneWorkEffortId"/>
+            <parameter name="workEffortId"/>
             <parameter name="workEffortName" required="true"/>
             <parameter name="description"/>
             <parameter name="statusId" default-value="WeInPlanning"/>
@@ -36,7 +37,9 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <set field="seqName" value="Project_${rootWorkEffortId}"/>
-            <set field="workEffortId" value="${rootWorkEffortId}-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/>
+            <if condition="!workEffortId">
+                <set field="workEffortId" value="${rootWorkEffortId}-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/>
+            </if>
             <service-call name="create#mantle.work.effort.WorkEffort" out-map="context" in-map="context + [workEffortTypeEnumId:'WetTask']"/>
             <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
                         roleTypeId:'Worker', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
