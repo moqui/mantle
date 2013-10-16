@@ -37,40 +37,54 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <set field="seqName" value="Project_${rootWorkEffortId}"/>
             <set field="workEffortId" value="${rootWorkEffortId}-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/>
-            <service-call name="create#WorkEffort" out-map="context" in-map="context + [workEffortTypeEnumId:'WetTask']"/>
-            <service-call name="create#WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
+            <service-call name="create#mantle.work.effort.WorkEffort" out-map="context" in-map="context + [workEffortTypeEnumId:'WetTask']"/>
+            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
                         roleTypeId:'Worker', fromDate:ec.user.nowTimestamp, statusId:'PRTYASGN_ASSIGNED']"/>
+            <if condition="milestoneWorkEffortId">
+                <service-call name="mantle.work.TaskServices.set#TaskMilestone" in-map="context"/>
+            </if>
         </actions>
     </service>
     <service verb="update" noun="Task">
         <in-parameters>
-            <auto-parameters entity-name="WorkEffort" include="nonpk"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
+            <parameter name="milestoneWorkEffortId"/>
             <parameter name="workEffortId" required="true"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedWorkTime" type="BigDecimal"/>
             <parameter name="remainingWorkTime" type="BigDecimal"/>
             <parameter name="actualWorkTime" type="BigDecimal"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
-            <parameter name="milestoneWorkEffortId"/>
         </in-parameters>
         <actions>
-            <service-call name="update#WorkEffort" out-map="context" in-map="context"/>
+            <service-call name="update#mantle.work.effort.WorkEffort" out-map="context" in-map="context"/>
             <if condition="milestoneWorkEffortId">
-                <service-call name="mantle.work.TaskServices.update#TaskMilestone" in-map="context"/>
+                <service-call name="mantle.work.TaskServices.set#TaskMilestone" in-map="context"/>
             </if>
         </actions>
     </service>
-    <service verb="update" noun="TaskMilestone">
+    <service verb="set" noun="TaskMilestone">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
             <parameter name="milestoneWorkEffortId" required="true"/>
         </in-parameters>
-        <out-parameters>
-            <auto-parameters entity-name="WorkEffortAssoc"/>
-        </out-parameters>
         <actions>
-            <!-- TODO: if milestoneWorkEffortId is different from currently associated milestone,
-                    expire all milestones and assoc with new one -->
+            <!-- if milestoneWorkEffortId is different from currently associated milestone, expire all milestones and assoc with new one -->
+            <entity-find entity-name="mantle.work.effort.WorkEffortAssoc" list="weaList">
+                <date-filter/>
+                <econdition field-name="toWorkEffortId" from="workEffortId"/>
+                <econdition field-name="workEffortAssocTypeEnumId" value="WeatMilestone"/>
+            </entity-find>
+            <set field="foundMilestone" from="false"/>
+            <iterate list="weaList" entry="wea"><if condition="wea.workEffortId == milestoneWorkEffortId">
+                <set field="foundMilestone" from="true"/>
+                <else><set field="wea.thruDate" from="ec.user.nowTimestamp"/><entity-update value-field="wea"/></else>
+            </if></iterate>
+            <if condition="!foundMilestone">
+                <service-call name="create#mantle.work.effort.WorkEffortAssoc"
+                    in-map="[workEffortId:milestoneWorkEffortId, toWorkEffortId:workEffortId,
+                        workEffortAssocTypeEnumId:'WeatMilestone', fromDate:ec.user.nowTimestamp]"/>
+            </if>
         </actions>
     </service>
 
