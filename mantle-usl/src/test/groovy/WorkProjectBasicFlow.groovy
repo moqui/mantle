@@ -28,7 +28,7 @@ class WorkProjectBasicFlow extends Specification {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
         ec.user.loginUser("john.doe", "moqui", null)
-        // set an effective date so data check works, etc
+        // set an effective date so data check works, etc; Long value (when set from Locale of john.doe, US/Central): 1383411600000
         ec.user.setEffectiveTime(ec.l10n.parseTimestamp("2013-11-02 12:00:00.0", null))
     }
 
@@ -43,6 +43,8 @@ class WorkProjectBasicFlow extends Specification {
     def cleanup() {
         ec.artifactExecution.enableAuthz()
     }
+
+    // TODO: create Client, Vendor (internal org with default Acctg settings), Worker, RateAmounts, etc then use those in tests below
 
     def "create TEST Project"() {
         when:
@@ -151,10 +153,57 @@ class WorkProjectBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    /*
+    def "record TimeEntries and complete Tasks"() {
+        when:
+        // get tasks In Progress
+        ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001', statusId:'WeInProgress']).call()
+        ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001A', statusId:'WeInProgress']).call()
+        ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001B', statusId:'WeInProgress']).call()
+        // plain hours, nothing else
+        ec.service.sync().name("mantle.work.TaskServices.add#TaskTime")
+                .parameters([workEffortId:'TEST-001', partyId:'ORG_BIZI_JD', rateTypeEnumId:'RatpStandard', remainingWorkTime:3,
+                hours:6, fromDate:null, thruDate:null, breakHours:null])
+                .call()
+        // hours and break, no from/thru dates (determined automatically, thru based on now and from based on hours+break)
+        ec.service.sync().name("mantle.work.TaskServices.add#TaskTime")
+                .parameters([workEffortId:'TEST-001A', partyId:'ORG_BIZI_JD', rateTypeEnumId:'RatpStandard', remainingWorkTime:1,
+                    hours:1.5, fromDate:null, thruDate:null, breakHours:0.5])
+                .call()
+        // break and from/thru dates, hours determined automatically
+        ec.service.sync().name("mantle.work.TaskServices.add#TaskTime")
+                .parameters([workEffortId:'TEST-001B', partyId:'ORG_BIZI_JD', rateTypeEnumId:'RatpStandard', remainingWorkTime:0.5,
+                    hours:null, fromDate:"2013-11-03 12:00:00", thruDate:"2013-11-03 15:00:00", breakHours:1])
+                .call()
+        // complete tasks
+        ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001', statusId:'WeComplete', resolutionEnumId:'WerCompleted']).call()
+        ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001A', statusId:'WeComplete', resolutionEnumId:'WerCompleted']).call()
+        ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001B', statusId:'WeComplete', resolutionEnumId:'WerCompleted']).call()
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-001" resolutionEnumId="WerCompleted" statusId="WeComplete"
+                estimatedWorkTime="10" remainingWorkTime="3" actualWorkTime="6"/>
+            <mantle.work.time.TimeEntry timeEntryId="100000" partyId="ORG_BIZI_JD" rateTypeEnumId="RatpStandard"
+                fromDate="1383390000000" thruDate="1383411600000" hours="6" workEffortId="TEST-001"/>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-001A" resolutionEnumId="WerCompleted" statusId="WeComplete"
+                estimatedWorkTime="2" remainingWorkTime="1" actualWorkTime="1.5"/>
+            <mantle.work.time.TimeEntry timeEntryId="100001" partyId="ORG_BIZI_JD" rateTypeEnumId="RatpStandard"
+                fromDate="1383404400000" thruDate="1383411600000" hours="1.5" breakHours="0.5" workEffortId="TEST-001A"/>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-001B" resolutionEnumId="WerCompleted" statusId="WeComplete"
+                estimatedWorkTime="2" remainingWorkTime="0.5" actualWorkTime="2"/>
+            <mantle.work.time.TimeEntry timeEntryId="100002" partyId="ORG_BIZI_JD" rateTypeEnumId="RatpStandard"
+                fromDate="1383501600000" thruDate="1383512400000" hours="2" breakHours="1" workEffortId="TEST-001B"/>
+        </entity-facade-xml>""").check()
+        logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
     def "create Request and update status"() {
         when:
         // TODO
+        ec.context
 
         then:
         true
@@ -164,18 +213,40 @@ class WorkProjectBasicFlow extends Specification {
     def "create Task for Request"() {
         when:
         // TODO
+        ec.context
 
         then:
         true
         // TODO: data assertions
     }
 
-    def "record TimeEntries on Task"() {
+    def "create Worker Time and Expense Invoice and record Payment"() {
         when:
         // TODO
+        ec.context
 
         then:
         true
         // TODO: data assertions
-    } */
+    }
+
+    def "create Client Time and Expense Invoice and Finalize"() {
+        when:
+        // TODO
+        ec.context
+
+        then:
+        true
+        // TODO: data assertions
+    }
+
+    def "record Payment for Client Time and Expense Invoice"() {
+        when:
+        // TODO
+        ec.context
+
+        then:
+        true
+        // TODO: data assertions
+    }
 }
