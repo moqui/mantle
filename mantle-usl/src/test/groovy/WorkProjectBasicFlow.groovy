@@ -15,7 +15,14 @@ import spock.lang.*
 import org.moqui.context.ExecutionContext
 import org.moqui.Moqui
 
+import org.slf4j.LoggerFactory
+import org.slf4j.Logger
+
+import java.sql.Timestamp
+
 class WorkProjectBasicFlow extends Specification {
+    @Shared
+    protected final static Logger logger = LoggerFactory.getLogger(WorkProjectBasicFlow.class)
     @Shared
     ExecutionContext ec
 
@@ -23,6 +30,8 @@ class WorkProjectBasicFlow extends Specification {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
         ec.user.loginUser("john.doe", "moqui", null)
+        // set an effective date so data check works, etc
+        ec.user.setEffectiveTime(ec.l10n.parseTimestamp("2013-11-02 12:00:00.0", null))
     }
 
     def cleanupSpec() {
@@ -54,11 +63,24 @@ class WorkProjectBasicFlow extends Specification {
                     estimatedStartDate:'2013-12-01', estimatedCompletionDate:'2013-12-31', statusId:'WeApproved'])
                 .call()
 
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.work.effort.WorkEffort workEffortId="TEST" workEffortTypeEnumId="WetProject" statusId="WeInProgress" workEffortName="Test Project"/>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-01" rootWorkEffortId="TEST" workEffortTypeEnumId="WetMilestone" statusId="WeInProgress" workEffortName="Test Milestone 1" estimatedStartDate="2013-11-01 00:00:00.0" estimatedCompletionDate="2013-11-30 00:00:00.0"/>
+            <mantle.work.effort.WorkEffort workEffortId="TEST-02" rootWorkEffortId="TEST" workEffortTypeEnumId="WetMilestone" statusId="WeApproved" workEffortName="Test Milestone 2" estimatedStartDate="2013-12-01 00:00:00.0" estimatedCompletionDate="2013-12-31 00:00:00.0"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="EX_JOHN_DOE" roleTypeId="Manager" fromDate="2013-11-02 12:00:00.0" statusId="PRTYASGN_ASSIGNED"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="ORG_BLUTH" roleTypeId="CustomerBillTo" fromDate="2013-11-02 12:00:00.0"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="ORG_BIZI_SERVICES" roleTypeId="VendorBillFrom" fromDate="2013-11-02 12:00:00.0"/>
+            <!-- how to handle seqId? <moqui.entity.EntityAuditLog auditHistorySeqId="100151" changedEntityName="mantle.work.effort.WorkEffortParty" changedFieldName="statusId" pkPrimaryValue="TEST" pkSecondaryValue="EX_JOHN_DOE" pkRestCombinedValue="roleTypeId=Manager,fromDate=2013-11-02 12:00:00.0" newValueText="PRTYASGN_ASSIGNED" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="100150" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST" newValueText="WeInPlanning" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="100152" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST" oldValueText="WeInPlanning" newValueText="WeInProgress" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="100153" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST-01" newValueText="WeInProgress" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="100154" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST-02" newValueText="WeApproved" changedByUserId="EX_JOHN_DOE"/>
+            -->
+            </entity-facade-xml>""").check()
+        logger.info("Project and Milestones data check results: " + dataCheckErrors)
 
         then:
-        true
-        //ec.entity.makeDataLoader().location("").check()
-        // TODO: data assertions
+        dataCheckErrors.size() == 0
     }
     /*
     def "create Request and update status"() {
