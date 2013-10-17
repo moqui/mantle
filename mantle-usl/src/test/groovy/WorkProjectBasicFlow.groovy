@@ -18,6 +18,7 @@ import org.moqui.Moqui
 import org.slf4j.LoggerFactory
 import org.slf4j.Logger
 
+/* To run these make sure moqui, mantle, and HiveMind are in place and run: "gradle cleanAll load runtime/mantle/mantle-usl:test" */
 class WorkProjectBasicFlow extends Specification {
     @Shared
     protected final static Logger logger = LoggerFactory.getLogger(WorkProjectBasicFlow.class)
@@ -25,6 +26,8 @@ class WorkProjectBasicFlow extends Specification {
     ExecutionContext ec
     @Shared
     Map expInvResult
+    @Shared
+    Map clientInvResult
 
     def setupSpec() {
         // init the framework, get the ec
@@ -312,8 +315,9 @@ class WorkProjectBasicFlow extends Specification {
 
     def "create Client Time and Expense Invoice and Finalize"() {
         when:
-        Map clientInvResult = ec.service.sync().name("mantle.account.InvoiceServices.create#ProjectInvoiceItems")
+        clientInvResult = ec.service.sync().name("mantle.account.InvoiceServices.create#ProjectInvoiceItems")
                 .parameters([ratePurposeEnumId:'RaprClient', workEffortId:'TEST', thruDate:'2013-11-11 12:00:00']).call()
+        // this will trigger the GL posting
         ec.service.sync().name("update#mantle.account.invoice.Invoice")
                 .parameters([invoiceId:clientInvResult.invoiceId, statusId:'InvoiceFinalized']).call()
 
