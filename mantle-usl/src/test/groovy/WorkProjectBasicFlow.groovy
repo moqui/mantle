@@ -54,12 +54,18 @@ class WorkProjectBasicFlow extends Specification {
         ec.service.sync().name("mantle.work.ProjectServices.update#Project")
                 .parameters([workEffortId:'TEST', workEffortName:'Test Project', statusId:'WeInProgress'])
                 .call()
+        // assign Joe Developer to TEST project as Programmer (necessary for determining RateAmount, etc)
+        ec.service.sync().name("create#mantle.work.effort.WorkEffortParty")
+                .parameters([workEffortId:'TEST', partyId:'ORG_BIZI_JD', roleTypeId:'Worker', emplPositionClassId:'Programmer',
+                fromDate:'2013-11-01', statusId:'PRTYASGN_ASSIGNED']).call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.work.effort.WorkEffort workEffortId="TEST" workEffortTypeEnumId="WetProject" statusId="WeInProgress" workEffortName="Test Project"/>
             <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="EX_JOHN_DOE" roleTypeId="Manager" fromDate="2013-11-02 12:00:00.0" statusId="PRTYASGN_ASSIGNED"/>
             <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="ORG_BLUTH" roleTypeId="CustomerBillTo" fromDate="2013-11-02 12:00:00.0"/>
             <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="ORG_BIZI_SERVICES" roleTypeId="VendorBillFrom" fromDate="2013-11-02 12:00:00.0"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="ORG_BIZI_JD" roleTypeId="Worker"
+                fromDate="1383282000000" statusId="PRTYASGN_ASSIGNED" emplPositionClassId="Programmer"/>
             <!-- how to handle seqId?
             <moqui.entity.EntityAuditLog auditHistorySeqId="100151" changedEntityName="mantle.work.effort.WorkEffortParty" changedFieldName="statusId" pkPrimaryValue="TEST" pkSecondaryValue="EX_JOHN_DOE" pkRestCombinedValue="roleTypeId=Manager,fromDate=2013-11-02 12:00:00.0" newValueText="PRTYASGN_ASSIGNED" changedByUserId="EX_JOHN_DOE"/>
             <moqui.entity.EntityAuditLog auditHistorySeqId="100150" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST" newValueText="WeInPlanning" changedByUserId="EX_JOHN_DOE"/>
@@ -162,18 +168,15 @@ class WorkProjectBasicFlow extends Specification {
         // plain hours, nothing else
         ec.service.sync().name("mantle.work.TaskServices.add#TaskTime")
                 .parameters([workEffortId:'TEST-001', partyId:'ORG_BIZI_JD', rateTypeEnumId:'RatpStandard', remainingWorkTime:3,
-                hours:6, fromDate:null, thruDate:null, breakHours:null])
-                .call()
+                    hours:6, fromDate:null, thruDate:null, breakHours:null]).call()
         // hours and break, no from/thru dates (determined automatically, thru based on now and from based on hours+break)
         ec.service.sync().name("mantle.work.TaskServices.add#TaskTime")
                 .parameters([workEffortId:'TEST-001A', partyId:'ORG_BIZI_JD', rateTypeEnumId:'RatpStandard', remainingWorkTime:1,
-                    hours:1.5, fromDate:null, thruDate:null, breakHours:0.5])
-                .call()
+                    hours:1.5, fromDate:null, thruDate:null, breakHours:0.5]).call()
         // break and from/thru dates, hours determined automatically
         ec.service.sync().name("mantle.work.TaskServices.add#TaskTime")
                 .parameters([workEffortId:'TEST-001B', partyId:'ORG_BIZI_JD', rateTypeEnumId:'RatpStandard', remainingWorkTime:0.5,
-                    hours:null, fromDate:"2013-11-03 12:00:00", thruDate:"2013-11-03 15:00:00", breakHours:1])
-                .call()
+                    hours:null, fromDate:"2013-11-03 12:00:00", thruDate:"2013-11-03 15:00:00", breakHours:1]).call()
         // complete tasks
         ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001', statusId:'WeComplete', resolutionEnumId:'WerCompleted']).call()
         ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001A', statusId:'WeComplete', resolutionEnumId:'WerCompleted']).call()
@@ -184,14 +187,17 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.work.effort.WorkEffort workEffortId="TEST-001" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="10" remainingWorkTime="3" actualWorkTime="6"/>
             <mantle.work.time.TimeEntry timeEntryId="100000" partyId="ORG_BIZI_JD" rateTypeEnumId="RatpStandard"
+                rateAmountId="Default-StClPg" vendorRateAmountId="Default-StVnPg"
                 fromDate="1383390000000" thruDate="1383411600000" hours="6" workEffortId="TEST-001"/>
             <mantle.work.effort.WorkEffort workEffortId="TEST-001A" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="2" remainingWorkTime="1" actualWorkTime="1.5"/>
             <mantle.work.time.TimeEntry timeEntryId="100001" partyId="ORG_BIZI_JD" rateTypeEnumId="RatpStandard"
+                rateAmountId="Default-StClPg" vendorRateAmountId="Default-StVnPg"
                 fromDate="1383404400000" thruDate="1383411600000" hours="1.5" breakHours="0.5" workEffortId="TEST-001A"/>
             <mantle.work.effort.WorkEffort workEffortId="TEST-001B" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="2" remainingWorkTime="0.5" actualWorkTime="2"/>
             <mantle.work.time.TimeEntry timeEntryId="100002" partyId="ORG_BIZI_JD" rateTypeEnumId="RatpStandard"
+                rateAmountId="Default-StClPg" vendorRateAmountId="Default-StVnPg"
                 fromDate="1383501600000" thruDate="1383512400000" hours="2" breakHours="1" workEffortId="TEST-001B"/>
         </entity-facade-xml>""").check()
         logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
@@ -200,7 +206,7 @@ class WorkProjectBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    def "create Request and update status"() {
+    def "create Request and update Status"() {
         when:
         // TODO
         ec.context
@@ -222,12 +228,69 @@ class WorkProjectBasicFlow extends Specification {
 
     def "create Worker Time and Expense Invoice and record Payment"() {
         when:
-        // TODO
-        ec.context
+        // create expense invoices and add items
+        Map expInvResult = ec.service.sync().name("mantle.account.InvoiceServices.create#ProjectExpenseInvoice")
+                .parameters([workEffortId:'TEST', fromPartyId:'ORG_BIZI_JD']).call()
+        ec.service.sync().name("create#mantle.account.invoice.InvoiceItem")
+                .parameters([invoiceId:expInvResult.invoiceId, itemTypeEnumId:'ItemExpTravAir',
+                    description:'United SFO-LAX', itemDate:'2013-11-02', quantity:1, amount:345.67]).call()
+        ec.service.sync().name("create#mantle.account.invoice.InvoiceItem")
+                .parameters([invoiceId:expInvResult.invoiceId, itemTypeEnumId:'ItemExpTravLodging',
+                    description:'Fleabag Inn 2 nights', itemDate:'2013-11-04', quantity:1, amount:123.45]).call()
+        // add worker/vendor time to the expense invoice
+        ec.service.sync().name("mantle.account.InvoiceServices.create#ProjectInvoiceItems")
+                .parameters([invoiceId:expInvResult.invoiceId, workerPartyId:'ORG_BIZI_JD',
+                    ratePurposeEnumId:'RaprVendor', workEffortId:'TEST', thruDate:'2013-11-10 12:00:00']).call()
+        // "submit" the expense/time invoice
+        ec.service.sync().name("update#mantle.account.invoice.Invoice")
+                .parameters([invoiceId:expInvResult.invoiceId, statusId:'InvoiceReceived']).call()
+
+        // pay the invoice (345.67 + 123.45 + (9.5 * 40) = 849.12)
+        ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
+                .parameters([invoiceId:expInvResult.invoiceId, statusId:'PmntDelivered', amount:'849.12',
+                    paymentMethodTypeEnumId:'PmtCompanyCheck', effectiveDate:'2013-11-10 12:00:00',
+                    paymentRefNum:'1234', comments:'Delivered by Fedex']).call()
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.account.invoice.Invoice invoiceId="100000" invoiceTypeEnumId="InvoiceSales" fromPartyId="ORG_BIZI_JD"
+                toPartyId="ORG_BIZI_SERVICES" statusId="InvoicePmtSent" invoiceDate="1383404400000" currencyUomId="USD"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="01" itemTypeEnumId="ItemExpTravAir"
+                quantity="1" amount="345.67" description="United SFO-LAX" itemDate="1383368400000"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="02" itemTypeEnumId="ItemExpTravLodging"
+                quantity="1" amount="123.45" description="Fleabag Inn 2 nights" itemDate="1383544800000"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="03" itemTypeEnumId="ItemExpServLabor"
+                quantity="6" amount="40" itemDate="1383390000000"/>
+            <mantle.work.time.TimeEntry timeEntryId="100000" vendorInvoiceId="100000" vendorInvoiceItemSeqId="03"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="04" itemTypeEnumId="ItemExpServLabor"
+                quantity="1.5" amount="40" itemDate="1383404400000"/>
+            <mantle.work.time.TimeEntry timeEntryId="100001" vendorInvoiceId="100000" vendorInvoiceItemSeqId="04"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="05" itemTypeEnumId="ItemExpServLabor"
+                quantity="2" amount="40" itemDate="1383501600000"/>
+            <mantle.work.time.TimeEntry timeEntryId="100002" vendorInvoiceId="100000" vendorInvoiceItemSeqId="05"/>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="100000" acctgTransTypeEnumId="AttPurchaseInvoice"
+                organizationPartyId="ORG_BIZI_SERVICES" transactionDate="1383411600000" isPosted="Y" postedDate="1383411600000"
+                glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="ORG_BIZI_JD" invoiceId="100000"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="01" debitCreditFlag="D"
+                amount="345.67" glAccountId="681000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="01"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="02" debitCreditFlag="D"
+                amount="123.45" glAccountId="681000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="02"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="03" debitCreditFlag="D"
+                amount="240" glAccountId="649000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="03"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="04" debitCreditFlag="D"
+                amount="60" glAccountId="649000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="05" debitCreditFlag="D"
+                amount="80" glAccountId="649000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="06" debitCreditFlag="C"
+                amount="849.12" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.work.effort.WorkEffortInvoice invoiceId="100000" workEffortId="TEST"/>
+            <mantle.account.payment.PaymentApplication paymentApplicationId="100000" paymentId="100000" invoiceId="100000"
+                amountApplied="849.12" appliedDate="1383411600000"/>
+        </entity-facade-xml>""").check()
+        logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
 
         then:
-        true
-        // TODO: data assertions
+        dataCheckErrors.size() == 0
     }
 
     def "create Client Time and Expense Invoice and Finalize"() {
