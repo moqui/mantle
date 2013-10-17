@@ -247,31 +247,31 @@ class WorkProjectBasicFlow extends Specification {
                 .parameters([invoiceId:expInvResult.invoiceId, statusId:'InvoiceReceived']).call()
 
         // pay the invoice (345.67 + 123.45 + (9.5 * 40) = 849.12)
-        ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
+        Map expPmtResult = ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
                 .parameters([invoiceId:expInvResult.invoiceId, statusId:'PmntDelivered', amount:'849.12',
                     paymentMethodTypeEnumId:'PmtCompanyCheck', effectiveDate:'2013-11-10 12:00:00',
                     paymentRefNum:'1234', comments:'Delivered by Fedex']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.account.invoice.Invoice invoiceId="100000" invoiceTypeEnumId="InvoiceSales" fromPartyId="ORG_BIZI_JD"
+            <mantle.account.invoice.Invoice invoiceId="${expInvResult.invoiceId}" invoiceTypeEnumId="InvoiceSales" fromPartyId="ORG_BIZI_JD"
                 toPartyId="ORG_BIZI_SERVICES" statusId="InvoicePmtSent" invoiceDate="1383404400000" currencyUomId="USD"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="01" itemTypeEnumId="ItemExpTravAir"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="01" itemTypeEnumId="ItemExpTravAir"
                 quantity="1" amount="345.67" description="United SFO-LAX" itemDate="1383368400000"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="02" itemTypeEnumId="ItemExpTravLodging"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemExpTravLodging"
                 quantity="1" amount="123.45" description="Fleabag Inn 2 nights" itemDate="1383544800000"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="03" itemTypeEnumId="ItemExpServLabor"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="03" itemTypeEnumId="ItemExpServLabor"
                 quantity="6" amount="40" itemDate="1383390000000"/>
             <mantle.work.time.TimeEntry timeEntryId="100000" vendorInvoiceId="100000" vendorInvoiceItemSeqId="03"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="04" itemTypeEnumId="ItemExpServLabor"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="04" itemTypeEnumId="ItemExpServLabor"
                 quantity="1.5" amount="40" itemDate="1383404400000"/>
             <mantle.work.time.TimeEntry timeEntryId="100001" vendorInvoiceId="100000" vendorInvoiceItemSeqId="04"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="100000" invoiceItemSeqId="05" itemTypeEnumId="ItemExpServLabor"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="05" itemTypeEnumId="ItemExpServLabor"
                 quantity="2" amount="40" itemDate="1383501600000"/>
             <mantle.work.time.TimeEntry timeEntryId="100002" vendorInvoiceId="100000" vendorInvoiceItemSeqId="05"/>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="100000" acctgTransTypeEnumId="AttPurchaseInvoice"
                 organizationPartyId="ORG_BIZI_SERVICES" transactionDate="1383411600000" isPosted="Y" postedDate="1383411600000"
-                glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="ORG_BIZI_JD" invoiceId="100000"/>
+                glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="ORG_BIZI_JD" invoiceId="${expInvResult.invoiceId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="01" debitCreditFlag="D"
                 amount="345.67" glAccountId="681000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="02" debitCreditFlag="D"
@@ -284,20 +284,36 @@ class WorkProjectBasicFlow extends Specification {
                 amount="80" glAccountId="649000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100000" acctgTransEntrySeqId="06" debitCreditFlag="C"
                 amount="849.12" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.work.effort.WorkEffortInvoice invoiceId="100000" workEffortId="TEST"/>
-            <mantle.account.payment.PaymentApplication paymentApplicationId="100000" paymentId="100000" invoiceId="100000"
-                amountApplied="849.12" appliedDate="1383411600000"/>
+            <mantle.work.effort.WorkEffortInvoice invoiceId="${expInvResult.invoiceId}" workEffortId="TEST"/>
+
+            <mantle.account.payment.Payment paymentId="${expPmtResult.paymentId}" paymentTypeEnumId="PtInvoicePayment"
+                fromPartyId="ORG_BIZI_SERVICES" toPartyId="ORG_BIZI_JD" paymentMethodTypeEnumId="PmtCompanyCheck"
+                statusId="PmntDelivered" effectiveDate="1384106400000" paymentRefNum="1234" comments="Delivered by Fedex"
+                amount="849.12" amountUomId="USD"/>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="100001" acctgTransTypeEnumId="AttOutgoingPayment"
+                organizationPartyId="ORG_BIZI_SERVICES" transactionDate="1383411600000" isPosted="Y"
+                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="ORG_BIZI_JD"
+                paymentId="${expPmtResult.paymentId}"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100001" acctgTransEntrySeqId="01" debitCreditFlag="D"
+                amount="849.12" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100001" acctgTransEntrySeqId="02" debitCreditFlag="C"
+                amount="849.12" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+
+            <mantle.account.payment.PaymentApplication paymentApplicationId="${expPmtResult.paymentApplicationId}"
+                paymentId="${expPmtResult.paymentId}" invoiceId="${expInvResult.invoiceId}" amountApplied="849.12"
+                appliedDate="1383411600000"/>
         </entity-facade-xml>""").check()
         logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
-
         then:
         dataCheckErrors.size() == 0
     }
 
     def "create Client Time and Expense Invoice and Finalize"() {
         when:
-        // TODO
-        ec.context
+        Map clientInvResult = ec.service.sync().name("mantle.account.InvoiceServices.create#ProjectInvoiceItems")
+                .parameters([ratePurposeEnumId:'RaprClient', workEffortId:'TEST', thruDate:'2013-11-11 12:00:00']).call()
+        ec.service.sync().name("update#mantle.account.invoice.Invoice")
+                .parameters([invoiceId:clientInvResult.invoiceId, statusId:'InvoiceFinalized']).call()
 
         then:
         true
