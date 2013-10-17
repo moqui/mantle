@@ -368,11 +368,29 @@ class WorkProjectBasicFlow extends Specification {
 
     def "record Payment for Client Time and Expense Invoice"() {
         when:
-        // TODO
-        ec.context
+        Map clientPmtResult = ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
+                .parameters([invoiceId:clientInvResult.invoiceId, statusId:'PmntDelivered', amount:1039.12,
+                    paymentMethodTypeEnumId:'PmtCompanyCheck', effectiveDate:'2013-11-12 12:00:00', paymentRefNum:'54321']).call()
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.account.invoice.Invoice invoiceId="${clientInvResult.invoiceId}" statusId="InvoicePmtRecvd"/>
+            <mantle.account.payment.Payment paymentId="${clientPmtResult.paymentId}" paymentTypeEnumId="PtInvoicePayment"
+                fromPartyId="ORG_BLUTH" toPartyId="ORG_BIZI_SERVICES" paymentMethodTypeEnumId="PmtCompanyCheck"
+                statusId="PmntDelivered" effectiveDate="1384279200000" paymentRefNum="54321" amount="1,039.12" amountUomId="USD"/>
+            <mantle.account.payment.PaymentApplication paymentApplicationId="100001" paymentId="${clientPmtResult.paymentId}"
+                invoiceId="${clientInvResult.invoiceId}" amountApplied="1,039.12" appliedDate="1383411600000"/>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="100003" acctgTransTypeEnumId="AttIncomingPayment"
+                organizationPartyId="ORG_BIZI_SERVICES" transactionDate="1383411600000" isPosted="Y" postedDate="1383411600000"
+                glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="ORG_BLUTH" paymentId="${clientPmtResult.paymentId}"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100003" acctgTransEntrySeqId="01" debitCreditFlag="C"
+                amount="1,039.12" glAccountId="120000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100003" acctgTransEntrySeqId="02" debitCreditFlag="D"
+                amount="1,039.12" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+        </entity-facade-xml>""").check()
+        logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
 
         then:
-        true
-        // TODO: data assertions
+        dataCheckErrors.size() == 0
     }
 }
