@@ -45,6 +45,7 @@ class WorkProjectBasicFlow extends Specification {
     }
 
     // TODO: create Client, Vendor (internal org with default Acctg settings), Worker, RateAmounts, etc then use those in tests below
+    // why? because this uses data in HiveMindDemoData.xml and will blow up if HiveMind is not in place...
 
     def "create TEST Project"() {
         when:
