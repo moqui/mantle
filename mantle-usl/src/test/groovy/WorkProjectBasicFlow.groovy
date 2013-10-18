@@ -212,24 +212,48 @@ class WorkProjectBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    def "create Request and update Status"() {
+    def "create Request and Task for Request"() {
         when:
-        // TODO
-        ec.context
+        Map createReqResult = ec.service.sync().name("mantle.request.RequestServices.create#Request")
+                .parameters([clientPartyId:'ORG_BLUTH', assignToPartyId:'ORG_BIZI_JD', requestName:'Test Request 1',
+                    description:'Description of Test Request 1', priority:7, requestTypeEnumId:'RqtSupport',
+                    statusId:'ReqSubmitted', responseRequiredDate:'2013-11-15 15:00:00']).call()
+        ec.service.sync().name("mantle.request.RequestServices.update#Request")
+                .parameters([requestId:createReqResult.requestId, statusId:'ReqReviewed']).call()
+        ec.service.sync().name("mantle.request.RequestServices.update#Request")
+                .parameters([requestId:createReqResult.requestId, statusId:'ReqCompleted']).call()
+
+        Map createReqTskResult = ec.service.sync().name("mantle.work.TaskServices.create#Task")
+                .parameters([rootWorkEffortId:'TEST', workEffortName:'Test Request 1 Task',
+                    estimatedCompletionDate:'2013-11-15', statusId:'WeApproved', assignToPartyId:'ORG_BIZI_JD',
+                    priority:7, purposeEnumId:'WepTask', estimatedWorkTime:2, description:'']).call()
+        ec.service.sync().name("create#mantle.request.RequestWorkEffort")
+                .parameters([workEffortId:createReqTskResult.workEffortId, requestId:createReqResult.requestId]).call()
+        ec.service.sync().name("mantle.work.TaskServices.update#Task")
+                .parameters([workEffortId:createReqTskResult.workEffortId, statusId:'WeComplete',
+                    resolutionEnumId:'WerCompleted']).call()
+
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.request.Request requestId="${createReqResult.requestId}" requestTypeEnumId="RqtSupport"
+                statusId="ReqCompleted" requestName="Test Request 1" description="Description of Test Request 1" priority="7"
+                responseRequiredDate="1384549200000" requestResolutionEnumId="RrUnresolved" filedByPartyId="EX_JOHN_DOE"/>
+            <mantle.request.RequestWorkEffort requestId="${createReqResult.requestId}"
+                workEffortId="${createReqTskResult.workEffortId}" lastUpdatedStamp="1382060813771"/>
+            <mantle.request.RequestParty requestId="${createReqResult.requestId}" partyId="ORG_BIZI_JD"
+                roleTypeId="Worker" fromDate="1383411600000"/>
+            <mantle.request.RequestParty requestId="${createReqResult.requestId}" partyId="ORG_BLUTH"
+                roleTypeId="CustomerBillTo" fromDate="1383411600000"/>
+            <mantle.work.effort.WorkEffort workEffortId="${createReqTskResult.workEffortId}" rootWorkEffortId="TEST"
+                workEffortTypeEnumId="WetTask" purposeEnumId="WepTask" resolutionEnumId="WerCompleted" statusId="WeComplete"
+                priority="7" workEffortName="Test Request 1 Task" estimatedCompletionDate="1384495200000"
+                estimatedWorkTime="2" remainingWorkTime="2" timeUomId="TF_hr"/>
+            <mantle.work.effort.WorkEffortParty workEffortId="${createReqTskResult.workEffortId}" partyId="ORG_BIZI_JD"
+                roleTypeId="Worker" fromDate="1383411600000" statusId="PRTYASGN_ASSIGNED"/>
+        </entity-facade-xml>""").check()
+        logger.info("create Request and Task for Request data check results: " + dataCheckErrors)
 
         then:
-        true
-        // TODO: data assertions
-    }
-
-    def "create Task for Request"() {
-        when:
-        // TODO
-        ec.context
-
-        then:
-        true
-        // TODO: data assertions
+        dataCheckErrors.size() == 0
     }
 
     def "create Worker Time and Expense Invoice and record Payment"() {
@@ -308,7 +332,7 @@ class WorkProjectBasicFlow extends Specification {
                 paymentId="${expPmtResult.paymentId}" invoiceId="${expInvResult.invoiceId}" amountApplied="849.12"
                 appliedDate="1383411600000"/>
         </entity-facade-xml>""").check()
-        logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
+        logger.info("create Worker Time and Expense Invoice and record Payment data check results: " + dataCheckErrors)
         then:
         dataCheckErrors.size() == 0
     }
@@ -360,7 +384,7 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100002" acctgTransEntrySeqId="06" debitCreditFlag="D"
                 amount="1,039.12" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
-        logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
+        logger.info("create Client Time and Expense Invoice and Finalize data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -388,7 +412,7 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="100003" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="1,039.12" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
-        logger.info("record TimeEntries and complete Tasks data check results: " + dataCheckErrors)
+        logger.info("record Payment for Client Time and Expense Invoice data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
