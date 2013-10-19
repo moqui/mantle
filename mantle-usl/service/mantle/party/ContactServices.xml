@@ -395,6 +395,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters>
             <parameter name="emailAddress"/>
+            <parameter name="contactMechId"/>
         </out-parameters>
         <actions>
             <entity-find entity-name="PartyContactMechInfo" list="pcmiList">
@@ -403,6 +404,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <if condition="pcmiList">
                 <set field="emailAddress" from="pcmiList[0].infoString"/>
+                <set field="contactMechId" from="pcmiList[0].contactMechId"/>
 
                 <else>
                     <!-- get emailAddress from UserAccount -->
@@ -430,28 +432,34 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="infoString" required="true"/>
 
             <parameter name="partyId" required="true"/>
-            <parameter name="contactMechId" required="true"/>
+            <parameter name="contactMechId"/>
             <parameter name="contactMechPurposeId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="contactMechId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="origContactMech"/>
-            <script>newContactMech = origContactMech.cloneValue()</script>
-            <set field="newContactMech.infoString" from="infoString"/>
-            <if condition="newContactMech == origContactMech">
-                <return error="false" message="No fields were different for Postal Address with ID [${contactMechId}], not updating."/>
+            <if condition="!contactMechId &amp;&amp; !contactMechPurposeId">
+                <return error="false" message="Must specify either a contactMechId or contactMechPurposeId (or both)."/>
             </if>
 
             <entity-find entity-name="mantle.party.contact.PartyContactMech" list="origPcmList">
                 <date-filter/>
                 <econdition field-name="partyId" from="partyId"/>
-                <econdition field-name="contactMechId" from="contactMechId"/>
+                <econdition field-name="contactMechId" from="contactMechId" ignore-if-empty="true"/>
                 <econdition field-name="contactMechPurposeId" from="contactMechPurposeId" ignore-if-empty="true"/>
             </entity-find>
             <if condition="!origPcmList">
-                <return error="true" message="Email Address with ID [${contactMechId}] is not associated with party ID [${partyId}] and purpose [${contactMechPurposeId?:'N/A'}], not updating."/>
+                <log level="info" message="Contact Info with ID [${contactMechId}] is not associated with party ID [${partyId}] and purpose [${contactMechPurposeId?:'N/A'}], not updating."/>
+                <return/>
+            </if>
+            <set field="contactMechId" from="contactMechId ?: origPcmList[0].contactMechId"/>
+
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="origContactMech"/>
+            <script>newContactMech = origContactMech.cloneValue()</script>
+            <set field="newContactMech.infoString" from="infoString"/>
+            <if condition="newContactMech == origContactMech">
+                <return error="false" message="No fields were different for Postal Address with ID [${contactMechId}], not updating."/>
             </if>
 
             <!-- at this point we have at least one PCM, so create the updated ContactMech and then expire/update the PCMs -->
