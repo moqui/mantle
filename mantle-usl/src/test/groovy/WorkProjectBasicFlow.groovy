@@ -25,6 +25,8 @@ class WorkProjectBasicFlow extends Specification {
     @Shared
     ExecutionContext ec
     @Shared
+    Map vendorResult
+    @Shared
     Map expInvResult
     @Shared
     Map clientInvResult
@@ -51,6 +53,94 @@ class WorkProjectBasicFlow extends Specification {
 
     // TODO: create Client, Vendor (internal org with default Acctg settings), Worker, RateAmounts, etc then use those in tests below
     // why? because this uses data in HiveMindDemoData.xml and will blow up if HiveMind is not in place...
+
+    def "create Vendor"() {
+        when:
+        vendorResult = ec.service.sync().name("mantle.party.PartyServices.create#Organization")
+                .parameters([roleTypeId:'VendorBillFrom', organizationName:'Test Vendor']).call()
+        Map vendorCiResult = ec.service.sync().name("mantle.party.ContactServices.store#PartyContactInfo")
+                .parameters([partyId:vendorResult.partyId, postalContactMechPurposeId:'PostalPayment',
+                    telecomContactMechPurposeId:'PhonePayment', emailContactMechPurposeId:'EmailPayment', countryGeoId:'USA',
+                    address1:'51 W. Center St.', unitNumber:'1234', city:'Orem', stateProvinceGeoId:'USA_UT',
+                    postalCode:'84057', postalCodeExt:'4605', countryCode:'+1', areaCode:'801', contactNumber:'123-4567',
+                    emailAddress:'vendor.ar@test.com']).call()
+        // internal org and accounting config default settings
+        ec.service.sync().name("create#mantle.party.PartyRole").parameters([partyId:vendorResult.partyId, roleTypeId:'OrgInternal']).call()
+        ec.service.sync().name("mantle.ledger.LedgerServices.init#PartyAccountingConfiguration")
+                .parameters([sourcePartyId:'DefaultSettings', organizationPartyId:vendorResult.partyId]).call()
+        // vendor payment/ar rep
+        Map vendorRepResult = ec.service.sync().name("mantle.party.PartyServices.create#Account")
+                .parameters([firstName:'Vendor', lastName:'TestRep', emailAddress:'vendor.rep@test.com',
+                    username:'vendor.rep', newPassword:'moqui1!', newPasswordVerify:'moqui1!', loginAfterCreate:'false']).call()
+        ec.service.sync().name("create#mantle.party.PartyRelationship")
+                .parameters([relationshipTypeEnumId:'PrtRepresentative', fromPartyId:vendorRepResult.partyId,
+                    fromRoleTypeId:'Manager', toPartyId:vendorResult.partyId, toRoleTypeId:'VendorBillFrom',
+                    fromDate:ec.user.nowTimestamp]).call()
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.party.Party partyId="${vendorResult.partyId}" partyTypeEnumId="PtyOrganization"/>
+            <mantle.party.Organization partyId="${vendorResult.partyId}" organizationName="Test Vendor"/>
+            <mantle.party.PartyRole partyId="${vendorResult.partyId}" roleTypeId="OrgInternal"/>
+            <mantle.party.PartyRole partyId="${vendorResult.partyId}" roleTypeId="VendorBillFrom"/>
+
+            <mantle.party.contact.ContactMech contactMechId="${vendorCiResult.postalContactMechId}" contactMechTypeEnumId="CmtPostalAddress"/>
+            <mantle.party.contact.PostalAddress contactMechId="${vendorCiResult.postalContactMechId}" address1="51 W. Center St." unitNumber="1234"
+                city="Orem" stateProvinceGeoId="USA_UT" countryGeoId="USA" postalCode="84057" postalCodeExt="4605"/>
+            <mantle.party.contact.PartyContactMech partyId="${vendorResult.partyId}" contactMechId="${vendorCiResult.postalContactMechId}"
+                contactMechPurposeId="PostalPayment" fromDate="1383411600000"/>
+            <mantle.party.contact.ContactMech contactMechId="${vendorCiResult.telecomContactMechId}" contactMechTypeEnumId="CmtTelecomNumber"/>
+            <mantle.party.contact.PartyContactMech partyId="${vendorResult.partyId}" contactMechId="${vendorCiResult.telecomContactMechId}"
+                contactMechPurposeId="PhonePayment" fromDate="1383411600000"/>
+            <mantle.party.contact.TelecomNumber contactMechId="${vendorCiResult.telecomContactMechId}" countryCode="+1"
+                areaCode="801" contactNumber="123-4567"/>
+            <mantle.party.contact.ContactMech contactMechId="${vendorCiResult.emailContactMechId}"
+                contactMechTypeEnumId="CmtEmailAddress" infoString="vendor.ar@test.com"/>
+            <mantle.party.contact.PartyContactMech partyId="${vendorResult.partyId}"
+                contactMechId="${vendorCiResult.emailContactMechId}" contactMechPurposeId="EmailPayment" fromDate="1383411600000"/>
+
+            <mantle.ledger.transaction.GlJournal glJournalId="${vendorResult.partyId}Error"
+                glJournalName="Error Journal for ${vendorResult.partyId}" organizationPartyId="${vendorResult.partyId}"/>
+            <mantle.ledger.config.PartyAcctgPreference organizationPartyId="${vendorResult.partyId}"
+                taxFormEnumId="TxfUsIrs1120" cogsMethodEnumId="CogsActualCost" baseCurrencyUomId="USD"
+                invoiceSequenceEnumId="InvSqStandard" orderSequenceEnumId="OrdSqStandard"
+                errorGlJournalId="${vendorResult.partyId}Error"/>
+            <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="ACCOUNTS_RECEIVABLE"
+                organizationPartyId="${vendorResult.partyId}" glAccountId="120000"/>
+            <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="ACCOUNTS_PAYABLE"
+                organizationPartyId="${vendorResult.partyId}" glAccountId="210000"/>
+            <mantle.ledger.config.PaymentMethodTypeGlAccount paymentMethodTypeEnumId="PmtCompanyCheck"
+                organizationPartyId="${vendorResult.partyId}" glAccountId="111100"/>
+            <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpServLabor" organizationPartyId="${vendorResult.partyId}"
+                glAccountId="649000"/>
+            <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpTravAir" organizationPartyId="${vendorResult.partyId}"
+                glAccountId="681000"/>
+            <mantle.ledger.account.GlAccountOrganization glAccountId="120000" organizationPartyId="${vendorResult.partyId}"/>
+            <mantle.ledger.account.GlAccountOrganization glAccountId="210000" organizationPartyId="${vendorResult.partyId}"/>
+            <mantle.ledger.config.PaymentTypeGlAccount paymentTypeEnumId="PtInvoicePayment"
+                organizationPartyId="${vendorResult.partyId}" isPayable="N" isApplied="Y" glAccountId="120000"/>
+            <mantle.ledger.config.PaymentTypeGlAccount paymentTypeEnumId="PtInvoicePayment"
+                organizationPartyId="${vendorResult.partyId}" isPayable="Y" isApplied="Y" glAccountId="210000"/>
+
+            <mantle.party.Party partyId="${vendorRepResult.partyId}" partyTypeEnumId="PtyPerson" disabled="N"/>
+            <mantle.party.Person partyId="${vendorRepResult.partyId}" firstName="Vendor" lastName="TestRep"/>
+            <moqui.security.UserAccount userId="100000" username="vendor.rep" userFullName="Vendor TestRep"
+                passwordHashType="SHA-256" passwordSetDate="1383411600000" disabled="N" requirePasswordChange="N"
+                emailAddress="vendor.rep@test.com" partyId="${vendorRepResult.partyId}"/>
+            <!-- the salt is generated randomly so can't easily validate the actual password or salt: currentPassword="32ce60c14d9e72c1fb17938ede30fe9de04390409cce7310743c2716a2c7bf89" passwordSalt="{.rqlPt8x" -->
+            <mantle.party.contact.ContactMech contactMechId="100003" contactMechTypeEnumId="CmtEmailAddress"
+                infoString="vendor.rep@test.com"/>
+            <mantle.party.contact.PartyContactMech partyId="${vendorRepResult.partyId}" contactMechId="100003"
+                contactMechPurposeId="EmailPrimary" fromDate="1383411600000"/>
+            <mantle.party.PartyRelationship partyRelationshipId="100000" relationshipTypeEnumId="PrtRepresentative"
+                fromPartyId="${vendorRepResult.partyId}" fromRoleTypeId="Manager" toPartyId="${vendorResult.partyId}"
+                toRoleTypeId="VendorBillFrom" fromDate="1383411600000"/>
+        </entity-facade-xml>""").check()
+        logger.info("TEST create Vendor data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
 
     def "create TEST Project"() {
         when:
