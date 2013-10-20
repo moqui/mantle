@@ -25,11 +25,7 @@ class WorkProjectBasicFlow extends Specification {
     @Shared
     ExecutionContext ec
     @Shared
-    Map vendorResult
-    @Shared
-    Map expInvResult
-    @Shared
-    Map clientInvResult
+    Map vendorResult, clientResult, expInvResult, clientInvResult
 
     def setupSpec() {
         // init the framework, get the ec
@@ -124,17 +120,78 @@ class WorkProjectBasicFlow extends Specification {
 
             <mantle.party.Party partyId="${vendorRepResult.partyId}" partyTypeEnumId="PtyPerson" disabled="N"/>
             <mantle.party.Person partyId="${vendorRepResult.partyId}" firstName="Vendor" lastName="TestRep"/>
-            <moqui.security.UserAccount userId="100000" username="vendor.rep" userFullName="Vendor TestRep"
+            <moqui.security.UserAccount userId="${vendorRepResult.userId}" username="vendor.rep" userFullName="Vendor TestRep"
                 passwordHashType="SHA-256" passwordSetDate="1383411600000" disabled="N" requirePasswordChange="N"
                 emailAddress="vendor.rep@test.com" partyId="${vendorRepResult.partyId}"/>
             <!-- the salt is generated randomly so can't easily validate the actual password or salt: currentPassword="32ce60c14d9e72c1fb17938ede30fe9de04390409cce7310743c2716a2c7bf89" passwordSalt="{.rqlPt8x" -->
-            <mantle.party.contact.ContactMech contactMechId="100003" contactMechTypeEnumId="CmtEmailAddress"
-                infoString="vendor.rep@test.com"/>
-            <mantle.party.contact.PartyContactMech partyId="${vendorRepResult.partyId}" contactMechId="100003"
-                contactMechPurposeId="EmailPrimary" fromDate="1383411600000"/>
+            <mantle.party.contact.ContactMech contactMechId="${vendorRepResult.emailContactMechId}"
+                contactMechTypeEnumId="CmtEmailAddress" infoString="vendor.rep@test.com"/>
+            <mantle.party.contact.PartyContactMech partyId="${vendorRepResult.partyId}"
+                contactMechId="${vendorRepResult.emailContactMechId}" contactMechPurposeId="EmailPrimary" fromDate="1383411600000"/>
             <mantle.party.PartyRelationship partyRelationshipId="100000" relationshipTypeEnumId="PrtRepresentative"
                 fromPartyId="${vendorRepResult.partyId}" fromRoleTypeId="Manager" toPartyId="${vendorResult.partyId}"
                 toRoleTypeId="VendorBillFrom" fromDate="1383411600000"/>
+        </entity-facade-xml>""").check()
+        logger.info("TEST create Vendor data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "create Client"() {
+        when:
+        clientResult = ec.service.sync().name("mantle.party.PartyServices.create#Organization")
+                .parameters([roleTypeId:'CustomerBillTo', organizationName:'Test Client']).call()
+        Map clientCiResult = ec.service.sync().name("mantle.party.ContactServices.store#PartyContactInfo")
+                .parameters([partyId:clientResult.partyId, postalContactMechPurposeId:'PostalBilling',
+                telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling', countryGeoId:'USA',
+                address1:'1350 E. Flamingo Rd.', unitNumber:'1234', city:'Las Vegas', stateProvinceGeoId:'USA_NV',
+                postalCode:'89119', postalCodeExt:'5263', countryCode:'+1', areaCode:'702', contactNumber:'123-4567',
+                emailAddress:'client.ap@test.com']).call()
+
+        Map clientRepResult = ec.service.sync().name("mantle.party.PartyServices.create#Account")
+                .parameters([firstName:'Client', lastName:'TestRep', emailAddress:'client.rep@test.com',
+                username:'client.rep', newPassword:'moqui1!', newPasswordVerify:'moqui1!', loginAfterCreate:'false']).call()
+        ec.service.sync().name("create#mantle.party.PartyRelationship")
+                .parameters([relationshipTypeEnumId:'PrtRepresentative', fromPartyId:clientRepResult.partyId,
+                fromRoleTypeId:'ClientBilling', toPartyId:clientResult.partyId, toRoleTypeId:'CustomerBillTo',
+                fromDate:ec.user.nowTimestamp]).call()
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.party.Party partyId="${clientResult.partyId}" partyTypeEnumId="PtyOrganization"/>
+            <mantle.party.Organization partyId="${clientResult.partyId}" organizationName="Test Client"/>
+            <mantle.party.PartyRole partyId="${clientResult.partyId}" roleTypeId="CustomerBillTo"/>
+
+            <mantle.party.contact.ContactMech contactMechId="${clientCiResult.postalContactMechId}" contactMechTypeEnumId="CmtPostalAddress"/>
+            <mantle.party.contact.PostalAddress contactMechId="${clientCiResult.postalContactMechId}"
+                address1="1350 E. Flamingo Rd." unitNumber="1234" city="Las Vegas" stateProvinceGeoId="USA_NV"
+                countryGeoId="USA" postalCode="89119" postalCodeExt="5263"/>
+            <mantle.party.contact.PartyContactMech partyId="${clientResult.partyId}" contactMechId="${clientCiResult.postalContactMechId}"
+                contactMechPurposeId="PostalBilling" fromDate="1383411600000"/>
+            <mantle.party.contact.ContactMech contactMechId="${clientCiResult.telecomContactMechId}" contactMechTypeEnumId="CmtTelecomNumber"/>
+            <mantle.party.contact.PartyContactMech partyId="${clientResult.partyId}" contactMechId="${clientCiResult.telecomContactMechId}"
+                contactMechPurposeId="PhoneBilling" fromDate="1383411600000"/>
+            <mantle.party.contact.TelecomNumber contactMechId="${clientCiResult.telecomContactMechId}" countryCode="+1"
+                areaCode="702" contactNumber="123-4567"/>
+            <mantle.party.contact.ContactMech contactMechId="${clientCiResult.emailContactMechId}"
+                contactMechTypeEnumId="CmtEmailAddress" infoString="client.ap@test.com"/>
+            <mantle.party.contact.PartyContactMech partyId="${clientResult.partyId}"
+                contactMechId="${clientCiResult.emailContactMechId}" contactMechPurposeId="EmailBilling" fromDate="1383411600000"/>
+
+            <mantle.party.Party partyId="${clientRepResult.partyId}" partyTypeEnumId="PtyPerson" disabled="N"/>
+            <mantle.party.Person partyId="${clientRepResult.partyId}" firstName="Client" lastName="TestRep"/>
+            <moqui.security.UserAccount userId="${clientRepResult.userId}" username="client.rep" userFullName="Client TestRep"
+                passwordHashType="SHA-256" passwordSetDate="1383411600000" disabled="N" requirePasswordChange="N"
+                emailAddress="client.rep@test.com" partyId="${clientRepResult.partyId}"/>
+            <!-- the salt is generated randomly so can't easily validate the actual password or salt: currentPassword="32ce60c14d9e72c1fb17938ede30fe9de04390409cce7310743c2716a2c7bf89" passwordSalt="{.rqlPt8x" -->
+            <mantle.party.contact.ContactMech contactMechId="${clientRepResult.emailContactMechId}"
+                contactMechTypeEnumId="CmtEmailAddress" infoString="client.rep@test.com"/>
+            <mantle.party.contact.PartyContactMech partyId="${clientRepResult.partyId}"
+                contactMechId="${clientRepResult.emailContactMechId}" contactMechPurposeId="EmailPrimary" fromDate="1383411600000"/>
+            <mantle.party.PartyRelationship partyRelationshipId="100001" relationshipTypeEnumId="PrtRepresentative"
+                fromPartyId="${clientRepResult.partyId}" fromRoleTypeId="ClientBilling" toPartyId="${clientResult.partyId}"
+                toRoleTypeId="CustomerBillTo" fromDate="1383411600000"/>
         </entity-facade-xml>""").check()
         logger.info("TEST create Vendor data check results: " + dataCheckErrors)
 
