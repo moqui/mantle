@@ -50,6 +50,67 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="store" noun="CreditCardInfo">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+
+            <parameter name="paymentMethodId"/>
+            <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk">
+                <exclude field-name="cardNumberLookupHash"/><exclude field-name="consecutiveFailedAuths"/>
+                <exclude field-name="lastFailedAuthDate"/><exclude field-name="consecutiveFailedNsf"/>
+                <exclude field-name="lastFailedNsfDate"/>
+            </auto-parameters>
+            <parameter name="cardNumber" required="true"><credit-card/></parameter>
+            <parameter name="expireMonth" required="true"/>
+            <parameter name="expireYear" required="true"/>
+            <parameter name="expireDate" default-value="${expireMonth}/${expireYear}">
+                <time-range after="now" format="MM/yyyy"/></parameter>
+
+            <parameter name="postalContactMechId"/>
+            <parameter name="postalContactMechPurposeId" default-value="PostalBilling"/>
+            <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <parameter name="toName" default-value="${firstNameOnCard} ${lastNameOnCard}"/>
+
+            <parameter name="telecomContactMechId"/>
+            <parameter name="telecomContactMechPurposeId" default-value="PhoneBilling"/>
+            <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
+            <parameter name="areaCode"><text-digits/></parameter>
+            <parameter name="contactNumber"><matches regexp="^\d\d[-\. \d]*\d\d$" message="Please enter a valid phone number"/></parameter>
+
+            <parameter name="emailContactMechId"/>
+            <parameter name="emailContactMechPurposeId" default-value="EmailBilling"/>
+            <parameter name="emailAddress"><text-email/></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentMethodId"/>
+            <parameter name="postalContactMechId"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="emailContactMechId"/>
+        </out-parameters>
+        <actions>
+            <if condition="paymentMethodId">
+                <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+                <if condition="!postalContactMechId"><set field="postalContactMechId" from="paymentMethod.postalContactMechId"/></if>
+                <if condition="!telecomContactMechId"><set field="telecomContactMechId" from="paymentMethod.telecomContactMechId"/></if>
+                <if condition="!emailContactMechId"><set field="emailContactMechId" from="paymentMethod.emailContactMechId"/></if>
+            </if>
+
+            <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
+
+            <!-- update PaymentMethod last so we know new postalContactMechId and telecomContactMechId updates (if applicable) -->
+            <if condition="paymentMethodId">
+                <service-call name="mantle.account.PaymentMethodServices.update#CreditCard" in-map="context" out-map="ccOut"/>
+
+                <else>
+                    <service-call name="mantle.account.PaymentMethodServices.create#CreditCard" in-map="context" out-map="ccOut">
+                        <field-map field-name="ownerPartyId" from="ec.user.userAccount.partyId"/>
+                    </service-call>
+                </else>
+            </if>
+            <set field="paymentMethodId" from="ccOut?.paymentMethodId ?: paymentMethodId"/>
+        </actions>
+    </service>
+
     <!-- CreditCard Services -->
     <service verb="create" noun="CreditCard">
         <description>
