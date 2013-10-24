@@ -112,29 +112,95 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
-    <!-- Invoice based on Order -->
+    <!-- Invoice based on Order (for non-shipping orders or orders invoiced before shipping) -->
     <service verb="create" noun="EntireOrderInvoice">
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <out-parameters><parameter name="invoiceId"/></out-parameters>
         <actions>
             <!-- TODO: implement this... create invoice -->
             <!-- TODO: exclude OrderItem quantities that are already invoiced (OrderItemBilling) -->
+            <!-- TODO: create OrderItemBilling records -->
         </actions>
     </service>
 
     <!-- Invoices based on Shipment -->
     <service verb="create" noun="SalesShipmentInvoices">
-        <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="statusId"><description>If specified after create set to this statusId (always created
+                initially in InvoiceInProcess, so there must be a transition to specified status).</description></parameter>
+        </in-parameters>
         <out-parameters><parameter name="invoiceIdList" type="List"/></out-parameters>
         <actions>
-            <!-- TODO: implement this... create invoices -->
-            <!-- TODO: exclude OrderItem shipped quantities that are already invoiced (OrderItemBilling) -->
+            <set field="invoiceByOrderIdMap" from="[:]"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList" for-update="true">
+                <econdition field-name="shipmentId"/>
+                <econdition field-name="invoiceId" from="null"/><!-- exclude items already invoiced -->
+                <econdition field-name="orderId" operator="not-equals" from="null"/><!-- only include item sources from orders -->
+            </entity-find>
+            <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
+                <set field="orderItem" from="shipmentItemSource.'mantle.order.OrderItem'"/>
+                <if condition="orderItem">
+                    <set field="invoice" from="invoiceByOrderIdMap[shipmentItemSource.orderId]"/>
+                    <if condition="!invoice">
+                        <!-- find the OrderPart for the from/toPartyId, etc -->
+                        <set field="orderPart" from="orderItem.'mantle.order.OrderPart'"/>
+                        <if condition="orderPart">
+                            <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
+                            <set field="description" value="Invoice for Order ${shipmentItemSource.orderId} and Shipment ${shipmentItemSource.shipmentId}"/>
+                            <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
+                                    in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
+                                        fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
+                                        invoiceDate:ec.user.nowTimestamp, currencyUomId:orderHeader.currencyUomId,
+                                        description:description]"/>
+                            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+                            <script>invoiceByOrderIdMap.put(shipmentItemSource.orderId, invoice)</script>
+                        </if>
+                    </if>
+                    <if condition="invoice">
+                        <!-- create InvoiceItem, OrderItemBilling, set invoiceId,invoiceItemSeqId -->
+                        <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                in-map="[invoiceId:invoice.invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
+                                    amount:orderItem.unitAmount, description:orderItem.itemDescription,
+                                    quantity:(shipmentItemSource.quantity * (orderItem.selectedAmount ?: 1))]"/>
+                        <entity-find entity-name="mantle.product.issuance.AssetIssuance" list="assetIssuanceList">
+                            <econdition-object field="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
+                                    shipmentId:shipmentId]"/>
+                        </entity-find>
+                        <iterate list="assetIssuanceList" entry="assetIssuance">
+                            <!-- TODO: should we make sure the total quantity on all AssetIssuance records matches the
+                                quantity on the ShipmentItemSource record? that should be handled when they are created... -->
+                            <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
+                                    in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
+                                        invoiceId:invoice.invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                        assetIssuanceId:assetIssuance.assetIssuanceId, shipmentId:shipmentId,
+                                        itemTypeEnumId:(orderItem.itemTypeEnumId ?: 'ItemProduct'), amount:orderItem.unitAmount,
+                                        quantity:assetIssuance.quantity]"/>
+                        </iterate>
+                        
+                        <set field="shipmentItemSource.invoiceId" from="invoice.invoiceId"/>
+                        <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                        <entity-update value-field="shipmentItemSource"/>
+
+                        <!-- TODO: also invoice child OrderItems (adjustments, etc), prorated by quantity if needed -->
+                    </if>
+                </if>
+            </iterate>
+
+            <!-- TODO: for each order invoice uninvoiced non-Product OrderItems such as shipping charges, etc... do all on first invoice? -->
+
+            <!-- set invoice status -->
+            <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:statusId]"/>
+
+            <set field="invoiceIdList" from="invoiceByOrderIdMap.values() as List"/>
         </actions>
     </service>
     <service verb="create" noun="SalesReturnShipmentInvoices">
         <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
         <out-parameters><parameter name="invoiceIdList" type="List"/></out-parameters>
         <actions>
+            <set field="invoiceIdList" from="[]"/>
             <!-- TODO: implement this... create invoices -->
             <!-- TODO: exclude OrderItem received quantities that are already invoiced (OrderItemBilling) -->
         </actions>
@@ -143,6 +209,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
         <out-parameters><parameter name="invoiceIdList" type="List"/></out-parameters>
         <actions>
+            <set field="invoiceIdList" from="[]"/>
             <!-- TODO: implement this... create invoices -->
             <!-- TODO: exclude OrderItems received that are already invoiced -->
         </actions>
