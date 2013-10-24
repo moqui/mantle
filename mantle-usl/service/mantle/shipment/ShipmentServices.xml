@@ -64,7 +64,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- create Shipment record, get shipmentId -->
             <service-call name="create#mantle.shipment.Shipment" out-map="context"
-                    in-map="[shipmentTypeEnumId:'SALES_SHIPMENT', statusId:'SHIPMENT_INPUT',
+                    in-map="[shipmentTypeEnumId:'ShpTpSales', statusId:'ShipInput',
                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId]"/>
 
             <if condition="createPackage">
@@ -89,7 +89,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <service-call name="create#mantle.shipment.ShipmentItem"
                         in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
                 <service-call name="create#mantle.shipment.ShipmentItemSource"
-                        in-map="[shipmentId:shipmentId, productId:orderItem.productId,
+                        in-map="[shipmentId:shipmentId, productId:orderItem.productId, statusId:'SisPending',
                             quantity:orderItem.quantity, quantityNotPacked:orderItem.quantity,
                             orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
             </iterate>
@@ -176,28 +176,26 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- update quantityNotPacked to get ready for the next pack call -->
             <set field="shipmentItemSource.quantityNotPacked" from="shipmentItemSource.quantityNotPacked - quantity"/>
             <if condition="shipmentItemSource.quantityNotPacked &lt;= 0">
-                <set field="shipmentItemSource.statusId" value="PICKITEM_PACKED"/>
+                <set field="shipmentItemSource.statusId" value="SisPacked"/>
             </if>
             <entity-update value-field="shipmentItemSource"/>
         </actions>
     </service>
 
     <service verb="pack" noun="Shipment">
-        <in-parameters><parameter name="shipmentId"/></in-parameters>
-        <out-parameters><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
-            <set field="statusChanged" from="shipment.statusId != 'SHIPMENT_PACKED'"/>
-            <set field="shipment.statusId" value="SHIPMENT_PACKED"/>
-            <entity-update value-field="shipment"/>
+            <service-call name="update#mantle.shipment.Shipment" out-map="context"
+                    in-map="[shipmentId:shipmentId, statusId:'ShipPacked']"/>
         </actions>
     </service>
     <service verb="ship" noun="Shipment">
-        <in-parameters><parameter name="shipmentId"/></in-parameters>
+        <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
-            <set field="shipment.statusId" value="SHIPMENT_SHIPPED"/>
-            <entity-update value-field="shipment"/>
+            <service-call name="update#mantle.shipment.Shipment" out-map="context"
+                    in-map="[shipmentId:shipmentId, statusId:'ShipShipped']"/>
         </actions>
     </service>
 </services>
