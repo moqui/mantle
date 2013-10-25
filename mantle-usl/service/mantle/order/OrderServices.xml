@@ -51,13 +51,13 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartInfoList" type="List"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <entity-find-related value-field="orderHeader" relationship-name="OrderItem" list="orderItemList"
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem" list="orderItemList"
                     order-by-list="['orderItemSeqId']"/>
-            <entity-find-related value-field="orderHeader" relationship-name="Payment" list="paymentList"
+            <entity-find-related value-field="orderHeader" relationship-name="mantle.account.payment.Payment" list="paymentList"
                     order-by-list="['paymentId']"/>
 
-            <entity-find-related value-field="orderHeader" relationship-name="OrderPart" list="orderPartList"/>
+            <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
             <!-- get order info by part for more detailed display -->
             <script>
             import org.moqui.entity.EntityList
@@ -101,7 +101,7 @@ h2. General Order Placement and eCommerce Usage
         <out-parameters><parameter name="itemCount" type="BigDecimal"/></out-parameters>
         <actions>
             <set field="itemCount" from="0.0"/>
-            <entity-find entity-name="OrderItem" list="orderItemList"><econdition field-name="orderId"/></entity-find>
+            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList"><econdition field-name="orderId"/></entity-find>
             <iterate list="orderItemList" entry="orderItem"><set field="itemCount" from="itemCount + orderItem.quantity"/></iterate>
         </actions>
     </service>
@@ -136,14 +136,14 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-make-value entity-name="OrderHeader" value-field="orderHeader"/>
+            <entity-make-value entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-set value-field="orderHeader" include="nonpk"/>
             <set field="orderHeader.entryDate" from="ec.user.nowTimestamp"/>
             <set field="orderHeader.visitId" from="ec.user.visitId"/>
             <entity-sequenced-id-primary value-field="orderHeader"/>
             <entity-create value-field="orderHeader"/>
 
-            <entity-make-value entity-name="OrderPart" value-field="orderPart"/>
+            <entity-make-value entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <entity-set value-field="orderPart" include="nonpk"/>
             <set field="orderPart.orderId" from="orderHeader.orderId"/>
             <entity-sequenced-id-secondary value-field="orderPart"/>
@@ -165,7 +165,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-make-value entity-name="OrderPart" value-field="orderPart"/>
+            <entity-make-value entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <entity-set value-field="orderHeader" include="nonpk"/>
             <set field="orderPart.orderId" from="orderHeader.orderId"/>
             <entity-sequenced-id-secondary value-field="orderPart"/>
@@ -181,13 +181,13 @@ h2. General Order Placement and eCommerce Usage
         </in-parameters>
         <actions>
             <set field="totalSum" from="0.0" type="BigDecimal"/>
-            <entity-find entity-name="OrderPart" list="orderPartList">
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
                 <econdition field-name="orderId"/>
             </entity-find>
             <iterate list="orderPartList" entry="orderPart">
                 <set field="totalSum" from="totalSum + orderPart.partTotal"/>
             </iterate>
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <set field="orderHeader.grandTotal" from="totalSum"/>
             <entity-update value-field="orderHeader"/>
         </actions>
@@ -199,7 +199,7 @@ h2. General Order Placement and eCommerce Usage
         </in-parameters>
         <actions>
             <set field="totalSum" from="0.0" type="BigDecimal"/>
-            <entity-find entity-name="OrderItem" list="orderItemList">
+            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
                 <econdition field-name="orderId"/>
                 <econdition field-name="orderPartSeqId"/>
             </entity-find>
@@ -209,7 +209,7 @@ h2. General Order Placement and eCommerce Usage
                 <set field="totalSum" from="totalSum + itemTotalOut.itemTotal"/>
             </iterate>
 
-            <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <set field="orderPart.partTotal" from="totalSum"/>
             <entity-update value-field="orderPart"/>
 
@@ -264,11 +264,11 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderItemSeqId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-make-value entity-name="OrderItem" value-field="orderItem"/>
+            <entity-make-value entity-name="mantle.order.OrderItem" value-field="orderItem"/>
             <entity-set value-field="orderItem" include="all"/>
             <entity-sequenced-id-secondary value-field="orderItem"/>
             <if condition="!itemDescription &amp;&amp; productId">
-                <entity-find-one entity-name="Product" value-field="product"/>
+                <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
                 <set field="orderItem.itemDescription" from="product.productName"/>
             </if>
             <entity-create value-field="orderItem"/>
@@ -282,7 +282,7 @@ h2. General Order Placement and eCommerce Usage
             <auto-parameters include="nonpk"/>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="OrderItem" value-field="orderItem"/>
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
             <entity-set value-field="orderItem" include="nonpk"/>
             <entity-update value-field="orderItem"/>
         </actions>
@@ -292,7 +292,7 @@ h2. General Order Placement and eCommerce Usage
             <auto-parameters include="pk" required="true"/>
         </in-parameters>
         <actions>
-            <entity-make-value entity-name="OrderItem" value-field="orderItem"/>
+            <entity-make-value entity-name="mantle.order.OrderItem" value-field="orderItem"/>
             <entity-set value-field="orderItem" include="pk"/>
             <entity-delete value-field="orderItem"/>
         </actions>
@@ -345,21 +345,21 @@ h2. General Order Placement and eCommerce Usage
                 <if condition="!orderId">
                     <service-call name="mantle.order.OrderServices.create#Order" out-map="createOrderOut"
                             in-map="[currencyUomId:currencyUomId, productStoreId:productStoreId,
-                                    vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]"/>
+                                vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]"/>
                     <set field="orderId" from="createOrderOut.orderId"/>
                     <set field="orderPartSeqId" from="createOrderOut.orderPartSeqId"/>
                 </if>
             </if>
 
             <!-- find an OrderItem for the productId and increment quantity if found, otherwise create OrderItem with quantity -->
-            <entity-find entity-name="OrderItem" list="orderItemList">
+            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
                 <econdition-object field="[orderId:orderId, productId:productId, productConfigSavedId:null, forAssetId:null, selectedAmount:null]"/>
             </entity-find>
 
             <!-- calculate the price based on quantity, etc, -->
             <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
                     in-map="[productId:productId, quantity:quantity, priceUomId:currencyUomId,
-                             productStoreId:productStoreId, customerPartyId:customerPartyId, vendorPartyId:vendorPartyId]"/>
+                         productStoreId:productStoreId, customerPartyId:customerPartyId, vendorPartyId:vendorPartyId]"/>
 
             <set field="unitAmount" from="priceMap.price" set-if-empty="false"/>
             <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
@@ -402,13 +402,13 @@ h2. General Order Placement and eCommerce Usage
 
             <!-- calculate the price based on quantity, etc, -->
             <!-- TODO: consider making this a separate service to either get a price for an OrderItem or update it in place -->
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <entity-find-one entity-name="OrderItem" value-field="orderItem"/>
-            <entity-find-related-one value-field="orderItem" relationship-name="OrderPart" to-value-field="orderPart"/>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/>
             <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
                     in-map="[productId:orderItem.productId, quantity:quantity, priceUomId:orderHeader.currencyUomId,
-                            productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
-                            vendorPartyId:orderPart.vendorPartyId]"/>
+                        productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
+                        vendorPartyId:orderPart.vendorPartyId]"/>
             <set field="unitAmount" from="priceMap.price" set-if-empty="false"/>
             <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
             <set field="isModifiedPrice" value="N"/>
@@ -422,12 +422,12 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="fromOrderId" required="true"/>
         </in-parameters>
         <actions>
-            <entity-find entity-name="OrderItem" list="orderItemList">
+            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
                 <econdition field-name="orderId" from="fromOrderId"/>
             </entity-find>
             <iterate list="orderItemList" entry="orderItem">
                 <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
-                              in-map="[orderId:orderId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
+                        in-map="[orderId:orderId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
             </iterate>
         </actions>
     </service>
@@ -449,11 +449,11 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <if condition="orderPartSeqId">
-                <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
+                <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
 
                 <else>
                     <!-- just get the first part -->
-                    <entity-find entity-name="OrderPart" list="orderPartList">
+                    <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
                         <econdition field-name="orderId"/>
                         <order-by field-name="orderPartSeqId"/>
                     </entity-find>
@@ -468,11 +468,11 @@ h2. General Order Placement and eCommerce Usage
             <entity-update value-field="orderPart"/>
 
             <if condition="paymentId">
-                <entity-find-one entity-name="Payment" value-field="payment"/>
+                <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
 
                 <else>
                     <!-- just get the first part -->
-                    <entity-find entity-name="Payment" list="paymentList">
+                    <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
                         <econdition field-name="orderId"/>
                         <econdition field-name="orderPartSeqId"/>
                         <order-by field-name="paymentId"/>
@@ -492,7 +492,7 @@ h2. General Order Placement and eCommerce Usage
                     <!-- create a new Payment for the Order -->
                     <service-call name="mantle.order.OrderServices.add#OrderPartPayment" out-map="context"
                             in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                            paymentMethodTypeEnumId:paymentMethodTypeEnumId]"/>
+                                paymentMethodTypeEnumId:paymentMethodTypeEnumId]"/>
                 </else>
             </if>
         </actions>
@@ -510,10 +510,10 @@ h2. General Order Placement and eCommerce Usage
         <actions>
             <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
             <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
-            <service-call name="create#Payment" out-map="context"
+            <service-call name="create#mantle.account.payment.Payment" out-map="context"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                    paymentMethodTypeEnumId:paymentMethodTypeEnumId, amount:orderPart.partTotal,
-                    amountUomId:orderHeader.currencyUomId]"/>
+                        paymentMethodTypeEnumId:paymentMethodTypeEnumId, amount:orderPart.partTotal,
+                        amountUomId:orderHeader.currencyUomId]"/>
         </actions>
     </service>
 
