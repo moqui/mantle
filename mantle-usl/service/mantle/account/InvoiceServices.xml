@@ -149,8 +149,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
                             in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemSales',
                                 amount:orderItem.unitAmount, description:orderItem.itemDescription,
-                                quantity:quantityNotBilled, productId:orderItem.productId,
-                                itemDate:orderHeader.placedDate]"/>
+                                quantity:quantityNotBilled, quantityUomId:orderItem.quantityUomId,
+                                productId:orderItem.productId, itemDate:orderHeader.placedDate]"/>
                     <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
                             in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                 amount:orderItem.unitAmount, quantity:quantityNotBilled]"/>
@@ -204,7 +204,8 @@ This Work includes contributions authored by David E. Jones, not as a
                                 in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
                                     amount:orderItem.unitAmount, description:orderItem.itemDescription,
                                     quantity:(shipmentItemSource.quantity * (orderItem.selectedAmount ?: 1)),
-                                    productId:orderItem.productId, itemDate:orderHeader.placedDate]"/>
+                                    quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
+                                    itemDate:orderHeader.placedDate]"/>
                         <entity-find entity-name="mantle.product.issuance.AssetIssuance" list="assetIssuanceList">
                             <econdition-object field="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
                                     shipmentId:shipmentId]"/>
@@ -226,22 +227,25 @@ This Work includes contributions authored by David E. Jones, not as a
                         <!-- also invoice child OrderItems (adjustments, etc) -->
                         <set field="childOrderItemList" from="orderItem.'Child#mantle.order.OrderItem'"/>
                         <iterate list="childOrderItemList" entry="childOrderItem">
-                            <set field="oibBaseMap" from="[orderId:childOrderItem.orderId,
+                            <!-- only ship if no productId, that should be shipped before invoiced -->
+                            <if condition="!childOrderItem.productId">
+                                <set field="oibBaseMap" from="[orderId:childOrderItem.orderId,
                                     orderItemSeqId:childOrderItem.orderItemSeqId]"/>
-                            <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
-                                <econdition-object field="oibBaseMap"/>
-                            </entity-find>
-                            <if condition="!orderItemBillingList">
-                                <!-- is prorate by quantity needed? -->
-                                <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                        in-map="[invoiceId:invoiceId, itemTypeEnumId:childOrderItem.itemTypeEnumId ?: 'ItemSales',
+                                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                                    <econdition-object field="oibBaseMap"/>
+                                </entity-find>
+                                <if condition="!orderItemBillingList">
+                                    <!-- is prorate by quantity needed? -->
+                                    <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                            in-map="[invoiceId:invoiceId, itemTypeEnumId:childOrderItem.itemTypeEnumId ?: 'ItemSales',
                                             amount:childOrderItem.unitAmount, description:childOrderItem.itemDescription,
                                             quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1)),
-                                            itemDate:orderHeader.placedDate]"/>
-                                <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
-                                        in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                            quantityUomId:childOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
+                                    <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
+                                            in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                             shipmentId:shipmentId, amount:childOrderItem.unitAmount,
                                             quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1))]"/>
+                                </if>
                             </if>
                         </iterate>
                     </if>
@@ -271,7 +275,7 @@ This Work includes contributions authored by David E. Jones, not as a
                                 in-map="[invoiceId:invoiceId, itemTypeEnumId:otherOrderItem.itemTypeEnumId ?: 'ItemSales',
                                     amount:otherOrderItem.unitAmount, description:otherOrderItem.itemDescription,
                                     quantity:((otherOrderItem.quantity ?: 1) * (otherOrderItem.selectedAmount ?: 1)),
-                                    itemDate:orderHeader.placedDate]"/>
+                                    quantityUomId:otherOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
                         <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
                                 in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                     shipmentId:shipmentId, amount:otherOrderItem.unitAmount,
