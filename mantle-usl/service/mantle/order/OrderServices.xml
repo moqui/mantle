@@ -444,6 +444,9 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="shippingTelecomContactMechId"/>
             <parameter name="shipmentMethodEnumId"/>
         </in-parameters>
+        <out-parameters>
+            <parameter name="paymentId"/>
+        </out-parameters>
         <actions>
             <if condition="orderPartSeqId">
                 <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
@@ -483,10 +486,11 @@ h2. General Order Placement and eCommerce Usage
                 <set field="payment.paymentMethodId" from="paymentMethodId"/>
                 <set field="payment.amount" from="orderPart.partTotal"/>
                 <entity-update value-field="payment"/>
+                <set field="paymentId" from="payment.paymentId"/>
 
                 <else>
                     <!-- create a new Payment for the Order -->
-                    <service-call name="mantle.order.OrderServices.add#OrderPartPayment"
+                    <service-call name="mantle.order.OrderServices.add#OrderPartPayment" out-map="context"
                             in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
                             paymentMethodTypeEnumId:paymentMethodTypeEnumId]"/>
                 </else>
