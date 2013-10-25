@@ -35,10 +35,14 @@ class WorkProjectBasicFlow extends Specification {
         ec.user.setEffectiveTime(ec.l10n.parseTimestamp("2013-11-02 12:00:00.0", null))
 
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.work.time.TimeEntry", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc", 55900, 10)
     }
 
     def cleanupSpec() {
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
+        ec.entity.tempResetSequencedIdPrimary("mantle.work.time.TimeEntry")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc")
         ec.destroy()
     }
 
@@ -377,17 +381,17 @@ class WorkProjectBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.work.effort.WorkEffort workEffortId="TEST-001" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="10" remainingWorkTime="3" actualWorkTime="6"/>
-            <mantle.work.time.TimeEntry timeEntryId="100000" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
+            <mantle.work.time.TimeEntry timeEntryId="55900" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
                 rateAmountId="${clientRateResult.rateAmountId}" vendorRateAmountId="${vendorRateResult.rateAmountId}"
                 fromDate="1383390000000" thruDate="1383411600000" hours="6" workEffortId="TEST-001"/>
             <mantle.work.effort.WorkEffort workEffortId="TEST-001A" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="2" remainingWorkTime="1" actualWorkTime="1.5"/>
-            <mantle.work.time.TimeEntry timeEntryId="100001" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
+            <mantle.work.time.TimeEntry timeEntryId="55901" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
                 rateAmountId="${clientRateResult.rateAmountId}" vendorRateAmountId="${vendorRateResult.rateAmountId}"
                 fromDate="1383404400000" thruDate="1383411600000" hours="1.5" breakHours="0.5" workEffortId="TEST-001A"/>
             <mantle.work.effort.WorkEffort workEffortId="TEST-001B" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="2" remainingWorkTime="0.5" actualWorkTime="2"/>
-            <mantle.work.time.TimeEntry timeEntryId="100002" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
+            <mantle.work.time.TimeEntry timeEntryId="55902" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
                 rateAmountId="${clientRateResult.rateAmountId}" vendorRateAmountId="${vendorRateResult.rateAmountId}"
                 fromDate="1383501600000" thruDate="1383512400000" hours="2" breakHours="1" workEffortId="TEST-001B"/>
         </entity-facade-xml>""").check()
@@ -476,13 +480,13 @@ class WorkProjectBasicFlow extends Specification {
                 quantity="1" amount="123.45" description="Fleabag Inn 2 nights" itemDate="1383544800000"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="03" itemTypeEnumId="ItemExpServLabor"
                 quantity="6" amount="40" itemDate="1383390000000"/>
-            <mantle.work.time.TimeEntry timeEntryId="100000" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="03"/>
+            <mantle.work.time.TimeEntry timeEntryId="55900" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="03"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="04" itemTypeEnumId="ItemExpServLabor"
                 quantity="1.5" amount="40" itemDate="1383404400000"/>
-            <mantle.work.time.TimeEntry timeEntryId="100001" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="04"/>
+            <mantle.work.time.TimeEntry timeEntryId="55901" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="04"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="05" itemTypeEnumId="ItemExpServLabor"
                 quantity="2" amount="40" itemDate="1383501600000"/>
-            <mantle.work.time.TimeEntry timeEntryId="100002" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="05"/>
+            <mantle.work.time.TimeEntry timeEntryId="55902" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="05"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55900" acctgTransTypeEnumId="AttPurchaseInvoice"
                 organizationPartyId="${vendorResult.partyId}" transactionDate="1383411600000" isPosted="Y" postedDate="1383411600000"
@@ -539,20 +543,20 @@ class WorkProjectBasicFlow extends Specification {
                 description="Invoice for projectTest Project [TEST] " currencyUomId="USD"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"
                 itemTypeEnumId="ItemTimeEntry" quantity="6" amount="60" itemDate="1383390000000"/>
-            <mantle.work.time.TimeEntry timeEntryId="100000" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"/>
+            <mantle.work.time.TimeEntry timeEntryId="55900" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="02"
                 itemTypeEnumId="ItemTimeEntry" quantity="1.5" amount="60" itemDate="1383404400000"/>
-            <mantle.work.time.TimeEntry timeEntryId="100001" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="02"/>
+            <mantle.work.time.TimeEntry timeEntryId="55901" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="02"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="03"
                 itemTypeEnumId="ItemTimeEntry" quantity="2" amount="60" itemDate="1383501600000"/>
-            <mantle.work.time.TimeEntry timeEntryId="100002" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="03"/>
+            <mantle.work.time.TimeEntry timeEntryId="55902" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="03"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="04"
                 itemTypeEnumId="ItemExpTravAir" quantity="1" amount="345.67" description="United SFO-LAX" itemDate="1383368400000"/>
-            <mantle.account.invoice.InvoiceItemAssoc invoiceItemAssocId="100000" invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="01"
+            <mantle.account.invoice.InvoiceItemAssoc invoiceItemAssocId="55900" invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="01"
                 toInvoiceId="${clientInvResult.invoiceId}" toInvoiceItemSeqId="04" invoiceItemAssocTypeEnumId="IiatBillThrough" quantity="1" amount="345.67"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="05"
                 itemTypeEnumId="ItemExpTravLodging" quantity="1" amount="123.45" description="Fleabag Inn 2 nights" itemDate="1383544800000"/>
-            <mantle.account.invoice.InvoiceItemAssoc invoiceItemAssocId="100001" invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="02"
+            <mantle.account.invoice.InvoiceItemAssoc invoiceItemAssocId="55901" invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="02"
                 toInvoiceId="${clientInvResult.invoiceId}" toInvoiceItemSeqId="05" invoiceItemAssocTypeEnumId="IiatBillThrough" quantity="1" amount="123.45"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55902" acctgTransTypeEnumId="AttSalesInvoice"
@@ -589,8 +593,9 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.account.payment.Payment paymentId="${clientPmtResult.paymentId}" paymentTypeEnumId="PtInvoicePayment"
                 fromPartyId="${clientResult.partyId}" toPartyId="${vendorResult.partyId}" paymentMethodTypeEnumId="PmtCompanyCheck"
                 statusId="PmntDelivered" effectiveDate="1384279200000" paymentRefNum="54321" amount="1,039.12" amountUomId="USD"/>
-            <mantle.account.payment.PaymentApplication paymentApplicationId="100001" paymentId="${clientPmtResult.paymentId}"
-                invoiceId="${clientInvResult.invoiceId}" amountApplied="1,039.12" appliedDate="1383411600000"/>
+            <mantle.account.payment.PaymentApplication paymentApplicationId="${clientPmtResult.paymentApplicationId}"
+                paymentId="${clientPmtResult.paymentId}" invoiceId="${clientInvResult.invoiceId}"
+                amountApplied="1,039.12" appliedDate="1383411600000"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55903" acctgTransTypeEnumId="AttIncomingPayment"
                 organizationPartyId="${vendorResult.partyId}" transactionDate="1383411600000" isPosted="Y" postedDate="1383411600000"
