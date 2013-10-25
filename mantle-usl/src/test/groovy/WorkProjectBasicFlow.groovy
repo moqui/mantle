@@ -37,12 +37,14 @@ class WorkProjectBasicFlow extends Specification {
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.work.time.TimeEntry", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("moqui.entity.EntityAuditLog", 55900, 100)
     }
 
     def cleanupSpec() {
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.work.time.TimeEntry")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc")
+        ec.entity.tempResetSequencedIdPrimary("moqui.entity.EntityAuditLog")
         ec.destroy()
     }
 
@@ -173,6 +175,26 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.humanres.rate.RateAmount rateAmountId="${vendorRateResult.rateAmountId}" rateTypeEnumId="RatpStandard"
                 ratePurposeEnumId="RaprVendor" timePeriodUomId="TF_hr" partyId="${workerResult.partyId}"
                 emplPositionClassId="Programmer" fromDate="2010-02-03 00:00:00" rateAmount="40.00" rateCurrencyUomId="USD"/>
+
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55900" changedEntityName="moqui.security.UserAccount"
+                changedFieldName="username" pkPrimaryValue="${vendorRepResult.userId}" newValueText="vendor.rep" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55901" changedEntityName="mantle.party.Party"
+                changedFieldName="disabled" pkPrimaryValue="${vendorRepResult.partyId}" newValueText="N" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55902" changedEntityName="mantle.party.Person"
+                changedFieldName="lastName" pkPrimaryValue="${vendorRepResult.partyId}" newValueText="TestRep" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55903" changedEntityName="moqui.security.UserAccount"
+                changedFieldName="username" pkPrimaryValue="${workerResult.userId}" newValueText="worker" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55904" changedEntityName="mantle.party.Party"
+                changedFieldName="disabled" pkPrimaryValue="${workerResult.partyId}" newValueText="N" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55905" changedEntityName="mantle.party.Person"
+                changedFieldName="lastName" pkPrimaryValue="${workerResult.partyId}" newValueText="Worker" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
         </entity-facade-xml>""").check()
         logger.info("TEST create Vendor data check results: " + dataCheckErrors)
 
@@ -234,6 +256,17 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.party.PartyRelationship partyRelationshipId="${repRelResult.partyRelationshipId}"
                 relationshipTypeEnumId="PrtRepresentative" fromPartyId="${clientRepResult.partyId}"
                 fromRoleTypeId="ClientBilling" toPartyId="${clientResult.partyId}" toRoleTypeId="CustomerBillTo" fromDate="1383411600000"/>
+
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55906" changedEntityName="moqui.security.UserAccount"
+                changedFieldName="username" pkPrimaryValue="100002" newValueText="client.rep" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55907" changedEntityName="mantle.party.Party"
+                changedFieldName="disabled" pkPrimaryValue="100004" newValueText="N" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55908" changedEntityName="mantle.party.Person"
+                changedFieldName="lastName" pkPrimaryValue="100004" newValueText="TestRep" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+
         </entity-facade-xml>""").check()
         logger.info("TEST create Vendor data check results: " + dataCheckErrors)
 
@@ -261,11 +294,22 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="${vendorResult.partyId}" roleTypeId="VendorBillFrom" fromDate="1383411600000"/>
             <mantle.work.effort.WorkEffortParty workEffortId="TEST" partyId="${workerResult.partyId}" roleTypeId="Worker"
                 fromDate="1383282000000" statusId="PRTYASGN_ASSIGNED" emplPositionClassId="Programmer"/>
-            <!-- how to handle seqId?
-            <moqui.entity.EntityAuditLog auditHistorySeqId="100151" changedEntityName="mantle.work.effort.WorkEffortParty" changedFieldName="statusId" pkPrimaryValue="TEST" pkSecondaryValue="EX_JOHN_DOE" pkRestCombinedValue="roleTypeId=Manager,fromDate=2013-11-02 12:00:00.0" newValueText="PRTYASGN_ASSIGNED" changedByUserId="EX_JOHN_DOE"/>
-            <moqui.entity.EntityAuditLog auditHistorySeqId="100150" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST" newValueText="WeInPlanning" changedByUserId="EX_JOHN_DOE"/>
-            <moqui.entity.EntityAuditLog auditHistorySeqId="100152" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST" oldValueText="WeInPlanning" newValueText="WeInProgress" changedByUserId="EX_JOHN_DOE"/>
-            -->
+
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55909" changedEntityName="mantle.work.effort.WorkEffort"
+                changedFieldName="statusId" pkPrimaryValue="TEST" newValueText="WeInPlanning" changedDate="1383411600000"
+                changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55910" changedEntityName="mantle.work.effort.WorkEffortParty"
+                changedFieldName="statusId" pkPrimaryValue="TEST" pkSecondaryValue="EX_JOHN_DOE"
+                pkRestCombinedValue="roleTypeId:'Manager',fromDate:'1383411600000'" newValueText="PRTYASGN_ASSIGNED"
+                changedDate="1383411600000" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55911" changedEntityName="mantle.work.effort.WorkEffort"
+                changedFieldName="statusId" pkPrimaryValue="TEST" oldValueText="WeInPlanning" newValueText="WeInProgress"
+                changedDate="1383411600000" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55912" changedEntityName="mantle.work.effort.WorkEffortParty"
+                changedFieldName="statusId" pkPrimaryValue="TEST" pkSecondaryValue="${workerResult.partyId}"
+                pkRestCombinedValue="roleTypeId:'Worker',fromDate:'1383282000000'" newValueText="PRTYASGN_ASSIGNED"
+                changedDate="1383411600000" changedByUserId="EX_JOHN_DOE"/>
+
             </entity-facade-xml>""").check()
         logger.info("TEST Project data check results: " + dataCheckErrors)
 
@@ -289,10 +333,13 @@ class WorkProjectBasicFlow extends Specification {
                 statusId="WeInProgress" workEffortName="Test Milestone 1" estimatedStartDate="2013-11-01 00:00:00.0" estimatedCompletionDate="2013-11-30 00:00:00.0"/>
             <mantle.work.effort.WorkEffort workEffortId="TEST-MS-02" rootWorkEffortId="TEST" workEffortTypeEnumId="WetMilestone"
                 statusId="WeApproved" workEffortName="Test Milestone 2" estimatedStartDate="2013-12-01 00:00:00.0" estimatedCompletionDate="2013-12-31 00:00:00.0"/>
-            <!-- how to handle seqId?
-            <moqui.entity.EntityAuditLog auditHistorySeqId="100153" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST-MS-01" newValueText="WeInProgress" changedByUserId="EX_JOHN_DOE"/>
-            <moqui.entity.EntityAuditLog auditHistorySeqId="100154" changedEntityName="mantle.work.effort.WorkEffort" changedFieldName="statusId" pkPrimaryValue="TEST-MS-02" newValueText="WeApproved" changedByUserId="EX_JOHN_DOE"/>
-            -->
+
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55913" changedEntityName="mantle.work.effort.WorkEffort"
+                changedFieldName="statusId" pkPrimaryValue="TEST-MS-01" newValueText="WeInProgress"
+                changedDate="1383411600000" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55914" changedEntityName="mantle.work.effort.WorkEffort"
+                changedFieldName="statusId" pkPrimaryValue="TEST-MS-02" newValueText="WeApproved"
+                changedDate="1383411600000" changedByUserId="EX_JOHN_DOE"/>
             </entity-facade-xml>""").check()
         logger.info("TEST Milestones data check results: " + dataCheckErrors)
 
@@ -427,7 +474,7 @@ class WorkProjectBasicFlow extends Specification {
                 statusId="ReqCompleted" requestName="Test Request 1" description="Description of Test Request 1" priority="7"
                 responseRequiredDate="1384549200000" requestResolutionEnumId="RrUnresolved" filedByPartyId="EX_JOHN_DOE"/>
             <mantle.request.RequestWorkEffort requestId="${createReqResult.requestId}"
-                workEffortId="${createReqTskResult.workEffortId}" lastUpdatedStamp="1382060813771"/>
+                workEffortId="${createReqTskResult.workEffortId}"/>
             <mantle.request.RequestParty requestId="${createReqResult.requestId}" partyId="${workerResult.partyId}"
                 roleTypeId="Worker" fromDate="1383411600000"/>
             <mantle.request.RequestParty requestId="${createReqResult.requestId}" partyId="${clientResult.partyId}"
