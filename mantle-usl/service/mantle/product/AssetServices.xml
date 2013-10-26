@@ -20,8 +20,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="Asset" value-field="asset"/>
             <entity-find-one entity-name="AssetDetailSummary" value-field="assetDetailSummary"/>
 
-            <set field="asset.availableToPromiseTotal" from="assetDetailSummary.availableToPromiseTotal"/>
-            <set field="asset.quantityOnHandTotal" from="assetDetailSummary.quantityOnHandTotal"/>
+            <set field="asset.availableToPromiseTotal" from="assetDetailSummary.availableToPromiseTotal ?: 0"/>
+            <set field="asset.quantityOnHandTotal" from="assetDetailSummary.quantityOnHandTotal ?: 0"/>
             <entity-update value-field="asset"/>
         </actions>
     </service>
@@ -83,6 +83,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="baseMap" from="[orderId:orderId, orderItemSeqId:orderItemSeqId, productId:productId]"/>
 
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
+                <!-- TODO: filter out old and no longer used Asset records somehow so this won't be a huge list for high volume operations with a long history -->
                 <econdition field-name="productId"/>
                 <econdition field-name="facilityId" from="productStore.inventoryFacilityId" ignore-if-empty="true"/>
                 <econdition field-name="ownerPartyId" from="productStore.organizationPartyId" ignore-if-empty="true"/>
@@ -160,10 +161,10 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <actions>
             <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="context"
-                    in-map="assetId:assetReservation.assetId, assetReservationId:assetReservation.assetReservationId,
+                    in-map="[assetId:assetReservation.assetId, assetReservationId:assetReservation.assetReservationId,
                         orderId:assetReservation.orderId, orderItemSeqId:assetReservation.orderItemSeqId,
                         shipmentId:shipmentId, productId:assetReservation.productId,
-                        issuedDateTime:ec.user.nowTimestamp, quantity:quantity"/>
+                        issuedDateTime:ec.user.nowTimestamp, quantity:quantity]"/>
 
             <!-- create AssetDetail to decrement quantityOnHand -->
             <!-- NOTE: no availableToPromiseDiff because that was modified during the reservation -->
