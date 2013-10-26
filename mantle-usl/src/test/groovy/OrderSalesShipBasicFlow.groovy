@@ -162,21 +162,19 @@ class OrderSalesShipBasicFlow extends Specification {
                 shipmentRouteSegmentSeqId="01"/>
 
             <!-- Asset created, issued, changed record in detail -->
-            <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
-                productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="-1" availableToPromiseTotal="-1"
-                dateReceived="1383418800000"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="55500" orderId="${cartOrderId}"
+            <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
+                productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="99" availableToPromiseTotal="99"/>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" orderId="${cartOrderId}"
                 orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="1"/>
-            <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="01" effectiveDate="1383418800000"
+            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
                 quantityOnHandDiff="-1" availableToPromiseDiff="-1" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetIssuanceId="55500"/>
 
-            <mantle.product.asset.Asset assetId="55501" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
-                productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="-5" availableToPromiseTotal="-5"
-                dateReceived="1383418800000"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="55501" orderId="${cartOrderId}"
+            <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
+                productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="0" availableToPromiseTotal="0"/>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="DEMO_3_1A" orderId="${cartOrderId}"
                 orderItemSeqId="02" shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1" quantity="5"/>
-            <mantle.product.asset.AssetDetail assetId="55501" assetDetailSeqId="01" effectiveDate="1383418800000"
+            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
                 quantityOnHandDiff="-5" availableToPromiseDiff="-5" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetIssuanceId="55501"/>
 
