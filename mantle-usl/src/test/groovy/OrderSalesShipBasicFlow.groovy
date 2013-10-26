@@ -38,6 +38,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55500, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetReservation", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderItemBilling", 55500, 10)
@@ -47,6 +48,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
+        ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetReservation")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetIssuance")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
         ec.entity.tempResetSequencedIdPrimary("mantle.order.OrderItemBilling")
@@ -131,6 +133,51 @@ class OrderSalesShipBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
+    def "validate Asset Reservation"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <!-- Asset created, issued, changed record in detail -->
+
+            <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
+                ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y"
+                quantityOnHandTotal="100" availableToPromiseTotal="99" dateReceived="1265184000000"
+                facilityId="ORG_BIZI_RETAIL_WH"/>
+            <mantle.product.asset.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
+                orderId="${cartOrderId}" orderItemSeqId="01" reservationOrderEnumId="AsResOrdFifoRec" quantity="1"
+                reservedDate="1383418800000" sequenceNum="1"/>
+            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="01" effectiveDate="1265184000000"
+                quantityOnHandDiff="100" availableToPromiseDiff="100" productId="DEMO_1_1"/>
+            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
+                availableToPromiseDiff="-1" assetReservationId="55500" productId="DEMO_1_1"/>
+
+            <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
+                ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="5"
+                availableToPromiseTotal="0" dateReceived="1265184000000" facilityId="ORG_BIZI_RETAIL_WH"/>
+            <mantle.product.asset.AssetReservation assetReservationId="55501" assetId="DEMO_3_1A" productId="DEMO_3_1"
+                orderId="${cartOrderId}" orderItemSeqId="02" reservationOrderEnumId="AsResOrdFifoRec" quantity="5"
+                reservedDate="1383418800000" sequenceNum="1"/>
+            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="01" effectiveDate="1265184000000"
+                quantityOnHandDiff="5" availableToPromiseDiff="5" productId="DEMO_3_1"/>
+            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
+                availableToPromiseDiff="-5" assetReservationId="55501" productId="DEMO_3_1"/>
+
+            <!-- this is an auto-created Asset based on the inventory issuance -->
+            <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
+                ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="0"
+                availableToPromiseTotal="-7" dateReceived="1383418800000" facilityId="ORG_BIZI_RETAIL_WH"/>
+            <mantle.product.asset.AssetReservation assetReservationId="55502" assetId="55500" productId="DEMO_2_1"
+                orderId="${cartOrderId}" orderItemSeqId="03" reservationOrderEnumId="AsResOrdFifoRec"
+                quantity="7" quantityNotAvailable="7" reservedDate="1383418800000"/>
+            <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="01" effectiveDate="1383418800000"
+                availableToPromiseDiff="-7" assetReservationId="55502" productId="DEMO_2_1"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Asset Reservation data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
     def "ship Sales Order"() {
         when:
         ec.user.loginUser("john.doe", "moqui", null)
@@ -195,32 +242,30 @@ class OrderSalesShipBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Asset created, issued, changed record in detail -->
-            <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
-                productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="99" availableToPromiseTotal="99"
-                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" orderId="${cartOrderId}"
-                orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="1"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
-                quantityOnHandDiff="-1" availableToPromiseDiff="-1" shipmentId="${shipResult.shipmentId}"
+
+            <mantle.product.asset.Asset assetId="DEMO_1_1A" quantityOnHandTotal="99" availableToPromiseTotal="99"/>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" assetReservationId="55500"
+                orderId="${cartOrderId}" orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1"
+                quantity="1"/>
+            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="03" effectiveDate="1383418800000"
+                quantityOnHandDiff="-1" assetReservationId="55500" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetIssuanceId="55500"/>
 
-            <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
-                productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="0" availableToPromiseTotal="0"
-                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="DEMO_3_1A" orderId="${cartOrderId}"
-                orderItemSeqId="02" shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1" quantity="5"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
-                quantityOnHandDiff="-5" availableToPromiseDiff="-5" shipmentId="${shipResult.shipmentId}"
+            <mantle.product.asset.Asset assetId="DEMO_3_1A" quantityOnHandTotal="0" availableToPromiseTotal="0"/>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="DEMO_3_1A" assetReservationId="55501"
+                orderId="${cartOrderId}" orderItemSeqId="02" shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1"
+                quantity="5"/>
+            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="03" effectiveDate="1383418800000"
+                quantityOnHandDiff="-5" assetReservationId="55501" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetIssuanceId="55501"/>
 
             <!-- this is an auto-created Asset based on the inventory issuance -->
-            <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
-                productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="-7" availableToPromiseTotal="-7"
-                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL" dateReceived="1383418800000"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55502" assetId="55500" orderId="${cartOrderId}"
-                orderItemSeqId="03" shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1" quantity="7"/>
-            <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="01" effectiveDate="1383418800000"
-                quantityOnHandDiff="-7" availableToPromiseDiff="-7" shipmentId="${shipResult.shipmentId}"
+            <mantle.product.asset.Asset assetId="55500" quantityOnHandTotal="-7" availableToPromiseTotal="-7"/>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55502" assetId="55500" assetReservationId="55502"
+                orderId="${cartOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1"
+                quantity="7"/>
+            <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="02" effectiveDate="1383418800000"
+                quantityOnHandDiff="-7" assetReservationId="55502" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_2_1" assetIssuanceId="55502"/>
         </entity-facade-xml>""").check()
         logger.info("validate Asset Issuance data check results: " + dataCheckErrors)
