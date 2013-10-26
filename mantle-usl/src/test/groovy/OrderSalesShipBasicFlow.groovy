@@ -27,7 +27,7 @@ class OrderSalesShipBasicFlow extends Specification {
     @Shared
     String cartOrderId = null, orderPartSeqId
     @Shared
-    Map setInfoOut
+    Map setInfoOut, shipResult
 
     def setupSpec() {
         // init the framework, get the ec
@@ -135,14 +135,11 @@ class OrderSalesShipBasicFlow extends Specification {
         when:
         ec.user.loginUser("john.doe", "moqui", null)
 
-        Map shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
+        shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
                 .parameters([orderId:cartOrderId, orderPartSeqId:orderPartSeqId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- OrderHeader status to Completed -->
-            <mantle.order.OrderHeader orderId="${cartOrderId}" statusId="OrderCompleted"/>
-
             <!-- Shipment created -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpSales"
                 statusId="ShipShipped" fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp"/>
@@ -173,7 +170,30 @@ class OrderSalesShipBasicFlow extends Specification {
                 destPostalContactMechId="CustJqpAddr" destTelecomContactMechId="CustJqpTeln"/>
             <mantle.shipment.ShipmentPackageRouteSeg shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 shipmentRouteSegmentSeqId="01"/>
+        </entity-facade-xml>""").check()
+        logger.info("ship Sales Order data check results: " + dataCheckErrors)
 
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "validate Sales Order Complete"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <!-- OrderHeader status to Completed -->
+            <mantle.order.OrderHeader orderId="${cartOrderId}" statusId="OrderCompleted"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Sales Order Complete data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "validate Asset Issuance"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Asset created, issued, changed record in detail -->
             <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
                 productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="99" availableToPromiseTotal="99"
@@ -196,13 +216,23 @@ class OrderSalesShipBasicFlow extends Specification {
             <!-- this is an auto-created Asset based on the inventory issuance -->
             <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
                 productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="-7" availableToPromiseTotal="-7"
-                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
+                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL" dateReceived="1383418800000"/>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55502" assetId="55500" orderId="${cartOrderId}"
                 orderItemSeqId="03" shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1" quantity="7"/>
             <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="01" effectiveDate="1383418800000"
                 quantityOnHandDiff="-7" availableToPromiseDiff="-7" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_2_1" assetIssuanceId="55502"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Asset Issuance data check results: " + dataCheckErrors)
 
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "validate Shipment Invoice"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and Finalized (status set by action in SECA rule) -->
             <mantle.account.invoice.Invoice invoiceId="55500" invoiceTypeEnumId="InvoiceSales"
                 fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp" statusId="InvoiceFinalized" invoiceDate="1383418800000"
@@ -225,7 +255,17 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.order.OrderItemBilling orderItemBillingId="55502" orderId="${cartOrderId}" orderItemSeqId="03"
                 invoiceId="55500" invoiceItemSeqId="03" assetIssuanceId="55502" shipmentId="${shipResult.shipmentId}"
                 quantity="7" amount="12.12"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "validate Shipment Invoice Accounting Transaction"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Finalized Invoice -->
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55500" acctgTransTypeEnumId="AttSalesInvoice"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383418800000" isPosted="Y"
@@ -244,7 +284,7 @@ class OrderSalesShipBasicFlow extends Specification {
                 amount="140.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
-        logger.info("ship Sales Order data check results: " + dataCheckErrors)
+        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
