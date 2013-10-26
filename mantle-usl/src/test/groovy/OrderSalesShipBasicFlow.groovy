@@ -195,7 +195,7 @@ class OrderSalesShipBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Asset created, issued, changed record in detail -->
-            <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
+            <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="99" availableToPromiseTotal="99"
                 facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" orderId="${cartOrderId}"
@@ -204,7 +204,7 @@ class OrderSalesShipBasicFlow extends Specification {
                 quantityOnHandDiff="-1" availableToPromiseDiff="-1" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetIssuanceId="55500"/>
 
-            <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
+            <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="0" availableToPromiseTotal="0"
                 facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="DEMO_3_1A" orderId="${cartOrderId}"
@@ -214,7 +214,7 @@ class OrderSalesShipBasicFlow extends Specification {
                 productId="DEMO_3_1" assetIssuanceId="55501"/>
 
             <!-- this is an auto-created Asset based on the inventory issuance -->
-            <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
+            <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="-7" availableToPromiseTotal="-7"
                 facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL" dateReceived="1383418800000"/>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55502" assetId="55500" orderId="${cartOrderId}"
