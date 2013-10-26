@@ -63,27 +63,30 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="OrderItem" value-field="orderItem"/>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <set field="productStore" from="orderHeader.'mantle.product.store.ProductStore'"/>
+            <!-- <set field="inventoryFacility" from="productStore.'Inventory#mantle.facility.Facility'"/> -->
             <set field="productId" from="orderItem.productId"/>
 
             <if condition="!assetId">
                 <!-- TODO: improve Asset selection code, maybe use the asset reservation selection process -->
-                <!-- TODO: limit to Facility for ProductStore -->
                 <!-- TODO: spread across multiple Asset records if necessary to satisfy the quantity -->
                 <entity-find entity-name="Asset" list="assetList">
                     <econdition field-name="productId"/>
-                    <!-- get the one with the most inventory available, for now -->
-                    <order-by field-name="-availableToPromiseTotal"/>
+                    <econdition field-name="facilityId" from="productStore.inventoryFacilityId" ignore-if-empty="true"/>
+                    <!-- reserve from oldest first (ascending dateReceived), this may be configurable in the future -->
+                    <order-by field-name="dateReceived"/>
                 </entity-find>
                 <set field="assetId" from="assetList?.first?.assetId"/>
             </if>
 
             <if condition="!assetId">
                 <!-- no asset... create a shell one to record the issuance and detail against -->
-                <!-- TODO: set facilityId, ownerPartyId -->
                 <service-call name="create#Asset" out-map="context"
                         in-map="[assetTypeEnumId:'INVENTORY', hasQuantity:'Y', statusId:'AST_AVAILABLE',
-                            productId:productId, dateReceived:ec.user.nowTimestamp,
+                            productId:productId, facilityId:productStore.inventoryFacilityId,
+                            ownerPartyId:productStore.organizationPartyId, dateReceived:ec.user.nowTimestamp,
                             availableToPromiseTotal:0, quantityOnHandTotal: 0]"/>
             </if>
             <entity-find-one entity-name="Asset" value-field="asset"/>
