@@ -68,36 +68,60 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="productStore" from="orderHeader.'mantle.product.store.ProductStore'"/>
             <!-- <set field="inventoryFacility" from="productStore.'Inventory#mantle.facility.Facility'"/> -->
             <set field="productId" from="orderItem.productId"/>
+            <set field="baseMap" from="[orderId:orderId, orderItemSeqId:orderItemSeqId, shipmentId:shipmentId, productId:productId]"/>
 
+            <!-- only find assetList if no assetId passed in -->
             <if condition="!assetId">
-                <!-- TODO: improve Asset selection code, maybe use the asset reservation selection process -->
-                <!-- TODO: spread across multiple Asset records if necessary to satisfy the quantity -->
                 <entity-find entity-name="Asset" list="assetList">
                     <econdition field-name="productId"/>
                     <econdition field-name="facilityId" from="productStore.inventoryFacilityId" ignore-if-empty="true"/>
-                    <!-- reserve from oldest first (ascending dateReceived), this may be configurable in the future -->
+                    <!-- reserve from oldest first (ascending dateReceived) -->
+                    <!-- TODO: this may be configurable in the future -->
                     <order-by field-name="dateReceived"/>
                 </entity-find>
-                <set field="assetId" from="assetList?.first?.assetId"/>
             </if>
 
-            <if condition="!assetId">
-                <!-- no asset... create a shell one to record the issuance and detail against -->
-                <service-call name="create#Asset" out-map="context"
-                        in-map="[assetTypeEnumId:'INVENTORY', hasQuantity:'Y', statusId:'AST_AVAILABLE',
-                            productId:productId, facilityId:productStore.inventoryFacilityId,
-                            ownerPartyId:productStore.organizationPartyId, dateReceived:ec.user.nowTimestamp,
-                            availableToPromiseTotal:0, quantityOnHandTotal: 0]"/>
-            </if>
-            <entity-find-one entity-name="Asset" value-field="asset"/>
+            <if condition="assetList">
+                <!-- reserve by availableToPromiseTotal (no reservation here, but respect others) -->
+                <set field="quantityRemaining" from="quantity"/>
+                <iterate list="assetList" entry="asset">
+                    <set field="lastAsset" from="asset"/>
+                    <if condition="quantityRemaining &gt; 0">
+                        <set field="quantityToIssue" from="asset.availableToPromiseTotal &gt; quantityRemaining ? quantityRemaining : asset.availableToPromiseTotal"/>
+                        <set field="quantityRemaining" from="quantityRemaining - quantityToIssue"/>
+                        <service-call name="create#AssetIssuance" out-map="issueOut" in-map="baseMap +
+                                [assetId:asset.assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantityToIssue]"/>
+                        <service-call name="create#AssetDetail" in-map="baseMap + [assetId:asset.assetId,
+                            effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantityToIssue,
+                            availableToPromiseDiff:-quantityToIssue, assetIssuanceId:issueOut.assetIssuanceId]"/>
+                    </if>
+                </iterate>
+                <!-- not all issued? issue to last (most recent) Asset -->
+                <if condition="quantityRemaining &gt; 0">
+                    <service-call name="create#AssetIssuance" out-map="issueOut" in-map="baseMap +
+                                [assetId:lastAsset.assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantityRemaining]"/>
+                    <service-call name="create#AssetDetail" in-map="baseMap + [assetId:lastAsset.assetId,
+                            effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantityRemaining,
+                            availableToPromiseDiff:-quantityRemaining, assetIssuanceId:issueOut.assetIssuanceId]"/>
+                </if>
 
-            <service-call name="create#AssetIssuance" out-map="context"
-                    in-map="assetId:assetId, orderId:orderId, orderItemSeqId:orderItemSeqId, shipmentId:shipmentId,
-                        productId:productId, issuedDateTime:ec.user.nowTimestamp, quantity:quantity"/>
-            <!-- create AssetDetail to decrement quantityOnHand -->
-            <service-call name="create#AssetDetail" in-map="[assetId:assetId,
-                    effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantity, availableToPromiseDiff:-quantity,
-                    shipmentId:shipmentId, productId:productId, assetIssuanceId:assetIssuanceId]"/>
+                <else>
+                    <if condition="!assetId">
+                        <!-- no asset... create a shell one to record the issuance and detail against -->
+                        <service-call name="create#Asset" out-map="context"
+                                in-map="[assetTypeEnumId:'AstTpInventory', hasQuantity:'Y', statusId:'AstAvailable',
+                                    productId:productId, facilityId:productStore.inventoryFacilityId,
+                                    ownerPartyId:productStore.organizationPartyId, dateReceived:ec.user.nowTimestamp,
+                                    availableToPromiseTotal:0, quantityOnHandTotal: 0]"/>
+                    </if>
+                    <service-call name="create#AssetIssuance" out-map="issueOut"
+                            in-map="baseMap + [assetId:assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantity]"/>
+                    <!-- create AssetDetail to decrement quantityOnHand -->
+                    <service-call name="create#AssetDetail" in-map="baseMap + [assetId:assetId,
+                            effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantity,
+                            availableToPromiseDiff:-quantity, assetIssuanceId:issueOut.assetIssuanceId]"/>
+                </else>
+            </if>
         </actions>
     </service>
 </services>
