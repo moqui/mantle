@@ -88,6 +88,9 @@ class OrderSalesShipBasicFlow extends Specification {
         Map addOut2 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:cartOrderId, productId:'DEMO_3_1', quantity:5, customerPartyId:customerPartyId,
                     currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
+        Map addOut3 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
+                .parameters([orderId:cartOrderId, productId:'DEMO_2_1', quantity:7, customerPartyId:customerPartyId,
+                currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
 
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:cartOrderId, paymentMethodId:'CustJqpCc', shippingPostalContactMechId:'CustJqpAddr',
@@ -99,20 +102,23 @@ class OrderSalesShipBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${cartOrderId}" entryDate="1383418800000" placedDate="1383418800000"
-                statusId="OrderApproved" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="55.84"/>
+                statusId="OrderApproved" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="140.68"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc"
-                orderId="${cartOrderId}" orderPartSeqId="01" amount="55.84" amountUomId="USD"/>
+                orderId="${cartOrderId}" orderPartSeqId="01" amount="140.68" amountUomId="USD"/>
 
             <mantle.order.OrderPart orderId="${cartOrderId}" orderPartSeqId="01" vendorPartyId="ORG_BIZI_RETAIL"
                 customerPartyId="CustJqp" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="CustJqpAddr"
-                telecomContactMechId="CustJqpTeln" partTotal="55.84"/>
+                telecomContactMechId="CustJqpTeln" partTotal="140.68"/>
             <mantle.order.OrderItem orderId="${cartOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="1" unitAmount="16.99"
                 unitListPrice="16.99" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${cartOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="5" unitAmount="7.77"
                 unitListPrice="7.77" isModifiedPrice="N"/>
+            <mantle.order.OrderItem orderId="${cartOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
+                productId="DEMO_2_1" itemDescription="Demo Product Two-One" quantity="7" unitAmount="12.12"
+                unitListPrice="12.12" isModifiedPrice="N"/>
         </entity-facade-xml>""").check()
         logger.info("create Sales Order data check results: " + dataCheckErrors)
 
@@ -156,6 +162,13 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 productId="DEMO_3_1" quantity="5"/>
 
+            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1" quantity="7"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55502" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_2_1" orderId="${cartOrderId}" orderItemSeqId="03" statusId="SisPacked" quantity="7"
+                invoiceId="55500" invoiceItemSeqId="03"/>
+            <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
+                productId="DEMO_2_1" quantity="7"/>
+
             <mantle.shipment.ShipmentRouteSegment shipmentId="${shipResult.shipmentId}" shipmentRouteSegmentSeqId="01"
                 destPostalContactMechId="CustJqpAddr" destTelecomContactMechId="CustJqpTeln"/>
             <mantle.shipment.ShipmentPackageRouteSeg shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
@@ -163,7 +176,8 @@ class OrderSalesShipBasicFlow extends Specification {
 
             <!-- Asset created, issued, changed record in detail -->
             <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
-                productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="99" availableToPromiseTotal="99"/>
+                productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="99" availableToPromiseTotal="99"
+                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" orderId="${cartOrderId}"
                 orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="1"/>
             <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
@@ -171,12 +185,23 @@ class OrderSalesShipBasicFlow extends Specification {
                 productId="DEMO_1_1" assetIssuanceId="55500"/>
 
             <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
-                productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="0" availableToPromiseTotal="0"/>
+                productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="0" availableToPromiseTotal="0"
+                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="DEMO_3_1A" orderId="${cartOrderId}"
                 orderItemSeqId="02" shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1" quantity="5"/>
             <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="02" effectiveDate="1383418800000"
                 quantityOnHandDiff="-5" availableToPromiseDiff="-5" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetIssuanceId="55501"/>
+
+            <!-- this is an auto-created Asset based on the inventory issuance -->
+            <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="INVENTORY" statusId="AST_AVAILABLE"
+                productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="-7" availableToPromiseTotal="-7"
+                facilityId="ORG_BIZI_RETAIL_WH" ownerPartyId="ORG_BIZI_RETAIL"/>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55502" assetId="55500" orderId="${cartOrderId}"
+                orderItemSeqId="03" shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1" quantity="7"/>
+            <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="01" effectiveDate="1383418800000"
+                quantityOnHandDiff="-7" availableToPromiseDiff="-7" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_2_1" assetIssuanceId="55502"/>
 
             <!-- Invoice created and Finalized (status set by action in SECA rule) -->
             <mantle.account.invoice.Invoice invoiceId="55500" invoiceTypeEnumId="InvoiceSales"
@@ -195,6 +220,12 @@ class OrderSalesShipBasicFlow extends Specification {
                 invoiceId="55500" invoiceItemSeqId="02" assetIssuanceId="55501" shipmentId="${shipResult.shipmentId}"
                 quantity="5" amount="7.77"/>
 
+            <mantle.account.invoice.InvoiceItem invoiceId="55500" invoiceItemSeqId="03" itemTypeEnumId="ItemProduct"
+                productId="DEMO_2_1" quantity="7" amount="12.12" description="Demo Product Two-One" itemDate="1383418800000"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55502" orderId="${cartOrderId}" orderItemSeqId="03"
+                invoiceId="55500" invoiceItemSeqId="03" assetIssuanceId="55502" shipmentId="${shipResult.shipmentId}"
+                quantity="7" amount="12.12"/>
+
             <!-- AcctgTrans created for Finalized Invoice -->
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55500" acctgTransTypeEnumId="AttSalesInvoice"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383418800000" isPosted="Y"
@@ -206,8 +237,11 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="38.85" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="03" debitCreditFlag="D"
-                amount="55.84" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="03" debitCreditFlag="C"
+                amount="84.84" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                productId="DEMO_2_1" invoiceItemSeqId="03"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="04" debitCreditFlag="D"
+                amount="140.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("ship Sales Order data check results: " + dataCheckErrors)
