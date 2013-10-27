@@ -35,6 +35,7 @@ class OrderSalesShipBasicFlow extends Specification {
         // set an effective date so data check works, etc; Long value (when set from Locale of john.doe, US/Central): 1383411600000
         ec.user.setEffectiveTime(ec.l10n.parseTimestamp("2013-11-02 12:00:00.0", null))
 
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55500, 10)
@@ -45,6 +46,7 @@ class OrderSalesShipBasicFlow extends Specification {
     }
 
     def cleanupSpec() {
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse")
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
@@ -107,7 +109,13 @@ class OrderSalesShipBasicFlow extends Specification {
                 statusId="OrderApproved" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="140.68"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc"
-                orderId="${cartOrderId}" orderPartSeqId="01" amount="140.68" amountUomId="USD"/>
+                paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}" orderPartSeqId="01"
+                statusId="PmntAuthorized" amount="140.68" amountUomId="USD"/>
+            <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55500"
+                paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoAuthorize"
+                paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="140.68" amountUomId="USD"
+                referenceNum="TEST" transactionDate="1383418800000" resultSuccess="Y" resultDeclined="N" resultNsf="N"
+                resultBadExpire="N" resultBadCardNumber="N"/>
 
             <mantle.order.OrderPart orderId="${cartOrderId}" orderPartSeqId="01" vendorPartyId="ORG_BIZI_RETAIL"
                 customerPartyId="CustJqp" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="CustJqpAddr"
