@@ -330,7 +330,7 @@ h2. General Order Placement and eCommerce Usage
             <if condition="!customerPartyId"><set field="customerPartyId" from="ec.user.userAccount?.partyId"/></if>
             <if condition="!orderId">
                 <if condition="customerPartyId">
-                    <entity-find entity-name="OrderHeaderAndPart" list="existingOrderList">
+                    <entity-find entity-name="mantle.order.OrderHeaderAndPart" list="existingOrderList">
                         <econdition field-name="statusId" value="OrderOpen"/>
                         <econdition field-name="customerPartyId"/>
                         <select-field field-name="orderId"/><select-field field-name="orderPartSeqId"/>
@@ -528,6 +528,12 @@ h2. General Order Placement and eCommerce Usage
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <service-call name="update#mantle.order.OrderPart" out-map="context"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId, statusId:'OrderProposed']"/>
+            </iterate>
+
             <service-call name="update#mantle.order.OrderHeader" out-map="context"
                     in-map="[orderId:orderId, statusId:'OrderProposed']"/>
         </actions>
@@ -536,24 +542,75 @@ h2. General Order Placement and eCommerce Usage
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <service-call name="update#mantle.order.OrderPart" out-map="context"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId, statusId:'OrderPlaced']"/>
+            </iterate>
+
             <service-call name="update#mantle.order.OrderHeader" out-map="context"
                     in-map="[orderId:orderId, statusId:'OrderPlaced', placedDate:ec.user.nowTimestamp]"/>
+        </actions>
+    </service>
+    <service verb="approve" noun="Order">
+        <in-parameters><parameter name="orderId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <service-call name="update#mantle.order.OrderPart" out-map="context"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId, statusId:'OrderApproved']"/>
+            </iterate>
+
+            <service-call name="update#mantle.order.OrderHeader" out-map="context"
+                    in-map="[orderId:orderId, statusId:'OrderApproved', placedDate:ec.user.nowTimestamp]"/>
+        </actions>
+    </service>
+
+    <service verb="complete" noun="OrderPart">
+        <in-parameters><parameter name="orderId" required="true"/><parameter name="orderPartSeqId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <actions>
+            <service-call name="update#mantle.order.OrderPart" out-map="context"
+                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, statusId:'OrderCompleted']"/>
+            <set field="allComplete" from="true"/>
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <if condition="orderPart.statusId != 'OrderCompleted'"><set field="allComplete" from="false"/></if>
+            </iterate>
+            <if condition="allComplete">
+                <service-call name="update#mantle.order.OrderHeader" out-map="context"
+                        in-map="[orderId:orderId, statusId:'OrderCompleted']"/>
+            </if>
         </actions>
     </service>
     <service verb="complete" noun="Order">
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <service-call name="update#mantle.order.OrderPart" out-map="context"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId, statusId:'OrderCompleted']"/>
+            </iterate>
+
             <service-call name="update#mantle.order.OrderHeader" out-map="context"
                     in-map="[orderId:orderId, statusId:'OrderCompleted']"/>
         </actions>
     </service>
+
     <service verb="cancel" noun="Order">
         <description>Call when customer cancels the order.</description>
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
             <!-- TODO: do partial cancel if already partially shipped, and then set what is left as completed -->
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <service-call name="update#mantle.order.OrderPart" out-map="context"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId, statusId:'OrderCancelled']"/>
+            </iterate>
+
             <service-call name="update#mantle.order.OrderHeader" out-map="context"
                     in-map="[orderId:orderId, statusId:'OrderCancelled']"/>
         </actions>
