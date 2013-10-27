@@ -14,6 +14,17 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="PaymentDescription">
+        <in-parameters><parameter name="paymentId" required="true"/><parameter name="payment" type="org.moqui.entity.EntityValue"/></in-parameters>
+        <out-parameters><parameter name="paymentDescription"/></out-parameters>
+        <actions>
+            <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
+            <set field="typeEnum" from="payment.'PaymentMethodType#moqui.basic.Enumeration'"/>
+            <set field="paymentMethod" from="payment.'mantle.account.method.PaymentMethod'"/>
+            <set field="paymentDescription" from="typeEnum.description + (paymentMethod ? ' ' + paymentMethod.description : '')"/>
+        </actions>
+    </service>
+
     <service verb="void" noun="Payment">
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <actions>
@@ -204,7 +215,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="orderId" required="true"/>
             <!-- any point in this? generally want to auth whole order and then update status <parameter name="orderPartSeqId"/> -->
         </in-parameters>
+        <out-parameters><parameter name="authFailed" type="Boolean"/></out-parameters>
         <actions>
+            <set field="authFailed" from="false"/>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <set field="totalAuthorized" from="0"/>
             <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
@@ -213,7 +226,22 @@ This Work includes contributions authored by David E. Jones, not as a
             <iterate list="paymentList" entry="payment">
                 <service-call name="mantle.account.PaymentServices.authorize#StorePayment" out-map="authOut"
                     in-map="[paymentId:payment.paymentId, payment:payment, productStoreId:orderHeader.productStoreId]"/>
-                <set field="totalAuthorized" from="totalAuthorized + authOut.amountAuthorized"/>
+                <if condition="authOut.paymentGatewayResponse.resultSuccess == 'Y'">
+                    <set field="totalAuthorized" from="totalAuthorized + authOut.paymentGatewayResponse.amount"/>
+
+                    <else>
+                        <set field="authFailed" from="true"/>
+                        <service-call name="mantle.account.PaymentServices.get#PaymentDescription" in-map="context" out-map="context"/>
+                        <if condition="authOut.paymentGatewayResponse.resultDeclined == 'Y'">
+                            <message>${paymentDescription} was declined</message></if>
+                        <if condition="authOut.paymentGatewayResponse.resultNsf == 'Y'">
+                            <message>${paymentDescription} has insufficient funds</message></if>
+                        <if condition="authOut.paymentGatewayResponse.resultBadExpire == 'Y'">
+                            <message>${paymentDescription} has an invalid expiration date</message></if>
+                        <if condition="authOut.paymentGatewayResponse.resultBadCardNumber == 'Y'">
+                            <message>${paymentDescription} has an invalid card number</message></if>
+                    </else>
+                </if>
             </iterate>
 
             <if condition="totalAuthorized &gt;= orderHeader.grandTotal">
@@ -221,7 +249,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
-    <service verb="authorize" noun="StorePayment">
+    <service verb="authorize" noun="StorePayment" transaction="force-new">
         <in-parameters>
             <parameter name="productStoreId" required="true"/>
             <parameter name="paymentId" required="true"/>
@@ -229,11 +257,10 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters>
             <parameter name="paymentGatewayResponseId"/>
-            <parameter name="amountAuthorized" type="BigDecimal"/>
+            <parameter name="paymentGatewayResponse" type="org.moqui.entity.EntityValue"/>
         </out-parameters>
         <actions>
-            <set field="amountAuthorized" from="0"/>
-            <if condition="!payment"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
+            <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
             
             <entity-find-one entity-name="mantle.product.store.ProductStorePaymentGateway"
                     value-field="productStorePaymentGateway" cache="true">
@@ -249,12 +276,10 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <service-call name="${paymentGatewayConfig.authorizeServiceName}" out-map="authOut"
                     in-map="[paymentId:payment.paymentId, paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
-            <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse">
-                <field-map field-name="paymentGatewayResponseId" from="authOut.paymentGatewayResponseId"/>
-            </entity-find-one>
+            <set field="paymentGatewayResponseId" from="authOut.paymentGatewayResponseId"/>
+            <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
             <if condition="paymentGatewayResponse.resultSuccess == 'Y'">
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntAuthorized']"/>
-                <set field="amountAuthorized" from="paymentGatewayResponse.amount"/>
 
                 <else><service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDeclined']"/></else>
             </if>
@@ -264,7 +289,47 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="capture" noun="InvoicePayments">
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="invoiceId"/>
+            </entity-find>
+            <!-- TODO get productStoreId for Payment through OrderHeader (or put productStoreId on Payment?) -->
+            <!-- TODO capture full or partial Payment for each PaymentApplication -->
+        </actions>
+    </service>
+    <service verb="capture" noun="StorePayment" transaction="force-new">
+        <in-parameters>
+            <parameter name="productStoreId" required="true"/>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="payment" type="org.moqui.entity.EntityValue"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentGatewayResponseId"/>
+            <parameter name="paymentGatewayResponse" type="org.moqui.entity.EntityValue"/>
+        </out-parameters>
+        <actions>
+            <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
+
+            <entity-find-one entity-name="mantle.product.store.ProductStorePaymentGateway"
+                    value-field="productStorePaymentGateway" cache="true">
+                <field-map field-name="productStoreId" from="productStoreId"/>
+                <field-map field-name="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
+            </entity-find-one>
+            <entity-find-related-one value-field="productStorePaymentGateway"
+                    relationship-name="mantle.account.method.PaymentGatewayConfig"
+                    to-value-field="paymentGatewayConfig" cache="true"/>
+            <if condition="paymentGatewayConfig == null">
+                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], type [${payment.paymentMethodTypeEnumId}]"/>
+            </if>
+
+            <service-call name="${paymentGatewayConfig.captureServiceName}" out-map="captOut"
+                    in-map="[paymentId:payment.paymentId, paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
+            <set field="paymentGatewayResponseId" from="captOut.paymentGatewayResponseId"/>
+            <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
+            <if condition="paymentGatewayResponse.resultSuccess == 'Y'">
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDelivered']"/>
+
+                <else><service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDeclined']"/></else>
+            </if>
         </actions>
     </service>
 </services>
