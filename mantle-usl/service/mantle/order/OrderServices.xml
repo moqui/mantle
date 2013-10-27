@@ -478,12 +478,17 @@ h2. General Order Placement and eCommerce Usage
                         <order-by field-name="paymentId"/>
                     </entity-find>
                     <set field="payment" from="paymentList.first"/>
-
                 </else>
+            </if>
+
+            <if condition="!paymentMethodTypeEnumId &amp;&amp; paymentMethodId">
+                <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+                <set field="paymentMethodTypeEnumId" from="paymentMethod.paymentMethodTypeEnumId"/>
             </if>
             <if condition="payment">
                 <!-- update existing payment -->
                 <set field="payment.paymentMethodId" from="paymentMethodId"/>
+                <set field="payment.paymentMethodTypeEnumId" from="paymentMethodTypeEnumId"/>
                 <set field="payment.amount" from="orderPart.partTotal"/>
                 <entity-update value-field="payment"/>
                 <set field="paymentId" from="payment.paymentId"/>
