@@ -21,7 +21,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
             <set field="typeEnum" from="payment.'PaymentMethodType#moqui.basic.Enumeration'"/>
             <set field="paymentMethod" from="payment.'mantle.account.method.PaymentMethod'"/>
-            <set field="paymentDescription" from="typeEnum.description + (paymentMethod ? ' ' + paymentMethod.description : '')"/>
+            <set field="paymentDescription" from="paymentMethod?.description ? paymentMethod.description : typeEnum.description"/>
         </actions>
     </service>
 
@@ -249,7 +249,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
-    <service verb="authorize" noun="StorePayment" transaction="force-new">
+    <service verb="authorize" noun="StorePayment">
         <in-parameters>
             <parameter name="productStoreId" required="true"/>
             <parameter name="paymentId" required="true"/>
@@ -288,7 +288,9 @@ This Work includes contributions authored by David E. Jones, not as a
     
     <service verb="capture" noun="InvoicePayments">
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
+        <out-parameters><parameter name="captureFailed" type="Boolean"/></out-parameters>
         <actions>
+            <set field="captureFailed" from="false"/>
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="invoiceId"/>
             </entity-find>

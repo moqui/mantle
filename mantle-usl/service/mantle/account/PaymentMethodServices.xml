@@ -129,20 +129,25 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="trustLevelEnumId"/>
             <parameter name="paymentFraudEvidenceId"/>
         </in-parameters>
-        <out-parameters>
-            <parameter name="paymentMethodId" required="true"/>
-        </out-parameters>
+        <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
         <actions>
             <set field="ownerPartyId" from="ownerPartyId ?: ec.user.userAccount.partyId"/>
 
-            <entity-make-value entity-name="PaymentMethod" value-field="paymentMethod"/>
+            <if condition="!description">
+                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="creditCardTypeEnum">
+                    <field-map field-name="enumId" from="creditCardTypeEnumId"/>
+                </entity-find-one>
+                <set field="cardNumberDisplay" from="cardNumber ? (creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
+                <set field="description" from="(creditCardTypeEnum?.description ?: 'Credit Card') + ' ' + cardNumberDisplay"/>
+            </if>
+            <entity-make-value entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
             <entity-set value-field="paymentMethod" include="nonpk"/>
             <entity-sequenced-id-primary value-field="paymentMethod"/>
             <set field="paymentMethod.fromDate" from="ec.user.nowTimestamp"/>
             <set field="paymentMethod.paymentMethodTypeEnumId" value="PmtCreditCard"/>
             <entity-create value-field="paymentMethod"/>
 
-            <entity-make-value entity-name="CreditCard" value-field="creditCard"/>
+            <entity-make-value entity-name="mantle.account.method.CreditCard" value-field="creditCard"/>
             <set field="creditCard.paymentMethodId" from="paymentMethod.paymentMethodId"/>
             <entity-set value-field="creditCard" include="nonpk"/>
             <entity-create value-field="creditCard"/>
@@ -162,22 +167,19 @@ This Work includes contributions authored by David E. Jones, not as a
             <auto-parameters entity-name="CreditCard" include="nonpk"/>
 
             <parameter name="paymentMethodId" required="true"/>
-
             <!-- some fields from PaymentMethod we'll allow setting manually -->
             <parameter name="ownerPartyId"/>
             <parameter name="description"/>
             <parameter name="postalContactMechId"/>
             <parameter name="telecomContactMechId"/>
         </in-parameters>
-        <out-parameters>
-            <parameter name="paymentMethodId" required="true"/>
-        </out-parameters>
+        <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="CreditCard" value-field="origCreditCard"/>
+            <entity-find-one entity-name="mantle.account.method.CreditCard" value-field="origCreditCard"/>
             <script>newCreditCard = origCreditCard.cloneValue()</script>
             <entity-set value-field="newCreditCard" include="nonpk"/>
 
-            <entity-find-one entity-name="PaymentMethod" value-field="origPaymentMethod"/>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="origPaymentMethod"/>
             <script>newPaymentMethod = origPaymentMethod.cloneValue()</script>
             <entity-set value-field="newPaymentMethod" include="nonpk"/>
 
@@ -194,6 +196,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="newPaymentMethod.paymentMethodId" from="null"/>
             <entity-sequenced-id-primary value-field="newPaymentMethod"/>
             <set field="newPaymentMethod.fromDate" from="ec.user.nowTimestamp"/>
+            <if condition="!newPaymentMethod.description">
+                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="creditCardTypeEnum">
+                    <field-map field-name="enumId" from="creditCardTypeEnumId"/>
+                </entity-find-one>
+                <set field="cardNumberDisplay" from="cardNumber ? (creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
+                <set field="newPaymentMethod.description" from="(creditCardTypeEnum?.description ?: 'Credit Card') + ' ' + cardNumberDisplay"/>
+            </if>
             <entity-create value-field="newPaymentMethod"/>
 
             <set field="newCreditCard.paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
