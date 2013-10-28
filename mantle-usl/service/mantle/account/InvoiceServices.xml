@@ -240,14 +240,14 @@ This Work includes contributions authored by David E. Jones, not as a
                                 <if condition="!orderItemBillingList">
                                     <!-- is prorate by quantity needed? -->
                                     <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                            in-map="[invoiceId:invoiceId, itemTypeEnumId:childOrderItem.itemTypeEnumId ?: 'ItemSales',
-                                            amount:childOrderItem.unitAmount, description:childOrderItem.itemDescription,
-                                            quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1)),
-                                            quantityUomId:childOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
+                                            in-map="[invoiceId:invoiceId, itemTypeEnumId:(childOrderItem.itemTypeEnumId ?: 'ItemSales'),
+                                                amount:childOrderItem.unitAmount, description:childOrderItem.itemDescription,
+                                                quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1)),
+                                                quantityUomId:childOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
                                     <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
                                             in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
-                                            shipmentId:shipmentId, amount:childOrderItem.unitAmount,
-                                            quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1))]"/>
+                                                shipmentId:shipmentId, amount:childOrderItem.unitAmount,
+                                                quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1))]"/>
                                 </if>
                             </if>
                         </iterate>
@@ -291,6 +291,16 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="statusId"><iterate list="invoiceIdByOrderPartIdMap.values()" entry="invoiceId">
                 <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:statusId]"/>
             </iterate></if>
+            
+            <!-- apply order payments to new invoices -->
+            <iterate list="invoiceIdByOrderPartIdMap.entrySet()" entry="invoiceIdByOrderIdEntry">
+                <set field="orderAndPartId" from="invoiceIdByOrderIdEntry.key"/>
+                <set field="orderId" from="orderAndPartId.substring(0, orderAndPartId.indexOf(':'))"/>
+                <set field="orderPartSeqId" from="orderAndPartId.substring(orderAndPartId.indexOf(':') + 1)"/>
+                <set field="invoiceId" from="invoiceIdByOrderIdEntry.value"/>
+                <service-call name="mantle.account.PaymentServices.apply#OrderPaymentsToInvoice"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, invoiceId:invoiceId]"/>
+            </iterate>
         </actions>
     </service>
     <service verb="create" noun="SalesReturnShipmentInvoices">
