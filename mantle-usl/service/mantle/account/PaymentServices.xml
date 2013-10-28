@@ -24,6 +24,28 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="paymentDescription" from="paymentMethod?.description ? paymentMethod.description : typeEnum.description"/>
         </actions>
     </service>
+    <service verb="get" noun="PaymentTotals">
+        <in-parameters><parameter name="paymentId"/></in-parameters>
+        <out-parameters>
+            <parameter name="paymentTotal" type="BigDecimal"/>
+            <parameter name="appliedTotal" type="BigDecimal"/>
+            <parameter name="unappliedTotal" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <set field="paymentTotal" from="payment.amount"/>
+
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="paymentId"/>
+            </entity-find>
+            <set field="appliedTotal" from="0"/>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <set field="appliedTotal" from="appliedTotal + paymentApplication.amountApplied"/>
+            </iterate>
+
+            <set field="unappliedTotal" from="paymentTotal - appliedTotal"/>
+        </actions>
+    </service>
 
     <service verb="void" noun="Payment">
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
@@ -147,6 +169,40 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
+    <service verb="apply" noun="OrderPaymentsToInvoice">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+            <parameter name="invoiceId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentApplicationIdByPaymentId" type="Map"/></out-parameters>
+        <actions>
+            <set field="paymentApplicationIdByPaymentId" from="[:]"/>
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" out-map="invTotal"
+                    in-map="[invoiceId:invoiceId]"/>
+            
+            <!-- try payments by part first, then payments for entire order -->
+            <entity-find entity-name="mantle.account.payment.Payment" list="partPaymentList">
+                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/></entity-find>
+            <entity-find entity-name="mantle.account.payment.Payment" list="orderPaymentList">
+                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId" from="null"/></entity-find>
+            <set field="paymentList" from="partPaymentList + orderPaymentList"/>
+
+            <set field="remainingAmount" from="invTotal.unpaidTotal"/>
+            <iterate list="paymentList" entry="payment">
+                <service-call name="mantle.account.PaymentServices.get#PaymentTotals" out-map="context"
+                        in-map="[paymentId:payment.paymentId]"/>
+                <if condition="unappliedTotal &gt; 0">
+                    <set field="amountToApply" from="unappliedTotal > remainingAmount ? remainingAmount : unappliedTotal"/>
+                    <service-call name="mantle.account.PaymentServices.apply#InvoicePayment" out-map="applyOut"
+                            in-map="[paymentId:payment.paymentId, invoiceId:invoiceId, amount:amountToApply]"/>
+                    <script>paymentApplicationIdByPaymentId.put(payment.paymentId, applyOut.paymentApplicationId)</script>
+                    <set field="remainingAmount" from="remainingAmount - amountToApply"/>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
     <service verb="apply" noun="PaymentToPayment">
         <in-parameters>
             <parameter name="paymentId" required="true"/>
@@ -245,8 +301,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </iterate>
 
             <if condition="totalAuthorized &gt;= orderHeader.grandTotal">
-                <service-call name="mantle.order.OrderServices.approve#Order" in-map="[orderId:orderId]"/>
-            </if>
+                <service-call name="mantle.order.OrderServices.approve#Order" in-map="[orderId:orderId]"/></if>
         </actions>
     </service>
     <service verb="authorize" noun="StorePayment">
@@ -261,27 +316,46 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
-            
             <entity-find-one entity-name="mantle.product.store.ProductStorePaymentGateway"
                     value-field="productStorePaymentGateway" cache="true">
                 <field-map field-name="productStoreId" from="productStoreId"/>
                 <field-map field-name="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
             </entity-find-one>
-            <entity-find-related-one value-field="productStorePaymentGateway"
-                    relationship-name="mantle.account.method.PaymentGatewayConfig"
-                    to-value-field="paymentGatewayConfig" cache="true"/>
+            <if condition="!productStorePaymentGateway?.paymentGatewayConfigId">
+                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], type [${payment.paymentMethodTypeEnumId}]"/></if>
+            <service-call name="mantle.account.PaymentServices.authorize#SinglePayment" out-map="context"
+                    in-map="[paymentId:payment.paymentId, payment:payment,
+                        paymentGatewayConfigId:productStorePaymentGateway.paymentGatewayConfigId]"/>
+        </actions>
+    </service>
+    <!-- TODO: transaction="force-new" on this is blowing up, debug it -->
+    <service verb="authorize" noun="SinglePayment">
+        <in-parameters>
+            <parameter name="paymentGatewayConfigId" required="true"/>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="payment" type="org.moqui.entity.EntityValue"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentGatewayResponseId"/>
+            <parameter name="paymentGatewayResponse" type="org.moqui.entity.EntityValue"/>
+        </out-parameters>
+        <actions>
+            <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
+            <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig"
+                    value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
-                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], type [${payment.paymentMethodTypeEnumId}]"/>
-            </if>
+                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig"/></if>
 
             <service-call name="${paymentGatewayConfig.authorizeServiceName}" out-map="authOut"
                     in-map="[paymentId:payment.paymentId, paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
             <set field="paymentGatewayResponseId" from="authOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
             <if condition="paymentGatewayResponse.resultSuccess == 'Y'">
-                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntAuthorized']"/>
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
+                        statusId:'PmntAuthorized', paymentGatewayConfigId:paymentGatewayConfigId]"/>
 
-                <else><service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDeclined']"/></else>
+                <else><service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
+                        statusId:'PmntDeclined', paymentGatewayConfigId:paymentGatewayConfigId]"/></else>
             </if>
         </actions>
     </service>
@@ -292,16 +366,20 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <set field="captureFailed" from="false"/>
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
-                <econdition field-name="invoiceId"/>
-            </entity-find>
-            <!-- TODO get productStoreId for Payment through OrderHeader (or put productStoreId on Payment?) -->
-            <!-- TODO capture full or partial Payment for each PaymentApplication -->
+                <econdition field-name="invoiceId"/></entity-find>
+            <!-- capture full or partial Payment for each PaymentApplication -->
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <service-call name="mantle.account.PaymentServices.capture#SinglePayment" out-map="captOut"
+                        in-map="[paymentId:paymentApplication.paymentId, amount:paymentApplication.amountApplied]"/>
+            </iterate>
         </actions>
     </service>
-    <service verb="capture" noun="StorePayment" transaction="force-new">
+    <!-- TODO: transaction="force-new" on this is blowing up, debug it -->
+    <service verb="capture" noun="SinglePayment">
         <in-parameters>
             <parameter name="paymentId" required="true"/>
             <parameter name="payment" type="org.moqui.entity.EntityValue"/>
+            <parameter name="amount" type="BigDecimal"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentGatewayResponseId"/>
@@ -309,27 +387,33 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
+            <if condition="amount == null"><set field="amount" from="payment.amount"/></if>
 
-            <!-- TODO: lookup auth PaymentGatewayResponse and use the PaymentGatewayConfig on it -->
+            <!-- lookup auth PaymentGatewayResponse and use the PaymentGatewayConfig on it -->
+            <entity-find entity-name="mantle.account.method.PaymentGatewayResponse" list="authResponseList">
+                <econdition field-name="paymentId"/><econdition field-name="resultSuccess" value="Y"/></entity-find>
+            <if condition="authResponseList">
+                <set field="paymentGatewayConfigId" from="authResponseList[0].paymentGatewayConfigId"/></if>
+            <!-- if no auth PGR instead of ProductStorePaymentGateway lookup with paymentGatewayConfigId from Payment -->
+            <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
 
-            <!-- TODO: if no auth or expired auth do an auth now -->
+            <!-- if no auth and no payment.paymentGatewayConfigId then this shouldn't be captured (probably a payment method type with no gateway) -->
+            <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentMethodTypeEnumId -->
+            <if condition="!paymentGatewayConfigId"><return/></if>
 
-            <!-- TODO: if no auth PGR instead of ProductStorePaymentGateway lookup PaymentGatewayConfig from ID on Payment -->
-
-            <entity-find-one entity-name="mantle.product.store.ProductStorePaymentGateway"
-                    value-field="productStorePaymentGateway" cache="true">
-                <field-map field-name="productStoreId" from="productStoreId"/>
-                <field-map field-name="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
-            </entity-find-one>
-            <entity-find-related-one value-field="productStorePaymentGateway"
-                    relationship-name="mantle.account.method.PaymentGatewayConfig"
-                    to-value-field="paymentGatewayConfig" cache="true"/>
+            <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
-                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], type [${payment.paymentMethodTypeEnumId}]"/>
+                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig"/></if>
+
+            <!-- if auth expired do an auth now -->
+            <!-- TODO: determine if auth is expired (based on configured days per CC type...) -->
+            <if condition="false">
+                <service-call name="mantle.account.PaymentServices.authorize#SinglePayment" out-map="authOut"
+                        in-map="[paymentId:payment.paymentId, payment:payment, paymentGatewayConfigId:paymentGatewayConfigId]"/>
             </if>
 
             <service-call name="${paymentGatewayConfig.captureServiceName}" out-map="captOut"
-                    in-map="[paymentId:payment.paymentId, paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
+                    in-map="[paymentId:payment.paymentId, amount:amount, paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
             <set field="paymentGatewayResponseId" from="captOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
             <if condition="paymentGatewayResponse.resultSuccess == 'Y'">
