@@ -18,7 +18,10 @@ import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
-/* To run these make sure moqui, and mantle are in place and run: "gradle cleanAll load runtime/mantle/mantle-usl:test" */
+/* To run these make sure moqui, and mantle are in place and run:
+    "gradle cleanAll load runtime/mantle/mantle-usl:test"
+   Or to quick run with saved DB copy use "gradle loadSave" once then each time "gradle reloadSave runtime/mantle/mantle-usl:test"
+ */
 class OrderSalesShipBasicFlow extends Specification {
     @Shared
     protected final static Logger logger = LoggerFactory.getLogger(OrderSalesShipBasicFlow.class)
@@ -42,6 +45,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetReservation", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55500, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderItemBilling", 55500, 10)
     }
 
@@ -53,6 +57,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetReservation")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetIssuance")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.PaymentApplication")
         ec.entity.tempResetSequencedIdPrimary("mantle.order.OrderItemBilling")
         ec.destroy()
     }
@@ -288,7 +293,7 @@ class OrderSalesShipBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and Finalized (status set by action in SECA rule) -->
             <mantle.account.invoice.Invoice invoiceId="55500" invoiceTypeEnumId="InvoiceSales"
-                fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp" statusId="InvoiceFinalized" invoiceDate="1383418800000"
+                fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp" statusId="InvoicePmtRecvd" invoiceDate="1383418800000"
                 description="Invoice for Order ${cartOrderId} part 01 and Shipment ${shipResult.shipmentId}" currencyUomId="USD"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55500" invoiceItemSeqId="01" itemTypeEnumId="ItemProduct"
@@ -308,6 +313,9 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.order.OrderItemBilling orderItemBillingId="55502" orderId="${cartOrderId}" orderItemSeqId="03"
                 invoiceId="55500" invoiceItemSeqId="03" assetIssuanceId="55502" shipmentId="${shipResult.shipmentId}"
                 quantity="7" amount="12.12"/>
+
+            <mantle.account.payment.PaymentApplication paymentApplicationId="55500" paymentId="${setInfoOut.paymentId}"
+                invoiceId="55500" amountApplied="140.68" appliedDate="1383418800000"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
