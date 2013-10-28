@@ -316,6 +316,13 @@ class OrderSalesShipBasicFlow extends Specification {
 
             <mantle.account.payment.PaymentApplication paymentApplicationId="55500" paymentId="${setInfoOut.paymentId}"
                 invoiceId="55500" amountApplied="140.68" appliedDate="1383418800000"/>
+
+            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"/>
+            <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55501"
+                paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoCapture"
+                paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="140.68" amountUomId="USD"
+                referenceNum="TEST" transactionDate="1383418800000" resultSuccess="Y" resultDeclined="N" resultNsf="N"
+                resultBadExpire="N" resultBadCardNumber="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
