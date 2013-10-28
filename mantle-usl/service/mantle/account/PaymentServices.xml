@@ -328,7 +328,36 @@ This Work includes contributions authored by David E. Jones, not as a
                         paymentGatewayConfigId:productStorePaymentGateway.paymentGatewayConfigId]"/>
         </actions>
     </service>
-    <!-- TODO: transaction="force-new" on this is blowing up, debug it; NOTE: to be a Derby issue, works fine on MySQL... -->
+    <!-- TODO: transaction="force-new" on this is blowing up, debug it; NOTE: seems to be a Derby issue, works fine on MySQL...
+
+        XA resource 'DEFAULTtransactional': resume for XID '31302E302E312E332E746D30303134303030303031:31302E302E312E332E746D313430'
+            raised -4: the supplied XID is invalid for this XA resource
+        javax.transaction.xa.XAException
+        at org.apache.derby.jdbc.EmbedXAResource.start(Unknown Source)
+        at com.atomikos.datasource.xa.XAResourceTransaction.resume(XAResourceTransaction.java:498)
+        at com.atomikos.datasource.xa.session.BranchEnlistedStateHandler.<init>(BranchEnlistedStateHandler.java:59)
+        at com.atomikos.datasource.xa.session.NotInBranchStateHandler.checkEnlistBeforeUse(NotInBranchStateHandler.java:65)
+        at com.atomikos.datasource.xa.session.TransactionContext.checkEnlistBeforeUse(TransactionContext.java:88)
+        at com.atomikos.datasource.xa.session.SessionHandleState.notifyBeforeUse(SessionHandleState.java:179)
+        at com.atomikos.jdbc.AtomikosConnectionProxy.enlist(AtomikosConnectionProxy.java:208)
+        at com.atomikos.jdbc.AtomikosConnectionProxy.invoke(AtomikosConnectionProxy.java:142)
+        at com.sun.proxy.$Proxy40.prepareStatement(Unknown Source)
+        at java_sql_Connection$prepareStatement.call(Unknown Source)
+        at org.moqui.impl.entity.EntityFindBuilder.makePreparedStatement(EntityFindBuilder.groovy:439)
+        at org.moqui.impl.entity.EntityFindImpl.iteratorExtended(EntityFindImpl.groovy:135)
+        at org.moqui.impl.entity.EntityFindBase.list(EntityFindBase.groovy:583)
+        at mantle_order_OrderServices_update_OrderStatus.run(mantle_order_OrderServices_update_OrderStatus:5)
+        at org.moqui.impl.actions.XmlAction.run(XmlAction.groovy:97)
+        at org.moqui.impl.service.runner.InlineServiceRunner.runService(InlineServiceRunner.groovy:47)
+        at org.moqui.impl.service.ServiceCallSyncImpl.callSingle(ServiceCallSyncImpl.groovy:249)
+        at org.moqui.impl.service.ServiceCallSyncImpl.call(ServiceCallSyncImpl.groovy:118)
+        at mantle_order_OrderServices_approve_Order.run(mantle_order_OrderServices_approve_Order:5)
+        at org.moqui.impl.actions.XmlAction.run(XmlAction.groovy:97)
+        at org.moqui.impl.service.runner.InlineServiceRunner.runService(InlineServiceRunner.groovy:47)
+        at org.moqui.impl.service.ServiceCallSyncImpl.callSingle(ServiceCallSyncImpl.groovy:249)
+        at org.moqui.impl.service.ServiceCallSyncImpl.call(ServiceCallSyncImpl.groovy:118)
+        at mantle_account_PaymentServices_authorize_OrderPayments.run(mantle_account_PaymentServices_authorize_OrderPayments:64)
+    -->
     <service verb="authorize" noun="SinglePayment">
         <in-parameters>
             <parameter name="paymentGatewayConfigId" required="true"/>
