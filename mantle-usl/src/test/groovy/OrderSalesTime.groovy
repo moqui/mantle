@@ -56,10 +56,10 @@ class OrderSalesTime extends Specification {
             String productStoreId = "POPC_DEFAULT"
             EntityValue productStore = ec.entity.makeFind("mantle.product.store.ProductStore").condition("productStoreId", productStoreId).useCache(true).one()
             String currencyUomId = productStore.defaultCurrencyUomId
-            //String priceUomId = productStore.defaultCurrencyUomId
+            // String priceUomId = productStore.defaultCurrencyUomId
             // String defaultLocale = productStore.defaultLocale
             // String organizationPartyId = productStore.organizationPartyId
-            //String vendorPartyId = productStore.organizationPartyId
+            // String vendorPartyId = productStore.organizationPartyId
             String customerPartyId = ec.user.userAccount.partyId
 
             Map addOut1 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
