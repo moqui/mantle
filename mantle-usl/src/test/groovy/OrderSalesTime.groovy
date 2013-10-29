@@ -45,29 +45,29 @@ class OrderSalesTime extends Specification {
         ec.artifactExecution.enableAuthz()
     }
 
-    def "create Sales Order Time Check"() {
+    def "Sales Order Time Check"() {
         when:
         int numOrders = 10
 
-        ec.user.loginUser("joe@public.com", "moqui", null)
-
-        String productStoreId = "POPC_DEFAULT"
-        EntityValue productStore = ec.entity.makeFind("mantle.product.store.ProductStore").condition("productStoreId", productStoreId).one()
-        String currencyUomId = productStore.defaultCurrencyUomId
-        //String priceUomId = productStore.defaultCurrencyUomId
-        // String defaultLocale = productStore.defaultLocale
-        // String organizationPartyId = productStore.organizationPartyId
-        //String vendorPartyId = productStore.organizationPartyId
-        String customerPartyId = ec.user.userAccount.partyId
-
         long startTime = System.currentTimeMillis()
         for (int i = 0; i < numOrders; i++) {
+            ec.user.loginUser("joe@public.com", "moqui", null)
+
+            String productStoreId = "POPC_DEFAULT"
+            EntityValue productStore = ec.entity.makeFind("mantle.product.store.ProductStore").condition("productStoreId", productStoreId).useCache(true).one()
+            String currencyUomId = productStore.defaultCurrencyUomId
+            //String priceUomId = productStore.defaultCurrencyUomId
+            // String defaultLocale = productStore.defaultLocale
+            // String organizationPartyId = productStore.organizationPartyId
+            //String vendorPartyId = productStore.organizationPartyId
+            String customerPartyId = ec.user.userAccount.partyId
+
             Map addOut1 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                     .parameters([productId:'DEMO_1_1', quantity:1, customerPartyId:customerPartyId,
                     currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
 
             String cartOrderId = addOut1.orderId
-            //String orderPartSeqId = addOut1.orderPartSeqId
+            String orderPartSeqId = addOut1.orderPartSeqId
 
             ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                     .parameters([orderId:cartOrderId, productId:'DEMO_3_1', quantity:1, customerPartyId:customerPartyId,
@@ -81,13 +81,18 @@ class OrderSalesTime extends Specification {
                     shippingTelecomContactMechId:'CustJqpTeln', shipmentMethodEnumId:'ShMthNoShipping']).call()
             ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:cartOrderId]).call()
 
-            logger.info("[${i+1}/${numOrders} - ${System.currentTimeMillis() - startTime}] Created order ${cartOrderId}")
+            ec.user.logoutUser()
+
+            ec.user.loginUser("john.doe", "moqui", null)
+            ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
+                    .parameters([orderId:cartOrderId, orderPartSeqId:orderPartSeqId]).call()
+            ec.user.logoutUser()
+
+            logger.info("[${i+1}/${numOrders} - ${System.currentTimeMillis() - startTime}] Created and shipped order ${cartOrderId}")
         }
         long endTime = System.currentTimeMillis()
         double seconds = (endTime - startTime)/1000
-        logger.info("Created and placed ${numOrders} in ${seconds} seconds, ${numOrders/seconds} orders per second")
-
-        ec.user.logoutUser()
+        logger.info("Created and shipped ${numOrders} in ${seconds} seconds, ${numOrders/seconds} orders per second")
 
         then:
         true
