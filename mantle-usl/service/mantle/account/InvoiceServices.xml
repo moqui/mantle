@@ -118,16 +118,22 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="statusId"><description>If specified after create set to this statusId (always created
-                initially in InvoiceInProcess, so there must be a transition to specified status).</description></parameter>
+                initially in InvoiceInProcess or InvoiceIncoming, so there must be a transition to specified status).</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="invoiceId"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
 
+            <!-- is this an outgoing (use InvoiceIncoming) or incoming (use InvoiceInProcess) order based on internal org? -->
+            <!-- TODO: what to do if both are internal orgs? need a flag or something for which side we're dealing with... just for initial statusId... -->
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
+                <field-map field-name="partyId" from="orderPart.customerPartyId"/><field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+            <set field="initialStatusId" from="customerOrgInternal ? 'InvoiceIncoming' : 'InvoiceInProcess'"/>
+
             <set field="description" value="Invoice for Order ${orderId} part ${orderPartSeqId}"/>
             <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
-                    in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
+                    in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:initialStatusId,
                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
                         invoiceDate:ec.user.nowTimestamp, currencyUomId:orderHeader.currencyUomId,
                         description:description]"/>
