@@ -113,9 +113,10 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.order.OrderHeader orderId="${cartOrderId}" entryDate="1383411600000" placedDate="1383411600000"
                 statusId="OrderApproved" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="140.68"/>
 
-            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc"
-                paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}" orderPartSeqId="01"
-                statusId="PmntAuthorized" amount="140.68" amountUomId="USD"/>
+            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentTypeEnumId="PtInvoicePayment"
+                paymentMethodId="CustJqpCc" paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}"
+                orderPartSeqId="01" statusId="PmntAuthorized" amount="140.68" amountUomId="USD" fromPartyId="CustJqp"
+                toPartyId="ORG_BIZI_RETAIL"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55500"
                 paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoAuthorize"
                 paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="140.68" amountUomId="USD"
@@ -313,16 +314,6 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.order.OrderItemBilling orderItemBillingId="55502" orderId="${cartOrderId}" orderItemSeqId="03"
                 invoiceId="55500" invoiceItemSeqId="03" assetIssuanceId="55502" shipmentId="${shipResult.shipmentId}"
                 quantity="7" amount="12.12"/>
-
-            <mantle.account.payment.PaymentApplication paymentApplicationId="55500" paymentId="${setInfoOut.paymentId}"
-                invoiceId="55500" amountApplied="140.68" appliedDate="1383411600000"/>
-
-            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"/>
-            <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55501"
-                paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoCapture"
-                paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="140.68" amountUomId="USD"
-                referenceNum="TEST" transactionDate="1383411600000" resultSuccess="Y" resultDeclined="N" resultNsf="N"
-                resultBadExpire="N" resultBadCardNumber="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
@@ -353,6 +344,35 @@ class OrderSalesShipBasicFlow extends Specification {
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+
+    def "validate Payment Accounting Transaction"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"/>
+            <mantle.account.payment.PaymentApplication paymentApplicationId="55500" paymentId="${setInfoOut.paymentId}"
+                invoiceId="55500" amountApplied="140.68" appliedDate="1383411600000"/>
+            <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55501"
+                paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoCapture"
+                paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="140.68" amountUomId="USD"
+                referenceNum="TEST" transactionDate="1383411600000" resultSuccess="Y" resultDeclined="N" resultNsf="N"
+                resultBadExpire="N" resultBadCardNumber="N"/>
+
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttIncomingPayment"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
+                glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
+                paymentId="${setInfoOut.paymentId}"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="01" debitCreditFlag="C"
+                amount="140.68" glAccountId="120000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="02" debitCreditFlag="D"
+                amount="140.68" glAccountId="122000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Payment Accounting Transaction data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
