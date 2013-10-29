@@ -114,7 +114,6 @@ h2. General Order Placement and eCommerce Usage
         </description>
         <in-parameters>
             <parameter name="orderName"/>
-            <parameter name="statusId" default-value="OrderOpen"/>
 
             <parameter name="currencyUomId" default-value="USD"/>
             <parameter name="billingAccountId"/>
@@ -136,6 +135,9 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <!-- always use Open initially, for both header and part -->
+            <set field="statusId" value="OrderOpen"/>
+
             <entity-make-value entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-set value-field="orderHeader" include="nonpk"/>
             <set field="orderHeader.entryDate" from="ec.user.nowTimestamp"/>
@@ -243,9 +245,7 @@ h2. General Order Placement and eCommerce Usage
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
-
             <parameter name="itemTypeEnumId" default-value="ItemProduct"/>
-            <parameter name="statusId" default-value="OrderOpen"/>
 
             <parameter name="productId"/>
             <parameter name="productConfigSavedId"/>
@@ -265,7 +265,7 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <entity-make-value entity-name="mantle.order.OrderItem" value-field="orderItem"/>
-            <entity-set value-field="orderItem" include="all"/>
+            <entity-set value-field="orderItem" include="all" set-if-empty="true"/>
             <entity-sequenced-id-secondary value-field="orderItem"/>
             <if condition="!itemDescription &amp;&amp; productId">
                 <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
@@ -322,12 +322,14 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderItemSeqId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="ProductStore" value-field="productStore"/>
-            <set field="vendorPartyId" from="productStore?.organizationPartyId"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
+            <entity-find-one entity-name="mantle.product.store.ProductStore" value-field="productStore"/>
+            <set field="vendorPartyId" from="orderPart?.vendorPartyId ?: productStore?.organizationPartyId"/>
             <set field="currencyUomId" from="currencyUomId ?: productStore?.defaultCurrencyUomId"/>
 
             <!-- have customerPartyId default to current user's partyId -->
-            <if condition="!customerPartyId"><set field="customerPartyId" from="ec.user.userAccount?.partyId"/></if>
+            <set field="customerPartyId" from="(customerPartyId ?: orderPart?.customerPartyId) ?: ec.user.userAccount?.partyId"/>
+
             <if condition="!orderId">
                 <if condition="customerPartyId">
                     <entity-find entity-name="mantle.order.OrderHeaderAndPart" list="existingOrderList">
@@ -361,8 +363,8 @@ h2. General Order Placement and eCommerce Usage
                     in-map="[productId:productId, quantity:quantity, priceUomId:currencyUomId,
                          productStoreId:productStoreId, customerPartyId:customerPartyId, vendorPartyId:vendorPartyId]"/>
 
-            <set field="unitAmount" from="priceMap.price" set-if-empty="false"/>
-            <set field="unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
+            <set field="unitAmount" from="priceMap.price"/>
+            <set field="unitListPrice" from="priceMap.listPrice"/>
             <set field="isModifiedPrice" value="N"/>
 
             <if condition="orderItemList">
