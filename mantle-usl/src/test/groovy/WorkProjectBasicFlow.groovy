@@ -31,8 +31,8 @@ class WorkProjectBasicFlow extends Specification {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
         ec.user.loginUser("john.doe", "moqui", null)
-        // set an effective date so data check works, etc; Long value (when set from Locale of john.doe, US/Central): 1383411600000
-        ec.user.setEffectiveTime(ec.l10n.parseTimestamp("2013-11-02 12:00:00.0", null))
+        // set an effective date so data check works, etc; Long value (when set from Locale of john.doe, US/Central, '2013-11-02 12:00:00.0'): 1383411600000
+        ec.user.setEffectiveTime(ec.l10n.parseTimestamp("1383411600000", null))
 
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.work.time.TimeEntry", 55900, 10)
