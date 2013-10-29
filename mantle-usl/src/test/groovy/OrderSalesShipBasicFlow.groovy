@@ -127,13 +127,13 @@ class OrderSalesShipBasicFlow extends Specification {
                 telecomContactMechId="CustJqpTeln" partTotal="140.68"/>
             <mantle.order.OrderItem orderId="${cartOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="1" unitAmount="16.99"
-                unitListPrice="16.99" isModifiedPrice="N"/>
+                unitListPrice="19.99" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${cartOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="5" unitAmount="7.77"
-                unitListPrice="7.77" isModifiedPrice="N"/>
+                unitListPrice="" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${cartOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_2_1" itemDescription="Demo Product Two-One" quantity="7" unitAmount="12.12"
-                unitListPrice="12.12" isModifiedPrice="N"/>
+                unitListPrice="" isModifiedPrice="N"/>
         </entity-facade-xml>""").check()
         logger.info("create Sales Order data check results: " + dataCheckErrors)
 
