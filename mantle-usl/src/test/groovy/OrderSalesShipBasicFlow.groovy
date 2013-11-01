@@ -42,6 +42,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55500, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetReservation", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55500, 10)
@@ -54,6 +55,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
+        ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetDetail")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetReservation")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetIssuance")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
@@ -162,9 +164,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.asset.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
                 orderId="${cartOrderId}" orderItemSeqId="01" reservationOrderEnumId="AsResOrdFifoRec" quantity="1"
                 reservedDate="1383411600000" sequenceNum="1"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="01" effectiveDate="1265184000000"
-                quantityOnHandDiff="100" availableToPromiseDiff="100" productId="DEMO_1_1"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="02" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55500" assetId="DEMO_1_1A" effectiveDate="1383411600000"
                 availableToPromiseDiff="-1" assetReservationId="55500" productId="DEMO_1_1"/>
 
             <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
@@ -173,9 +173,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.asset.AssetReservation assetReservationId="55501" assetId="DEMO_3_1A" productId="DEMO_3_1"
                 orderId="${cartOrderId}" orderItemSeqId="02" reservationOrderEnumId="AsResOrdFifoRec" quantity="5"
                 reservedDate="1383411600000" sequenceNum="1"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="01" effectiveDate="1265184000000"
-                quantityOnHandDiff="5" availableToPromiseDiff="5" productId="DEMO_3_1"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="02" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55501" assetId="DEMO_3_1A" effectiveDate="1383411600000"
                 availableToPromiseDiff="-5" assetReservationId="55501" productId="DEMO_3_1"/>
 
             <!-- this is an auto-created Asset based on the inventory issuance -->
@@ -185,7 +183,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.asset.AssetReservation assetReservationId="55502" assetId="55500" productId="DEMO_2_1"
                 orderId="${cartOrderId}" orderItemSeqId="03" reservationOrderEnumId="AsResOrdFifoRec"
                 quantity="7" quantityNotAvailable="7" reservedDate="1383411600000"/>
-            <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="01" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55502" assetId="55500" effectiveDate="1383411600000"
                 availableToPromiseDiff="-7" assetReservationId="55502" productId="DEMO_2_1"/>
         </entity-facade-xml>""").check()
         logger.info("validate Asset Reservation data check results: " + dataCheckErrors)
@@ -263,7 +261,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" assetReservationId="55500"
                 orderId="${cartOrderId}" orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1"
                 quantity="1"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="03" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55503" assetId="DEMO_1_1A" effectiveDate="1383411600000"
                 quantityOnHandDiff="-1" assetReservationId="55500" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetIssuanceId="55500"/>
 
@@ -271,7 +269,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="DEMO_3_1A" assetReservationId="55501"
                 orderId="${cartOrderId}" orderItemSeqId="02" shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1"
                 quantity="5"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="03" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55504" assetId="DEMO_3_1A" effectiveDate="1383411600000"
                 quantityOnHandDiff="-5" assetReservationId="55501" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetIssuanceId="55501"/>
 
@@ -280,7 +278,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55502" assetId="55500" assetReservationId="55502"
                 orderId="${cartOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1"
                 quantity="7"/>
-            <mantle.product.asset.AssetDetail assetId="55500" assetDetailSeqId="02" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55505" assetId="55500" effectiveDate="1383411600000"
                 quantityOnHandDiff="-7" assetReservationId="55502" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_2_1" assetIssuanceId="55502"/>
         </entity-facade-xml>""").check()
