@@ -322,6 +322,13 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderItemSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <!-- lookup orderPartSeqId if not passed in -->
+            <if condition="!orderPartSeqId">
+                <entity-find entity-name="OrderPart" list="orderPartList">
+                    <econdition field-name="orderId"/><order-by field-name="orderPartSeqId"/></entity-find>
+                <set field="orderPartSeqId" from="orderPartList?.first?.orderPartSeqId"/>
+            </if>
+
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <entity-find-one entity-name="mantle.product.store.ProductStore" value-field="productStore"/>
             <set field="vendorPartyId" from="orderPart?.vendorPartyId ?: productStore?.organizationPartyId"/>
@@ -374,15 +381,6 @@ h2. General Order Placement and eCommerce Usage
                 <service-call name="mantle.order.OrderServices.update#OrderItem" in-map="true"/>
 
                 <else>
-                    <!-- lookup orderPartSeqId if not passed in -->
-                    <if condition="!orderPartSeqId">
-                        <entity-find entity-name="OrderPart" list="orderPartList">
-                            <econdition field-name="orderId"/>
-                            <order-by field-name="orderPartSeqId"/>
-                        </entity-find>
-                        <if condition="orderPartList"><set field="orderPartSeqId" from="orderPartList[0].orderPartSeqId"/></if>
-                    </if>
-
                     <service-call name="mantle.order.OrderServices.create#OrderItem" in-map="context" out-map="createOrderItemOut"/>
                     <set field="orderItemSeqId" from="createOrderItemOut.orderItemSeqId"/>
                 </else>
