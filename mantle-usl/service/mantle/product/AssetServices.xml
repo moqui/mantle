@@ -15,13 +15,20 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- STATUS: EXPERIMENTAL -->
 
     <service verb="update" noun="AssetFromDetail">
-        <in-parameters><parameter name="assetId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="availableToPromiseDiff" type="BigDecimal"/>
+            <parameter name="quantityOnHandDiff" type="BigDecimal"/>
+        </in-parameters>
         <actions>
-            <entity-find-one entity-name="Asset" value-field="asset" for-update="true"/>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
+            <!-- view-entity with sum function approach, doesn't work with TransactionCache:
             <entity-find-one entity-name="AssetDetailSummary" value-field="assetDetailSummary"/>
-
             <set field="asset.availableToPromiseTotal" from="assetDetailSummary.availableToPromiseTotal ?: 0"/>
             <set field="asset.quantityOnHandTotal" from="assetDetailSummary.quantityOnHandTotal ?: 0"/>
+            -->
+            <set field="asset.availableToPromiseTotal" from="asset.availableToPromiseTotal + (availableToPromiseDiff ?: 0)"/>
+            <set field="asset.quantityOnHandTotal" from="asset.quantityOnHandTotal + (quantityOnHandDiff ?: 0)"/>
             <entity-update value-field="asset"/>
         </actions>
     </service>
