@@ -94,12 +94,14 @@ class OrderSalesShipBasicFlow extends Specification {
         cartOrderId = addOut1.orderId
         orderPartSeqId = addOut1.orderPartSeqId
 
+        // without orderPartSeqId
         Map addOut2 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:cartOrderId, productId:'DEMO_3_1', quantity:5, customerPartyId:customerPartyId,
                     currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
+        // with orderPartSeqId
         Map addOut3 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
-                .parameters([orderId:cartOrderId, productId:'DEMO_2_1', quantity:7, customerPartyId:customerPartyId,
-                currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
+                .parameters([orderId:cartOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_2_1', quantity:7,
+                customerPartyId:customerPartyId, currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
 
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:cartOrderId, paymentMethodId:'CustJqpCc', shippingPostalContactMechId:'CustJqpAddr',
