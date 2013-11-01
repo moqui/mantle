@@ -47,7 +47,7 @@ class OrderSalesTime extends Specification {
 
     def "Sales Order Time Check"() {
         when:
-        int numOrders = 10
+        int numOrders = 5
 
         long startTime = System.currentTimeMillis()
         for (int i = 0; i < numOrders; i++) {
