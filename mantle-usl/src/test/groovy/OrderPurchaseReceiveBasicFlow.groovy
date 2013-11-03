@@ -30,7 +30,7 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
     @Shared
     String purchaseOrderId = null, orderPartSeqId
     @Shared
-    Map setInfoOut, invResult
+    Map setInfoOut, invResult, shipResult
     @Shared
     String vendorPartyId = 'MiddlemanInc', customerPartyId = 'ORG_BIZI_RETAIL', priceUomId = 'USD', currencyUomId = 'USD'
 
@@ -137,6 +137,48 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
+    def "create Purchase Order Shipment and Schedule"() {
+        when:
+        shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.create#OrderPartShipment")
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
+
+        // TODO: add PO Shipment Schedule
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <!-- Shipment created -->
+            <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpSales"
+                statusId="ShipInput" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
+            <mantle.shipment.ShipmentPackage shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"/>
+
+            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="150"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
+                invoiceId="" invoiceItemSeqId=""/>
+
+            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1" quantity="100"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending" quantity="100"
+                invoiceId="" invoiceItemSeqId=""/>
+
+            <!-- no SPC when not outgoing packed, can be added by something else though:
+            <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
+                productId="DEMO_1_1" quantity="150"/>
+            <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
+                productId="DEMO_3_1" quantity="100"/>
+            -->
+
+            <mantle.shipment.ShipmentRouteSegment shipmentId="${shipResult.shipmentId}" shipmentRouteSegmentSeqId="01"
+                destPostalContactMechId="ORG_BIZI_RTL_SA" destTelecomContactMechId="ORG_BIZI_RTL_PT"/>
+            <mantle.shipment.ShipmentPackageRouteSeg shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
+                shipmentRouteSegmentSeqId="01"/>
+        </entity-facade-xml>""").check()
+        logger.info("receive Purchase Order data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
     def "process Purchase Invoice"() {
         when:
         // NOTE: in real-world scenarios the invoice received may not match what is expected, may be for multiple or
@@ -167,6 +209,12 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"/>
 
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending" quantity="100"
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
@@ -174,44 +222,19 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    /*
-    def "receive Purchase Order"() {
+    def "receive Purchase Order Shipment"() {
         when:
-        shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
+        // set Shipment Packed (is this needed? call anyway to test that with ShipmentItemSource in place no new invoice created)
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#Shipment")
+                .parameters([shipmentId:shipResult.shipmentId]).call()
+        // set Shipment Shipped
+        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment")
+                .parameters([shipmentId:shipResult.shipmentId]).call()
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment created -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpSales"
-                statusId="ShipShipped" fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp"/>
-            <mantle.shipment.ShipmentPackage shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"/>
-
-            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="1"/>
-            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPacked" quantity="1"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
-            <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
-                productId="DEMO_1_1" quantity="1"/>
-
-            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1" quantity="5"/>
-            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPacked" quantity="5"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
-            <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
-                productId="DEMO_3_1" quantity="5"/>
-
-            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1" quantity="7"/>
-            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_2_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPacked" quantity="7"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"/>
-            <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
-                productId="DEMO_2_1" quantity="7"/>
-
-            <mantle.shipment.ShipmentRouteSegment shipmentId="${shipResult.shipmentId}" shipmentRouteSegmentSeqId="01"
-                destPostalContactMechId="CustJqpAddr" destTelecomContactMechId="CustJqpTeln"/>
-            <mantle.shipment.ShipmentPackageRouteSeg shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
-                shipmentRouteSegmentSeqId="01"/>
+                statusId="ShipShipped" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
         </entity-facade-xml>""").check()
         logger.info("receive Purchase Order data check results: " + dataCheckErrors)
 
@@ -219,9 +242,12 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    def "validate Purchase Order Complete"() {
+    def "complete Purchase Order"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
+        // after Shipment Packed mark Order as Completed
+        ec.service.sync().name("mantle.order.OrderServices.complete#OrderPart")
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
+
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- OrderHeader status to Completed -->
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" statusId="OrderCompleted"/>
@@ -232,6 +258,7 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
+    /*
     def "validate Assets Received"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
