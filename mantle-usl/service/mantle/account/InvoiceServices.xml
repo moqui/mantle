@@ -160,6 +160,21 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
                             in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                 amount:orderItem.unitAmount, quantity:quantityNotBilled]"/>
+
+                    <!-- for ShipmentItemSource set the invoiceId/invoiceItemSeqId on it -->
+                    <set field="quantityNotShipSourced" from="quantityNotBilled"/>
+                    <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
+                        <econdition field-name="orderId"/><econdition field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/>
+                    </entity-find>
+                    <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
+                        <if condition="!shipmentItemSource.invoiceId &amp;&amp; quantityNotShipSourced >= shipmentItemSource.quantity">
+                            <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                            <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                            <entity-update value-field="shipmentItemSource"/>
+                            <set field="quantityNotShipSourced" from="quantityNotShipSourced - shipmentItemSource.quantity"/>
+                        </if>
+                    </iterate>
+                    <!-- if quantityNotShipSourced > 0 do anything here? we don't have another Shipment/Item with quantity to match... -->
                 </if>
             </iterate>
 
@@ -190,7 +205,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
                 <set field="orderItem" from="shipmentItemSource.'mantle.order.OrderItem'"/>
-                <if condition="orderItem">
+                <if condition="orderItem &amp;&amp; !shipmentItemSource.invoiceId">
                     <set field="invoiceId" from="invoiceIdByOrderPartIdMap[orderItem.orderId + ':' + orderItem.orderPartSeqId]"/>
                     <if condition="!invoiceId">
                         <!-- find the OrderPart for the from/toPartyId, etc -->
