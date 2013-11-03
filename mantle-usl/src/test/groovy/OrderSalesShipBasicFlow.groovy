@@ -43,7 +43,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55500, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetReservation", 55500, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetReservation", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55500, 10)
@@ -56,7 +56,7 @@ class OrderSalesShipBasicFlow extends Specification {
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetDetail")
-        ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetReservation")
+        ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetReservation")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetIssuance")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.PaymentApplication")
@@ -161,7 +161,7 @@ class OrderSalesShipBasicFlow extends Specification {
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y"
                 quantityOnHandTotal="100" availableToPromiseTotal="99" dateReceived="1265184000000"
                 facilityId="ORG_BIZI_RETAIL_WH"/>
-            <mantle.product.asset.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
+            <mantle.product.issuance.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
                 orderId="${cartOrderId}" orderItemSeqId="01" reservationOrderEnumId="AsResOrdFifoRec" quantity="1"
                 reservedDate="1383411600000" sequenceNum="1"/>
             <mantle.product.asset.AssetDetail assetDetailId="55500" assetId="DEMO_1_1A" effectiveDate="1383411600000"
@@ -170,7 +170,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="5"
                 availableToPromiseTotal="0" dateReceived="1265184000000" facilityId="ORG_BIZI_RETAIL_WH"/>
-            <mantle.product.asset.AssetReservation assetReservationId="55501" assetId="DEMO_3_1A" productId="DEMO_3_1"
+            <mantle.product.issuance.AssetReservation assetReservationId="55501" assetId="DEMO_3_1A" productId="DEMO_3_1"
                 orderId="${cartOrderId}" orderItemSeqId="02" reservationOrderEnumId="AsResOrdFifoRec" quantity="5"
                 reservedDate="1383411600000" sequenceNum="1"/>
             <mantle.product.asset.AssetDetail assetDetailId="55501" assetId="DEMO_3_1A" effectiveDate="1383411600000"
@@ -180,7 +180,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="0"
                 availableToPromiseTotal="-7" dateReceived="1383411600000" facilityId="ORG_BIZI_RETAIL_WH"/>
-            <mantle.product.asset.AssetReservation assetReservationId="55502" assetId="55500" productId="DEMO_2_1"
+            <mantle.product.issuance.AssetReservation assetReservationId="55502" assetId="55500" productId="DEMO_2_1"
                 orderId="${cartOrderId}" orderItemSeqId="03" reservationOrderEnumId="AsResOrdFifoRec"
                 quantity="7" quantityNotAvailable="7" reservedDate="1383411600000"/>
             <mantle.product.asset.AssetDetail assetDetailId="55502" assetId="55500" effectiveDate="1383411600000"

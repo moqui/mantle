@@ -79,7 +79,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="quantityRemaining" from="orderItem.quantity"/>
 
             <!-- if there are any existing reservations, deduct their quantity -->
-            <entity-find entity-name="mantle.product.asset.AssetReservation" list="existingResList">
+            <entity-find entity-name="mantle.product.issuance.AssetReservation" list="existingResList">
                 <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
             </entity-find>
             <iterate list="existingResList" entry="existingRes">
@@ -112,7 +112,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="quantityRemaining &gt; 0 &amp;&amp; asset_hasNext">
                         <set field="quantityToReserve" from="asset.availableToPromiseTotal &gt; quantityRemaining ? quantityRemaining : asset.availableToPromiseTotal"/>
                         <set field="quantityRemaining" from="quantityRemaining - quantityToReserve"/>
-                        <service-call name="create#mantle.product.asset.AssetReservation" out-map="resOut" in-map="baseMap +
+                        <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
                                 [assetId:asset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityToReserve,
                                 quantityNotAvailable:0, quantityNotIssued:quantityToReserve, priority:orderItem.priority,
                                 sequenceNum:asset_index, reservationOrderEnumId:productStore.reservationOrderEnumId]"/>
@@ -125,7 +125,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <if condition="quantityRemaining &gt; 0">
                     <set field="quantityNotAvailable" from="lastAsset.availableToPromiseTotal &gt; quantityRemaining ? 0 :
                             (lastAsset.availableToPromiseTotal &gt; 0 ? quantityRemaining - lastAsset.availableToPromiseTotal : quantityRemaining)"/>
-                    <service-call name="create#mantle.product.asset.AssetReservation" out-map="resOut" in-map="baseMap +
+                    <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
                             [assetId:lastAsset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityRemaining,
                             quantityNotAvailable:quantityNotAvailable, quantityNotIssued:quantityRemaining,
                             priority:orderItem.priority, sequenceNum:asset_index,
@@ -142,7 +142,7 @@ This Work includes contributions authored by David E. Jones, not as a
                                 productId:productId, facilityId:productStore.inventoryFacilityId,
                                 ownerPartyId:productStore.organizationPartyId, dateReceived:ec.user.nowTimestamp,
                                 availableToPromiseTotal:0, quantityOnHandTotal: 0]"/>
-                    <service-call name="create#mantle.product.asset.AssetReservation" out-map="resOut" in-map="baseMap +
+                    <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
                             [assetId:assetOut.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityRemaining,
                             quantityNotAvailable:quantityRemaining, quantityNotIssued:quantityRemaining,
                             priority:orderItem.priority, sequenceNum:0,
