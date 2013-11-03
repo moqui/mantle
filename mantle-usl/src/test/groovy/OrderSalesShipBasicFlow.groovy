@@ -159,7 +159,7 @@ class OrderSalesShipBasicFlow extends Specification {
 
             <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y"
-                quantityOnHandTotal="100" availableToPromiseTotal="99" dateReceived="1265184000000"
+                quantityOnHandTotal="100" availableToPromiseTotal="99" receivedDate="1265184000000"
                 facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
                 orderId="${cartOrderId}" orderItemSeqId="01" reservationOrderEnumId="AsResOrdFifoRec" quantity="1"
@@ -169,7 +169,7 @@ class OrderSalesShipBasicFlow extends Specification {
 
             <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="5"
-                availableToPromiseTotal="0" dateReceived="1265184000000" facilityId="ORG_BIZI_RETAIL_WH"/>
+                availableToPromiseTotal="0" receivedDate="1265184000000" facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55501" assetId="DEMO_3_1A" productId="DEMO_3_1"
                 orderId="${cartOrderId}" orderItemSeqId="02" reservationOrderEnumId="AsResOrdFifoRec" quantity="5"
                 reservedDate="1383411600000" sequenceNum="1"/>
@@ -179,7 +179,7 @@ class OrderSalesShipBasicFlow extends Specification {
             <!-- this is an auto-created Asset based on the inventory issuance -->
             <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="0"
-                availableToPromiseTotal="-7" dateReceived="1383411600000" facilityId="ORG_BIZI_RETAIL_WH"/>
+                availableToPromiseTotal="-7" receivedDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55502" assetId="55500" productId="DEMO_2_1"
                 orderId="${cartOrderId}" orderItemSeqId="03" reservationOrderEnumId="AsResOrdFifoRec"
                 quantity="7" quantityNotAvailable="7" reservedDate="1383411600000"/>
