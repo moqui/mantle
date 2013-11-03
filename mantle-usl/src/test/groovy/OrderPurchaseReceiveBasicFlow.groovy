@@ -142,12 +142,12 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.create#OrderPartShipment")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
 
-        // TODO: add PO Shipment Schedule
+        // TODO: add PO Shipment Schedule, update status to ShipScheduled
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment created -->
-            <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpSales"
+            <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipInput" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
             <mantle.shipment.ShipmentPackage shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"/>
 
@@ -186,6 +186,10 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // to somewhat simulate real-world, create in InvoiceIncoming then change to InvoiceReceived to allow for manual
         //     changes between
 
+        // set Shipment Shipped
+        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment")
+                .parameters([shipmentId:shipResult.shipmentId]).call()
+
         invResult = ec.service.sync().name("mantle.account.InvoiceServices.create#EntireOrderPartInvoice")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
 
@@ -194,6 +198,10 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <!-- Shipment to Shipped status -->
+            <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
+                statusId="ShipShipped" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
+
             <!-- Invoice created and received, not yet approved/etc -->
             <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" invoiceTypeEnumId="InvoiceSales" fromPartyId="MiddlemanInc"
                 toPartyId="ORG_BIZI_RETAIL" statusId="InvoiceReceived" invoiceDate="1383411600000"
@@ -224,17 +232,11 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
 
     def "receive Purchase Order Shipment"() {
         when:
-        // set Shipment Packed (is this needed? call anyway to test that with ShipmentItemSource in place no new invoice created)
-        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#Shipment")
-                .parameters([shipmentId:shipResult.shipmentId]).call()
-        // set Shipment Shipped
-        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment")
-                .parameters([shipmentId:shipResult.shipmentId]).call()
+        // TODO: receive the Shipment, create AssetReceipt records, status to ShipDelivered
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- Shipment created -->
-            <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpSales"
-                statusId="ShipShipped" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
+            <!-- <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
+                statusId="ShipDelivered" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/> -->
         </entity-facade-xml>""").check()
         logger.info("receive Purchase Order data check results: " + dataCheckErrors)
 
