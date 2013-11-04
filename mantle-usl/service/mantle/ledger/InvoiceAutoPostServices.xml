@@ -212,20 +212,24 @@ This Work includes contributions authored by David E. Jones, not as a
                 <!-- put in the error journal for the org -->
                 <if condition="fromPartyAcctgPreference?.errorGlJournalId">
                     <service-call name="update#mantle.ledger.transaction.AcctgTrans"
-                            in-map="[acctgTransId:fromAcctgTrans.acctgTransId, glJournalId:fromPartyAcctgPreference.errorGlJournalId]"/>
+                            in-map="[acctgTransId:fromAcctgTrans.acctgTransId,
+                                glJournalId:fromPartyAcctgPreference.errorGlJournalId]"/>
                 </if>
                 <if condition="toPartyAcctgPreference?.errorGlJournalId">
                     <service-call name="update#mantle.ledger.transaction.AcctgTrans"
-                            in-map="[acctgTransId:toAcctgTrans.acctgTransId, glJournalId:toPartyAcctgPreference.errorGlJournalId]"/>
+                            in-map="[acctgTransId:toAcctgTrans.acctgTransId,
+                                glJournalId:toPartyAcctgPreference.errorGlJournalId]"/>
                 </if>
 
                 <else>
                     <!-- call the post service -->
                     <if condition="fromPartyAcctgPreference">
-                        <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:fromAcctgTrans.acctgTransId]"/>
+                        <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans"
+                                in-map="[acctgTransId:fromAcctgTrans.acctgTransId]"/>
                     </if>
                     <if condition="toPartyAcctgPreference">
-                        <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:toAcctgTrans.acctgTransId]"/>
+                        <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans"
+                                in-map="[acctgTransId:toAcctgTrans.acctgTransId]"/>
                     </if>
                 </else>
             </if>
@@ -277,7 +281,18 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="revert" noun="InvoicePostOnCancel">
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="invoiceId"/></entity-find>
+            <if condition="acctgTransList">
+                <if condition="acctgTransList.size() == 1">
+                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
+                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
+
+                    <else><return error="true" message="Found more than one accounting transaction for Invoice ${invoiceId}, may already be cancelled, not posting cancelling transaction."/></else>
+                </if>
+                <else><return error="true" message="No accounting transaction found for Invoice ${invoiceId}, not posting cancelling transaction."/></else>
+            </if>
         </actions>
     </service>
 </services>
