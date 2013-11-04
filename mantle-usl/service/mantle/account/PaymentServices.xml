@@ -135,6 +135,28 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:statusId]"/>
         </actions>
     </service>
+    <service verb="send" noun="PromisedPayment">
+        <in-parameters>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="billingAccountId"/>
+            <parameter name="overrideGlAccountId"/>
+            <parameter name="amount" type="BigDecimal"><description>Defaults to Payment.amount and if different from
+                Payment.amount sets the value there. The rest of the invoice, if needed, can be paid with
+                create#InvoicePayment.</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentApplicationId" type="List"/>
+            <parameter name="amountApplied" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <if condition="!amount"><set field="amount" from="payment.amount"/></if>
+            <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, amount:amount,
+                    statusId:'PmntDelivered', effectiveDate:ec.user.nowTimestamp]"/>
+            <service-call name="mantle.account.PaymentServices.apply#InvoicePayment" in-map="context" out-map="context"/>
+        </actions>
+    </service>
     <service verb="apply" noun="InvoicePayment">
         <in-parameters>
             <parameter name="paymentId" required="true"/>
@@ -169,6 +191,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
+
     <service verb="apply" noun="OrderPaymentsToInvoice">
         <in-parameters>
             <parameter name="orderId" required="true"/>
