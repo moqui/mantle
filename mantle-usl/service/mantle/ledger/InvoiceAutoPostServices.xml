@@ -178,12 +178,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="fromPartyAcctgPreference">
                 <set field="glAccountTypeEnumId" value="ACCOUNTS_RECEIVABLE"/>
 
-                <service-call name="mantle.ledger.InvoiceAutoPostServices.get#InvoiceBalanceGlAccount"
-                        in-map="[glAccountTypeEnumId:glAccountTypeEnumId,
-                                    acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
-                                    organizationPartyId:fromAcctgTrans.organizationPartyId,
-                                    otherPartyId:fromAcctgTrans.otherPartyId]"
-                        out-map="invoiceBalanceGlAccountOut"/>
+                <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="invoiceBalanceGlAccountOut"
+                        in-map="[glAccountTypeEnumId:glAccountTypeEnumId, acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
+                            organizationPartyId:fromAcctgTrans.organizationPartyId, otherPartyId:fromAcctgTrans.otherPartyId]"/>
                 <if condition="!invoiceBalanceGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
 
                 <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="fromBalanceAcctgTransEntry"
@@ -197,12 +194,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="toPartyAcctgPreference">
                 <set field="glAccountTypeEnumId" value="ACCOUNTS_PAYABLE"/>
 
-                <service-call name="mantle.ledger.InvoiceAutoPostServices.get#InvoiceBalanceGlAccount"
-                        in-map="[glAccountTypeEnumId:glAccountTypeEnumId,
-                                    acctgTransTypeEnumId:toAcctgTrans.acctgTransTypeEnumId,
-                                    organizationPartyId:toAcctgTrans.organizationPartyId,
-                                    otherPartyId:toAcctgTrans.otherPartyId]"
-                        out-map="invoiceBalanceGlAccountOut"/>
+                <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="invoiceBalanceGlAccountOut"
+                        in-map="[glAccountTypeEnumId:glAccountTypeEnumId, acctgTransTypeEnumId:toAcctgTrans.acctgTransTypeEnumId,
+                            organizationPartyId:toAcctgTrans.organizationPartyId, otherPartyId:toAcctgTrans.otherPartyId]"/>
                 <if condition="!invoiceBalanceGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
 
                 <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="toBalanceAcctgTransEntry"
@@ -276,32 +270,6 @@ This Work includes contributions authored by David E. Jones, not as a
                     <field-map field-name="glAccountId"/>
                 </entity-find-one>
                 <set field="glAccountTypeEnumId" from="glAccount?.glAccountTypeEnumId"/>
-            </if>
-        </actions>
-    </service>
-    <service verb="get" noun="InvoiceBalanceGlAccount">
-        <in-parameters>
-            <parameter name="glAccountTypeEnumId" required="true"/>
-            <parameter name="acctgTransTypeEnumId" required="true"/>
-            <parameter name="organizationPartyId" required="true"/>
-            <parameter name="otherPartyId"/>
-        </in-parameters>
-        <out-parameters>
-            <parameter name="glAccountId"/>
-        </out-parameters>
-        <actions>
-            <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
-                    in-map="[organizationPartyId:organizationPartyId]"/>
-
-            <!-- TODO: anything to do other than GlAccountTypeDefault? -->
-
-            <!-- nothing? look by itemTypeEnumId -->
-            <if condition="!glAccountId">
-                <entity-find entity-name="mantle.ledger.config.GlAccountTypeDefault" list="glAccountTypeDefaultList" cache="true">
-                    <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
-                    <econdition field-name="glAccountTypeEnumId"/>
-                </entity-find>
-                <set field="glAccountId" from="glAccountTypeDefaultList.first?.glAccountId"/>
             </if>
         </actions>
     </service>
