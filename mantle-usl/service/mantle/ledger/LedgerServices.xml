@@ -208,7 +208,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="verifyOnly" type="Boolean" default-value="false"/>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" auto-field-map="true"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
 
             <!-- make sure the AcctgTrans has not already been posted -->
             <if condition="acctgTrans.isPosted == 'Y'">
@@ -347,6 +347,58 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- do the actual posting: set isPosted to Y and postedDate to now on AcctgTrans -->
             <service-call name="update#mantle.ledger.transaction.AcctgTrans"
                     in-map="[acctgTransId:acctgTransId, isPosted:'Y', postedDate:ec.user.nowTimestamp]"/>
+        </actions>
+    </service>
+
+    <service verb="post" noun="CancelledAcctgTrans">
+        <description>Create a new transaction that is the reverse of the original (for each entry debits to credit and
+            vice versa, transaction date set to now, etc).</description>
+        <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
+        <out-parameters><parameter name="cancelAcctgTransId" required="true"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
+                <econdition field-name="acctgTransId"/>
+                <order-by field-name="acctgTransEntrySeqId"/>
+            </entity-find>
+
+            <set field="cancelAcctgTrans" from="acctgTrans.clone()"/>
+            <set field="cancelAcctgTrans.acctgTransId" from="null"/>
+            <entity-sequenced-id-primary value-field="cancelAcctgTrans"/>
+            <set field="cancelAcctgTrans.transactionDate" from="ec.user.nowTimestamp"/>
+            <set field="cancelAcctgTrans.isPosted" value="N"/>
+            <entity-create value-field="cancelAcctgTrans"/>
+
+            <set field="cancelAcctgTransId" from="cancelAcctgTrans.acctgTransId"/>
+
+            <set field="useErrorJournal" from="false"/>
+            <iterate list="acctgTransEntryList" entry="acctgTransEntry">
+                <set field="cancelAcctgTransEntry" from="acctgTransEntry.clone()"/>
+                <set field="cancelAcctgTransEntry.acctgTransId" from="cancelAcctgTransId"/>
+                <set field="cancelAcctgTransEntry.reconcileStatusId" value="AES_NOT_RECONCILED"/>
+                <set field="cancelAcctgTransEntry.debitCreditFlag"
+                        from="cancelAcctgTransEntry.debitCreditFlag == 'C' ? 'D' : 'C'"/>
+                <entity-create value-field="cancelAcctgTransEntry"/>
+
+                <if condition="!cancelAcctgTransEntry.glAccountId"><set field="useErrorJournal" from="true"/></if>
+            </iterate>
+
+            <if condition="useErrorJournal">
+                <!-- put in the error journal for the org -->
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                        in-map="[organizationPartyId:acctgTrans.organizationPartyId]"/>
+                <if condition="partyAcctgPreference?.errorGlJournalId">
+                    <service-call name="update#mantle.ledger.transaction.AcctgTrans"
+                            in-map="[acctgTransId:cancelAcctgTrans.acctgTransId,
+                                glJournalId:partyAcctgPreference.errorGlJournalId]"/>
+                </if>
+
+                <else>
+                    <!-- call the post service -->
+                    <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:cancelAcctgTransId]"/>
+                </else>
+            </if>
+
         </actions>
     </service>
 
