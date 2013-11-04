@@ -54,6 +54,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="createPackage" type="Boolean" default-value="true"/>
             <parameter name="createRouteSegment" type="Boolean" default-value="true"/>
+            <parameter name="originFacilityId"/>
+            <parameter name="destinationFacilityId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="shipmentId"/>
@@ -81,7 +83,8 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="[shipmentId:shipmentId, carrierPartyId:carrierPartyId,
                             shipmentMethodEnumId:shipmentMethodEnumId,
                             destPostalContactMechId:orderPart.postalContactMechId,
-                            destTelecomContactMechId:orderPart.telecomContactMechId]"/>
+                            destTelecomContactMechId:orderPart.telecomContactMechId,
+                            originFacilityId:originFacilityId, destinationFacilityId:destinationFacilityId]"/>
             </if>
             <if condition="shipmentPackageSeqId &amp;&amp; shipmentRouteSegmentSeqId">
                 <service-call name="create#mantle.shipment.ShipmentPackageRouteSeg"
@@ -97,7 +100,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
                 <service-call name="create#mantle.shipment.ShipmentItemSource"
                         in-map="[shipmentId:shipmentId, productId:orderItem.productId, statusId:'SisPending',
-                            quantity:orderItem.quantity, quantityNotPacked:orderItem.quantity,
+                            quantity:orderItem.quantity, quantityNotHandled:orderItem.quantity,
                             orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
 
                 <!-- for mantle.order.OrderItemBilling set the invoiceId/invoiceItemSeqId on it -->
@@ -128,14 +131,14 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList" cache="false">
                 <econdition field-name="shipmentId"/><econdition field-name="productId"/>
-                <econdition field-name="quantityNotPacked" operator="greater" from="0"/>
+                <econdition field-name="quantityNotHandled" operator="greater" from="0"/>
             </entity-find>
             <set field="quantityRemaining" from="quantity"/>
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
-                <set field="quantityToPack" from="shipmentItemSource.quantityNotPacked > quantityRemaining ?
-                        quantityRemaining : shipmentItemSource.quantityNotPacked"/>
-                <set field="quantityRemaining" from="quantityRemaining > shipmentItemSource.quantityNotPacked ?
-                        quantityRemaining - shipmentItemSource.quantityNotPacked : 0"/>
+                <set field="quantityToPack" from="shipmentItemSource.quantityNotHandled > quantityRemaining ?
+                        quantityRemaining : shipmentItemSource.quantityNotHandled"/>
+                <set field="quantityRemaining" from="quantityRemaining > shipmentItemSource.quantityNotHandled ?
+                        quantityRemaining - shipmentItemSource.quantityNotHandled : 0"/>
                 <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"
                         in-map="[shipmentItemSource:shipmentItemSource, shipmentPackageSeqId:shipmentPackageSeqId,
                             quantity:quantityToPack]"/>
@@ -194,12 +197,77 @@ This Work includes contributions authored by David E. Jones, not as a
                 </else>
             </if>
 
-            <!-- update quantityNotPacked to get ready for the next pack call -->
-            <set field="shipmentItemSource.quantityNotPacked" from="shipmentItemSource.quantityNotPacked - quantity"/>
-            <if condition="shipmentItemSource.quantityNotPacked &lt;= 0">
+            <!-- update quantityNotHandled to get ready for the next pack call -->
+            <set field="shipmentItemSource.quantityNotHandled" from="shipmentItemSource.quantityNotHandled - quantity"/>
+            <if condition="shipmentItemSource.quantityNotHandled &lt;= 0">
                 <set field="shipmentItemSource.statusId" value="SisPacked"/>
             </if>
             <entity-update value-field="shipmentItemSource"/>
+        </actions>
+    </service>
+
+    <service verb="receive" noun="EntireShipment">
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="facilityId"><description>If not specified uses ShipmentRouteSegment.destinationFacilityId.</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <iterate list="shipmentItemList" entry="shipmentItem">
+                <service-call name="mantle.shipment.ShipmentServices.receive#ShipmentProduct"
+                        in-map="[shipmentId:shipmentId, productId:shipmentItem.productId,
+                            quantityAccepted:shipmentItem.quantity, facilityId:facilityId]"/>
+            </iterate>
+
+            <!-- consider doing this automatically when all quantities of all items are received -->
+            <service-call name="update#mantle.shipment.Shipment" out-map="context"
+                    in-map="[shipmentId:shipmentId, statusId:'ShipDelivered']"/>
+        </actions>
+    </service>
+    <service verb="receive" noun="ShipmentProduct">
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="productId" required="true"/>
+            <parameter name="facilityId"><description>If not specified uses ShipmentRouteSegment.destinationFacilityId.</description></parameter>
+            <parameter name="quantityAccepted" type="BigDecimal" required="true"/>
+            <parameter name="quantityRejected" type="BigDecimal"/>
+            <parameter name="rejectionReasonEnumId"/>
+        </in-parameters>
+        <actions>
+            <if condition="!facilityId">
+                <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
+                    <econdition field-name="shipmentId"/><order-by field-name="-shipmentRouteSegmentSeqId"/></entity-find>
+                <set field="facilityId" from="shipmentRouteSegmentList?.first?.destinationFacilityId"/>
+            </if>
+            <if condition="!facilityId"><return error="true" message="Cannot receive Product ${productId} on Shipment ${shipmentId}, no facilityId specified."/></if>
+            
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList" cache="false">
+                <econdition field-name="shipmentId"/><econdition field-name="productId"/>
+                <econdition field-name="quantityNotHandled" operator="greater" from="0"/>
+            </entity-find>
+            <set field="quantityAcceptedRemaining" from="quantityAccepted"/>
+            <set field="quantityRejectedRemaining" from="quantityRejected"/>
+            <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
+                <set field="quantityToAccept" from="shipmentItemSource.quantityNotHandled > quantityAcceptedRemaining ?
+                        quantityAcceptedRemaining : shipmentItemSource.quantityNotHandled"/>
+                <set field="quantityAcceptedRemaining" from="quantityAcceptedRemaining > shipmentItemSource.quantityNotHandled ?
+                        quantityAcceptedRemaining - shipmentItemSource.quantityNotHandled : 0"/>
+                <set field="quantityToReject" from="shipmentItemSource.quantityNotHandled > quantityRejectedRemaining ?
+                        quantityRejectedRemaining : shipmentItemSource.quantityNotHandled"/>
+                <set field="quantityRejectedRemaining" from="quantityRejectedRemaining > shipmentItemSource.quantityNotHandled ?
+                        quantityRejectedRemaining - shipmentItemSource.quantityNotHandled : 0"/>
+
+                <service-call name="mantle.product.AssetServices.receive#Asset"
+                        in-map="[productId:productId, quantity:quantityToAccept, shipmentId:shipmentId,
+                            shipmentPackageSeqId:null, orderId:shipmentItemSource.orderId,
+                            orderItemSeqId:shipmentItemSource.orderItemSeqId, facilityId:facilityId,
+                            quantityRejected:quantityToReject, rejectionReasonEnumId:rejectionReasonEnumId]"/>
+            </iterate>
+
+            <if condition="quantityAcceptedRemaining > 0 || quantityRejectedRemaining > 0">
+                <message>Not sufficient quantity to receive ${quantityAcceptedRemaining} of ${quantityAccepted} accepted or ${quantityRejectedRemaining} of ${quantityRejected} rejected.</message>
+            </if>
         </actions>
     </service>
 
