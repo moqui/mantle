@@ -71,7 +71,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="productStore.reservationOrderEnumId == 'AsResOrdNoRes'"><return/></if>
             <!-- otherwise set assetOrderBy field based on reservationOrderEnumId -->
             <set field="resOrderEnum" from="productStore.'AssetReservationOrder#moqui.basic.Enumeration'"/>
-            <set field="assetOrderBy" from="resOrderEnum?.enumCode ?: 'dateReceived'"/><!-- default: FIFO by received date -->
+            <set field="assetOrderBy" from="resOrderEnum?.enumCode ?: 'receivedDate'"/><!-- default: FIFO by received date -->
 
             <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
             <set field="productId" from="orderItem.productId"/>
@@ -140,7 +140,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="create#mantle.product.asset.Asset" out-map="assetOut"
                             in-map="[assetTypeEnumId:'AstTpInventory', hasQuantity:'Y', statusId:'AstAvailable',
                                 productId:productId, facilityId:productStore.inventoryFacilityId,
-                                ownerPartyId:productStore.organizationPartyId, dateReceived:ec.user.nowTimestamp,
+                                ownerPartyId:productStore.organizationPartyId, receivedDate:ec.user.nowTimestamp,
                                 availableToPromiseTotal:0, quantityOnHandTotal: 0]"/>
                     <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
                             [assetId:assetOut.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityRemaining,
@@ -208,9 +208,9 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="productId"/>
                 <econdition field-name="facilityId" from="productStore.inventoryFacilityId" ignore-if-empty="true"/>
                 <econdition field-name="ownerPartyId" from="productStore.organizationPartyId" ignore-if-empty="true"/>
-                <!-- reserve from oldest first (ascending dateReceived) -->
+                <!-- reserve from oldest first (ascending receivedDate) -->
                 <!-- TODO: this may be configurable in the future -->
-                <order-by field-name="dateReceived"/>
+                <order-by field-name="receivedDate"/>
             </entity-find>
             <!-- if assetId specified add it to the list -->
             <if condition="assetId">
@@ -247,7 +247,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="create#mantle.product.asset.Asset" out-map="context"
                             in-map="[assetTypeEnumId:'AstTpInventory', hasQuantity:'Y', statusId:'AstAvailable',
                                 productId:productId, facilityId:productStore.inventoryFacilityId,
-                                ownerPartyId:productStore.organizationPartyId, dateReceived:ec.user.nowTimestamp,
+                                ownerPartyId:productStore.organizationPartyId, receivedDate:ec.user.nowTimestamp,
                                 availableToPromiseTotal:0, quantityOnHandTotal: 0]"/>
                     <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="issueOut"
                             in-map="baseMap + [assetId:assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantity]"/>
@@ -257,6 +257,82 @@ This Work includes contributions authored by David E. Jones, not as a
                             availableToPromiseDiff:-quantity, assetIssuanceId:issueOut.assetIssuanceId]"/>
                 </else>
             </if>
+        </actions>
+    </service>
+
+    <service verb="receive" noun="Asset">
+        <description>Receive an Asset</description>
+        <in-parameters>
+            <parameter name="assetId"><description>If specified receives to this Asset otherwise creates a new one.</description></parameter>
+            <parameter name="productId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" default-value="1"/>
+            <parameter name="assetTypeEnumId" default-value="AstTpInventory"/>
+            <parameter name="classEnumId"/>
+            <parameter name="statusId" default-value="AstAvailable"/>
+            <parameter name="assetName"><description>Defaults to OrderItem.itemDescription if available.</description></parameter>
+            <parameter name="serialNumber"/>
+
+            <parameter name="shipmentId"/>
+            <parameter name="shipmentPackageSeqId"/>
+            <parameter name="orderId"/>
+            <parameter name="orderItemSeqId"/>
+            <parameter name="returnId"/>
+            <parameter name="returnItemSeqId"/>
+
+            <parameter name="facilityId" required="true"/>
+            <parameter name="locationSeqId"/>
+            <parameter name="ownerPartyId"><description>If not passed in and orderId and orderItemSeqId are then uses
+                OrderPart.customerPartyId, otherwise uses Facility.ownerPartyId.</description></parameter>
+
+            <parameter name="quantityRejected" type="BigDecimal"/>
+            <parameter name="rejectionReasonEnumId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="assetId"/>
+            <parameter name="assetReceiptId"/>
+            <parameter name="assetDetailId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="facility"/>
+            <if condition="!ownerPartyId &amp;&amp; orderItem">
+                <set field="orderPart" from="orderItem?.'mantle.order.OrderPart'"/>
+                <set field="ownerPartyId" from="orderPart?.customerPartyId"/>
+            </if>
+            <if condition="!ownerPartyId"><set field="ownerPartyId" from="facility?.ownerPartyId"/></if>
+
+            <set field="hasQuantity" from="!serialNumber &amp;&amp; assetTypeEnumId == 'AstTpInventory' ? 'Y' : 'N'"/>
+            <set field="assetName" from="assetName ?: orderItem?.itemDescription"/>
+
+            <set field="receivedDate" from="ec.user.nowTimestamp"/>
+
+            <if condition="!assetId">
+                <service-call name="create#mantle.product.asset.Asset" out-map="context" 
+                        in-map="[assetTypeEnumId:assetTypeEnumId, classEnumId:classEnumId, statusId:statusId,
+                            ownerPartyId:ownerPartyId, productId:productId, hasQuantity:hasQuantity,
+                            quantityOnHandTotal:0, availableToPromiseTotal:0, assetName:assetName,
+                            receivedDate:receivedDate, acquiredDate:(orderHeader.placedDate ?: ec.user.nowTimestamp),
+                            facilityId:facilityId, locationSeqId:locationSeqId, acquireOrderId:orderId,
+                            acquireOrderItemSeqId:orderItemSeqId, acquireCost:orderItem?.unitAmount,
+                            acquireCostUomId:orderHeader?.currencyUomId]"/>
+            </if>
+
+            <!-- create AssetReceipt -->
+            <service-call name="create#mantle.product.receipt.AssetReceipt" out-map="context"
+                    in-map="[assetId:assetId, productId:productId, orderId:orderId, orderItemSeqId:orderItemSeqId,
+                        returnId:returnId, returnItemSeqId:returnItemSeqId, shipmentId:shipmentId,
+                        shipmentPackageSeqId:shipmentPackageSeqId, receivedByUserId:ec.user.userId,
+                        receivedDate:receivedDate, quantityAccepted:quantity, quantityRejected:quantityRejected,
+                        rejectionReasonEnumId:rejectionReasonEnumId]"/>
+
+            <!-- create AssetDetail -->
+            <service-call name="create#mantle.product.asset.AssetDetail" out-map="context"
+                    in-map="[assetId:assetId, effectiveDate:receivedDate, quantityOnHandDiff:quantity,
+                        availableToPromiseDiff:quantity, unitCost:orderItem?.unitAmount, shipmentId:shipmentId,
+                        productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
+                        assetReceiptId:assetReceiptId]"/>
+
         </actions>
     </service>
 </services>
