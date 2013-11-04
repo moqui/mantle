@@ -282,10 +282,10 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 acquiredDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH" acquireOrderId="${purchaseOrderId}"
                 acquireOrderItemSeqId="01" acquireCost="8" acquireCostUomId="USD"/>
             <mantle.product.receipt.AssetReceipt assetReceiptId="55400" assetId="55400" productId="DEMO_1_1"
-                orderId="${purchaseOrderId}" orderItemSeqId="01" shipmentId="100000" receivedByUserId="EX_JOHN_DOE"
-                receivedDate="1383411600000" quantityAccepted="150"/>
+                orderId="${purchaseOrderId}" orderItemSeqId="01" shipmentId="${shipResult.shipmentId}"
+                receivedByUserId="EX_JOHN_DOE" receivedDate="1383411600000" quantityAccepted="150"/>
             <mantle.product.asset.AssetDetail assetDetailId="55400" assetId="55400" effectiveDate="1383411600000"
-                quantityOnHandDiff="150" availableToPromiseDiff="150" unitCost="8" shipmentId="100000"
+                quantityOnHandDiff="150" availableToPromiseDiff="150" unitCost="8" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetReceiptId="55400"/>
 
             <mantle.product.asset.Asset assetId="55401" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
@@ -294,10 +294,10 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 acquiredDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH" acquireOrderId="${purchaseOrderId}"
                 acquireOrderItemSeqId="02" acquireCost="4.5" acquireCostUomId="USD"/>
             <mantle.product.receipt.AssetReceipt assetReceiptId="55401" assetId="55401" productId="DEMO_3_1"
-                orderId="${purchaseOrderId}" orderItemSeqId="02" shipmentId="100000" receivedByUserId="EX_JOHN_DOE"
-                receivedDate="1383411600000" quantityAccepted="100"/>
+                orderId="${purchaseOrderId}" orderItemSeqId="02" shipmentId="${shipResult.shipmentId}"
+                receivedByUserId="EX_JOHN_DOE" receivedDate="1383411600000" quantityAccepted="100"/>
             <mantle.product.asset.AssetDetail assetDetailId="55401" assetId="55401" effectiveDate="1383411600000"
-                quantityOnHandDiff="100" availableToPromiseDiff="100" unitCost="4.5" shipmentId="100000"
+                quantityOnHandDiff="100" availableToPromiseDiff="100" unitCost="4.5" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetReceiptId="55401"/>
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
