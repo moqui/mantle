@@ -105,6 +105,8 @@ class OrderSalesShipBasicFlow extends Specification {
                 .parameters([orderId:cartOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_2_1', quantity:7,
                 customerPartyId:customerPartyId, currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
 
+        // TODO: add shipping charge
+
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:cartOrderId, paymentMethodId:'CustJqpCc', shippingPostalContactMechId:'CustJqpAddr',
                     shippingTelecomContactMechId:'CustJqpTeln', shipmentMethodEnumId:'ShMthNoShipping']).call()

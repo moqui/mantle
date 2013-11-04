@@ -96,26 +96,28 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-related value-field="orderPart" relationship-name="mantle.order.OrderItem" list="orderItemList"
                     order-by-list="['orderItemSeqId']"/>
             <iterate list="orderItemList" entry="orderItem">
-                <service-call name="create#mantle.shipment.ShipmentItem"
-                        in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
-                <service-call name="create#mantle.shipment.ShipmentItemSource"
-                        in-map="[shipmentId:shipmentId, productId:orderItem.productId, statusId:'SisPending',
-                            quantity:orderItem.quantity, quantityNotHandled:orderItem.quantity,
-                            orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
+                <if condition="orderItem.productId">
+                    <service-call name="create#mantle.shipment.ShipmentItem"
+                            in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
+                    <service-call name="create#mantle.shipment.ShipmentItemSource"
+                            in-map="[shipmentId:shipmentId, productId:orderItem.productId, statusId:'SisPending',
+                                quantity:orderItem.quantity, quantityNotHandled:orderItem.quantity,
+                                orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
 
-                <!-- for mantle.order.OrderItemBilling set the invoiceId/invoiceItemSeqId on it -->
-                <set field="quantityNotBilled" from="orderItem.quantity"/>
-                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
-                    <econdition field-name="orderId"/><econdition field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/>
-                </entity-find>
-                <iterate list="orderItemBillingList" entry="orderItemBilling">
-                    <if condition="!orderItemBilling.shipmentId &amp;&amp; quantityNotBilled >= orderItemBilling.quantity">
-                        <set field="orderItemBilling.shipmentId" from="shipmentId"/>
-                        <entity-update value-field="orderItemBilling"/>
-                        <set field="quantityNotBilled" from="quantityNotBilled - orderItemBilling.quantity"/>
-                    </if>
-                </iterate>
-                <!-- if quantityNotBilled > 0 do anything here? we don't have another Invoice/Item with quantity to match... -->
+                    <!-- for mantle.order.OrderItemBilling set the invoiceId/invoiceItemSeqId on it -->
+                    <set field="quantityNotBilled" from="orderItem.quantity"/>
+                    <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                        <econdition field-name="orderId"/><econdition field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/>
+                    </entity-find>
+                    <iterate list="orderItemBillingList" entry="orderItemBilling">
+                        <if condition="!orderItemBilling.shipmentId &amp;&amp; quantityNotBilled >= orderItemBilling.quantity">
+                            <set field="orderItemBilling.shipmentId" from="shipmentId"/>
+                            <entity-update value-field="orderItemBilling"/>
+                            <set field="quantityNotBilled" from="quantityNotBilled - orderItemBilling.quantity"/>
+                        </if>
+                    </iterate>
+                    <!-- if quantityNotBilled > 0 do anything here? we don't have another Invoice/Item with quantity to match... -->
+                </if>
             </iterate>
 
         </actions>
