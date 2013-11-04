@@ -117,11 +117,11 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" entryDate="1383411600000" placedDate="1383411600000"
-                statusId="OrderApproved" currencyUomId="USD" grandTotal=""/>
+                statusId="OrderApproved" currencyUomId="USD" grandTotal="1650.00"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}"
                 paymentMethodTypeEnumId="PmtCompanyCheck" orderId="${purchaseOrderId}" orderPartSeqId="01"
-                statusId="PmntPromised" amount="" amountUomId="USD"/>
+                statusId="PmntPromised" amount="1650.00" amountUomId="USD"/>
 
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="MiddlemanInc"
                 customerPartyId="ORG_BIZI_RETAIL" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_BIZI_RTL_SA"
@@ -310,6 +310,9 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
     /*
     def "validate Assets Receipt Accounting Transactions"() {
         when:
+
+        // TODO: implement asset receipt and issue GL postings
+
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
 
 
@@ -319,21 +322,17 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         then:
         dataCheckErrors.size() == 0
     }
+    */
 
-    def "approve and Pay Purchase Invoice"() {
+    def "approve Purchase Invoice"() {
         when:
-        // TODO: approve Invoice from Vendor
-        // TODO: record Payment for Invoice
+        // approve Invoice from Vendor (will trigger GL posting)
+        ec.service.sync().name("update#mantle.account.invoice.Invoice")
+                .parameters([invoiceId:invResult.invoiceId, statusId:'InvoiceApproved']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- Invoice created and Finalized (status set by action in SECA rule) -->
-            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" statusId="InvoicePmtRecvd"/>
-
-            <mantle.account.payment.PaymentApplication paymentApplicationId="55400" paymentId="${setInfoOut.paymentId}"
-                invoiceId="${invResult.invoiceId}" amountApplied="140.68" appliedDate="1383411600000"/>
-
-            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"/>
+            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" statusId="InvoiceApproved"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
@@ -345,28 +344,52 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- AcctgTrans created for Finalized Invoice -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55400" acctgTransTypeEnumId="AttSalesInvoice"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
-                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
-                invoiceId="${invResult.invoiceId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="16.99" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
-                productId="DEMO_1_1" invoiceItemSeqId="01"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="38.85" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
-                productId="DEMO_3_1" invoiceItemSeqId="02"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="03" debitCreditFlag="C"
-                amount="84.84" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
-                productId="DEMO_2_1" invoiceItemSeqId="03"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="04" debitCreditFlag="D"
-                amount="140.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <!-- AcctgTrans created for Approved Invoice -->
+
+
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
     }
-    */
+
+    def "send Purchase Invoice Payment"() {
+        when:
+        // record Payment for Invoice (will trigger GL posting)
+        Map sendPmtResult = ec.service.sync().name("mantle.account.PaymentServices.send#PromisedPayment")
+                .parameters([invoiceId:invResult.invoiceId, paymentId:setInfoOut.paymentId]).call()
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.account.payment.PaymentApplication paymentApplicationId="${sendPmtResult.paymentApplicationId}"
+                paymentId="${setInfoOut.paymentId}" invoiceId="${invResult.invoiceId}" amountApplied="1650.00"
+                appliedDate="1383411600000"/>
+            <!-- Payment to Delivered status, set effectiveDate -->
+            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"
+                effectiveDate="1383411600000"/>
+            <!-- Invoice to Payment Sent status -->
+            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" invoiceTypeEnumId="InvoiceSales"
+                fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL" statusId="InvoicePmtSent" invoiceDate="1383411600000"
+                description="Invoice for Order ${purchaseOrderId} part 01" currencyUomId="USD"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "validate Purchase Payment Accounting Transaction"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <!-- AcctgTrans created for Approved Invoice -->
+
+
+        </entity-facade-xml>""").check()
+        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
 }
