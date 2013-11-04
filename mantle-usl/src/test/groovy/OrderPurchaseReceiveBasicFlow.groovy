@@ -274,9 +274,6 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
 
     def "validate Assets Received"() {
         when:
-
-        // TODO: populate and validate OrderItemBilling.assetReceiptId and .shipmentId
-
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.asset.Asset assetId="55400" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="150"
@@ -419,4 +416,7 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         then:
         dataCheckErrors.size() == 0
     }
+
+    // TODO: ===========================
+    // TODO: alternate flow where invoice only created when items received using create#PurchaseShipmentInvoices
 }
