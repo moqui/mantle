@@ -32,7 +32,11 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
     @Shared
     Map setInfoOut, invResult, shipResult
     @Shared
-    String vendorPartyId = 'MiddlemanInc', customerPartyId = 'ORG_BIZI_RETAIL', priceUomId = 'USD', currencyUomId = 'USD'
+    String vendorPartyId = 'MiddlemanInc', customerPartyId = 'ORG_BIZI_RETAIL'
+    @Shared
+    String priceUomId = 'USD', currencyUomId = 'USD'
+    @Shared
+    String facilityId = 'ORG_BIZI_RETAIL_WH'
 
 
     def setupSpec() {
@@ -45,6 +49,8 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55400, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55400, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.receipt.AssetReceipt", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderItemBilling", 55400, 10)
@@ -56,6 +62,8 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
+        ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetDetail")
+        ec.entity.tempResetSequencedIdPrimary("mantle.product.receipt.AssetReceipt")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.PaymentApplication")
         ec.entity.tempResetSequencedIdPrimary("mantle.order.OrderItemBilling")
@@ -140,7 +148,7 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
     def "create Purchase Order Shipment and Schedule"() {
         when:
         shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.create#OrderPartShipment")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, destinationFacilityId:facilityId]).call()
 
         // TODO: add PO Shipment Schedule, update status to ShipScheduled
 
@@ -232,11 +240,13 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
 
     def "receive Purchase Order Shipment"() {
         when:
-        // TODO: receive the Shipment, create AssetReceipt records, status to ShipDelivered
+        // receive the Shipment, create AssetReceipt records, status to ShipDelivered
+        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#EntireShipment")
+                .parameters([shipmentId:shipResult.shipmentId]).call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
-                statusId="ShipDelivered" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/> -->
+            <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
+                statusId="ShipDelivered" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
         </entity-facade-xml>""").check()
         logger.info("receive Purchase Order data check results: " + dataCheckErrors)
 
@@ -260,37 +270,49 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    /*
     def "validate Assets Received"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
+
+        // TODO: populate and validate OrderItemBilling.assetReceiptId and .shipmentId
+
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- Asset created, issued, changed record in detail -->
+            <mantle.product.asset.Asset assetId="55400" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
+                ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="150"
+                availableToPromiseTotal="150" assetName="Demo Product One-One" receivedDate="1383411600000"
+                acquiredDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH" acquireOrderId="${purchaseOrderId}"
+                acquireOrderItemSeqId="01" acquireCost="8" acquireCostUomId="USD"/>
+            <mantle.product.receipt.AssetReceipt assetReceiptId="55400" assetId="55400" productId="DEMO_1_1"
+                orderId="${purchaseOrderId}" orderItemSeqId="01" shipmentId="100000" receivedByUserId="EX_JOHN_DOE"
+                receivedDate="1383411600000" quantityAccepted="150"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55400" assetId="55400" effectiveDate="1383411600000"
+                quantityOnHandDiff="150" availableToPromiseDiff="150" unitCost="8" shipmentId="100000"
+                productId="DEMO_1_1" assetReceiptId="55400"/>
 
-            <mantle.product.asset.Asset assetId="DEMO_1_1A" quantityOnHandTotal="99" availableToPromiseTotal="99"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55400" assetId="DEMO_1_1A" assetReservationId="55400"
-                orderId="${purchaseOrderId}" orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1"
-                quantity="1"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_1_1A" assetDetailSeqId="03" effectiveDate="1383411600000"
-                quantityOnHandDiff="-1" assetReservationId="55400" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_1_1" assetIssuanceId="55400"/>
+            <mantle.product.asset.Asset assetId="55401" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
+                ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="100"
+                availableToPromiseTotal="100" assetName="Demo Product Three-One" receivedDate="1383411600000"
+                acquiredDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH" acquireOrderId="${purchaseOrderId}"
+                acquireOrderItemSeqId="02" acquireCost="4.5" acquireCostUomId="USD"/>
+            <mantle.product.receipt.AssetReceipt assetReceiptId="55401" assetId="55401" productId="DEMO_3_1"
+                orderId="${purchaseOrderId}" orderItemSeqId="02" shipmentId="100000" receivedByUserId="EX_JOHN_DOE"
+                receivedDate="1383411600000" quantityAccepted="100"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55401" assetId="55401" effectiveDate="1383411600000"
+                quantityOnHandDiff="100" availableToPromiseDiff="100" unitCost="4.5" shipmentId="100000"
+                productId="DEMO_3_1" assetReceiptId="55401"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Assets Received data check results: " + dataCheckErrors)
 
-            <mantle.product.asset.Asset assetId="DEMO_3_1A" quantityOnHandTotal="0" availableToPromiseTotal="0"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55401" assetId="DEMO_3_1A" assetReservationId="55401"
-                orderId="${purchaseOrderId}" orderItemSeqId="02" shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1"
-                quantity="5"/>
-            <mantle.product.asset.AssetDetail assetId="DEMO_3_1A" assetDetailSeqId="03" effectiveDate="1383411600000"
-                quantityOnHandDiff="-5" assetReservationId="55401" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_3_1" assetIssuanceId="55401"/>
+        then:
+        dataCheckErrors.size() == 0
+    }
 
-            <!-- this is an auto-created Asset based on the inventory issuance -->
-            <mantle.product.asset.Asset assetId="55400" quantityOnHandTotal="-7" availableToPromiseTotal="-7"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55402" assetId="55400" assetReservationId="55402"
-                orderId="${purchaseOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1"
-                quantity="7"/>
-            <mantle.product.asset.AssetDetail assetId="55400" assetDetailSeqId="02" effectiveDate="1383411600000"
-                quantityOnHandDiff="-7" assetReservationId="55402" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_2_1" assetIssuanceId="55402"/>
+
+    /*
+    def "validate Assets Receipt Accounting Transactions"() {
+        when:
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+
+
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
 

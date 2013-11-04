@@ -163,7 +163,7 @@ class OrderSalesShipBasicFlow extends Specification {
                 facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
                 orderId="${cartOrderId}" orderItemSeqId="01" reservationOrderEnumId="AsResOrdFifoRec" quantity="1"
-                reservedDate="1383411600000" sequenceNum="1"/>
+                reservedDate="1383411600000" sequenceNum="0"/>
             <mantle.product.asset.AssetDetail assetDetailId="55500" assetId="DEMO_1_1A" effectiveDate="1383411600000"
                 availableToPromiseDiff="-1" assetReservationId="55500" productId="DEMO_1_1"/>
 
@@ -172,7 +172,7 @@ class OrderSalesShipBasicFlow extends Specification {
                 availableToPromiseTotal="0" receivedDate="1265184000000" facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55501" assetId="DEMO_3_1A" productId="DEMO_3_1"
                 orderId="${cartOrderId}" orderItemSeqId="02" reservationOrderEnumId="AsResOrdFifoRec" quantity="5"
-                reservedDate="1383411600000" sequenceNum="1"/>
+                reservedDate="1383411600000" sequenceNum="0"/>
             <mantle.product.asset.AssetDetail assetDetailId="55501" assetId="DEMO_3_1A" effectiveDate="1383411600000"
                 availableToPromiseDiff="-5" assetReservationId="55501" productId="DEMO_3_1"/>
 
