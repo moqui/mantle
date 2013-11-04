@@ -114,9 +114,9 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.ledger.config.PaymentMethodTypeGlAccount paymentMethodTypeEnumId="PmtCompanyCheck"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="111100"/>
             <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpServLabor" organizationPartyId="${vendorResult.partyId}"
-                glAccountId="649000"/>
+                direction="E" glAccountId="649000"/>
             <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpTravAir" organizationPartyId="${vendorResult.partyId}"
-                glAccountId="681000"/>
+                direction="E" glAccountId="681000"/>
             <mantle.ledger.account.GlAccountOrganization glAccountId="120000" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.account.GlAccountOrganization glAccountId="210000" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.config.PaymentTypeGlAccount paymentTypeEnumId="PtInvoicePayment"
