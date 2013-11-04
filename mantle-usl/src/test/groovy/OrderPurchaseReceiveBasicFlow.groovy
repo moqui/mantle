@@ -97,10 +97,12 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         orderPartSeqId = orderOut.orderPartSeqId
 
         Map addOut1 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_1_1', quantity:150])
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_1_1', quantity:150,
+                    itemTypeEnumId:'ItemInventory'])
                 .call()
         Map addOut2 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_3_1', quantity:100])
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_3_1', quantity:100,
+                    itemTypeEnumId:'ItemInventory'])
                 .call()
 
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
@@ -126,10 +128,10 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="MiddlemanInc"
                 customerPartyId="ORG_BIZI_RETAIL" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_BIZI_RTL_SA"
                 telecomContactMechId="ORG_BIZI_RTL_PT" partTotal=""/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="150" unitAmount="8.00"
                 isModifiedPrice="N"/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="100" unitAmount="4.50"
                 isModifiedPrice="N"/>
         </entity-facade-xml>""").check()
@@ -215,13 +217,13 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 toPartyId="ORG_BIZI_RETAIL" statusId="InvoiceReceived" invoiceDate="1383411600000"
                 description="Invoice for Order ${purchaseOrderId} part 01" currencyUomId="USD"/>
 
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" itemTypeEnumId="ItemProduct"
+            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_1_1" quantity="150" amount="8.00" description="Demo Product One-One" itemDate="1383411600000"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
                 shipmentId="${shipResult.shipmentId}"/>
 
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemProduct"
+            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemInventory"
                 productId="DEMO_3_1" quantity="100" amount="4.50" description="Demo Product Three-One" itemDate="1383411600000"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
@@ -357,10 +359,10 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="MiddlemanInc" invoiceId="${invResult.invoiceId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="1,200" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="1,200" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="450" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="03" debitCreditFlag="C"
                 amount="1,650" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000"
