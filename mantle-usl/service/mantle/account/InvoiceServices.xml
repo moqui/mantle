@@ -151,18 +151,17 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="quantityNotBilled" from="quantityNotBilled - orderItemBilling.quantity"/>
                 </iterate>
                 <if condition="quantityNotBilled &gt; 0">
+                    <!-- create InvoiceItem -->
                     <!-- is prorate by quantity needed? -->
                     <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
                             in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemSales',
                                 amount:orderItem.unitAmount, description:orderItem.itemDescription,
                                 quantity:quantityNotBilled, quantityUomId:orderItem.quantityUomId,
                                 productId:orderItem.productId, itemDate:orderHeader.placedDate]"/>
-                    <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
-                            in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
-                                amount:orderItem.unitAmount, quantity:quantityNotBilled]"/>
 
                     <!-- for ShipmentItemSource set the invoiceId/invoiceItemSeqId on it -->
                     <set field="quantityNotShipSourced" from="quantityNotBilled"/>
+                    <set field="curShipmentId" from="null"/>
                     <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
                         <econdition field-name="orderId"/><econdition field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/>
                     </entity-find>
@@ -172,9 +171,15 @@ This Work includes contributions authored by David E. Jones, not as a
                             <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
                             <entity-update value-field="shipmentItemSource"/>
                             <set field="quantityNotShipSourced" from="quantityNotShipSourced - shipmentItemSource.quantity"/>
+                            <set field="curShipmentId" from="shipmentItemSource.shipmentId"/>
                         </if>
                     </iterate>
                     <!-- if quantityNotShipSourced > 0 do anything here? we don't have another Shipment/Item with quantity to match... -->
+
+                    <!-- now create OrderItemBilling with shipmentId if available -->
+                    <service-call name="create#mantle.order.OrderItemBilling"
+                            in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                amount:orderItem.unitAmount, quantity:quantityNotBilled, shipmentId:curShipmentId]"/>
                 </if>
             </iterate>
 
@@ -237,7 +242,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         <iterate list="assetIssuanceList" entry="assetIssuance">
                             <!-- should we make sure the total quantity on all AssetIssuance records matches the
                                 quantity on the ShipmentItemSource record? that should be handled when they are created... -->
-                            <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
+                            <service-call name="create#mantle.order.OrderItemBilling"
                                     in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
                                         invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                         assetIssuanceId:assetIssuance.assetIssuanceId, shipmentId:shipmentId,
@@ -265,7 +270,7 @@ This Work includes contributions authored by David E. Jones, not as a
                                                 amount:childOrderItem.unitAmount, description:childOrderItem.itemDescription,
                                                 quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1)),
                                                 quantityUomId:childOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
-                                    <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
+                                    <service-call name="create#mantle.order.OrderItemBilling"
                                             in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                                 shipmentId:shipmentId, amount:childOrderItem.unitAmount,
                                                 quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1))]"/>
@@ -300,7 +305,7 @@ This Work includes contributions authored by David E. Jones, not as a
                                     amount:otherOrderItem.unitAmount, description:otherOrderItem.itemDescription,
                                     quantity:((otherOrderItem.quantity ?: 1) * (otherOrderItem.selectedAmount ?: 1)),
                                     quantityUomId:otherOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
-                        <service-call name="create#mantle.order.OrderItemBilling" out-map="oibOut"
+                        <service-call name="create#mantle.order.OrderItemBilling"
                                 in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                     shipmentId:shipmentId, amount:otherOrderItem.unitAmount,
                                     quantity:((otherOrderItem.quantity ?: 1) * (otherOrderItem.selectedAmount ?: 1))]"/>

@@ -326,6 +326,18 @@ This Work includes contributions authored by David E. Jones, not as a
                         receivedDate:receivedDate, quantityAccepted:quantity, quantityRejected:quantityRejected,
                         rejectionReasonEnumId:rejectionReasonEnumId]"/>
 
+            <!-- if there are OrderItemBilling records matching orderId, orderItemSeqId, and shipmentId set assetReceiptId -->
+            <if condition="orderId &amp;&amp; orderItemSeqId &amp;&amp; shipmentId">
+                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                    <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
+                    <econdition field-name="shipmentId"/><econdition field-name="assetReceiptId" from="null"/>
+                </entity-find>
+                <iterate list="orderItemBillingList" entry="orderItemBilling">
+                    <set field="orderItemBilling.assetReceiptId" from="assetReceiptId"/>
+                    <entity-update value-field="orderItemBilling"/>
+                </iterate>
+            </if>
+
             <!-- create AssetDetail -->
             <service-call name="create#mantle.product.asset.AssetDetail" out-map="context"
                     in-map="[assetId:assetId, effectiveDate:receivedDate, quantityOnHandDiff:quantity,

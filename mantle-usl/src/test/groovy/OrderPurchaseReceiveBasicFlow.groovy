@@ -218,12 +218,14 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
             <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_1_1" quantity="150" amount="8.00" description="Demo Product One-One" itemDate="1383411600000"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"/>
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
+                shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemProduct"
                 productId="DEMO_3_1" quantity="100" amount="4.50" description="Demo Product Three-One" itemDate="1383411600000"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"/>
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
+                shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
@@ -299,6 +301,14 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
             <mantle.product.asset.AssetDetail assetDetailId="55401" assetId="55401" effectiveDate="1383411600000"
                 quantityOnHandDiff="100" availableToPromiseDiff="100" unitCost="4.5" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetReceiptId="55401"/>
+
+            <!-- verify assetReceiptId set on OrderItemBilling, and that all else is the same -->
+            <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
+                shipmentId="${shipResult.shipmentId}" assetReceiptId="55400"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
+                shipmentId="${shipResult.shipmentId}" assetReceiptId="55401"/>
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
 
