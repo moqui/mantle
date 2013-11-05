@@ -101,6 +101,9 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_3_1', quantity:100,
                     itemTypeEnumId:'ItemProduct']).call()
+        ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'EQUIP_1', quantity:1,
+                    itemTypeEnumId:'ItemAsset', unitAmount:10000]).call()
 
         // add shipping charge
         ec.service.sync().name("mantle.order.OrderServices.create#OrderItem")
@@ -121,11 +124,11 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" entryDate="1383411600000" placedDate="1383411600000"
-                statusId="OrderApproved" currencyUomId="USD" grandTotal="1795.00"/>
+                statusId="OrderApproved" currencyUomId="USD" grandTotal="11795.00"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}"
                 paymentMethodTypeEnumId="PmtCompanyCheck" orderId="${purchaseOrderId}" orderPartSeqId="01"
-                statusId="PmntPromised" amount="1795.00" amountUomId="USD"/>
+                statusId="PmntPromised" amount="11795.00" amountUomId="USD"/>
 
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="MiddlemanInc"
                 customerPartyId="ORG_BIZI_RETAIL" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_BIZI_RTL_SA"
@@ -134,7 +137,9 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="150" unitAmount="8.00" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="100" unitAmount="4.50" isModifiedPrice="N"/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemShipping"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemAsset"
+                productId="EQUIP_1" itemDescription="Picker Bot 2000" quantity="1" unitAmount="10000" isModifiedPrice="Y"/>
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemShipping"
                 itemDescription="Incoming Freight" quantity="1" unitAmount="145.00"/>
         </entity-facade-xml>""").check()
         logger.info("create Purchase Order data check results: " + dataCheckErrors)
@@ -165,13 +170,18 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
 
             <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="150"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
-                invoiceId="" invoiceItemSeqId=""/>
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending"
+                quantity="150" quantityNotHandled="150" invoiceId="" invoiceItemSeqId=""/>
 
             <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1" quantity="100"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending" quantity="100"
-                invoiceId="" invoiceItemSeqId=""/>
+                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending"
+                quantity="100" quantityNotHandled="100" invoiceId="" invoiceItemSeqId=""/>
+
+            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="EQUIP_1" quantity="1"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="1"
+                quantityNotHandled="1" invoiceId="" invoiceItemSeqId=""/>
 
             <!-- no SPC when not outgoing packed, can be added by something else though:
             <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
@@ -215,33 +225,48 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 statusId="ShipShipped" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
 
             <!-- Invoice created and received, not yet approved/etc -->
-            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" invoiceTypeEnumId="InvoiceSales" fromPartyId="MiddlemanInc"
-                toPartyId="ORG_BIZI_RETAIL" statusId="InvoiceReceived" invoiceDate="1383411600000"
-                description="Invoice for Order ${purchaseOrderId} part 01" currencyUomId="USD"/>
+            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" invoiceTypeEnumId="InvoiceSales"
+                fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL" statusId="InvoiceReceived"
+                invoiceDate="1383411600000" description="Invoice for Order ${purchaseOrderId} part 01"
+                currencyUomId="USD"/>
 
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" itemTypeEnumId="ItemProduct"
-                productId="DEMO_1_1" quantity="150" amount="8.00" description="Demo Product One-One" itemDate="1383411600000"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"
+                itemTypeEnumId="ItemProduct" productId="DEMO_1_1" quantity="150" amount="8.00"
+                description="Demo Product One-One" itemDate="1383411600000"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
                 shipmentId="${shipResult.shipmentId}"/>
 
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemProduct"
-                productId="DEMO_3_1" quantity="100" amount="4.50" description="Demo Product Three-One" itemDate="1383411600000"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"
+                itemTypeEnumId="ItemProduct" productId="DEMO_3_1" quantity="100" amount="4.50"
+                description="Demo Product Three-One" itemDate="1383411600000"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
                 shipmentId="${shipResult.shipmentId}"/>
 
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" itemTypeEnumId="ItemShipping"
-                quantity="1" amount="145" description="Incoming Freight" itemDate="1383411600000"/>
+            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"
+                itemTypeEnumId="ItemAsset" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
+                itemDate="1383411600000"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55402" orderId="${purchaseOrderId}" orderItemSeqId="03"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" quantity="1" amount="145"/>
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" quantity="1" amount="10,000"
+                shipmentId="${shipResult.shipmentId}"/>
 
+            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="04"
+                itemTypeEnumId="ItemShipping" quantity="1" amount="145" description="Incoming Freight"
+                itemDate="1383411600000"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55403" orderId="${purchaseOrderId}" orderItemSeqId="04"
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="04" quantity="1" amount="145"/>
+
+            <!-- ShipmentItemSource now has invoiceId and invoiceItemSeqId -->
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
+                quantityNotHandled="150" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending" quantity="100"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
+                quantityNotHandled="100" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="1"
+                quantityNotHandled="1" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
@@ -254,6 +279,8 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // receive the Shipment, create AssetReceipt records, status to ShipDelivered
         ec.service.sync().name("mantle.shipment.ShipmentServices.receive#EntireShipment")
                 .parameters([shipmentId:shipResult.shipmentId]).call()
+
+        // TODO: for equipment set statusId=AstInUse, serialNumber=PB2000AZQRTFP (assetTypeEnumId=AstTpEquipment, hasQuantity=N automatic)
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
@@ -308,6 +335,18 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 quantityOnHandDiff="100" availableToPromiseDiff="100" unitCost="4.5" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetReceiptId="55401"/>
 
+            <mantle.product.asset.Asset assetId="55402" assetTypeEnumId="AstTpEquipment" statusId="AstInUse"
+                ownerPartyId="ORG_BIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="0"
+                availableToPromiseTotal="0" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
+                receivedDate="1383411600000" acquiredDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH"
+                acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"/>
+            <mantle.product.receipt.AssetReceipt assetReceiptId="55402" assetId="55402" productId="EQUIP_1"
+                orderId="${purchaseOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}"
+                receivedByUserId="EX_JOHN_DOE" receivedDate="1383411600000" quantityAccepted="1"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55402" assetId="55402" effectiveDate="1383411600000"
+                quantityOnHandDiff="1" availableToPromiseDiff="0" unitCost="10,000" shipmentId="${shipResult.shipmentId}"
+                productId="EQUIP_1" assetReceiptId="55402"/>
+
             <!-- verify assetReceiptId set on OrderItemBilling, and that all else is the same -->
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
@@ -315,6 +354,20 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
                 shipmentId="${shipResult.shipmentId}" assetReceiptId="55401"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55402" orderId="${purchaseOrderId}" orderItemSeqId="03"
+                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" quantity="1" amount="10,000"
+                shipmentId="${shipResult.shipmentId}" assetReceiptId="55402"/>
+
+            <!-- ShipmentItemSource now has quantityNotHandled="0" -->
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
+                quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending" quantity="100"
+                quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="1"
+                quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
 
@@ -347,6 +400,19 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
+
+            <!-- TODO: what should this look like for an Equipment Asset? -->
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55402" acctgTransTypeEnumId="AttInventoryReceipt"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
+                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55402"
+                assetReceiptId="55402"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="C"
+                amount="10,000" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="02" debitCreditFlag="D"
+                amount="10,000" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1"/>
+
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
 
@@ -375,20 +441,24 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Approved Invoice -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55402" acctgTransTypeEnumId="AttPurchaseInvoice"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55403" acctgTransTypeEnumId="AttPurchaseInvoice"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="MiddlemanInc" invoiceId="${invResult.invoiceId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="01" debitCreditFlag="D"
                 amount="1200" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="02" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="450" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="03" debitCreditFlag="D"
-                amount="145" glAccountId="509000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="03"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="04" debitCreditFlag="C"
-                amount="1795" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="03" debitCreditFlag="D"
+                amount="10,000" glAccountTypeEnumId="FIXED_ASSET" glAccountId="171000"
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="03"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="04" debitCreditFlag="D"
+                amount="145" glAccountTypeEnumId="" glAccountId="509000" reconcileStatusId="AES_NOT_RECONCILED"
+                isSummary="N" invoiceItemSeqId="04"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="05" debitCreditFlag="C"
+                amount="11795" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
@@ -406,7 +476,7 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.payment.PaymentApplication paymentApplicationId="${sendPmtResult.paymentApplicationId}"
-                paymentId="${setInfoOut.paymentId}" invoiceId="${invResult.invoiceId}" amountApplied="1795.00"
+                paymentId="${setInfoOut.paymentId}" invoiceId="${invResult.invoiceId}" amountApplied="11795.00"
                 appliedDate="1383411600000"/>
             <!-- Payment to Delivered status, set effectiveDate -->
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"
@@ -427,14 +497,14 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Delivered Payment -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55403" acctgTransTypeEnumId="AttOutgoingPayment"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttOutgoingPayment"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="MiddlemanInc" paymentId="${setInfoOut.paymentId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="1795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="1795" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="01" debitCreditFlag="D"
+                amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
+                amount="11795" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
@@ -446,15 +516,15 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttOutgoingPaymentAp"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55405" acctgTransTypeEnumId="AttOutgoingPaymentAp"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="MiddlemanInc" paymentId="${setInfoOut.paymentId}"
                 paymentApplicationId="${sendPmtResult.paymentApplicationId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="1795" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="1795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="01" debitCreditFlag="D"
+                amount="11795" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="02" debitCreditFlag="C"
+                amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
