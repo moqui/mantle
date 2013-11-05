@@ -18,25 +18,144 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="assetReceiptId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find-one entity-name="mantle.product.receipt.AssetReceipt" value-field="assetReceipt"/>
+            <set field="asset" from="assetReceipt.'mantle.product.asset.Asset'"/>
+            <set field="organizationPartyId" from="asset.ownerPartyId"/>
+
+            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="papOut"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="partyAcctgPreference" from="papOut.partyAcctgPreference"/>
+            <!-- if no preference we shouldn't post anything -->
+            <if condition="!partyAcctgPreference">
+                <log level="info" message="Not posting Asset Receipt [${assetReceiptId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <return/>
+            </if>
+
+            <set field="amount" from="(assetReceipt.quantityAccepted ?: 1) * asset.acquireCost"/>
+
+            <service-call name="create#mantle.ledger.transaction.AcctgTrans" out-map="context"
+                    in-map="[acctgTransTypeEnumId:'AttInventoryReceipt', organizationPartyId:organizationPartyId,
+                        transactionDate:ec.user.nowTimestamp, isPosted:'N', glFiscalTypeEnumId:'GLFT_ACTUAL',
+                        otherPartyId:null, amountUomId:asset.acquireCostUomId, assetReceiptId:assetReceiptId]"/>
+            <!-- note: could populate invoiceId, etc... but should we? for now no -->
+
+            <set field="useErrorJournal" from="false"/>
+            <!-- Credit to COGS_ACCOUNT -->
+            <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="creditGlAccountOut"
+                    in-map="[glAccountTypeEnumId:'COGS_ACCOUNT', acctgTransTypeEnumId:'AttInventoryReceipt',
+                        organizationPartyId:organizationPartyId, otherPartyId:null]"/>
+            <if condition="!creditGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
+            <service-call name="create#mantle.ledger.transaction.AcctgTransEntry"
+                    in-map="[acctgTransId:acctgTransId, debitCreditFlag:'C', glAccountTypeEnumId:'COGS_ACCOUNT',
+                        glAccountId:creditGlAccountOut.glAccountId, amount:amount,
+                        reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+            <!-- Debit to INVENTORY_ACCOUNT -->
+            <!-- future TODO: support sub-accounts including RAWMAT_INVENTORY, WIP_INVENTORY, FG_INVENTORY -->
+            <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="debitGlAccountOut"
+                    in-map="[glAccountTypeEnumId:'INVENTORY_ACCOUNT', acctgTransTypeEnumId:'AttInventoryReceipt',
+                        organizationPartyId:organizationPartyId, otherPartyId:null]"/>
+            <if condition="!debitGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
+            <service-call name="create#mantle.ledger.transaction.AcctgTransEntry"
+                    in-map="[acctgTransId:acctgTransId, debitCreditFlag:'D', glAccountTypeEnumId:'INVENTORY_ACCOUNT',
+                        glAccountId:debitGlAccountOut.glAccountId, amount:amount,
+                        reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+
+            <if condition="useErrorJournal">
+                <!-- put in the error journal for the org -->
+                <if condition="partyAcctgPreference?.errorGlJournalId">
+                    <service-call name="update#mantle.ledger.transaction.AcctgTrans"
+                            in-map="[acctgTransId:acctgTransId, glJournalId:partyAcctgPreference.errorGlJournalId]"/>
+                </if>
+
+                <else>
+                    <!-- call the post service -->
+                    <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
+                </else>
+            </if>
         </actions>
     </service>
     <service verb="post" noun="AssetIssuance">
         <in-parameters><parameter name="assetIssuanceId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find-one entity-name="mantle.product.issuance.AssetIssuance" value-field="assetIssuance"/>
+            <set field="asset" from="assetIssuance.'mantle.product.asset.Asset'"/>
+            <set field="organizationPartyId" from="asset.ownerPartyId"/>
+
+            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="papOut"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="partyAcctgPreference" from="papOut.partyAcctgPreference"/>
+            <!-- if no preference we shouldn't post anything -->
+            <if condition="!partyAcctgPreference">
+                <log level="info" message="Not posting Asset Issuance [${assetIssuanceId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <return/>
+            </if>
+
+            <set field="amount" from="(assetIssuance.quantity ?: 1) * asset.acquireCost"/>
+
+            <service-call name="create#mantle.ledger.transaction.AcctgTrans" out-map="context"
+                    in-map="[acctgTransTypeEnumId:'AttInventoryIssuance', organizationPartyId:organizationPartyId,
+                        transactionDate:ec.user.nowTimestamp, isPosted:'N', glFiscalTypeEnumId:'GLFT_ACTUAL',
+                        otherPartyId:null, amountUomId:asset.acquireCostUomId, assetIssuanceId:assetIssuanceId]"/>
+            <!-- note: could populate invoiceId, etc... but should we? for now no -->
+
+            <set field="useErrorJournal" from="false"/>
+            <!-- Credit to INVENTORY_ACCOUNT -->
+            <!-- future TODO: support sub-accounts including RAWMAT_INVENTORY, WIP_INVENTORY, FG_INVENTORY -->
+            <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="creditGlAccountOut"
+                    in-map="[glAccountTypeEnumId:'INVENTORY_ACCOUNT', acctgTransTypeEnumId:'AttInventoryIssuance',
+                        organizationPartyId:organizationPartyId, otherPartyId:null]"/>
+            <if condition="!creditGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
+            <service-call name="create#mantle.ledger.transaction.AcctgTransEntry"
+                    in-map="[acctgTransId:acctgTransId, debitCreditFlag:'C', glAccountTypeEnumId:'INVENTORY_ACCOUNT',
+                        glAccountId:creditGlAccountOut.glAccountId, amount:amount,
+                        reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+            <!-- Debit to COGS_ACCOUNT -->
+            <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="debitGlAccountOut"
+                    in-map="[glAccountTypeEnumId:'COGS_ACCOUNT', acctgTransTypeEnumId:'AttInventoryIssuance',
+                        organizationPartyId:organizationPartyId, otherPartyId:null]"/>
+            <if condition="!debitGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
+            <service-call name="create#mantle.ledger.transaction.AcctgTransEntry"
+                    in-map="[acctgTransId:acctgTransId, debitCreditFlag:'D', glAccountTypeEnumId:'COGS_ACCOUNT',
+                        glAccountId:debitGlAccountOut.glAccountId, amount:amount,
+                        reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+
+            <if condition="useErrorJournal">
+                <!-- put in the error journal for the org -->
+                <if condition="partyAcctgPreference?.errorGlJournalId">
+                    <service-call name="update#mantle.ledger.transaction.AcctgTrans"
+                            in-map="[acctgTransId:acctgTransId, glJournalId:partyAcctgPreference.errorGlJournalId]"/>
+                </if>
+
+                <else>
+                    <!-- call the post service -->
+                    <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
+                </else>
+            </if>
         </actions>
     </service>
 
-    <service verb="post" noun="CancelledAssetIssuance">
+    <service verb="revert" noun="AssetIssuanceOnCancel">
         <in-parameters>
             <parameter name="assetIssuanceId" required="true"/>
             <parameter name="cancelledQuantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="assetIssuanceId"/>
+                <econdition field-name="acctgTransTypeEnumId" value="AttInventoryIssuance"/>
+            </entity-find>
+            <if condition="acctgTransList">
+                <if condition="acctgTransList.size() == 1">
+                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
+                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
+
+                    <else><return error="true" message="Found more than one accounting transaction for Asset Issuance ${assetIssuanceId}, may already be reversed, not posting reverse transaction."/></else>
+                </if>
+                <else><return error="true" message="No accounting transaction found for Asset Issuance ${assetIssuanceId}, not posting reverse transaction."/></else>
+            </if>
         </actions>
     </service>
     <service verb="post" noun="AssetCostChange">
@@ -73,7 +192,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <!-- TODO: needed? just use post#AssetIssuance... -->
         </actions>
     </service>
     <service verb="post" noun="WorkEffortInventoryProduced">
@@ -84,6 +203,13 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
             <!-- TODO: implement this... -->
+        </actions>
+    </service>
+    <service verb="post" noun="AssetMaintenanceIssuance">
+        <in-parameters><parameter name="assetIssuanceId" required="true"/></in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO: needed? just use post#AssetIssuance... -->
         </actions>
     </service>
 </services>
