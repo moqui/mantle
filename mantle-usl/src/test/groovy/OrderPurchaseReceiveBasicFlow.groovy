@@ -30,7 +30,7 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
     @Shared
     String purchaseOrderId = null, orderPartSeqId
     @Shared
-    Map setInfoOut, invResult, shipResult
+    Map setInfoOut, invResult, shipResult, sendPmtResult
     @Shared
     String vendorPartyId = 'MiddlemanInc', customerPartyId = 'ORG_BIZI_RETAIL'
     @Shared
@@ -400,8 +400,8 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
 
     def "send Purchase Invoice Payment"() {
         when:
-        // record Payment for Invoice (will trigger GL posting)
-        Map sendPmtResult = ec.service.sync().name("mantle.account.PaymentServices.send#PromisedPayment")
+        // record Payment for Invoice and apply to Invoice (will trigger GL posting for Payment and Payment Application)
+        sendPmtResult = ec.service.sync().name("mantle.account.PaymentServices.send#PromisedPayment")
                 .parameters([invoiceId:invResult.invoiceId, paymentId:setInfoOut.paymentId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
@@ -436,6 +436,26 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 amount="1795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="1795" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "validate Purchase Payment Application Accounting Transaction"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttOutgoingPaymentAp"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
+                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
+                otherPartyId="MiddlemanInc" paymentId="${setInfoOut.paymentId}"
+                paymentApplicationId="${sendPmtResult.paymentApplicationId}"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="01" debitCreditFlag="D"
+                amount="1795" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
+                amount="1795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
