@@ -257,7 +257,7 @@ class OrderSalesShipBasicFlow extends Specification {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- Asset created, issued, changed record in detail -->
+            <!-- Asset created, issued, change recorded in detail -->
 
             <mantle.product.asset.Asset assetId="DEMO_1_1A" quantityOnHandTotal="99" availableToPromiseTotal="99"/>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" assetReservationId="55500"
@@ -285,6 +285,38 @@ class OrderSalesShipBasicFlow extends Specification {
                 productId="DEMO_2_1" assetIssuanceId="55502"/>
         </entity-facade-xml>""").check()
         logger.info("validate Asset Issuance data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "validate Asset Issuance Accounting Transactions"() {
+        when:
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55500" acctgTransTypeEnumId="AttInventoryIssuance"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
+                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_1_1A"
+                assetIssuanceId="55500"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="01" debitCreditFlag="C"
+                amount="7.5" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="D"
+                amount="7.5" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
+
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttInventoryIssuance"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
+                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_3_1A"
+                assetIssuanceId="55501"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="01" debitCreditFlag="C"
+                amount="20" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="02" debitCreditFlag="D"
+                amount="20" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
+        </entity-facade-xml>""").check()
+        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -328,20 +360,20 @@ class OrderSalesShipBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Finalized Invoice -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55500" acctgTransTypeEnumId="AttSalesInvoice"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55502" acctgTransTypeEnumId="AttSalesInvoice"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 invoiceId="55500"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="01" debitCreditFlag="C"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="16.99" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="C"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="38.85" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="03" debitCreditFlag="C"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="03" debitCreditFlag="C"
                 amount="84.84" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_2_1" invoiceItemSeqId="03"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="04" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="04" debitCreditFlag="D"
                 amount="140.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
@@ -350,7 +382,6 @@ class OrderSalesShipBasicFlow extends Specification {
         then:
         dataCheckErrors.size() == 0
     }
-
 
     def "validate Payment Accounting Transaction"() {
         when:
@@ -365,13 +396,13 @@ class OrderSalesShipBasicFlow extends Specification {
                 referenceNum="TEST" transactionDate="1383411600000" resultSuccess="Y" resultDeclined="N" resultNsf="N"
                 resultBadExpire="N" resultBadCardNumber="N"/>
 
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttIncomingPayment"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55503" acctgTransTypeEnumId="AttIncomingPayment"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 paymentId="${setInfoOut.paymentId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="01" debitCreditFlag="C"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55503" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="140.68" glAccountId="120000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="02" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55503" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="140.68" glAccountId="122000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Payment Accounting Transaction data check results: " + dataCheckErrors)
