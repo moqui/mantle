@@ -15,12 +15,16 @@ This Work includes contributions authored by David E. Jones, not as a
 <!-- STATUS: EXPERIMENTAL -->
 
     <service verb="post" noun="AssetReceipt">
+        <description>This is for posting Inventory/COGS transaction and runs when assetTypeEnumId == AstTpInventory only.</description>
         <in-parameters><parameter name="assetReceiptId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.receipt.AssetReceipt" value-field="assetReceipt"/>
             <set field="asset" from="assetReceipt.'mantle.product.asset.Asset'"/>
             <set field="organizationPartyId" from="asset.ownerPartyId"/>
+
+            <!-- if this is not an inventory Asset don't post a COGS/etc TX -->
+            <if condition="asset.assetTypeEnumId != 'AstTpInventory'"><return/></if>
 
             <if condition="asset.acquireCost == null">
                 <log level="info" message="Not posting Asset Receipt [${assetIssuanceId}], Asset has no acquireCost"/>
