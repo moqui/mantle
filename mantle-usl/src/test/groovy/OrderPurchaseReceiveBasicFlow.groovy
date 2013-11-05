@@ -277,10 +277,25 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
     def "receive Purchase Order Shipment"() {
         when:
         // receive the Shipment, create AssetReceipt records, status to ShipDelivered
-        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#EntireShipment")
-                .parameters([shipmentId:shipResult.shipmentId]).call()
 
-        // TODO: for equipment set statusId=AstInUse, serialNumber=PB2000AZQRTFP (assetTypeEnumId=AstTpEquipment, hasQuantity=N automatic)
+        // don't want to receive entire order because need to set parameters for equipment product:
+        // ec.service.sync().name("mantle.shipment.ShipmentServices.receive#EntireShipment")
+        //         .parameters([shipmentId:shipResult.shipmentId]).call()
+
+        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
+                .parameters([shipmentId:shipResult.shipmentId, productId:'DEMO_1_1',
+                    quantityAccepted:150, facilityId:facilityId]).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
+                .parameters([shipmentId:shipResult.shipmentId, productId:'DEMO_3_1',
+                    quantityAccepted:100, facilityId:facilityId]).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
+                .parameters([shipmentId:shipResult.shipmentId, productId:'EQUIP_1',
+                    quantityAccepted:1, facilityId:facilityId, serialNumber:'PB2000AZQRTFP',
+                    assetTypeEnumId:'AstTpEquipment']).call()
+
+        ec.service.sync().name("update#mantle.shipment.Shipment")
+                .parameters([shipmentId:shipResult.shipmentId, statusId:'ShipDelivered']).call()
+
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
@@ -335,8 +350,8 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 quantityOnHandDiff="100" availableToPromiseDiff="100" unitCost="4.5" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetReceiptId="55401"/>
 
-            <mantle.product.asset.Asset assetId="55402" assetTypeEnumId="AstTpEquipment" statusId="AstInUse"
-                ownerPartyId="ORG_BIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="0"
+            <mantle.product.asset.Asset assetId="55402" assetTypeEnumId="AstTpEquipment" statusId="AstInStorage"
+                ownerPartyId="ORG_BIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="1"
                 availableToPromiseTotal="0" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
                 receivedDate="1383411600000" acquiredDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH"
                 acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"/>
@@ -401,17 +416,7 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
-            <!-- TODO: what should this look like for an Equipment Asset? -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55402" acctgTransTypeEnumId="AttInventoryReceipt"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
-                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55402"
-                assetReceiptId="55402"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="10,000" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="10,000" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1"/>
+            <!-- NOTE: no inventory transaction for an Equipment Asset -->
 
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
@@ -441,23 +446,23 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Approved Invoice -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55403" acctgTransTypeEnumId="AttPurchaseInvoice"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55402" acctgTransTypeEnumId="AttPurchaseInvoice"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="MiddlemanInc" invoiceId="${invResult.invoiceId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="01" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="D"
                 amount="1200" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="02" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="450" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="03" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="03" debitCreditFlag="D"
                 amount="10,000" glAccountTypeEnumId="FIXED_ASSET" glAccountId="171000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="03"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="04" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="04" debitCreditFlag="D"
                 amount="145" glAccountTypeEnumId="" glAccountId="509000" reconcileStatusId="AES_NOT_RECONCILED"
                 isSummary="N" invoiceItemSeqId="04"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="05" debitCreditFlag="C"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="05" debitCreditFlag="C"
                 amount="11795" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
@@ -497,13 +502,13 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Delivered Payment -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttOutgoingPayment"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55403" acctgTransTypeEnumId="AttOutgoingPayment"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="MiddlemanInc" paymentId="${setInfoOut.paymentId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="01" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="01" debitCreditFlag="D"
                 amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="11795" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
@@ -516,14 +521,14 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55405" acctgTransTypeEnumId="AttOutgoingPaymentAp"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttOutgoingPaymentAp"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
                 postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="MiddlemanInc" paymentId="${setInfoOut.paymentId}"
                 paymentApplicationId="${sendPmtResult.paymentApplicationId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="01" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="01" debitCreditFlag="D"
                 amount="11795" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="02" debitCreditFlag="C"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
