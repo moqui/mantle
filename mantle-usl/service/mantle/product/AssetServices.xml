@@ -268,7 +268,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
             <parameter name="assetTypeEnumId" default-value="AstTpInventory"/>
             <parameter name="classEnumId"/>
-            <parameter name="statusId" default-value="AstAvailable"/>
+            <parameter name="statusId"><description>If assetTypeEnumId == AstTpInventory then defaults to AstAvailable,
+                otherwise defaults to AstInStorage.</description></parameter>
             <parameter name="assetName"><description>Defaults to OrderItem.itemDescription if available.</description></parameter>
             <parameter name="serialNumber"/>
 
@@ -302,7 +303,8 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
             <if condition="!ownerPartyId"><set field="ownerPartyId" from="facility?.ownerPartyId"/></if>
 
-            <set field="hasQuantity" from="!serialNumber &amp;&amp; assetTypeEnumId == 'AstTpInventory' ? 'Y' : 'N'"/>
+            <if condition="!statusId"><set field="statusId" from="assetTypeEnumId == 'AstTpInventory' ? 'AstAvailable' : 'AstInStorage'"/></if>
+            <set field="hasQuantity" from="!serialNumber &amp;&amp; quantity > 1 ? 'Y' : 'N'"/>
             <set field="assetName" from="assetName ?: orderItem?.itemDescription"/>
 
             <set field="receivedDate" from="ec.user.nowTimestamp"/>
@@ -311,7 +313,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <service-call name="create#mantle.product.asset.Asset" out-map="context" 
                         in-map="[assetTypeEnumId:assetTypeEnumId, classEnumId:classEnumId, statusId:statusId,
                             ownerPartyId:ownerPartyId, productId:productId, hasQuantity:hasQuantity,
-                            quantityOnHandTotal:0, availableToPromiseTotal:0, assetName:assetName,
+                            quantityOnHandTotal:0, availableToPromiseTotal:0, assetName:assetName, serialNumber:serialNumber,
                             receivedDate:receivedDate, acquiredDate:(orderHeader.placedDate ?: ec.user.nowTimestamp),
                             facilityId:facilityId, locationSeqId:locationSeqId, acquireOrderId:orderId,
                             acquireOrderItemSeqId:orderItemSeqId, acquireCost:orderItem?.unitAmount,
@@ -339,10 +341,11 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
 
             <!-- create AssetDetail -->
+            <set field="availableToPromiseDiff" from="statusId == 'AstAvailable' ? quantity : 0"/>
             <service-call name="create#mantle.product.asset.AssetDetail" out-map="context"
                     in-map="[assetId:assetId, effectiveDate:receivedDate, quantityOnHandDiff:quantity,
-                        availableToPromiseDiff:quantity, unitCost:orderItem?.unitAmount, shipmentId:shipmentId,
-                        productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
+                        availableToPromiseDiff:availableToPromiseDiff, unitCost:orderItem?.unitAmount,
+                        shipmentId:shipmentId, productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
                         assetReceiptId:assetReceiptId]"/>
 
         </actions>
