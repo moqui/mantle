@@ -264,13 +264,14 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderItemSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <if condition="productId">
+                <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
+                <if condition="product == null"><return error="true" message="Product [${productId}] not found."/></if>
+            </if>
+            <if condition="!itemDescription"><set field="itemDescription" from="product?.productName"/></if>
             <entity-make-value entity-name="mantle.order.OrderItem" value-field="orderItem"/>
             <entity-set value-field="orderItem" include="all" set-if-empty="true"/>
             <entity-sequenced-id-secondary value-field="orderItem"/>
-            <if condition="!itemDescription &amp;&amp; productId">
-                <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
-                <set field="orderItem.itemDescription" from="product.productName"/>
-            </if>
             <entity-create value-field="orderItem"/>
 
             <set field="result.orderItemSeqId" from="orderItem.orderItemSeqId"/>
@@ -316,6 +317,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="productId" required="true"/>
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
             <parameter name="itemTypeEnumId" default-value="ItemProduct"/>
+            <parameter name="unitAmount" type="BigDecimal"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderId" required="true"/>
@@ -367,13 +369,17 @@ h2. General Order Placement and eCommerce Usage
             </entity-find>
 
             <!-- calculate the price based on quantity, etc, -->
-            <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
-                    in-map="[productId:productId, quantity:quantity, priceUomId:currencyUomId,
+            <if condition="!unitAmount">
+                <service-call name="mantle.product.ProductServices.get#ProductPrice" out-map="priceMap"
+                        in-map="[productId:productId, quantity:quantity, priceUomId:currencyUomId,
                          productStoreId:productStoreId, customerPartyId:customerPartyId, vendorPartyId:vendorPartyId]"/>
 
-            <set field="unitAmount" from="priceMap.price"/>
-            <set field="unitListPrice" from="priceMap.listPrice"/>
-            <set field="isModifiedPrice" value="N"/>
+                <set field="unitAmount" from="priceMap.price"/>
+                <set field="unitListPrice" from="priceMap.listPrice"/>
+                <set field="isModifiedPrice" value="N"/>
+
+                <else><set field="isModifiedPrice" value="Y"/></else>
+            </if>
 
             <if condition="orderItemList">
                 <set field="orderItemSeqId" from="orderItemList[0].orderItemSeqId"/>
