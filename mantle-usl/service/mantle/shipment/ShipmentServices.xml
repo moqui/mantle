@@ -233,7 +233,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="productId" required="true"/>
             <parameter name="facilityId"><description>If not specified uses ShipmentRouteSegment.destinationFacilityId.</description></parameter>
             <parameter name="quantityAccepted" type="BigDecimal" required="true"/>
-            <parameter name="quantityRejected" type="BigDecimal"/>
+            <parameter name="quantityRejected" type="BigDecimal" default-value="0"/>
             <parameter name="rejectionReasonEnumId"/>
 
             <parameter name="assetTypeEnumId"/>
@@ -261,10 +261,13 @@ This Work includes contributions authored by David E. Jones, not as a
                         quantityAcceptedRemaining : shipmentItemSource.quantityNotHandled"/>
                 <set field="quantityAcceptedRemaining" from="quantityAcceptedRemaining > shipmentItemSource.quantityNotHandled ?
                         quantityAcceptedRemaining - shipmentItemSource.quantityNotHandled : 0"/>
+                <set field="shipmentItemSource.quantityNotHandled" from="shipmentItemSource.quantityNotHandled - quantityToAccept"/>
+
                 <set field="quantityToReject" from="shipmentItemSource.quantityNotHandled > quantityRejectedRemaining ?
                         quantityRejectedRemaining : shipmentItemSource.quantityNotHandled"/>
                 <set field="quantityRejectedRemaining" from="quantityRejectedRemaining > shipmentItemSource.quantityNotHandled ?
                         quantityRejectedRemaining - shipmentItemSource.quantityNotHandled : 0"/>
+                <set field="shipmentItemSource.quantityNotHandled" from="shipmentItemSource.quantityNotHandled - quantityToReject"/>
 
                 <service-call name="mantle.product.AssetServices.receive#Asset"
                         in-map="[productId:productId, quantity:quantityToAccept, shipmentId:shipmentId,
@@ -273,6 +276,12 @@ This Work includes contributions authored by David E. Jones, not as a
                             quantityRejected:quantityToReject, rejectionReasonEnumId:rejectionReasonEnumId,
                             assetTypeEnumId:assetTypeEnumId, classEnumId:classEnumId, statusId:statusId,
                             assetName:assetName, serialNumber:serialNumber]"/>
+
+                <!-- update quantityNotHandled and status -->
+                <if condition="shipmentItemSource.quantityNotHandled &lt;= 0">
+                    <set field="shipmentItemSource.statusId" value="SisReceived"/>
+                </if>
+                <entity-update value-field="shipmentItemSource"/>
             </iterate>
 
             <if condition="quantityAcceptedRemaining > 0 || quantityRejectedRemaining > 0">
