@@ -373,15 +373,15 @@ class OrderPurchaseReceiveBasicFlow extends Specification {
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" quantity="1" amount="10,000"
                 shipmentId="${shipResult.shipmentId}" assetReceiptId="55402"/>
 
-            <!-- ShipmentItemSource now has quantityNotHandled="0" -->
+            <!-- ShipmentItemSource now has quantityNotHandled="0" and statusId to SisReceived -->
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisReceived" quantity="150"
                 quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending" quantity="100"
+                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisReceived" quantity="100"
                 quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
-                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="1"
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
