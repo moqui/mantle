@@ -446,7 +446,20 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="revert" noun="PaymentApplicationPostOnRemove">
         <in-parameters><parameter name="paymentApplicationId" required="true"/></in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <!-- there should just be one AcctgTrans for this, if there is more than one may already be reversed -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="paymentApplicationId"/>
+                <econdition field-name="acctgTransTypeEnumId" operator="in" value="AttOutgoingPaymentAp,AttIncomingPaymentAp"/>
+            </entity-find>
+            <if condition="acctgTransList">
+                <if condition="acctgTransList.size() == 1">
+                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
+                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
+
+                    <else><return error="true" message="Found more than one accounting transaction for Payment Application ${paymentApplicationId}, may already be reversed, not posting reverse transaction."/></else>
+                </if>
+                <else><return error="true" message="No accounting transaction found for Payment Application ${paymentApplicationId}, not posting reverse transaction."/></else>
+            </if>
         </actions>
     </service>
 </services>
