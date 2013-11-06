@@ -16,14 +16,354 @@ and those parts may be licensed under the Apache License 2.0.
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.3.xsd">
     <!-- ========================================================= -->
+    <!--  - mantle.product -->
     <!--  - mantle.product.category -->
     <!--  - mantle.product.config -->
     <!--  - mantle.product.cost -->
     <!--  - mantle.product.feature -->
-    <!--  - mantle.product -->
     <!--  - mantle.product.subscription -->
     <!--  - mantle.product.supplier -->
     <!-- ========================================================= -->
+
+    <!-- ========================================================= -->
+    <!-- mantle.product -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Product" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="productTypeEnumId" type="id"/>
+
+        <field name="productName" type="text-medium"/>
+        <field name="description" type="text-long"/>
+        <field name="comments" type="text-long"/>
+
+        <field name="salesIntroductionDate" type="date-time"/>
+        <field name="salesDiscontinuationDate" type="date-time"/>
+        <field name="salesDiscWhenNotAvail" type="text-indicator"/>
+        <field name="supportDiscontinuationDate" type="date-time"/>
+
+        <field name="requireInventory" type="text-indicator"/>
+        <field name="requirementMethodEnumId" type="id"/>
+        <field name="chargeShipping" type="text-indicator"/>
+        <field name="inShippingBox" type="text-indicator"/>
+        <field name="defaultShipmentBoxTypeId" type="id"/>
+        <field name="returnable" type="text-indicator"/>
+
+        <field name="requireAmount" type="text-indicator"/>
+        <field name="amountUomTypeId" type="id"/>
+        <field name="fixedAmount" type="currency-amount"><description>For products which are sold in fixed denominations, such as gift certificates or calling cards.</description></field>
+
+        <field name="originGeoId" type="id"/>
+        <field name="billOfMaterialLevel" type="number-integer"/>
+
+        <relationship type="one" title="ProductType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="RequirementMethod" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="requirementMethodEnumId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="Geo">
+            <key-map field-name="originGeoId"/>
+        </relationship>
+        <relationship type="one" title="Default" related-entity-name="ShipmentBoxType">
+            <key-map field-name="defaultShipmentBoxTypeId"/>
+        </relationship>
+        <seed-data>
+            <!-- Product Type -->
+            <moqui.basic.EnumerationType description="Product Type" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Service" enumId="PtService" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Digital Product" enumId="PtDigital" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Virtual Product" enumId="PtVirtual" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Asset Usage" enumId="PtAssetUsage" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Digital and Physical Good" enumId="PtDigPhysGood" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Physical Good" enumId="PtPhysical" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Raw Material" parentEnumId="PtPhysical" enumId="PtRawMaterial" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Sub-assembly" parentEnumId="PtPhysical" enumId="PtSubAssembly" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Finished Good" parentEnumId="PtPhysical" enumId="PtFinishedGood" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Marketing Package: Manufactured" parentEnumId="PtPhysical" enumId="PtMktPkgManufactured" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Marketing Package: Pick Assembly" parentEnumId="PtPhysical" enumId="PtMktPkgPickAssembly" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Configurable Good" parentEnumId="PtPhysical" enumId="PtConfigurableGood" enumTypeId="ProductType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ProductAssoc" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="toProductId" type="id" is-pk="true"/>
+        <field name="productAssocTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="reason" type="text-medium"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="scrapFactor" type="number-decimal"/>
+        <field name="instruction" type="text-medium"/>
+        <field name="routingWorkEffortId" type="id"/>
+        <relationship type="one" title="ProductAssocType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productAssocTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" title="To" related-entity-name="mantle.product.Product">
+            <key-map field-name="toProductId"/>
+        </relationship>
+        <relationship type="one" title="Routing" related-entity-name="WorkEffort">
+            <key-map field-name="routingWorkEffortId"/>
+        </relationship>
+        <seed-data>
+            <!-- Product Assoc Type -->
+            <moqui.basic.EnumerationType description="Product Association Type" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Also Bought" enumId="PatAlsoBought" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Up-Sell (Upgrade)" enumId="PatUpsell" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Cross-Sell (Complementary)" enumId="PatCrossSell" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Incompatible" enumId="PatIncompatible" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="New Version, Replacement" enumId="PatReplacement" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Actual Product Component" enumId="PatComponent" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Equivalent or Substitute" enumId="PatEquivalent" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Product Variant" enumId="PatVariant" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Unique Item" enumId="PatUniqueItem" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Accessory" enumId="PatAccessory" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Refurbished Equivalent" enumId="PatRefurbished" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Repair Service" enumId="PatRepairService" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Auto Reorder (needs recurrenceInfoId)" enumId="PatAutoReorder" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Revision" enumId="PatRevision" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Manufacturing Bill of Materials" parentEnumId="PatComponent" enumId="PatMfgBom" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Engineering Bill of Materials" parentEnumId="PatComponent" enumId="PatEngBom" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Product Manufactured As" enumId="PatMfgAs" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Configurable Product Instance" enumId="PatConfigInstance" enumTypeId="ProductAssocType"/>
+            <moqui.basic.Enumeration description="Alternative Packaging" enumId="PatAlternativePkg" enumTypeId="ProductAssocType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ProductCalculatedInfo" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="totalQuantityOrdered" type="number-decimal"/>
+        <field name="totalTimesViewed" type="number-integer"/>
+        <field name="averageCustomerRating" type="number-decimal"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+    </entity>
+    <entity entity-name="ProductContent" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="contentLocation" type="text-medium" is-pk="true"/>
+        <field name="productContentTypeEnumId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" title="ProductContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productContentTypeEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- Product Content Type -->
+            <moqui.basic.EnumerationType description="Product Content Type" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Online Access" enumId="PcntOnline" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Digital Download" enumId="PcntDownload" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Fulfillment Email" enumId="PcntEmail" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Product Name" enumId="PcntProductName" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Description" enumId="PcntDescription" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Description - Long" enumId="PcntDescriptionLong" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Price Detail Text" enumId="PcntPriceDetail" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Ingredients" enumId="PcntIngredients" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Unique Ingredients" enumId="PcntUniqueIngred" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Special Instructions" enumId="PcntSpecialInstr" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Warnings" enumId="PcntWarnings" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Directions" enumId="PcntDirections" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Terms and Conditions" enumId="PcntTermsConditions" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Delivery Info" enumId="PcntDeliveryInfo" enumTypeId="ProductContentType"/>
+
+            <moqui.basic.Enumeration description="Image URL - Small" enumId="PcntImageUrlSmall" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image URL - Medium" enumId="PcntImageUrlMedium" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image URL - Large" enumId="PcntImageUrlLarge" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image URL - Detail" enumId="PcntImageUrlDetail" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image URL - Original" enumId="PcntImageUrlOriginal" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image Alt Text - Small" enumId="PcntImageAltSmall" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image Alt Text - Medium" enumId="PcntImageAltMedium" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image Alt Text - Large" enumId="PcntImageAltLarge" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image Alt Text - Detail" enumId="PcntImageAltDetail" enumTypeId="ProductContentType"/>
+
+            <moqui.basic.Enumeration description="Add To Cart Label" enumId="PcntAddToCartLabel" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Add To Cart Image" enumId="PcntAddToCartImage" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Short Sales Pitch" enumId="PcntShortSalesPitch" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Installation" enumId="PcntInstallation" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Specification" enumId="PcntSpecification" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Warranty" enumId="PcntWarranty" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Meta-Keywords" enumId="PcntMetaKeywords" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Meta-Description" enumId="PcntMetaDescription" enumTypeId="ProductContentType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ProductDimension" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="dimensionTypeEnumId" type="id"/>
+        <field name="value" type="number-decimal"/>
+        <field name="valueUomId" type="id"/>
+        <relationship type="one" title="ProductDimensionType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="dimensionTypeEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- Product Dimension Type -->
+            <moqui.basic.EnumerationType description="Product Dimension Type" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Quantity Included" enumId="PdtQuantityIncluded" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Pieces Included" enumId="PdtPiecesIncluded" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Weight" enumId="PdtWeight" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Height" enumId="PdtHeight" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Width" enumId="PdtWidth" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Depth" enumId="PdtDepth" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Volume" enumId="PdtVolume" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Shipping Weight" enumId="PdtShippingWeight" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Shipping Height" enumId="PdtShippingHeight" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Shipping Width" enumId="PdtShippingWidth" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Shipping Depth" enumId="PdtShippingDepth" enumTypeId="ProductDimensionType"/>
+            <moqui.basic.Enumeration description="Diameter" enumId="PdtDiameter" enumTypeId="ProductDimensionType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ProductGeo" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="geoId" type="id" is-pk="true"/>
+        <field name="productGeoPurposeEnumId" type="id"/>
+        <field name="description" type="text-medium"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" related-entity-name="Geo"/>
+        <relationship type="one" title="ProductGeoPurpose" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productGeoPurposeEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- Product Geo Purpose -->
+            <moqui.basic.EnumerationType description="Product Geo Purpose" enumTypeId="ProductGeoPurpose"/>
+            <moqui.basic.Enumeration description="Purchase Include" enumId="PgpPurchaseInclude" enumTypeId="ProductGeoPurpose"/>
+            <moqui.basic.Enumeration description="Purchase Exclude" enumId="PgpPurchaseExclude" enumTypeId="ProductGeoPurpose"/>
+            <moqui.basic.Enumeration description="Shipment Include" enumId="PgpShipmentInclude" enumTypeId="ProductGeoPurpose"/>
+            <moqui.basic.Enumeration description="Shipment Exclude" enumId="PgpShipmentExclude" enumTypeId="ProductGeoPurpose"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ProductIdentification" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="productIdTypeEnumId" type="id" is-pk="true"/>
+        <field name="idValue" type="id-long"/>
+        <relationship type="one" title="ProductIdentificationType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productIdTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <index name="PRODUCT_ID_VALUE" unique="false"><index-field name="idValue"/></index>
+        <seed-data>
+            <!-- Product Identification Type -->
+            <moqui.basic.EnumerationType description="Product Identification Type" enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="ISBN" enumId="PidtIsbn"  enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="Manufacturer Model Number" enumId="PidtIsbnMfgModelNum"  enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="Other" enumId="PidtOther"  enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="SKU" enumId="PidtSku"  enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="UPCA" enumId="PidtUpca"  enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="UPCE" enumId="PidtUpce"  enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="EAN" enumId="PidtEan"  enumTypeId="ProductIdentificationType"/>
+            <moqui.basic.Enumeration description="Library of Congress" enumId="PidtLoc"  enumTypeId="ProductIdentificationType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ProductParty" package-name="mantle.product">
+        <field name="productId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="comments" type="text-medium"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <entity entity-name="ProductPrice" package-name="mantle.product">
+        <field name="productPriceId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="productStoreId" type="id"><description>For pricing per store. Leave null to apply to all stores.</description></field>
+        <field name="vendorPartyId" type="id"><description>
+            For sales from internal organization (ie company) set to internal organization's ID.
+            For supplier prices set to supplier's ID.
+        </description></field>
+        <field name="customerPartyId" type="id"><description>
+            For general consumer prices leave null.
+            For a price for a specific customer (or group of customers), set to that customer's ID.
+            For supplier prices this is the internal organization's (ie company's) ID.
+        </description></field>
+        <field name="priceTypeEnumId" type="id"/>
+        <field name="pricePurposeEnumId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="minQuantity" type="number-decimal"/>
+        <field name="price" type="currency-precise" enable-audit-log="true"/>
+        <field name="priceUomId" type="id"/>
+        <field name="termUomId" type="id"><description>For recurring and usage prices to specify a time/freq measure,
+            or a usage unit measure (bits, minutes, etc).</description></field>
+
+        <field name="taxInPrice" type="text-indicator"><description>If Y the price field has tax included for the given
+            taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description></field>
+        <field name="taxAmount" type="currency-precise"/>
+        <field name="taxPercentage" type="number-decimal"/>
+        <field name="taxAuthPartyId" type="id"/>
+        <field name="taxAuthGeoId" type="id"/>
+
+        <field name="agreementId" type="id"/>
+        <field name="agreementItemSeqId" type="id"><description>Use along with agreementId to associate the price with
+            an AgreementItem.</description></field>
+
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" title="ProductPriceType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="priceTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="ProductPricePurpose" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="pricePurposeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Price" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="priceUomId"/>
+        </relationship>
+        <relationship type="one" title="Term" related-entity-name="moqui.basic.Uom"><key-map field-name="termUomId"/></relationship>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" title="TaxAuthority" related-entity-name="Party">
+            <key-map field-name="taxAuthPartyId"/>
+        </relationship>
+        <relationship type="one" title="TaxAuthority" related-entity-name="Geo">
+            <key-map field-name="taxAuthGeoId"/>
+        </relationship>
+        <seed-data>
+            <!-- Product Price Type -->
+            <moqui.basic.EnumerationType description="Product Price Type" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="List Price" enumId="PptList" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Current Price" enumId="PptCurrent" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Average Cost" enumId="PptAverage" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Minimum Price" enumId="PptMinimum" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Maximum Price" enumId="PptMaximum" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Promotional Price" enumId="PptPromotional" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Competitive Price" enumId="PptCompetitive" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Wholesale Price" enumId="PptWholesale" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Special Promo Price" enumId="PptSpecialPromo" enumTypeId="ProductPriceType"/>
+            <moqui.basic.Enumeration description="Minimum Order Price" enumId="PptMinimumOrder" enumTypeId="ProductPriceType"/>
+
+            <!-- Product Price Purpose -->
+            <moqui.basic.EnumerationType description="Product Price Purpose" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Purchase/Initial" enumId="PppPurchase" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Recurring Charge" enumId="PppRecurring" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Usage Charge" enumId="PppUsage" enumTypeId="ProductPricePurpose"/>
+            <moqui.basic.Enumeration description="Component Price" enumId="PppComponent" enumTypeId="ProductPricePurpose"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="ProductReview" package-name="mantle.product">
+        <field name="productReviewId" type="id" is-pk="true"/>
+        <field name="productStoreId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="userId" type="id-long"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="postedAnonymous" type="text-indicator"/>
+        <field name="postedDateTime" type="date-time"/>
+        <field name="productRating" type="number-decimal"/>
+        <field name="productReview" type="text-very-long"/>
+        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
+        <seed-data>
+            <!-- Product Review Status -->
+            <moqui.basic.StatusType description="Product Review" statusTypeId="ProductReview"/>
+            <moqui.basic.StatusItem description="Pending" sequenceNum="1" statusId="PrvwPending" statusTypeId="ProductReview"/>
+            <moqui.basic.StatusItem description="Approved" sequenceNum="2" statusId="PrvwApproved" statusTypeId="ProductReview"/>
+            <moqui.basic.StatusItem description="Deleted" sequenceNum="99" statusId="PrvwDeleted" statusTypeId="ProductReview"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PrvwPending" toStatusId="PrvwApproved" transitionName="Review Approved"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PrvwPending" toStatusId="PrvwDeleted" transitionName="Review Deleted"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PrvwApproved" toStatusId="PrvwDeleted" transitionName="Review Deleted"/>
+        </seed-data>
+    </entity>
 
     <!-- ========================================================= -->
     <!-- mantle.product.category -->
@@ -475,346 +815,6 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.EnumerationType description="Product Feature Interaction Type" enumTypeId="ProductFeatureIactnType"/>
             <moqui.basic.Enumeration description="Dependency" enumId="PfitDependency" enumTypeId="ProductFeatureIactnType"/>
             <moqui.basic.Enumeration description="Incompatibility" enumId="PfitIncompatibility" enumTypeId="ProductFeatureIactnType"/>
-        </seed-data>
-    </entity>
-
-    <!-- ========================================================= -->
-    <!-- mantle.product -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="Product" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="productTypeEnumId" type="id"/>
-
-        <field name="productName" type="text-medium"/>
-        <field name="description" type="text-long"/>
-        <field name="comments" type="text-long"/>
-
-        <field name="salesIntroductionDate" type="date-time"/>
-        <field name="salesDiscontinuationDate" type="date-time"/>
-        <field name="salesDiscWhenNotAvail" type="text-indicator"/>
-        <field name="supportDiscontinuationDate" type="date-time"/>
-
-        <field name="requireInventory" type="text-indicator"/>
-        <field name="requirementMethodEnumId" type="id"/>
-        <field name="chargeShipping" type="text-indicator"/>
-        <field name="inShippingBox" type="text-indicator"/>
-        <field name="defaultShipmentBoxTypeId" type="id"/>
-        <field name="returnable" type="text-indicator"/>
-
-        <field name="requireAmount" type="text-indicator"/>
-        <field name="amountUomTypeId" type="id"/>
-        <field name="fixedAmount" type="currency-amount"><description>For products which are sold in fixed denominations, such as gift certificates or calling cards.</description></field>
-
-        <field name="originGeoId" type="id"/>
-        <field name="billOfMaterialLevel" type="number-integer"/>
-
-        <relationship type="one" title="ProductType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="productTypeEnumId"/>
-        </relationship>
-        <relationship type="one" title="RequirementMethod" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="requirementMethodEnumId"/>
-        </relationship>
-        <relationship type="one" title="Origin" related-entity-name="Geo">
-            <key-map field-name="originGeoId"/>
-        </relationship>
-        <relationship type="one" title="Default" related-entity-name="ShipmentBoxType">
-            <key-map field-name="defaultShipmentBoxTypeId"/>
-        </relationship>
-        <seed-data>
-            <!-- Product Type -->
-            <moqui.basic.EnumerationType description="Product Type" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Service" enumId="PtService" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Digital Product" enumId="PtDigital" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Virtual Product" enumId="PtVirtual" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Asset Usage" enumId="PtAssetUsage" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Digital and Physical Good" enumId="PtDigPhysGood" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Physical Good" enumId="PtPhysical" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Raw Material" parentEnumId="PtPhysical" enumId="PtRawMaterial" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Sub-assembly" parentEnumId="PtPhysical" enumId="PtSubAssembly" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Finished Good" parentEnumId="PtPhysical" enumId="PtFinishedGood" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Marketing Package: Manufactured" parentEnumId="PtPhysical" enumId="PtMktPkgManufactured" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Marketing Package: Pick Assembly" parentEnumId="PtPhysical" enumId="PtMktPkgPickAssembly" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Configurable Good" parentEnumId="PtPhysical" enumId="PtConfigurableGood" enumTypeId="ProductType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="ProductAssoc" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="toProductId" type="id" is-pk="true"/>
-        <field name="productAssocTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="sequenceNum" type="number-integer"/>
-        <field name="reason" type="text-medium"/>
-        <field name="quantity" type="number-decimal"/>
-        <field name="scrapFactor" type="number-decimal"/>
-        <field name="instruction" type="text-medium"/>
-        <field name="routingWorkEffortId" type="id"/>
-        <relationship type="one" title="ProductAssocType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="productAssocTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" title="To" related-entity-name="mantle.product.Product">
-            <key-map field-name="toProductId"/>
-        </relationship>
-        <relationship type="one" title="Routing" related-entity-name="WorkEffort">
-            <key-map field-name="routingWorkEffortId"/>
-        </relationship>
-        <seed-data>
-            <!-- Product Assoc Type -->
-            <moqui.basic.EnumerationType description="Product Association Type" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Also Bought" enumId="PatAlsoBought" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Up-Sell (Upgrade)" enumId="PatUpsell" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Cross-Sell (Complementary)" enumId="PatCrossSell" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Incompatible" enumId="PatIncompatible" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="New Version, Replacement" enumId="PatReplacement" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Actual Product Component" enumId="PatComponent" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Equivalent or Substitute" enumId="PatEquivalent" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Product Variant" enumId="PatVariant" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Unique Item" enumId="PatUniqueItem" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Accessory" enumId="PatAccessory" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Refurbished Equivalent" enumId="PatRefurbished" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Repair Service" enumId="PatRepairService" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Auto Reorder (needs recurrenceInfoId)" enumId="PatAutoReorder" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Revision" enumId="PatRevision" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Manufacturing Bill of Materials" parentEnumId="PatComponent" enumId="PatMfgBom" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Engineering Bill of Materials" parentEnumId="PatComponent" enumId="PatEngBom" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Product Manufactured As" enumId="PatMfgAs" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Configurable Product Instance" enumId="PatConfigInstance" enumTypeId="ProductAssocType"/>
-            <moqui.basic.Enumeration description="Alternative Packaging" enumId="PatAlternativePkg" enumTypeId="ProductAssocType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="ProductCalculatedInfo" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="totalQuantityOrdered" type="number-decimal"/>
-        <field name="totalTimesViewed" type="number-integer"/>
-        <field name="averageCustomerRating" type="number-decimal"/>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-    </entity>
-    <entity entity-name="ProductContent" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="productContentTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="sequenceNum" type="number-integer"/>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" title="ProductContentType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="productContentTypeEnumId"/>
-        </relationship>
-        <seed-data>
-            <!-- Product Content Type -->
-            <moqui.basic.EnumerationType description="Product Content Type" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Online Access" enumId="PcntOnline" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Digital Download" enumId="PcntDownload" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Fulfillment Email" enumId="PcntEmail" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Product Name" enumId="PcntProductName" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Description" enumId="PcntDescription" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Description - Long" enumId="PcntDescriptionLong" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Price Detail Text" enumId="PcntPriceDetail" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Ingredients" enumId="PcntIngredients" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Unique Ingredients" enumId="PcntUniqueIngred" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Special Instructions" enumId="PcntSpecialInstr" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Warnings" enumId="PcntWarnings" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Directions" enumId="PcntDirections" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Terms and Conditions" enumId="PcntTermsConditions" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Delivery Info" enumId="PcntDeliveryInfo" enumTypeId="ProductContentType"/>
-
-            <moqui.basic.Enumeration description="Image URL - Small" enumId="PcntImageUrlSmall" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Medium" enumId="PcntImageUrlMedium" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Large" enumId="PcntImageUrlLarge" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Detail" enumId="PcntImageUrlDetail" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Original" enumId="PcntImageUrlOriginal" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image Alt Text - Small" enumId="PcntImageAltSmall" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image Alt Text - Medium" enumId="PcntImageAltMedium" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image Alt Text - Large" enumId="PcntImageAltLarge" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image Alt Text - Detail" enumId="PcntImageAltDetail" enumTypeId="ProductContentType"/>
-
-            <moqui.basic.Enumeration description="Add To Cart Label" enumId="PcntAddToCartLabel" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Add To Cart Image" enumId="PcntAddToCartImage" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Short Sales Pitch" enumId="PcntShortSalesPitch" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Installation" enumId="PcntInstallation" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Specification" enumId="PcntSpecification" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Warranty" enumId="PcntWarranty" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Meta-Keywords" enumId="PcntMetaKeywords" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Meta-Description" enumId="PcntMetaDescription" enumTypeId="ProductContentType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="ProductDimension" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="dimensionTypeEnumId" type="id"/>
-        <field name="value" type="number-decimal"/>
-        <field name="valueUomId" type="id"/>
-        <relationship type="one" title="ProductDimensionType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="dimensionTypeEnumId"/>
-        </relationship>
-        <seed-data>
-            <!-- Product Dimension Type -->
-            <moqui.basic.EnumerationType description="Product Dimension Type" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Quantity Included" enumId="PdtQuantityIncluded" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Pieces Included" enumId="PdtPiecesIncluded" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Weight" enumId="PdtWeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Height" enumId="PdtHeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Width" enumId="PdtWidth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Depth" enumId="PdtDepth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Volume" enumId="PdtVolume" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Weight" enumId="PdtShippingWeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Height" enumId="PdtShippingHeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Width" enumId="PdtShippingWidth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Depth" enumId="PdtShippingDepth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Diameter" enumId="PdtDiameter" enumTypeId="ProductDimensionType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="ProductGeo" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="geoId" type="id" is-pk="true"/>
-        <field name="productGeoPurposeEnumId" type="id"/>
-        <field name="description" type="text-medium"/>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="Geo"/>
-        <relationship type="one" title="ProductGeoPurpose" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="productGeoPurposeEnumId"/>
-        </relationship>
-        <seed-data>
-            <!-- Product Geo Purpose -->
-            <moqui.basic.EnumerationType description="Product Geo Purpose" enumTypeId="ProductGeoPurpose"/>
-            <moqui.basic.Enumeration description="Purchase Include" enumId="PgpPurchaseInclude" enumTypeId="ProductGeoPurpose"/>
-            <moqui.basic.Enumeration description="Purchase Exclude" enumId="PgpPurchaseExclude" enumTypeId="ProductGeoPurpose"/>
-            <moqui.basic.Enumeration description="Shipment Include" enumId="PgpShipmentInclude" enumTypeId="ProductGeoPurpose"/>
-            <moqui.basic.Enumeration description="Shipment Exclude" enumId="PgpShipmentExclude" enumTypeId="ProductGeoPurpose"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="ProductIdentification" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="productIdTypeEnumId" type="id" is-pk="true"/>
-        <field name="idValue" type="id-long"/>
-        <relationship type="one" title="ProductIdentificationType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="productIdTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <index name="PRODUCT_ID_VALUE" unique="false"><index-field name="idValue"/></index>
-        <seed-data>
-            <!-- Product Identification Type -->
-            <moqui.basic.EnumerationType description="Product Identification Type" enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="ISBN" enumId="PidtIsbn"  enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="Manufacturer Model Number" enumId="PidtIsbnMfgModelNum"  enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="Other" enumId="PidtOther"  enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="SKU" enumId="PidtSku"  enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="UPCA" enumId="PidtUpca"  enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="UPCE" enumId="PidtUpce"  enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="EAN" enumId="PidtEan"  enumTypeId="ProductIdentificationType"/>
-            <moqui.basic.Enumeration description="Library of Congress" enumId="PidtLoc"  enumTypeId="ProductIdentificationType"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="ProductParty" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="sequenceNum" type="number-integer"/>
-        <field name="comments" type="text-medium"/>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
-    </entity>
-    <entity entity-name="ProductPrice" package-name="mantle.product">
-        <field name="productPriceId" type="id" is-pk="true"/>
-        <field name="productId" type="id"/>
-        <field name="productStoreId" type="id"><description>For pricing per store. Leave null to apply to all stores.</description></field>
-        <field name="vendorPartyId" type="id"><description>
-            For sales from internal organization (ie company) set to internal organization's ID.
-            For supplier prices set to supplier's ID.
-        </description></field>
-        <field name="customerPartyId" type="id"><description>
-            For general consumer prices leave null.
-            For a price for a specific customer (or group of customers), set to that customer's ID.
-            For supplier prices this is the internal organization's (ie company's) ID.
-        </description></field>
-        <field name="priceTypeEnumId" type="id"/>
-        <field name="pricePurposeEnumId" type="id"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="minQuantity" type="number-decimal"/>
-        <field name="price" type="currency-precise" enable-audit-log="true"/>
-        <field name="priceUomId" type="id"/>
-        <field name="termUomId" type="id"><description>For recurring and usage prices to specify a time/freq measure,
-            or a usage unit measure (bits, minutes, etc).</description></field>
-
-        <field name="taxInPrice" type="text-indicator"><description>If Y the price field has tax included for the given
-            taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description></field>
-        <field name="taxAmount" type="currency-precise"/>
-        <field name="taxPercentage" type="number-decimal"/>
-        <field name="taxAuthPartyId" type="id"/>
-        <field name="taxAuthGeoId" type="id"/>
-
-        <field name="agreementId" type="id"/>
-        <field name="agreementItemSeqId" type="id"><description>Use along with agreementId to associate the price with
-            an AgreementItem.</description></field>
-
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" title="ProductPriceType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="priceTypeEnumId"/>
-        </relationship>
-        <relationship type="one" title="ProductPricePurpose" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="pricePurposeEnumId"/>
-        </relationship>
-        <relationship type="one" title="Price" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="priceUomId"/>
-        </relationship>
-        <relationship type="one" title="Term" related-entity-name="moqui.basic.Uom"><key-map field-name="termUomId"/></relationship>
-        <relationship type="one" related-entity-name="ProductStore"/>
-        <relationship type="one" title="TaxAuthority" related-entity-name="Party">
-            <key-map field-name="taxAuthPartyId"/>
-        </relationship>
-        <relationship type="one" title="TaxAuthority" related-entity-name="Geo">
-            <key-map field-name="taxAuthGeoId"/>
-        </relationship>
-        <seed-data>
-            <!-- Product Price Type -->
-            <moqui.basic.EnumerationType description="Product Price Type" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="List Price" enumId="PptList" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Current Price" enumId="PptCurrent" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Average Cost" enumId="PptAverage" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Minimum Price" enumId="PptMinimum" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Maximum Price" enumId="PptMaximum" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Promotional Price" enumId="PptPromotional" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Competitive Price" enumId="PptCompetitive" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Wholesale Price" enumId="PptWholesale" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Special Promo Price" enumId="PptSpecialPromo" enumTypeId="ProductPriceType"/>
-            <moqui.basic.Enumeration description="Minimum Order Price" enumId="PptMinimumOrder" enumTypeId="ProductPriceType"/>
-
-            <!-- Product Price Purpose -->
-            <moqui.basic.EnumerationType description="Product Price Purpose" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Purchase/Initial" enumId="PppPurchase" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Recurring Charge" enumId="PppRecurring" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Usage Charge" enumId="PppUsage" enumTypeId="ProductPricePurpose"/>
-            <moqui.basic.Enumeration description="Component Price" enumId="PppComponent" enumTypeId="ProductPricePurpose"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="ProductReview" package-name="mantle.product">
-        <field name="productReviewId" type="id" is-pk="true"/>
-        <field name="productStoreId" type="id"/>
-        <field name="productId" type="id"/>
-        <field name="userId" type="id-long"/>
-        <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="postedAnonymous" type="text-indicator"/>
-        <field name="postedDateTime" type="date-time"/>
-        <field name="productRating" type="number-decimal"/>
-        <field name="productReview" type="text-very-long"/>
-        <relationship type="one" related-entity-name="ProductStore"/>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
-        <seed-data>
-            <!-- Product Review Status -->
-            <moqui.basic.StatusType description="Product Review" statusTypeId="ProductReview"/>
-            <moqui.basic.StatusItem description="Pending" sequenceNum="1" statusId="PrvwPending" statusTypeId="ProductReview"/>
-            <moqui.basic.StatusItem description="Approved" sequenceNum="2" statusId="PrvwApproved" statusTypeId="ProductReview"/>
-            <moqui.basic.StatusItem description="Deleted" sequenceNum="99" statusId="PrvwDeleted" statusTypeId="ProductReview"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PrvwPending" toStatusId="PrvwApproved" transitionName="Review Approved"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PrvwPending" toStatusId="PrvwDeleted" transitionName="Review Deleted"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PrvwApproved" toStatusId="PrvwDeleted" transitionName="Review Deleted"/>
         </seed-data>
     </entity>
 
