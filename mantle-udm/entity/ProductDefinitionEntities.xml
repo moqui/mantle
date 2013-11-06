@@ -62,7 +62,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="RequirementMethod" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="requirementMethodEnumId"/>
         </relationship>
-        <relationship type="one" title="Origin" related-entity-name="Geo">
+        <relationship type="one" title="Origin" related-entity-name="moqui.basic.Geo">
             <key-map field-name="originGeoId"/>
         </relationship>
         <relationship type="one" title="Default" related-entity-name="ShipmentBoxType">
@@ -104,7 +104,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="To" related-entity-name="mantle.product.Product">
             <key-map field-name="toProductId"/>
         </relationship>
-        <relationship type="one" title="Routing" related-entity-name="WorkEffort">
+        <relationship type="one" title="Routing" related-entity-name="mantle.work.effort.WorkEffort">
             <key-map field-name="routingWorkEffortId"/>
         </relationship>
         <seed-data>
@@ -218,7 +218,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="productGeoPurposeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="Geo"/>
+        <relationship type="one" related-entity-name="moqui.basic.Geo"/>
         <relationship type="one" title="ProductGeoPurpose" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="productGeoPurposeEnumId"/>
         </relationship>
@@ -262,8 +262,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="sequenceNum" type="number-integer"/>
         <field name="comments" type="text-medium"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
     </entity>
     <entity entity-name="ProductPrice" package-name="mantle.product">
         <field name="productPriceId" type="id" is-pk="true"/>
@@ -311,10 +311,10 @@ and those parts may be licensed under the Apache License 2.0.
         </relationship>
         <relationship type="one" title="Term" related-entity-name="moqui.basic.Uom"><key-map field-name="termUomId"/></relationship>
         <relationship type="one" related-entity-name="ProductStore"/>
-        <relationship type="one" title="TaxAuthority" related-entity-name="Party">
+        <relationship type="one" title="TaxAuthority" related-entity-name="mantle.party.Party">
             <key-map field-name="taxAuthPartyId"/>
         </relationship>
-        <relationship type="one" title="TaxAuthority" related-entity-name="Geo">
+        <relationship type="one" title="TaxAuthority" related-entity-name="moqui.basic.Geo">
             <key-map field-name="taxAuthGeoId"/>
         </relationship>
         <seed-data>
@@ -349,7 +349,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="postedDateTime" type="date-time"/>
         <field name="productRating" type="number-decimal"/>
         <field name="productReview" type="text-very-long"/>
-        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="mantle.product.store.ProductStore"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
         <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
@@ -401,7 +401,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="categoryContentTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="mantle.product.category.ProductCategory"/>
         <relationship type="one" title="ProductCategoryContentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="categoryContentTypeEnumId"/>
         </relationship>
@@ -426,9 +426,9 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="comments" type="text-medium"/>
-        <relationship type="one" related-entity-name="ProductCategory"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
+        <relationship type="one" related-entity-name="mantle.product.category.ProductCategory"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
     </entity>
 
     <entity entity-name="ProductCategoryMember" package-name="mantle.product.category">
@@ -440,11 +440,14 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="sequenceNum" type="number-integer"/>
         <field name="quantity" type="number-decimal"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="ProductCategory"/>
+        <relationship type="one" related-entity-name="mantle.product.category.ProductCategory"/>
+        <relationship type="many" related-entity-name="mantle.product.store.ProductStoreCategory">
+            <key-map field-name="productCategoryId"/>
+        </relationship>
         <index name="PRD_CMBR_PCT"><index-field name="productCategoryId"/></index>
     </entity>
     <view-entity entity-name="ProductCategoryMemberProduct" package-name="mantle.product.category">
-        <member-entity entity-alias="PCM" entity-name="ProductCategoryMember"/>
+        <member-entity entity-alias="PCM" entity-name="mantle.product.category.ProductCategoryMember"/>
         <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="PCM">
             <key-map field-name="productId"/>
         </member-entity>
@@ -457,15 +460,15 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="sequenceNum" type="number-integer"/>
-        <relationship type="one" related-entity-name="ProductCategory"/>
-        <relationship type="one" title="Parent" related-entity-name="ProductCategory">
+        <relationship type="one" related-entity-name="mantle.product.category.ProductCategory"/>
+        <relationship type="one" title="Parent" related-entity-name="mantle.product.category.ProductCategory">
             <key-map field-name="parentProductCategoryId"/>
         </relationship>
         <index name="PRDCR_PARPC"><index-field name="parentProductCategoryId"/></index>
     </entity>
     <view-entity entity-name="ProductCategoryChildren" package-name="mantle.product.category">
-        <member-entity entity-alias="PCR" entity-name="ProductCategoryRollup"/>
-        <member-entity entity-alias="PCAT" entity-name="ProductCategory" join-from-alias="PCR">
+        <member-entity entity-alias="PCR" entity-name="mantle.product.category.ProductCategoryRollup"/>
+        <member-entity entity-alias="PCAT" entity-name="mantle.product.category.ProductCategory" join-from-alias="PCR">
             <key-map field-name="productCategoryId"/>
         </member-entity>
         <alias-all entity-alias="PCAT"><exclude field="productCategoryId"/></alias-all>
