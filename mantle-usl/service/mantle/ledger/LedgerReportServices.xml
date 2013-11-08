@@ -20,6 +20,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="timePeriodIdList" type="List" required="true"/>
         </in-parameters>
         <out-parameters>
+            <parameter name="currencyUomId"/>
+            <parameter name="timePeriodIdMap" type="Map"/>
             <parameter name="assetInfoMap" type="Map"/>
             <parameter name="assetTotalByTimePeriod" type="BigDecimal"/>
             <parameter name="contraAssetInfoMap" type="Map"/>
@@ -30,6 +32,18 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="equityTotalByTimePeriod" type="BigDecimal"/>
         </out-parameters>
         <actions>
+            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId"/>
+            <set field="timePeriodIdMap" from="[:]"/>
+            <iterate list="timePeriodIdList" entry="timePeriodId">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod">
+                    <!-- TODO: this doesn't work with auto field map because it gets from context instead of using local vars in generated script... maybe fix that -->
+                    <field-map field-name="timePeriodId"/>
+                </entity-find-one>
+                <script>timePeriodIdMap.put(timePeriodId, timePeriod)</script>
+            </iterate>
+
             <set field="commonMap" from="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList]"/>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
@@ -90,13 +104,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="moqui.basic.Enumeration" value-field="classEnum">
                 <field-map field-name="enumId" from="classEnumId"/></entity-find-one>
 
-            <set field="childClassInfoList" from="[]"/>
-            <set field="glAccountDetailList" from="[]"/>
-
             <!-- lookup accounts, add to glAccountInfoList, sum up classBalance -->
             <entity-find entity-name="mantle.ledger.report.GlAccountOrgTimePeriodDetail" list="glAccountDetailList">
                 <econdition field-name="organizationPartyId"/>
                 <econdition field-name="timePeriodId" operator="in" from="timePeriodIdList"/>
+                <econdition field-name="glAccountClassEnumId" from="classEnumId"/>
             </entity-find>
             <set field="balanceByTimePeriod" from="[:]"/>
             <iterate list="glAccountDetailList" entry="glAccountDetail">
@@ -104,6 +116,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </iterate>
 
             <!-- find child classes and recurse... -->
+            <set field="childClassInfoList" from="[]"/>
             <set field="childBalanceByTimePeriod" from="[:]"/>
             <entity-find entity-name="moqui.basic.Enumeration" list="childEnumList">
                 <econdition field-name="parentEnumId" from="classEnumId"/></entity-find>
@@ -124,7 +137,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- here is the full class info Map for reference in whatever uses the output -->
             <set field="classInfoMap" from="[classEnumId:classEnumId, className:classEnum.description,
                     balanceByTimePeriod:balanceByTimePeriod, childBalanceByTimePeriod:childBalanceByTimePeriod,
-                    childClassInfoList:childClassInfoList, glAccountInfoList:glAccountInfoList]"/>
+                    childClassInfoList:childClassInfoList, glAccountDetailList:glAccountDetailList]"/>
         </actions>
     </service>
 
