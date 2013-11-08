@@ -30,45 +30,54 @@ This Work includes contributions authored by David E. Jones, not as a
 <div class="form-list-outer">
 <div class="form-header-group">
     <div class="form-header-row">
-        <div class="form-header-cell">Class/Account</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-header-cell"><span>${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</span></div></#list>
+        <div class="form-header-cell"><span class="form-title">Asset</span></div>
+        <#list timePeriodIdList as timePeriodId><div class="form-header-cell"><span class="form-title">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</span></div></#list>
     </div>
 </div>
 <div class="form-body">
     <div class="form-row">
         <div class="form-cell">${assetInfoMap.className}</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(assetTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(assetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
     </div>
     <@showChildClassList assetInfoMap.childClassInfoList 1/>
 
     <div class="form-row">
         <div class="form-cell">${contraAssetInfoMap.className}</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(contraAssetTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(contraAssetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
     </div>
     <@showChildClassList contraAssetInfoMap.childClassInfoList 1/>
 
     <div class="form-row">
-        <div class="form-cell">Asset - Contra Asset</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(assetTotalByTimePeriod[timePeriodId]!0 - contraAssetTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
-    </div>
-
-
-    <div class="form-row">
-        <div class="form-cell">${liabilityInfoMap.className}</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(liabilityTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
-    </div>
-    <@showChildClassList liabilityInfoMap.childClassInfoList 1/>
-
-
-    <div class="form-row">
-        <div class="form-cell">${equityInfoMap.className}</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(equityTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
-    </div>
-    <@showChildClassList equityInfoMap.childClassInfoList 1/>
-
-    <div class="form-row">
-        <div class="form-cell">Liability + Equity</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(liabilityTotalByTimePeriod[timePeriodId]!0 + equityTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        <div class="form-cell"><span class="form-title">Asset - Contra Asset Total</span></div>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(assetTotalByTimePeriod[timePeriodId]!0 - contraAssetTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
     </div>
 </div>
+</div>
+
+<div class="form-list-outer">
+    <div class="form-header-group">
+        <div class="form-header-row">
+            <div class="form-header-cell"><span class="form-title">Liability + Equity</span></div>
+            <#list timePeriodIdList as timePeriodId><div class="form-header-cell"><span class="form-title">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</span></div></#list>
+        </div>
+    </div>
+    <div class="form-body">
+        <div class="form-row">
+            <div class="form-cell">${liabilityInfoMap.className}</div>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(liabilityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+        <@showChildClassList liabilityInfoMap.childClassInfoList 1/>
+
+
+        <div class="form-row">
+            <div class="form-cell">${equityInfoMap.className}</div>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(equityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+        <@showChildClassList equityInfoMap.childClassInfoList 1/>
+
+        <div class="form-row">
+            <div class="form-cell"><span class="form-title">Liability + Equity Total</span></div>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(liabilityTotalByTimePeriod[timePeriodId]!0 + equityTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+    </div>
 </div>
