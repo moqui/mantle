@@ -151,6 +151,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters><parameter name="timePeriodList" type="List"/></out-parameters>
         <actions>
+            <!-- NOTE: this one is not recursive, should really have TimePeriod associated with root parent org so just one will match -->
             <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
                     in-map="[organizationPartyId:organizationPartyId]"/>
             <entity-find entity-name="mantle.party.time.TimePeriod" list="timePeriodList">
@@ -166,25 +167,34 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="get" noun="DefaultGlAccountByType">
         <in-parameters>
             <parameter name="glAccountTypeEnumId" required="true"/>
-            <parameter name="acctgTransTypeEnumId" required="true"/>
+            <!-- <parameter name="acctgTransTypeEnumId" required="true"/> -->
             <parameter name="organizationPartyId" required="true"/>
-            <parameter name="otherPartyId"/>
+            <!-- <parameter name="otherPartyId"/> -->
         </in-parameters>
         <out-parameters>
             <parameter name="glAccountId"/>
         </out-parameters>
         <actions>
-            <!-- TODO: should probably do recursive queries like services above to find by current org first -->
-            <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
-                    in-map="[organizationPartyId:organizationPartyId]"/>
-
             <!-- TODO: anything to do other than GlAccountTypeDefault? -->
+            <entity-find entity-name="mantle.ledger.config.GlAccountTypeDefault" list="glAccountTypeDefaultList" cache="true">
+                <econdition field-name="organizationPartyId"/>
+                <econdition field-name="glAccountTypeEnumId"/>
+            </entity-find>
+            <set field="glAccountId" from="glAccountTypeDefaultList.first?.glAccountId"/>
+
             <if condition="!glAccountId">
-                <entity-find entity-name="mantle.ledger.config.GlAccountTypeDefault" list="glAccountTypeDefaultList" cache="true">
-                    <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
-                    <econdition field-name="glAccountTypeEnumId"/>
+                <entity-find entity-name="mantle.party.PartyRelationship" list="partyRelationshipList" cache="true">
+                    <date-filter/>
+                    <econdition field-name="fromPartyId" from="organizationPartyId"/>
+                    <econdition field-name="relationshipTypeEnumId" value="PrtOrgRollup"/>
+                    <econdition field-name="fromRoleTypeId" value="OrgInternal"/>
+                    <econdition field-name="toRoleTypeId" value="OrgInternal"/>
                 </entity-find>
-                <set field="glAccountId" from="glAccountTypeDefaultList.first?.glAccountId"/>
+                <if condition="partyRelationshipList">
+                    <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="context"
+                            in-map="[organizationPartyId:partyRelationshipList[0].toPartyId,
+                                glAccountTypeEnumId:glAccountTypeEnumId]"/>
+                </if>
             </if>
         </actions>
     </service>
