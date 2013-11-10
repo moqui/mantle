@@ -49,7 +49,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <div class="form-row">
         <div class="form-cell"><span class="form-title">Asset - Contra Asset Total</span></div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(assetTotalByTimePeriod[timePeriodId]!0 - contraAssetTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(assetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraAssetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
     </div>
 </div>
 </div>
@@ -77,7 +77,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
         <div class="form-row">
             <div class="form-cell"><span class="form-title">Liability + Equity Total</span></div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(liabilityTotalByTimePeriod[timePeriodId]!0 + equityTotalByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(liabilityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + equityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
     </div>
 </div>

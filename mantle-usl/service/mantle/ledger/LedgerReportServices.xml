@@ -23,13 +23,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="currencyUomId"/>
             <parameter name="timePeriodIdMap" type="Map"/>
             <parameter name="assetInfoMap" type="Map"/>
-            <parameter name="assetTotalByTimePeriod" type="BigDecimal"/>
             <parameter name="contraAssetInfoMap" type="Map"/>
-            <parameter name="contraAssetTotalByTimePeriod" type="BigDecimal"/>
             <parameter name="liabilityInfoMap" type="Map"/>
-            <parameter name="liabilityTotalByTimePeriod" type="BigDecimal"/>
             <parameter name="equityInfoMap" type="Map"/>
-            <parameter name="equityTotalByTimePeriod" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
@@ -49,46 +45,18 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                     in-map="commonMap + [classEnumId:'ASSET']" out-map="assetOut"/>
             <set field="assetInfoMap" from="assetOut.classInfoMap"/>
-            <set field="assetTotalByTimePeriod" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        assetInfoMap.balanceByTimePeriod[timePeriodId], assetTotalByTimePeriod)</script>
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        assetInfoMap.childBalanceByTimePeriod[timePeriodId], assetTotalByTimePeriod)</script>
-            </iterate>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                     in-map="commonMap + [classEnumId:'CONTRA_ASSET']" out-map="contraAssetOut"/>
             <set field="contraAssetInfoMap" from="contraAssetOut.classInfoMap"/>
-            <set field="contraAssetTotalByTimePeriod" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        contraAssetInfoMap.balanceByTimePeriod[timePeriodId], contraAssetTotalByTimePeriod)</script>
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        contraAssetInfoMap.childBalanceByTimePeriod[timePeriodId], contraAssetTotalByTimePeriod)</script>
-            </iterate>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                     in-map="commonMap + [classEnumId:'LIABILITY']" out-map="liabilityOut"/>
             <set field="liabilityInfoMap" from="liabilityOut.classInfoMap"/>
-            <set field="liabilityTotalByTimePeriod" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        liabilityInfoMap.balanceByTimePeriod[timePeriodId], liabilityTotalByTimePeriod)</script>
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        liabilityInfoMap.childBalanceByTimePeriod[timePeriodId], liabilityTotalByTimePeriod)</script>
-            </iterate>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                     in-map="commonMap + [classEnumId:'EQUITY']" out-map="equityOut"/>
             <set field="equityInfoMap" from="equityOut.classInfoMap"/>
-            <set field="equityTotalByTimePeriod" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        equityInfoMap.balanceByTimePeriod[timePeriodId], equityTotalByTimePeriod)</script>
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                        equityInfoMap.childBalanceByTimePeriod[timePeriodId], equityTotalByTimePeriod)</script>
-            </iterate>
         </actions>
     </service>
     <service verb="get" noun="GlAccountClassReportInfo">
@@ -134,9 +102,16 @@ This Work includes contributions authored by David E. Jones, not as a
                 </iterate>
             </iterate>
 
+            <set field="totalBalanceByTimePeriod" from="[:]"/>
+            <iterate list="timePeriodIdList" entry="timePeriodId">
+                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId, balanceByTimePeriod[timePeriodId], totalBalanceByTimePeriod)</script>
+                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId, childBalanceByTimePeriod[timePeriodId], totalBalanceByTimePeriod)</script>
+            </iterate>
+
             <!-- here is the full class info Map for reference in whatever uses the output -->
             <set field="classInfoMap" from="[classEnumId:classEnumId, className:classEnum.description,
                     balanceByTimePeriod:balanceByTimePeriod, childBalanceByTimePeriod:childBalanceByTimePeriod,
+                    totalBalanceByTimePeriod:totalBalanceByTimePeriod,
                     childClassInfoList:childClassInfoList, glAccountDetailList:glAccountDetailList]"/>
         </actions>
     </service>
