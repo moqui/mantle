@@ -152,15 +152,26 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters><parameter name="timePeriodList" type="List"/></out-parameters>
         <actions>
             <!-- NOTE: this one is not recursive, should really have TimePeriod associated with root parent org so just one will match -->
-            <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
-                    in-map="[organizationPartyId:organizationPartyId]"/>
             <entity-find entity-name="mantle.party.time.TimePeriod" list="timePeriodList">
-                <!-- TODO: this may not work because on TimePeriod fromDate/thruDate are date values, not date-time, and for thru-date need the end of day not the default beginning of day -->
                 <date-filter valid-date="filterDate" ignore-if-empty="true"/>
                 <econdition field-name="timePeriodTypeId" operator="in"
                         value="FiscalYear,FiscalQuarter,FiscalMonth,FiscalWeek,FiscalBiWeek"/>
-                <econdition field-name="partyId" operator="in" from="orgPartyIdList"/>
+                <econdition field-name="partyId" from="organizationPartyId"/>
             </entity-find>
+
+            <if condition="!timePeriodList">
+                <entity-find entity-name="mantle.party.PartyRelationship" list="partyRelationshipList" cache="true">
+                    <date-filter/>
+                    <econdition field-name="fromPartyId" from="organizationPartyId"/>
+                    <econdition field-name="relationshipTypeEnumId" value="PrtOrgRollup"/>
+                    <econdition field-name="fromRoleTypeId" value="OrgInternal"/>
+                    <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                </entity-find>
+                <if condition="partyRelationshipList">
+                    <service-call name="mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods" out-map="context"
+                            in-map="[organizationPartyId:partyRelationshipList[0].toPartyId, filterDate:filterDate]"/>
+                </if>
+            </if>
         </actions>
     </service>
 
