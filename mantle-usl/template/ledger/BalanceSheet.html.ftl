@@ -58,20 +58,20 @@ This Work includes contributions authored by David E. Jones, not as a
     <div class="form-body">
         <div class="form-row">
             <div class="form-cell">${liabilityInfoMap.className}</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(liabilityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(liabilityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList liabilityInfoMap.childClassInfoList 1/>
 
 
         <div class="form-row">
             <div class="form-cell">${equityInfoMap.className}</div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(equityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(equityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList equityInfoMap.childClassInfoList 1/>
 
         <div class="form-row">
             <div class="form-cell"><span class="form-title">Liability + Equity Total</span></div>
-        <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(liabilityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + equityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(liabilityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + equityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
     </div>
 </div>
