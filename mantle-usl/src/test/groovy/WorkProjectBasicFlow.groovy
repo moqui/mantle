@@ -113,10 +113,12 @@ class WorkProjectBasicFlow extends Specification {
                 organizationPartyId="${vendorResult.partyId}" glAccountId="210000"/>
             <mantle.ledger.config.PaymentMethodTypeGlAccount paymentMethodTypeEnumId="PmtCompanyCheck"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="111100"/>
-            <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpServLabor" organizationPartyId="${vendorResult.partyId}"
-                direction="E" glAccountId="649000"/>
-            <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpTravAir" organizationPartyId="${vendorResult.partyId}"
-                direction="E" glAccountId="681000"/>
+            <mantle.ledger.config.ItemTypeGlAccount glAccountId="402000" direction="O" itemTypeEnumId="ItemTimeEntry"
+                organizationPartyId="${vendorResult.partyId}"/>
+            <mantle.ledger.config.ItemTypeGlAccount glAccountId="550000" direction="I" itemTypeEnumId="ItemTimeEntry"
+                organizationPartyId="${vendorResult.partyId}"/>
+            <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpTravAir" direction="E" glAccountId="681000"
+                organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.account.GlAccountOrganization glAccountId="120000" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.account.GlAccountOrganization glAccountId="210000" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.config.PaymentTypeGlAccount paymentTypeEnumId="PtInvoicePayment"
@@ -601,13 +603,13 @@ class WorkProjectBasicFlow extends Specification {
                 quantity="1" amount="345.67" description="United SFO-LAX" itemDate="1383368400000"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemExpTravLodging"
                 quantity="1" amount="123.45" description="Fleabag Inn 2 nights" itemDate="1383544800000"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="03" itemTypeEnumId="ItemExpServLabor"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="03" itemTypeEnumId="ItemTimeEntry"
                 quantity="6" amount="40" itemDate="1383390000000"/>
             <mantle.work.time.TimeEntry timeEntryId="55900" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="03"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="04" itemTypeEnumId="ItemExpServLabor"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="04" itemTypeEnumId="ItemTimeEntry"
                 quantity="1.5" amount="40" itemDate="1383404400000"/>
             <mantle.work.time.TimeEntry timeEntryId="55901" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="04"/>
-            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="05" itemTypeEnumId="ItemExpServLabor"
+            <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="05" itemTypeEnumId="ItemTimeEntry"
                 quantity="2" amount="40" itemDate="1383501600000"/>
             <mantle.work.time.TimeEntry timeEntryId="55902" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="05"/>
 
@@ -619,11 +621,11 @@ class WorkProjectBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="123.45" glAccountId="681000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="02"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="03" debitCreditFlag="D"
-                amount="240" glAccountId="649000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="03"/>
+                amount="240" glAccountId="550000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="03"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="04" debitCreditFlag="D"
-                amount="60" glAccountId="649000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
+                amount="60" glAccountId="550000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="05" debitCreditFlag="D"
-                amount="80" glAccountId="649000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
+                amount="80" glAccountId="550000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="06" debitCreditFlag="C"
                 amount="849.12" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.work.effort.WorkEffortInvoice invoiceId="${expInvResult.invoiceId}" workEffortId="TEST"/>
