@@ -35,47 +35,58 @@ This Work includes contributions authored by David E. Jones, not as a
         </div>
     </div>
     <div class="form-body">
-        <div class="form-row">
-            <div class="form-cell">${incomeInfoMap.className}</div>
-            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(incomeInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
-        </div>
-        <@showChildClassList incomeInfoMap.childClassInfoList 1/>
 
         <div class="form-row">
             <div class="form-cell">${revenueInfoMap.className}</div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(revenueInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList revenueInfoMap.childClassInfoList 1/>
-
-        <div class="form-row">
-            <div class="form-cell"><span class="form-title">Income Total</span></div>
-            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
-        </div>
-
-
-
-        <div class="form-row">
-            <div class="form-cell">${expenseInfoMap.className}</div>
-            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(expenseInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
-        </div>
-        <@showChildClassList expenseInfoMap.childClassInfoList 1/>
-
-
         <div class="form-row">
             <div class="form-cell">${contraRevenueInfoMap.className}</div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(contraRevenueInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList contraRevenueInfoMap.childClassInfoList 1/>
+        <div class="form-row">
+            <div class="form-cell"><span class="form-title">Net Sales</span></div>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
 
         <div class="form-row">
-            <div class="form-cell"><span class="form-title">Expense Total</span></div>
-            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+            <div class="form-cell">${costOfSalesInfoMap.className}</div>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(costOfSalesInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+        <@showChildClassList costOfSalesInfoMap.childClassInfoList 1/>
+        <div class="form-row">
+            <div class="form-cell"><span class="form-title">Cost of Sales Total</span></div>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+
+        <div class="form-row">
+            <div class="form-cell"><span class="form-title">Gross Profit On Sales</span></div>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency((revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0) - costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+
+
+
+        <div class="form-row">
+            <div class="form-cell">${incomeInfoMap.className}</div>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(incomeInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+        <@showChildClassList incomeInfoMap.childClassInfoList 1/>
+        <div class="form-row">
+            <div class="form-cell">${expenseInfoMap.className}</div>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(expenseInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
+        </div>
+        <@showChildClassList expenseInfoMap.childClassInfoList 1/>
+        <div class="form-row">
+            <div class="form-cell"><span class="form-title">Net Operating Income</span></div>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
     </div>
     <div class="form-body">
         <div class="form-row">
             <div class="form-cell"><span class="form-title">Net Income</span></div>
-            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency((incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0) - (expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0), currencyUomId, 2)}</span></div></#list>
+            <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency((incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0) - (contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0), currencyUomId, 2)}</span></div></#list>
         </div>
     </div>
 </div>
