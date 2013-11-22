@@ -22,7 +22,7 @@ import spock.lang.Specification
     "gradle cleanAll load runtime/mantle/mantle-usl:test"
    Or to quick run with saved DB copy use "gradle loadSave" once then each time "gradle reloadSave runtime/mantle/mantle-usl:test"
  */
-class OrderSalesShipBasicFlow extends Specification {
+class OrderToCashBasicFlow extends Specification {
     @Shared
     protected final static Logger logger = LoggerFactory.getLogger(OrderSalesShipBasicFlow.class)
     @Shared
