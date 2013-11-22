@@ -21,7 +21,7 @@ import org.slf4j.Logger
 /* To run these make sure moqui, and mantle are in place and run: "gradle cleanAll load runtime/mantle/mantle-usl:test" */
 class WorkPlanToCashBasicFlow extends Specification {
     @Shared
-    protected final static Logger logger = LoggerFactory.getLogger(WorkProjectBasicFlow.class)
+    protected final static Logger logger = LoggerFactory.getLogger(WorkPlanToCashBasicFlow.class)
     @Shared
     ExecutionContext ec
     @Shared

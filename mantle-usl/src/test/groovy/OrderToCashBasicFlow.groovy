@@ -24,7 +24,7 @@ import spock.lang.Specification
  */
 class OrderToCashBasicFlow extends Specification {
     @Shared
-    protected final static Logger logger = LoggerFactory.getLogger(OrderSalesShipBasicFlow.class)
+    protected final static Logger logger = LoggerFactory.getLogger(OrderToCashBasicFlow.class)
     @Shared
     ExecutionContext ec
     @Shared
