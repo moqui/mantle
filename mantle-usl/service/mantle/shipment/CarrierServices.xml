@@ -18,6 +18,13 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- Shipping Gateway Interfaces -->
     <!-- ============================= -->
 
+    <service verb="estimate" noun="OrderShippingRate" type="interface">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+            <parameter name="shippingGatewayConfigId" required="true"/>
+        </in-parameters>
+    </service>
     <service verb="estimate" noun="ShippingRate" type="interface">
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
@@ -54,5 +61,34 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="contactMechId" required="true"/>
             <parameter name="shippingGatewayConfigId" required="true"/>
         </in-parameters>
+    </service>
+
+    <!-- ==================================== -->
+    <!-- Order and Shipment Shipping Services -->
+    <!-- ==================================== -->
+
+    <service verb="estimate" noun="OrderShipping">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId"><description>If not specified estimate for all order parts.</description></parameter>
+            <parameter name="shippingGatewayConfigId"><description>Optional if OrderHeader.productStoreId is populated
+                and a corresponding ProductStoreShippingGateway record exists.</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <if condition="!shippingGatewayConfigId">
+                <if condition="!orderHeader.productStoreId"><return error="true" message="Could not get order shipping estimate, order is not associated with a store and no gateway config ID specified."/></if>
+                
+                <entity-find entity-name="mantle.product.store.ProductStoreShippingGateway" list="productStoreShippingGatewayList">
+                    <econdition field-name="productStoreId" from="orderHeader.productStoreId"/>
+                </entity-find>
+            </if>
+
+            <!-- TODO: if order has shipping lines clear them out first -->
+
+            <!-- TODO: call gateway (could be local) service to estimate shipping charges -->
+
+            <!-- TODO: implement this... -->
+        </actions>
     </service>
 </services>
