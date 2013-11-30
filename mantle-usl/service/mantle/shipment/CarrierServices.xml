@@ -82,6 +82,8 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
     <service verb="estimate" noun="OrderPartShipping">
+        <description>If there are any shipping charge items (type ItemShipping) in the part deletes them. Calls the
+            service specified in ShippingGatewayConfig.estimateOrderServiceName for the OrderPart.</description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
@@ -89,10 +91,10 @@ This Work includes contributions authored by David E. Jones, not as a
                 and a corresponding ProductStoreShippingGateway record exists.</description></parameter>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
-            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
-
             <if condition="!shippingGatewayConfigId">
+                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
+
                 <if condition="!orderHeader.productStoreId"><return error="true"
                         message="Could not get order shipping estimate, order is not associated with a store and no gateway config ID specified."/></if>
 
@@ -106,13 +108,18 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig"/>
             <if condition="shippingGatewayConfig == null"><return error="true"
                     message="Could not get order shipping estimate, no gateway configuration found."/></if>
+            <if condition="!shippingGatewayConfig.estimateOrderServiceName"><return error="true"
+                    message="Could not get order shipping estimate, no order estimate service on gateway configuration [${shippingGatewayConfig.shippingGatewayConfigId}]."/></if>
 
-            <!-- TODO: if order has shipping lines clear them out first -->
+            <!-- if order part has shipping (ItemShipping) items clear them out first -->
+            <entity-delete-by-condition entity-name="mantle.order.OrderItem">
+                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
+                <econdition field-name="itemTypeEnumId" value="ItemShipping"/>
+            </entity-delete-by-condition>
 
-            <!-- TODO: call gateway (could be local) service to estimate shipping charges -->
-
-            <!-- TODO: implement this... -->
+            <!-- call gateway (could be local) service to estimate shipping charges -->
+            <service-call name="${shippingGatewayConfig.estimateOrderServiceName}"
+                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, shippingGatewayConfigId:shippingGatewayConfigId]"/>
         </actions>
     </service>
-
 </services>
