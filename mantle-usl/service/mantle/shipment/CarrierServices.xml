@@ -67,22 +67,45 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- Order and Shipment Shipping Services -->
     <!-- ==================================== -->
 
-    <service verb="estimate" noun="OrderShipping">
+    <service verb="estimate" noun="OrderShipping" transaction="cache">
         <in-parameters>
             <parameter name="orderId" required="true"/>
-            <parameter name="orderPartSeqId"><description>If not specified estimate for all order parts.</description></parameter>
+            <parameter name="shippingGatewayConfigId"><description>Optional if OrderHeader.productStoreId is populated
+                and a corresponding ProductStoreShippingGateway record exists.</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <service-call name="mantle.shipment.CarrierServices.estimate#OrderPartShipping"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId, shippingGatewayConfigId:shippingGatewayConfigId]"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="estimate" noun="OrderPartShipping">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
             <parameter name="shippingGatewayConfigId"><description>Optional if OrderHeader.productStoreId is populated
                 and a corresponding ProductStoreShippingGateway record exists.</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
+
             <if condition="!shippingGatewayConfigId">
-                <if condition="!orderHeader.productStoreId"><return error="true" message="Could not get order shipping estimate, order is not associated with a store and no gateway config ID specified."/></if>
-                
-                <entity-find entity-name="mantle.product.store.ProductStoreShippingGateway" list="productStoreShippingGatewayList">
-                    <econdition field-name="productStoreId" from="orderHeader.productStoreId"/>
-                </entity-find>
+                <if condition="!orderHeader.productStoreId"><return error="true"
+                        message="Could not get order shipping estimate, order is not associated with a store and no gateway config ID specified."/></if>
+
+                <entity-find-one entity-name="mantle.product.store.ProductStoreShippingGateway"
+                        value-field="productStoreShippingGateway">
+                    <field-map field-name="productStoreId" from="orderHeader.productStoreId"/>
+                    <field-map field-name="carrierPartyId" from="orderPart.carrierPartyId"/>
+                </entity-find-one>
+                <set field="shippingGatewayConfigId" from="productStoreShippingGateway?.shippingGatewayConfigId"/>
             </if>
+            <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig"/>
+            <if condition="shippingGatewayConfig == null"><return error="true"
+                    message="Could not get order shipping estimate, no gateway configuration found."/></if>
 
             <!-- TODO: if order has shipping lines clear them out first -->
 
@@ -91,4 +114,5 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- TODO: implement this... -->
         </actions>
     </service>
+
 </services>
