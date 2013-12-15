@@ -85,7 +85,7 @@ class OrderToCashBasicFlow extends Specification {
         String vendorPartyId = productStore.organizationPartyId
         String customerPartyId = ec.user.userAccount.partyId
 
-        Map priceMap = ec.service.sync().name("mantle.product.ProductServices.get#ProductPrice")
+        Map priceMap = ec.service.sync().name("mantle.product.PriceServices.get#ProductPrice")
                 .parameters([productId:'DEMO_1_1', priceUomId:priceUomId, productStoreId:productStoreId,
                 vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]).call()
 

@@ -80,10 +80,10 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "create Purchase Order"() {
         when:
-        Map priceMap = ec.service.sync().name("mantle.product.ProductServices.get#ProductPrice")
+        Map priceMap = ec.service.sync().name("mantle.product.PriceServices.get#ProductPrice")
                 .parameters([productId:'DEMO_1_1', priceUomId:priceUomId, quantity:1,
                     vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]).call()
-        Map priceMap2 = ec.service.sync().name("mantle.product.ProductServices.get#ProductPrice")
+        Map priceMap2 = ec.service.sync().name("mantle.product.PriceServices.get#ProductPrice")
                 .parameters([productId:'DEMO_1_1', priceUomId:priceUomId, quantity:100,
                     vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]).call()
 
