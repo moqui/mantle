@@ -53,7 +53,8 @@ This Work includes contributions authored by David E. Jones, not as a
                 <order-by field-name="-minQuantity"/><!-- get highest qualifying (<=quantity) minQuantity records first -->
             </entity-find>
             <filter-map-list list="productPriceList"><date-filter/></filter-map-list>
-            <if condition="productPriceList"><set field="price" from="productPriceList.first.price"/></if>
+            <set field="productPrice" from="productPriceList?.first"/>
+            <set field="price" from="productPrice?.price"/>
 
             <!-- get list price -->
             <entity-find entity-name="mantle.product.ProductPrice" list="listProductPriceList" cache="true">
@@ -71,10 +72,18 @@ This Work includes contributions authored by David E. Jones, not as a
                 <order-by field-name="-minQuantity"/><!-- get highest qualifying (<=quantity) minQuantity records first -->
             </entity-find>
             <filter-map-list list="listProductPriceList"><date-filter/></filter-map-list>
-            <if condition="listProductPriceList"><set field="listPrice" from="listProductPriceList.first.price"/></if>
+            <set field="listProductPrice" from="listProductPriceList?.first"/>
+            <set field="listPrice" from="listProductPrice?.price"/>
 
             <!-- make sure we have a price at least -->
             <set field="price" from="price ?: 0.0"/>
+
+            <!-- <log level="warn" message="========== BEFORE rules productId=${productId}, price=${price}, listPrice=${listPrice}"/> -->
+
+            <!-- run the ProductPriceKS knowledge session rules -->
+            <script>ec.getKieContainer("mantle-usl").newStatelessKieSession("ProductPriceKS").execute([ec, context])</script>
+
+            <!-- <log level="warn" message="========== AFTER rules productId=${productId}, price=${price}, listPrice=${listPrice}"/> -->
         </actions>
     </service>
 </services>
