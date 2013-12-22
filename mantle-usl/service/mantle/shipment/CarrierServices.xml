@@ -68,6 +68,8 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- ==================================== -->
 
     <service verb="estimate" noun="OrderShipping" transaction="cache">
+        <description>Call this to estimate shipping for an order. Calls the service named in estimateOrderServiceName
+            for the shipping gateway.</description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="shippingGatewayConfigId"><description>Optional if OrderHeader.productStoreId is populated
@@ -105,7 +107,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </entity-find-one>
                 <set field="shippingGatewayConfigId" from="productStoreShippingGateway?.shippingGatewayConfigId"/>
             </if>
-            <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig"/>
+            <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig" cache="true"/>
             <if condition="shippingGatewayConfig == null"><return error="true"
                     message="Could not get order shipping estimate, no gateway configuration found."/></if>
             <if condition="!shippingGatewayConfig.estimateOrderServiceName"><return error="true"
@@ -120,6 +122,25 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- call gateway (could be local) service to estimate shipping charges -->
             <service-call name="${shippingGatewayConfig.estimateOrderServiceName}"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, shippingGatewayConfigId:shippingGatewayConfigId]"/>
+        </actions>
+    </service>
+    
+    <service verb="estimate" noun="OrderShippingRateLocal">
+        <description>Estimate shipping costs locally using rules</description>
+        <implements service="mantle.shipment.CarrierServices.estimate#OrderShippingRate"/>
+        <actions>
+            <!-- TODO: get more data, setup as needed for a decision table -->
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
+            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
+                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
+                <!-- NOTE: shouldn't need to exclude items, calling service (estimate#OrderPartShipping) deletes them -->
+                <order-by field-name="orderItemSeqId"/>
+            </entity-find>
+            <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig" cache="true"/>
+
+            <!-- run the OrderShippingEstimateKS knowledge session rules -->
+            <script>ec.getStatelessKieSession("OrderShippingEstimateKS").execute([ec, context])</script>
         </actions>
     </service>
 </services>
