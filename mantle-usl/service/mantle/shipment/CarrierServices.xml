@@ -18,7 +18,7 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- Shipping Gateway Interfaces -->
     <!-- ============================= -->
 
-    <service verb="estimate" noun="OrderShippingRate" type="interface">
+    <service verb="get" noun="OrderShippingRate" type="interface">
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
@@ -67,8 +67,8 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- Order and Shipment Shipping Services -->
     <!-- ==================================== -->
 
-    <service verb="estimate" noun="OrderShipping" transaction="cache">
-        <description>Call this to estimate shipping for an order. Calls the service named in estimateOrderServiceName
+    <service verb="calculate" noun="OrderShipping" transaction="cache">
+        <description>Call this to estimate shipping for an order. Calls the service named in getOrderRateServiceName
             for the shipping gateway.</description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
@@ -83,9 +83,9 @@ This Work includes contributions authored by David E. Jones, not as a
             </iterate>
         </actions>
     </service>
-    <service verb="estimate" noun="OrderPartShipping">
+    <service verb="calculate" noun="OrderPartShipping">
         <description>If there are any shipping charge items (type ItemShipping) in the part deletes them. Calls the
-            service specified in ShippingGatewayConfig.estimateOrderServiceName for the OrderPart.</description>
+            service specified in ShippingGatewayConfig.getOrderRateServiceName for the OrderPart.</description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
@@ -110,7 +110,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig" cache="true"/>
             <if condition="shippingGatewayConfig == null"><return error="true"
                     message="Could not get order shipping estimate, no gateway configuration found."/></if>
-            <if condition="!shippingGatewayConfig.estimateOrderServiceName"><return error="true"
+            <if condition="!shippingGatewayConfig.getOrderRateServiceName"><return error="true"
                     message="Could not get order shipping estimate, no order estimate service on gateway configuration [${shippingGatewayConfig.shippingGatewayConfigId}]."/></if>
 
             <!-- if order part has shipping (ItemShipping) items clear them out first -->
@@ -120,14 +120,14 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-delete-by-condition>
 
             <!-- call gateway (could be local) service to estimate shipping charges -->
-            <service-call name="${shippingGatewayConfig.estimateOrderServiceName}"
+            <service-call name="${shippingGatewayConfig.getOrderRateServiceName}"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, shippingGatewayConfigId:shippingGatewayConfigId]"/>
         </actions>
     </service>
     
-    <service verb="estimate" noun="OrderShippingRateLocal">
+    <service verb="get" noun="OrderShippingRateLocal">
         <description>Estimate shipping costs locally using rules</description>
-        <implements service="mantle.shipment.CarrierServices.estimate#OrderShippingRate"/>
+        <implements service="mantle.shipment.CarrierServices.get#OrderShippingRate"/>
         <actions>
             <!-- TODO: get more data, setup as needed for a decision table -->
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
@@ -139,8 +139,11 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig" cache="true"/>
 
+            <set field="totalQuantity" from="0"/>
+            <iterate list="orderItemList" entry="orderItem"><set field="totalQuantity" from="totalQuantity + (orderItem.quantity ?: 0)"/></iterate>
+
             <!-- run the OrderShippingEstimateKS knowledge session rules -->
-            <script>ec.getStatelessKieSession("OrderShippingEstimateKS").execute([ec, context])</script>
+            <script>ec.getStatelessKieSession("OrderShippingRateKS").execute([ec, context])</script>
         </actions>
     </service>
 </services>
