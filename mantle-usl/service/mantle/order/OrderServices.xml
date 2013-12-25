@@ -450,6 +450,9 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="paymentMethodTypeEnumId"/>
             <parameter name="shippingPostalContactMechId"/>
             <parameter name="shippingTelecomContactMechId"/>
+
+            <parameter name="carrierAndShipmentMethod"/>
+            <parameter name="carrierPartyId"/>
             <parameter name="shipmentMethodEnumId"/>
         </in-parameters>
         <out-parameters>
@@ -472,6 +475,11 @@ h2. General Order Placement and eCommerce Usage
 
             <set field="orderPart.postalContactMechId" from="shippingPostalContactMechId"/>
             <set field="orderPart.telecomContactMechId" from="shippingTelecomContactMechId"/>
+            <if condition="carrierAndShipmentMethod">
+                <set field="carrierPartyId" from="carrierAndShipmentMethod.split(':')[0]"/>
+                <set field="shipmentMethodEnumId" from="carrierAndShipmentMethod.split(':')[1]"/>
+            </if>
+            <set field="orderPart.carrierPartyId" from="carrierPartyId"/>
             <set field="orderPart.shipmentMethodEnumId" from="shipmentMethodEnumId"/>
             <entity-update value-field="orderPart"/>
 
@@ -508,6 +516,9 @@ h2. General Order Placement and eCommerce Usage
                                 paymentMethodTypeEnumId:paymentMethodTypeEnumId]"/>
                 </else>
             </if>
+            
+            <!-- TODO: find a better place/way to call this -->
+            <service-call name="mantle.shipment.CarrierServices.calculate#OrderShipping" in-map="[orderId:orderId]"/>
         </actions>
     </service>
     <service verb="add" noun="OrderPartPayment">
