@@ -67,8 +67,8 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- Order and Shipment Shipping Services -->
     <!-- ==================================== -->
 
-    <service verb="calculate" noun="OrderShipping" transaction="cache">
-        <description>Call this to estimate shipping for an order. Calls the service named in getOrderRateServiceName
+    <service verb="calculate" noun="OrderShipping">
+        <description>Call this to calculate shipping for an order. Calls the service named in getOrderRateServiceName
             for the shipping gateway.</description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
@@ -78,7 +78,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find entity-name="mantle.order.OrderPart" list="orderPartList"><econdition field-name="orderId"/></entity-find>
             <iterate list="orderPartList" entry="orderPart">
-                <service-call name="mantle.shipment.CarrierServices.estimate#OrderPartShipping"
+                <service-call name="mantle.shipment.CarrierServices.calculate#OrderPartShipping"
                         in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId, shippingGatewayConfigId:shippingGatewayConfigId]"/>
             </iterate>
         </actions>
@@ -98,7 +98,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
 
                 <if condition="!orderHeader.productStoreId"><return error="true"
-                        message="Could not get order shipping estimate, order is not associated with a store and no gateway config ID specified."/></if>
+                        message="Could not get order shipping rate, order is not associated with a store and no gateway config ID specified."/></if>
 
                 <entity-find-one entity-name="mantle.product.store.ProductStoreShippingGateway"
                         value-field="productStoreShippingGateway">
@@ -109,9 +109,9 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
             <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig" cache="true"/>
             <if condition="shippingGatewayConfig == null"><return error="true"
-                    message="Could not get order shipping estimate, no gateway configuration found."/></if>
+                    message="Could not get order shipping rate, no gateway configuration found."/></if>
             <if condition="!shippingGatewayConfig.getOrderRateServiceName"><return error="true"
-                    message="Could not get order shipping estimate, no order estimate service on gateway configuration [${shippingGatewayConfig.shippingGatewayConfigId}]."/></if>
+                    message="Could not get order shipping rate, no order rate service on gateway configuration [${shippingGatewayConfig.shippingGatewayConfigId}]."/></if>
 
             <!-- if order part has shipping (ItemShipping) items clear them out first -->
             <entity-delete-by-condition entity-name="mantle.order.OrderItem">
@@ -119,7 +119,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="itemTypeEnumId" value="ItemShipping"/>
             </entity-delete-by-condition>
 
-            <!-- call gateway (could be local) service to estimate shipping charges -->
+            <!-- call gateway (could be local) service to calculate shipping charges -->
             <service-call name="${shippingGatewayConfig.getOrderRateServiceName}"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, shippingGatewayConfigId:shippingGatewayConfigId]"/>
         </actions>
@@ -129,21 +129,44 @@ This Work includes contributions authored by David E. Jones, not as a
         <description>Estimate shipping costs locally using rules</description>
         <implements service="mantle.shipment.CarrierServices.get#OrderShippingRate"/>
         <actions>
-            <!-- TODO: get more data, setup as needed for a decision table -->
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
                 <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
                 <!-- NOTE: shouldn't need to exclude ItemShipping type items, calling service (estimate#OrderPartShipping) deletes them -->
+                <!-- NOTE: there should be no tax in place when this is run, tax calc should be after as shipping may be taxed -->
+                <!-- TODO: filter out non-product and other general non-shipping items -->
                 <order-by field-name="orderItemSeqId"/>
             </entity-find>
             <entity-find-one entity-name="mantle.shipment.carrier.ShippingGatewayConfig" value-field="shippingGatewayConfig" cache="true"/>
 
+            <set field="itemCount" from="orderItemList.size()"/>
             <set field="totalQuantity" from="0"/>
             <iterate list="orderItemList" entry="orderItem"><set field="totalQuantity" from="totalQuantity + (orderItem.quantity ?: 0)"/></iterate>
+            <set field="totalWeight" from="0"/>
+            <iterate list="orderItemList" entry="orderItem">
+                <entity-find-one entity-name="mantle.product.ProductDimension" value-field="shippingWeight">
+                    <field-map field-name="productId" from="orderItem.productId"/>
+                    <field-map field-name="dimensionTypeEnumId" value="PdtShippingWeight"/>
+                </entity-find-one>
+                <!-- TODO: this assumes all weights are the same unit, add some unit conversion to a standard like WT_lb -->
+                <!-- NOTE: this defaults to 1, maybe make this configurable somehow -->
+                <set field="totalWeight" from="totalWeight + ((shippingWeight?.value ?: 1) * orderItem.quantity)"/>
+            </iterate>
+
+            <set field="shippingTotal" from="0" type="BigDecimal"/>
 
             <!-- run the OrderShippingEstimateKS knowledge session rules -->
-            <script>ec.getStatelessKieSession("OrderShippingRateKS").execute([ec, context])</script>
+            <script>ec.getStatelessKieSession("OrderShippingRateKS").execute([])</script>
+
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="carrierDetail" cache="true">
+                <field-map field-name="partyId" from="orderPart.carrierPartyId"/></entity-find-one>
+            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="shipmentMethodEnum">
+                <field-map field-name="enumId" from="orderPart.shipmentMethodEnumId"/></entity-find-one>
+            <set field="carrierName" value="${carrierDetail.firstName?:''} ${carrierDetail.lastName?:''} ${carrierDetail.organizationName?:''}"/>
+            <set field="itemDescription" value="${orderPart.carrierPartyId == '_NA_' ? '' : (carrierName + ' - ') }${shipmentMethodEnum.description}"/>
+            <service-call name="create#mantle.order.OrderItem" in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId,
+                    itemTypeEnumId:'ItemShipping', quantity:1, unitAmount:shippingTotal, itemDescription:itemDescription]"/>
         </actions>
     </service>
 </services>
