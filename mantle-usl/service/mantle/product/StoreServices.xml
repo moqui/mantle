@@ -15,7 +15,10 @@ This Work includes contributions authored by David E. Jones, not as a
 <!-- STATUS: EXPERIMENTAL -->
 
     <service verb="get" noun="StoreShippingOptions" authenticate="anonymous-view">
-        <in-parameters><parameter name="productStoreId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="productStoreId" required="true"/>
+            <parameter name="orderId"/>
+        </in-parameters>
         <out-parameters><parameter name="shippingOptions" type="List"/></out-parameters>
         <actions>
             <set field="shippingOptions" from="[]"/>
@@ -30,9 +33,15 @@ This Work includes contributions authored by David E. Jones, not as a
                         <field-map field-name="partyId" from="csm.carrierPartyId"/></entity-find-one>
                     <entity-find-one entity-name="moqui.basic.Enumeration" value-field="shipmentMethodEnum">
                         <field-map field-name="enumId" from="csm.shipmentMethodEnumId"/></entity-find-one>
+                    <if condition="orderId">
+                        <service-call name="mantle.shipment.CarrierServices.calculate#OrderShipping"
+                                in-map="[orderId:orderId, createOrderItem:false, carrierPartyId:csm.carrierPartyId,
+                                    shipmentMethodEnumId:csm.shipmentMethodEnumId]"
+                                out-map="shippingOut"/>
+                    </if>
                     <script>shippingOptions.add([carrierPartyId:csm.carrierPartyId,
                             carrierName:"${carrierDetail.firstName?:''} ${carrierDetail.lastName?:''} ${carrierDetail.organizationName?:''}",
-                            shipmentMethodEnumId:csm.shipmentMethodEnumId,
+                            shippingTotal:shippingOut?.shippingTotal, shipmentMethodEnumId:csm.shipmentMethodEnumId,
                             shipmentMethodDescription:shipmentMethodEnum.description])</script>
                 </iterate>
             </iterate>
