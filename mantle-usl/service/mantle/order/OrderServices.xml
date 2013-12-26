@@ -459,6 +459,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="paymentId"/>
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <if condition="orderPartSeqId">
                 <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
 
@@ -518,8 +519,10 @@ h2. General Order Placement and eCommerce Usage
             </if>
             
             <!-- TODO: find a better place/way to call this -->
-            <service-call name="mantle.shipment.CarrierServices.calculate#OrderPartShipping"
-                    in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId]"/>
+            <if condition="orderHeader.productStoreId">
+                <service-call name="mantle.shipment.CarrierServices.calculate#OrderPartShipping"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId]"/>
+            </if>
         </actions>
     </service>
     <service verb="add" noun="OrderPartPayment">
@@ -533,8 +536,8 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="paymentId"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="OrderHeader" value-field="orderHeader"/>
-            <entity-find-one entity-name="OrderPart" value-field="orderPart"/>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentTypeEnumId:'PtInvoicePayment',
                         paymentMethodId:paymentMethodId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
