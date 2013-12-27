@@ -252,7 +252,7 @@ class OrderToCashBasicFlow extends Specification {
         then:
         dataCheckErrors.size() == 0
     }
-    /*
+
     def "validate Asset Issuance"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
@@ -289,7 +289,7 @@ class OrderToCashBasicFlow extends Specification {
         then:
         dataCheckErrors.size() == 0
     }
-    */
+
     def "validate Asset Issuance Accounting Transactions"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
@@ -376,9 +376,11 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="03" debitCreditFlag="C"
                 amount="84.84" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_2_1" invoiceItemSeqId="03"/>
-            <!-- <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="04" debitCreditFlag="D"
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="04" debitCreditFlag="C"
+                amount="5" glAccountId="731200" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="05" debitCreditFlag="D"
                 amount="145.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/> -->
+                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
