@@ -334,6 +334,21 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="result.contactMechId" from="newContactMech.contactMechId"/>
         </actions>
     </service>
+    <service verb="get" noun="PostalAddressGeoIdSet">
+        <in-parameters><parameter name="contactMechId"/></in-parameters>
+        <out-parameters><parameter name="geoIdSet" type="Set"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress"/>
+            <set field="geoIdSet" from="new HashSet()"/>
+            <script>
+                if (postalAddress?.countyGeoId) geoIdSet.add(postalAddress.countyGeoId)
+                if (postalAddress?.stateProvinceGeoId) geoIdSet.add(postalAddress.stateProvinceGeoId)
+                if (postalAddress?.countryGeoId) geoIdSet.add(postalAddress.countryGeoId)
+                if (postalAddress?.postalCodeGeoId) geoIdSet.add(postalAddress.postalCodeGeoId)
+            </script>
+            <!-- TODO: consider expanding this, ie figure out country from state/province... and save on PostalAddress? -->
+        </actions>
+    </service>
 
     <!-- TelecomNumber Services -->
     <service verb="create" noun="TelecomNumber" type="inline">
