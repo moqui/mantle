@@ -31,9 +31,11 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
             </entity-find>
             <iterate list="orderItemList" entry="orderItem">
-                <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentProduct"
-                        in-map="[productId:orderItem.productId, quantity:orderItem.quantity, shipmentId:shipmentId,
-                            shipmentPackageSeqId:shipmentPackageSeqId]"/>
+                <if condition="orderItem.productId">
+                    <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentProduct"
+                            in-map="[productId:orderItem.productId, quantity:orderItem.quantity, shipmentId:shipmentId,
+                                shipmentPackageSeqId:shipmentPackageSeqId]"/>
+                </if>
             </iterate>
 
             <!-- set Shipment Packed -->
@@ -131,6 +133,14 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true"/>
+            <entity-find-related-one value-field="product" relationship-name="ProductType#moqui.basic.Enumeration"
+                    to-value-field="productTypeEnum" cache="true"/>
+            <if condition="productTypeEnum.parentEnumId != 'PtPhysical' &amp;&amp; productTypeEnum.enumId != 'PtPhysical'">
+                <log level="info" message="Not packing Product [${productId}], type [${productTypeEnum.enumId} is not a physical product.]"/>
+                <return/>
+            </if>
+
             <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList" cache="false">
                 <econdition field-name="shipmentId"/><econdition field-name="productId"/>
                 <econdition field-name="quantityNotHandled" operator="greater" from="0"/>
