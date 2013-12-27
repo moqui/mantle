@@ -78,7 +78,7 @@ class OrderToCashTime extends Specification {
 
             ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                     .parameters([orderId:cartOrderId, paymentMethodId:'CustJqpCc', shippingPostalContactMechId:'CustJqpAddr',
-                    shippingTelecomContactMechId:'CustJqpTeln', shipmentMethodEnumId:'ShMthNoShipping']).call()
+                    shippingTelecomContactMechId:'CustJqpTeln', carrierPartyId:'_NA_', shipmentMethodEnumId:'ShMthGround']).call()
             ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:cartOrderId]).call()
 
             ec.user.logoutUser()
