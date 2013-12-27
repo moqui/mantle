@@ -20,7 +20,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <service verb="calculate" noun="SalesTax" type="interface">
         <in-parameters>
-            <parameter name="referenceId"><description>This is the orderId or invoiceId, if available.</description></parameter>
+            <parameter name="referenceId"><description>This is the orderId:orderPartSeqId or invoiceId, if available.</description></parameter>
             <parameter name="saveResults" type="Boolean"><description>If the tax service supports saving calculated
                 taxes for reporting and filing with authorities set this flag when you want the results saved (this is
                 usually done for invoices).</description></parameter>
@@ -31,16 +31,21 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="destinationAddressContactMechId"/>
             <parameter name="items" type="List"><parameter name="itemEntry" type="Map">
                 <parameter name="itemId"/>
+                <parameter name="itemTypeEnumId"/>
                 <parameter name="quantity" type="BigDecimal"/>
-                <parameter name="chargedAmount" type="BigDecimal"/>
+                <parameter name="unitAmount" type="BigDecimal"/>
                 <parameter name="productId"/>
                 <parameter name="taxCode"/>
+                <!-- discounts will be another item of type ItemDiscount, so don't do this for now:
                 <parameter name="discounts" type="List"><parameter name="discountEntry" type="Map">
                     <parameter name="discountAmount" type="BigDecimal"/>
                     <parameter name="discountCode"/>
                 </parameter></parameter>
+                -->
+                <!-- these may not be needed, we're doing one call per OrderPart anyway:
                 <parameter name="originAddressContactMechId"/>
                 <parameter name="destinationAddressContactMechId"/>
+                -->
             </parameter></parameter>
         </in-parameters>
         <out-parameters>
@@ -60,9 +65,65 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- ======================== -->
 
     <service verb="calculate" noun="OrderSalesTax">
-        <in-parameters><parameter name="orderId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId"/>
+        </in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-related-one value-field="orderHeader" relationship-name="mantle.product.store.ProductStore"
+                    to-value-field="productStore" cache="true"/>
+            <entity-find-related-one value-field="productStore" relationship-name="mantle.other.tax.TaxGatewayConfig"
+                    to-value-field="taxGatewayConfig" cache="true"/>
+            <if condition="taxGatewayConfig == null">
+                <return error="true" message="Cannot calculate tax for Order [${orderId}], not TaxGatewayConfig found (store: ${productStore?.productStoreId})"/>
+            </if>
+
+            <!-- if order part has tax (ItemSalesTax or ItemVatTax) items clear them out first -->
+            <entity-delete-by-condition entity-name="mantle.order.OrderItem">
+                <econdition field-name="orderId"/>
+                <econdition field-name="itemTypeEnumId" operator="in" value="ItemSalesTax,ItemVatTax"/>
+            </entity-delete-by-condition>
+
+            <!-- build the parameters for the calculate#SalesTax interface -->
+            <set field="saveResults" from="false"/><!-- don't save result for order, only for invoice -->
+            <set field="taxGatewayConfigId" from="taxGatewayConfig.taxGatewayConfigId"/>
+            <!-- get the inventory facility's PostalShippingOrigin contactMechId -->
+            <entity-find entity-name="mantle.facility.FacilityContactMech" list="fromFcmList" cache="true">
+                <date-filter/>
+                <econdition field-name="facilityId" from="productStore.inventoryFacilityId"/>
+                <econdition field-name="contactMechPurposeEnumId" value="PostalShippingOrigin"/>
+            </entity-find>
+            <set field="fromFcm" from="fromFcmList?.first"/>
+
+            <!-- loop through the OrderParts, or only single OrderPart if orderPartSeqId is specified -->
+            <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
+                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId" ignore-if-empty="true"/>
+            </entity-find>
+            <iterate list="orderPartList" entry="orderPart">
+                <set field="referenceId" value="${orderId}:${orderPart.orderPartSeqId}"/>
+                <set field="customerPartyId" from="orderPart.customerPartyId"/>
+                <set field="organizationPartyId" from="productStore.organizationPartyId"/>
+                <set field="originAddressContactMechId" from="fromFcm?.contactMechId"/>
+                <set field="destinationAddressContactMechId" from="orderPart.postalContactMechId"/>
+
+                <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
+                    <econdition field-name="orderId"/><econdition field-name="orderPartSeqId" from="orderPart.orderPartSeqId"/>
+                </entity-find>
+                <set field="items" from="[]"/>
+                <iterate list="orderItemList" entry="orderItem">
+                    <entity-find-related-one value-field="orderItem" relationship-name="mantle.product.Product"
+                            to-value-field="product"/>
+                    <if condition="!product?.taxable || product?.taxable == 'Y'">
+                        <script>items.add([itemId:orderItem.orderItemSeqId, itemTypeEnumId:orderItem.itemTypeEnumId,
+                                quantity:orderItem.quantity, unitAmount:orderItem.unitAmount,
+                                productId:orderItem.productId, taxCode:product?.taxCode])</script>
+                    </if>
+                </iterate>
+
+                <!-- call gateway (could be local) service to calculate shipping charges -->
+                <service-call name="${taxGatewayConfig.calculateServiceName}" in-map="context" out-map="context"/>
+            </iterate>
         </actions>
     </service>
     <service verb="calculate" noun="InvoiceSalesTax">
@@ -79,6 +140,7 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="calculate" noun="SalesTaxLocal">
         <implements service="mantle.other.TaxServices.calculate#SalesTax"/>
         <actions>
+            <log level="warn" message="Called calculate#SalesTaxLocal with context:\n ${context}"/>
             <!-- TODO: implement this... -->
         </actions>
     </service>

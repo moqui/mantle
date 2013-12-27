@@ -26,6 +26,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="createOrderItem" default-value="true" type="Boolean"/>
             <parameter name="shipmentMethodEnumId"><description>Overrides the OrderPart.shipmentMethodEnumId if specified.</description></parameter>
             <parameter name="carrierPartyId"><description>Overrides the OrderPart.carrierPartyId if specified.</description></parameter>
+            <parameter name="postalContactMechId"><description>Overrides the OrderPart.postalContactMechId if specified.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="shippingTotal" required="true"/>
@@ -84,6 +85,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="createOrderItem" default-value="true" type="Boolean"/>
             <parameter name="shipmentMethodEnumId"><description>Overrides the OrderPart.shipmentMethodEnumId if specified.</description></parameter>
             <parameter name="carrierPartyId"><description>Overrides the OrderPart.carrierPartyId if specified.</description></parameter>
+            <parameter name="postalContactMechId"><description>Overrides the OrderPart.postalContactMechId if specified.</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="shippingTotal" required="true"/></out-parameters>
         <actions>
@@ -107,6 +109,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="createOrderItem" default-value="true" type="Boolean"/>
             <parameter name="shipmentMethodEnumId"><description>Overrides the OrderPart.shipmentMethodEnumId if specified.</description></parameter>
             <parameter name="carrierPartyId"><description>Overrides the OrderPart.carrierPartyId if specified.</description></parameter>
+            <parameter name="postalContactMechId"><description>Overrides the OrderPart.postalContactMechId if specified.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="shippingTotal" required="true"/>
@@ -167,8 +170,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="carrierPartyId" from="carrierPartyId ?: orderPart.carrierPartyId"/>
             <set field="shipmentMethodEnumId" from="shipmentMethodEnumId ?: orderPart.shipmentMethodEnumId"/>
 
+            <set field="postalContactMechId" from="postalContactMechId ?: orderPart.postalContactMechId"/>
             <service-call name="mantle.party.ContactServices.get#PostalAddressGeoIdSet" out-map="context"
-                    in-map="[contactMechId:orderPart.postalContactMechId]"/>
+                    in-map="[contactMechId:postalContactMechId]"/>
 
             <set field="itemCount" from="0"/>
             <set field="totalQuantity" from="0"/>
@@ -197,7 +201,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- run the OrderShippingEstimateKS knowledge session rules -->
             <script>ec.getStatelessKieSession("OrderShippingRateKS").execute([])</script>
 
-            <log level="info" message="Calculated shippingTotal [${shippingTotal}] carrier [${carrierPartyId}] method [${shipmentMethodEnumId}] geos [${geoIdSet}] items [${itemCount}] quantity [${totalQuantity}] weight [${totalWeight}]"/>
+            <log level="info" message="Calculated shippingTotal [${shippingTotal}] order part [${orderId}:${orderPartSeqId}] carrier [${carrierPartyId}] method [${shipmentMethodEnumId}] address [${postalContactMechId}] geos [${geoIdSet}] items [${itemCount}] quantity [${totalQuantity}] weight [${totalWeight}]"/>
 
             <if condition="createOrderItem">
                 <entity-find-one entity-name="mantle.party.PartyDetail" value-field="carrierDetail" cache="true">

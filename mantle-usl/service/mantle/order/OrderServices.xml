@@ -484,10 +484,13 @@ h2. General Order Placement and eCommerce Usage
             <set field="orderPart.shipmentMethodEnumId" from="shipmentMethodEnumId"/>
             <entity-update value-field="orderPart"/>
 
-            <!-- Calculate Shipping, do this before the Payment is created/updated -->
-            <!-- TODO: find a better place/way to call this -->
+            <!-- TODO: find a better place/way to call these, maybe even turn this service into some sort of workflow -->
             <if condition="orderHeader.productStoreId">
+                <!-- Calculate Shipping, do this before the Payment is created/updated -->
                 <service-call name="mantle.shipment.CarrierServices.calculate#OrderPartShipping"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId]"/>
+                <!-- Calculate Tax, after Shipping as it might be taxed, before Payment so tax is included in total -->
+                <service-call name="mantle.other.TaxServices.calculate#OrderSalesTax"
                         in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId]"/>
             </if>
 
