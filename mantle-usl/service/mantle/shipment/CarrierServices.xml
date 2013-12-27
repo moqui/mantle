@@ -177,18 +177,25 @@ This Work includes contributions authored by David E. Jones, not as a
                 if (postalAddress?.postalCodeGeoId) geoIdSet.add(postalAddress.postalCodeGeoId)
             </script>
 
-            <set field="itemCount" from="orderItemList.size()"/>
+            <set field="itemCount" from="0"/>
             <set field="totalQuantity" from="0"/>
-            <iterate list="orderItemList" entry="orderItem"><set field="totalQuantity" from="totalQuantity + (orderItem.quantity ?: 0)"/></iterate>
             <set field="totalWeight" from="0"/>
             <iterate list="orderItemList" entry="orderItem">
-                <entity-find-one entity-name="mantle.product.ProductDimension" value-field="shippingWeight">
-                    <field-map field-name="productId" from="orderItem.productId"/>
-                    <field-map field-name="dimensionTypeEnumId" value="PdtShippingWeight"/>
-                </entity-find-one>
-                <!-- TODO: this assumes all weights are the same unit, add some unit conversion to a standard like WT_lb -->
-                <!-- NOTE: this defaults to 1, maybe make this configurable somehow -->
-                <set field="totalWeight" from="totalWeight + ((shippingWeight?.value ?: 1) * orderItem.quantity)"/>
+                <entity-find-related-one value-field="orderItem" relationship-name="mantle.product.Product"
+                        to-value-field="product"/>
+                <if condition="!product?.chargeShipping || product?.chargeShipping == 'Y'">
+                    <set field="itemCount" from="itemCount + 1"/>
+
+                    <set field="totalQuantity" from="totalQuantity + (orderItem.quantity ?: 0)"/>
+
+                    <entity-find-one entity-name="mantle.product.ProductDimension" value-field="shippingWeight">
+                        <field-map field-name="productId" from="orderItem.productId"/>
+                        <field-map field-name="dimensionTypeEnumId" value="PdtShippingWeight"/>
+                    </entity-find-one>
+                    <!-- TODO: this assumes all weights are the same unit, add some unit conversion to a standard like WT_lb -->
+                    <!-- NOTE: this defaults to 1, maybe make this configurable somehow -->
+                    <set field="totalWeight" from="totalWeight + ((shippingWeight?.value ?: 1) * orderItem.quantity)"/>
+                </if>
             </iterate>
 
             <set field="shippingTotal" from="0" type="BigDecimal"/>
