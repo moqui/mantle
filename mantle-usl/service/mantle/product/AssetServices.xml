@@ -62,6 +62,12 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="assetId"><description>Optional assetId, reserves against this first if specified.</description></parameter>
         </in-parameters>
         <actions>
+            <!-- first check the OrderItem, make sure we have a productId otherwise don't reserve -->
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <set field="productId" from="orderItem.productId"/>
+            <if condition="!productId"><return/></if>
+            <set field="quantityRemaining" from="orderItem.quantity"/>
+
             <if condition="!productStore">
                 <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
                 <entity-find-related-one value-field="orderHeader" relationship-name="mantle.product.store.ProductStore"
@@ -72,11 +78,6 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- otherwise set assetOrderBy field based on reservationOrderEnumId -->
             <set field="resOrderEnum" from="productStore.'AssetReservationOrder#moqui.basic.Enumeration'"/>
             <set field="assetOrderBy" from="resOrderEnum?.enumCode ?: 'receivedDate'"/><!-- default: FIFO by received date -->
-
-            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
-            <set field="productId" from="orderItem.productId"/>
-
-            <set field="quantityRemaining" from="orderItem.quantity"/>
 
             <!-- if there are any existing reservations, deduct their quantity -->
             <entity-find entity-name="mantle.product.issuance.AssetReservation" list="existingResList">
