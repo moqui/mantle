@@ -465,18 +465,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="contactMechId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-make-value entity-name="mantle.party.contact.ContactMech" value-field="contactMech"
-                map="[contactMechTypeEnumId:'CmtEmailAddress', infoString:emailAddress]"/>
-            <entity-sequenced-id-primary value-field="contactMech"/>
-            <entity-create value-field="contactMech"/>
-
-            <if condition="partyId &amp;&amp; contactMechPurposeId">
-                <entity-make-value entity-name="mantle.party.contact.PartyContactMech" value-field="partyContactMech"
-                    map="[partyId:partyId, contactMechId:contactMech.contactMechId, contactMechPurposeId:contactMechPurposeId, fromDate:ec.user.nowTimestamp]"/>
-                <entity-create value-field="partyContactMech"/>
-            </if>
-
-            <set field="result.contactMechId" from="contactMech.contactMechId"/>
+            <service-call name="mantle.party.ContactServices.create#ContactMechOther" out-map="context"
+                    in-map="[infoString:emailAddress, contactMechTypeEnumId:'CmtEmailAddress',
+                        partyId:partyId, contactMechPurposeId:contactMechPurposeId]"/>
         </actions>
     </service>
     <service verb="get" noun="PrimaryEmailAddress">
@@ -506,6 +497,32 @@ This Work includes contributions authored by David E. Jones, not as a
     </service>
 
     <!-- Other ContactMech Services -->
+    <service verb="create" noun="ContactMechOther">
+        <in-parameters>
+            <parameter name="infoString" required="true"><text-email/></parameter>
+            <parameter name="contactMechTypeEnumId" required="true"/>
+
+            <parameter name="partyId"/>
+            <parameter name="contactMechPurposeId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contactMechId" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-make-value entity-name="mantle.party.contact.ContactMech" value-field="contactMech"
+                    map="[contactMechTypeEnumId:contactMechTypeEnumId, infoString:infoString]"/>
+            <entity-sequenced-id-primary value-field="contactMech"/>
+            <entity-create value-field="contactMech"/>
+
+            <if condition="partyId &amp;&amp; contactMechPurposeId">
+                <entity-make-value entity-name="mantle.party.contact.PartyContactMech" value-field="partyContactMech"
+                        map="[partyId:partyId, contactMechId:contactMech.contactMechId, contactMechPurposeId:contactMechPurposeId, fromDate:ec.user.nowTimestamp]"/>
+                <entity-create value-field="partyContactMech"/>
+            </if>
+
+            <set field="contactMechId" from="contactMech.contactMechId"/>
+        </actions>
+    </service>
     <service verb="update" noun="PartyContactOther">
         <description>
             Update 'Other' contact info (not PostalAddress or TelecomNumber) for a Party. ContactMech is immutable, so
