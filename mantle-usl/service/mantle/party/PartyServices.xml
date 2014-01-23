@@ -149,16 +149,34 @@ This Work includes contributions authored by David E. Jones, not as a
                     in-map="[infoString:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
         </actions>
     </service>
-    
+
+    <service verb="create" noun="Person">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.Person" include="nonpk"/>
+            <parameter name="firstName" required="true"/>
+            <parameter name="lastName" required="true"/>
+            <parameter name="roleTypeId"/>
+        </in-parameters>
+        <out-parameters><parameter name="partyId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PtyPerson']" out-map="context"/>
+            <service-call name="create#mantle.party.Person" in-map="context"/>
+
+            <if condition="roleTypeId">
+                <service-call name="create#mantle.party.PartyRole" in-map="[partyId:partyId, roleTypeId:roleTypeId]"/>
+            </if>
+        </actions>
+    </service>
     <service verb="create" noun="Organization">
         <in-parameters>
+            <auto-parameters entity-name="mantle.party.Organization" include="nonpk"/>
             <parameter name="organizationName" required="true"/>
             <parameter name="roleTypeId"/>
         </in-parameters>
         <out-parameters><parameter name="partyId"/></out-parameters>
         <actions>
             <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PtyOrganization']" out-map="context"/>
-            <service-call name="create#mantle.party.Organization" in-map="[partyId:partyId, organizationName:organizationName]"/>
+            <service-call name="create#mantle.party.Organization" in-map="context"/>
 
             <if condition="roleTypeId">
                 <service-call name="create#mantle.party.PartyRole" in-map="[partyId:partyId, roleTypeId:roleTypeId]"/>
