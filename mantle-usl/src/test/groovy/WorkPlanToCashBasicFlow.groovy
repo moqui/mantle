@@ -699,7 +699,7 @@ class WorkPlanToCashBasicFlow extends Specification {
     def "create Client Time and Expense Invoice and Finalize"() {
         when:
         clientInvResult = ec.service.sync().name("mantle.account.InvoiceServices.create#ProjectInvoiceItems")
-                .parameters([ratePurposeEnumId:'RaprClient', workEffortId:'TEST', thruDate:'2013-11-11 12:00:00']).call()
+                .parameters([ratePurposeEnumId:'RaprClient', workEffortId:'TEST', thruDate:new Timestamp(effectiveTime + 1)]).call()
         // this will trigger the GL posting
         ec.service.sync().name("update#mantle.account.invoice.Invoice")
                 .parameters([invoiceId:clientInvResult.invoiceId, statusId:'InvoiceFinalized']).call()
@@ -710,10 +710,10 @@ class WorkPlanToCashBasicFlow extends Specification {
                 fromPartyId="${vendorResult.partyId}" toPartyId="${clientResult.partyId}" statusId="InvoiceFinalized" invoiceDate="${effectiveTime}"
                 description="Invoice for projectTest Project [TEST] " currencyUomId="USD"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"
-                itemTypeEnumId="ItemTimeEntry" quantity="6" amount="60" itemDate="1383390000000"/>
+                itemTypeEnumId="ItemTimeEntry" quantity="6" amount="60" itemDate="${effectiveThruDate.time-(6*60*60*1000)}"/>
             <mantle.work.time.TimeEntry timeEntryId="55900" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="02"
-                itemTypeEnumId="ItemTimeEntry" quantity="1.5" amount="60" itemDate="1383404400000"/>
+                itemTypeEnumId="ItemTimeEntry" quantity="1.5" amount="60" itemDate="${effectiveThruDate.time-(2*60*60*1000)}"/>
             <mantle.work.time.TimeEntry timeEntryId="55901" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="02"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="03"
                 itemTypeEnumId="ItemTimeEntry" quantity="2" amount="60" itemDate="1383501600000"/>
