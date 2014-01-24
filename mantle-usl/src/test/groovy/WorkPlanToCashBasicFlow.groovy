@@ -30,6 +30,9 @@ class WorkPlanToCashBasicFlow extends Specification {
     Map vendorResult, workerResult, clientRateResult, vendorRateResult, clientResult, expInvResult, clientInvResult
     @Shared
     long effectiveTime = System.currentTimeMillis()
+    @Shared
+    Timestamp effectiveThruDate
+
 
     def setupSpec() {
         // init the framework, get the ec
@@ -37,9 +40,11 @@ class WorkPlanToCashBasicFlow extends Specification {
         ec.user.loginUser("john.doe", "moqui", null)
         // set an effective date so data check works, etc
         ec.user.setEffectiveTime(new Timestamp(effectiveTime))
+        effectiveThruDate = ec.l10n.parseTimestamp(ec.l10n.formatValue(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')
 
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.work.time.TimeEntry", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("moqui.entity.EntityAuditLog", 55900, 100)
     }
@@ -47,6 +52,7 @@ class WorkPlanToCashBasicFlow extends Specification {
     def cleanupSpec() {
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.work.time.TimeEntry")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc")
         ec.entity.tempResetSequencedIdPrimary("moqui.entity.EntityAuditLog")
         ec.destroy()
@@ -464,8 +470,6 @@ class WorkPlanToCashBasicFlow extends Specification {
         ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001A', statusId:'WeComplete', resolutionEnumId:'WerCompleted']).call()
         ec.service.sync().name("mantle.work.TaskServices.update#Task").parameters([workEffortId:'TEST-001B', statusId:'WeComplete', resolutionEnumId:'WerCompleted']).call()
 
-        Timestamp effectiveThruDate = ec.l10n.parseTimestamp(ec.l10n.formatValue(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')
-
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.work.effort.WorkEffort workEffortId="TEST-001" resolutionEnumId="WerCompleted" statusId="WeComplete"
@@ -591,7 +595,7 @@ class WorkPlanToCashBasicFlow extends Specification {
         // add worker/vendor time to the expense invoice
         ec.service.sync().name("mantle.account.InvoiceServices.create#ProjectInvoiceItems")
                 .parameters([invoiceId:expInvResult.invoiceId, workerPartyId:workerResult.partyId,
-                    ratePurposeEnumId:'RaprVendor', workEffortId:'TEST', thruDate:'2013-11-10 12:00:00']).call()
+                    ratePurposeEnumId:'RaprVendor', workEffortId:'TEST', thruDate:new Timestamp(effectiveTime + 1)]).call()
         // "submit" the expense/time invoice
         ec.service.sync().name("update#mantle.account.invoice.Invoice")
                 .parameters([invoiceId:expInvResult.invoiceId, statusId:'InvoiceReceived']).call()
@@ -605,16 +609,16 @@ class WorkPlanToCashBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.invoice.Invoice invoiceId="${expInvResult.invoiceId}" invoiceTypeEnumId="InvoiceSales" fromPartyId="${workerResult.partyId}"
-                toPartyId="${vendorResult.partyId}" statusId="InvoicePmtSent" invoiceDate="1383404400000" currencyUomId="USD"/>
+                toPartyId="${vendorResult.partyId}" statusId="InvoicePmtSent" invoiceDate="${effectiveTime}" currencyUomId="USD"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="01" itemTypeEnumId="ItemExpTravAir"
                 quantity="1" amount="345.67" description="United SFO-LAX" itemDate="1383368400000"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemExpTravLodging"
                 quantity="1" amount="123.45" description="Fleabag Inn 2 nights" itemDate="1383544800000"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="03" itemTypeEnumId="ItemTimeEntry"
-                quantity="6" amount="40" itemDate="1383390000000"/>
+                quantity="6" amount="40" itemDate="${effectiveThruDate.time-(6*60*60*1000)}"/>
             <mantle.work.time.TimeEntry timeEntryId="55900" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="03"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="04" itemTypeEnumId="ItemTimeEntry"
-                quantity="1.5" amount="40" itemDate="1383404400000"/>
+                quantity="1.5" amount="40" itemDate="${effectiveThruDate.time-(2*60*60*1000)}"/>
             <mantle.work.time.TimeEntry timeEntryId="55901" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="04"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="05" itemTypeEnumId="ItemTimeEntry"
                 quantity="2" amount="40" itemDate="1383501600000"/>
