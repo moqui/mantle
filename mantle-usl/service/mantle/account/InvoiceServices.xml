@@ -361,13 +361,14 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="toPartyId"/>
             <parameter name="invoiceTypeEnumId" default-value="InvoiceSales"/>
             <parameter name="statusId" default-value="InvoiceIncoming"/>
-            <parameter name="invoiceDate" type="Timestamp" default-value="${ec.user.nowTimestamp}"/>
+            <parameter name="invoiceDate" type="Timestamp"/>
             <parameter name="currencyUomId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
         </out-parameters>
         <actions>
+            <if condition="!invoiceDate"><set field="invoiceDate" from="ec.user.nowTimestamp"/></if>
             <if condition="!workEffortId &amp;&amp; !toPartyId">
                 <return error="true" message="Must specify either Project (workEffortId) or To Party (toPartyId)"/>
             </if>
@@ -457,6 +458,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find entity-name="mantle.work.effort.WorkEffort" list="taskWorkEffortList">
                 <econdition field-name="rootWorkEffortId" from="workEffortId" ignore-if-empty="true"/>
                 <econdition field-name="workEffortTypeEnumId" value="WetTask"/>
+                <order-by field-name="workEffortId"/>
             </entity-find>
             <set field="invoiceItemCreatedCount" from="0" type="Long"/>
             <iterate list="taskWorkEffortList" entry="taskWorkEffort">
