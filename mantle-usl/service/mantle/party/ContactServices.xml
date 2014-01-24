@@ -241,6 +241,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <auto-parameters entity-name="moqui.basic.GeoPoint" include="nonpk"/>
 
             <parameter name="partyId"/>
             <parameter name="contactMechPurposeId"/>
@@ -249,23 +250,16 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="contactMechId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-make-value entity-name="mantle.party.contact.ContactMech" value-field="contactMech"
-                    map="[contactMechTypeEnumId:'CmtPostalAddress']"/>
-            <entity-sequenced-id-primary value-field="contactMech"/>
-            <entity-create value-field="contactMech"/>
+            <if condition="latitude || elevation">
+                <service-call name="create#moqui.basic.GeoPoint" in-map="context" out-map="context"/></if>
 
-            <entity-make-value entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress"/>
-            <set field="postalAddress.contactMechId" from="contactMech.contactMechId"/>
-            <entity-set value-field="postalAddress" include="nonpk"/>
-            <entity-create value-field="postalAddress"/>
+            <service-call name="create#mantle.party.contact.ContactMech" out-map="context"
+                    in-map="context + [contactMechTypeEnumId:'CmtPostalAddress']"/>
+            <service-call name="create#mantle.party.contact.PostalAddress" in-map="context"/>
 
             <if condition="partyId &amp;&amp; contactMechPurposeId">
-                <entity-make-value entity-name="mantle.party.contact.PartyContactMech" value-field="partyContactMech"
-                    map="[partyId:partyId, contactMechId:contactMech.contactMechId, contactMechPurposeId:contactMechPurposeId, fromDate:ec.user.nowTimestamp]"/>
-                <entity-create value-field="partyContactMech"/>
-            </if>
-
-            <set field="result.contactMechId" from="contactMech.contactMechId"/>
+                <service-call name="create#mantle.party.contact.PartyContactMech"
+                        in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
         </actions>
     </service>
     <service verb="update" noun="PartyPostalAddress" type="inline">
