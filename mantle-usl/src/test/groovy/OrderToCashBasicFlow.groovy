@@ -18,6 +18,8 @@ import org.slf4j.LoggerFactory
 import spock.lang.Shared
 import spock.lang.Specification
 
+import java.sql.Timestamp
+
 /* To run these make sure moqui, and mantle are in place and run:
     "gradle cleanAll load runtime/mantle/mantle-usl:test"
    Or to quick run with saved DB copy use "gradle loadSave" once then each time "gradle reloadSave runtime/mantle/mantle-usl:test"
@@ -31,12 +33,14 @@ class OrderToCashBasicFlow extends Specification {
     String cartOrderId = null, orderPartSeqId
     @Shared
     Map setInfoOut, shipResult
+    @Shared
+    long effectiveTime = System.currentTimeMillis()
 
     def setupSpec() {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
-        // set an effective date so data check works, etc; Long value (when set from Locale of john.doe, US/Central, '2013-11-02 12:00:00.0'): 1383411600000
-        ec.user.setEffectiveTime(ec.l10n.parseTimestamp("1383411600000", null))
+        // set an effective date so data check works, etc
+        ec.user.setEffectiveTime(new Timestamp(effectiveTime))
 
         ec.entity.tempSetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55500, 10)
@@ -105,8 +109,6 @@ class OrderToCashBasicFlow extends Specification {
                 .parameters([orderId:cartOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_2_1', quantity:7,
                 customerPartyId:customerPartyId, currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
 
-        // TODO: add shipping charge
-
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:cartOrderId, paymentMethodId:'CustJqpCc', shippingPostalContactMechId:'CustJqpAddr',
                     shippingTelecomContactMechId:'CustJqpTeln', carrierPartyId:'_NA_', shipmentMethodEnumId:'ShMthGround']).call()
@@ -116,7 +118,7 @@ class OrderToCashBasicFlow extends Specification {
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.order.OrderHeader orderId="${cartOrderId}" entryDate="1383411600000" placedDate="1383411600000"
+            <mantle.order.OrderHeader orderId="${cartOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
                 statusId="OrderApproved" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="145.68"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentTypeEnumId="PtInvoicePayment"
@@ -126,7 +128,7 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55500"
                 paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoAuthorize"
                 paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="145.68" amountUomId="USD"
-                referenceNum="TEST" transactionDate="1383411600000" resultSuccess="Y" resultDeclined="N" resultNsf="N"
+                referenceNum="TEST" transactionDate="${effectiveTime}" resultSuccess="Y" resultDeclined="N" resultNsf="N"
                 resultBadExpire="N" resultBadCardNumber="N"/>
 
             <mantle.order.OrderPart orderId="${cartOrderId}" orderPartSeqId="01" vendorPartyId="ORG_BIZI_RETAIL"
@@ -165,8 +167,8 @@ class OrderToCashBasicFlow extends Specification {
                 facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
                 orderId="${cartOrderId}" orderItemSeqId="01" reservationOrderEnumId="AsResOrdFifoRec" quantity="1"
-                reservedDate="1383411600000" sequenceNum="0"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55500" assetId="DEMO_1_1A" effectiveDate="1383411600000"
+                reservedDate="${effectiveTime}" sequenceNum="0"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55500" assetId="DEMO_1_1A" effectiveDate="${effectiveTime}"
                 availableToPromiseDiff="-1" assetReservationId="55500" productId="DEMO_1_1"/>
 
             <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
@@ -174,18 +176,18 @@ class OrderToCashBasicFlow extends Specification {
                 availableToPromiseTotal="0" receivedDate="1265184000000" facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55501" assetId="DEMO_3_1A" productId="DEMO_3_1"
                 orderId="${cartOrderId}" orderItemSeqId="02" reservationOrderEnumId="AsResOrdFifoRec" quantity="5"
-                reservedDate="1383411600000" sequenceNum="0"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55501" assetId="DEMO_3_1A" effectiveDate="1383411600000"
+                reservedDate="${effectiveTime}" sequenceNum="0"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55501" assetId="DEMO_3_1A" effectiveDate="${effectiveTime}"
                 availableToPromiseDiff="-5" assetReservationId="55501" productId="DEMO_3_1"/>
 
             <!-- this is an auto-created Asset based on the inventory issuance -->
             <mantle.product.asset.Asset assetId="55500" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_BIZI_RETAIL" productId="DEMO_2_1" hasQuantity="Y" quantityOnHandTotal="0"
-                availableToPromiseTotal="-7" receivedDate="1383411600000" facilityId="ORG_BIZI_RETAIL_WH"/>
+                availableToPromiseTotal="-7" receivedDate="${effectiveTime}" facilityId="ORG_BIZI_RETAIL_WH"/>
             <mantle.product.issuance.AssetReservation assetReservationId="55502" assetId="55500" productId="DEMO_2_1"
                 orderId="${cartOrderId}" orderItemSeqId="03" reservationOrderEnumId="AsResOrdFifoRec"
-                quantity="7" quantityNotAvailable="7" reservedDate="1383411600000"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55502" assetId="55500" effectiveDate="1383411600000"
+                quantity="7" quantityNotAvailable="7" reservedDate="${effectiveTime}"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55502" assetId="55500" effectiveDate="${effectiveTime}"
                 availableToPromiseDiff="-7" assetReservationId="55502" productId="DEMO_2_1"/>
         </entity-facade-xml>""").check()
         logger.info("validate Asset Reservation data check results: " + dataCheckErrors)
@@ -263,7 +265,7 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" assetReservationId="55500"
                 orderId="${cartOrderId}" orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1"
                 quantity="1"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55503" assetId="DEMO_1_1A" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55503" assetId="DEMO_1_1A" effectiveDate="${effectiveTime}"
                 quantityOnHandDiff="-1" assetReservationId="55500" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetIssuanceId="55500"/>
 
@@ -271,7 +273,7 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55501" assetId="DEMO_3_1A" assetReservationId="55501"
                 orderId="${cartOrderId}" orderItemSeqId="02" shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1"
                 quantity="5"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55504" assetId="DEMO_3_1A" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55504" assetId="DEMO_3_1A" effectiveDate="${effectiveTime}"
                 quantityOnHandDiff="-5" assetReservationId="55501" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" assetIssuanceId="55501"/>
 
@@ -280,7 +282,7 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55502" assetId="55500" assetReservationId="55502"
                 orderId="${cartOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}" productId="DEMO_2_1"
                 quantity="7"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55505" assetId="55500" effectiveDate="1383411600000"
+            <mantle.product.asset.AssetDetail assetDetailId="55505" assetId="55500" effectiveDate="${effectiveTime}"
                 quantityOnHandDiff="-7" assetReservationId="55502" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_2_1" assetIssuanceId="55502"/>
         </entity-facade-xml>""").check()
@@ -295,8 +297,8 @@ class OrderToCashBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55500" acctgTransTypeEnumId="AttInventoryIssuance"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
-                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_1_1A"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
+                postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_1_1A"
                 assetIssuanceId="55500"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="7.5" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
@@ -306,8 +308,8 @@ class OrderToCashBasicFlow extends Specification {
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttInventoryIssuance"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
-                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_3_1A"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
+                postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_3_1A"
                 assetIssuanceId="55501"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="20" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
@@ -331,29 +333,29 @@ class OrderToCashBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and Finalized (status set by action in SECA rule), then Payment Received (status set by Payment application) -->
             <mantle.account.invoice.Invoice invoiceId="55500" invoiceTypeEnumId="InvoiceSales"
-                fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp" statusId="InvoicePmtRecvd" invoiceDate="1383411600000"
+                fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp" statusId="InvoicePmtRecvd" invoiceDate="${effectiveTime}"
                 description="Invoice for Order ${cartOrderId} part 01 and Shipment ${shipResult.shipmentId}" currencyUomId="USD"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55500" invoiceItemSeqId="01" itemTypeEnumId="ItemProduct"
-                productId="DEMO_1_1" quantity="1" amount="16.99" description="Demo Product One-One" itemDate="1383411600000"/>
+                productId="DEMO_1_1" quantity="1" amount="16.99" description="Demo Product One-One" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55500" orderId="${cartOrderId}" orderItemSeqId="01"
                 invoiceId="55500" invoiceItemSeqId="01" assetIssuanceId="55500" shipmentId="${shipResult.shipmentId}"
                 quantity="1" amount="16.99"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55500" invoiceItemSeqId="02" itemTypeEnumId="ItemProduct"
-                productId="DEMO_3_1" quantity="5" amount="7.77" description="Demo Product Three-One" itemDate="1383411600000"/>
+                productId="DEMO_3_1" quantity="5" amount="7.77" description="Demo Product Three-One" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55501" orderId="${cartOrderId}" orderItemSeqId="02"
                 invoiceId="55500" invoiceItemSeqId="02" assetIssuanceId="55501" shipmentId="${shipResult.shipmentId}"
                 quantity="5" amount="7.77"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55500" invoiceItemSeqId="03" itemTypeEnumId="ItemProduct"
-                productId="DEMO_2_1" quantity="7" amount="12.12" description="Demo Product Two-One" itemDate="1383411600000"/>
+                productId="DEMO_2_1" quantity="7" amount="12.12" description="Demo Product Two-One" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55502" orderId="${cartOrderId}" orderItemSeqId="03"
                 invoiceId="55500" invoiceItemSeqId="03" assetIssuanceId="55502" shipmentId="${shipResult.shipmentId}"
                 quantity="7" amount="12.12"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55500" invoiceItemSeqId="04" itemTypeEnumId="ItemShipping"
-                quantity="1" amount="5" description="Ground" itemDate="1383411600000"/>
+                quantity="1" amount="5" description="Ground" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55503" orderId="${cartOrderId}" orderItemSeqId="04"
                 invoiceId="55500" invoiceItemSeqId="04" shipmentId="${shipResult.shipmentId}" quantity="1" amount="5"/>
         </entity-facade-xml>""").check()
@@ -369,8 +371,8 @@ class OrderToCashBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Finalized Invoice -->
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55502" acctgTransTypeEnumId="AttSalesInvoice"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
-                postedDate="1383411600000" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
+                postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 invoiceId="55500"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="16.99" glAccountId="401000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
@@ -399,15 +401,15 @@ class OrderToCashBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"/>
             <mantle.account.payment.PaymentApplication paymentApplicationId="55500" paymentId="${setInfoOut.paymentId}"
-                invoiceId="55500" amountApplied="145.68" appliedDate="1383411600000"/>
+                invoiceId="55500" amountApplied="145.68" appliedDate="${effectiveTime}"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55501"
                 paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoCapture"
                 paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="145.68" amountUomId="USD"
-                referenceNum="TEST" transactionDate="1383411600000" resultSuccess="Y" resultDeclined="N" resultNsf="N"
+                referenceNum="TEST" transactionDate="${effectiveTime}" resultSuccess="Y" resultDeclined="N" resultNsf="N"
                 resultBadExpire="N" resultBadCardNumber="N"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55503" acctgTransTypeEnumId="AttIncomingPayment"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="1383411600000" isPosted="Y"
+                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 paymentId="${setInfoOut.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55503" acctgTransEntrySeqId="01" debitCreditFlag="C"
