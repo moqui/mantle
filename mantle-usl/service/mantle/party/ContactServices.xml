@@ -23,18 +23,24 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="telecomContactMechPurposeId"/>
             <parameter name="emailContactMechId"/>
             <parameter name="emailContactMechPurposeId"/>
+            <parameter name="otherContactMechId"/>
+            <parameter name="otherContactMechPurposeId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="postalContactMechId"/>
             <parameter name="postalContactMechPurposeId"/>
             <parameter name="postalAddress" type="org.moqui.entity.EntityValue"/>
             <parameter name="postalAddressStateGeo" type="org.moqui.entity.EntityValue"/>
+            <parameter name="postalAddressGeoPoint" type="org.moqui.entity.EntityValue"/>
             <parameter name="telecomContactMechId"/>
             <parameter name="telecomContactMechPurposeId"/>
             <parameter name="telecomNumber" type="org.moqui.entity.EntityValue"/>
             <parameter name="emailContactMechId"/>
             <parameter name="emailContactMechPurposeId"/>
             <parameter name="emailAddress"/>
+            <parameter name="otherContactMechId"/>
+            <parameter name="otherContactMechPurposeId"/>
+            <parameter name="otherInfoString"/>
         </out-parameters>
         <actions>
             <if condition="postalContactMechPurposeId || postalContactMechId">
@@ -53,6 +59,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     </entity-find-one>
                 </if>
                 <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
+                <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
             </if>
             <if condition="telecomContactMechPurposeId || telecomContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
@@ -87,6 +94,23 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="emailAddress" from="emailContactMech.infoString"/>
                 </if>
             </if>
+            <if condition="otherContactMechPurposeId || otherContactMechId">
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
+                    <date-filter/>
+                    <econdition field-name="partyId"/>
+                    <econdition field-name="contactMechId" from="otherContactMechId" ignore-if-empty="true"/>
+                    <econdition field-name="contactMechPurposeId" from="otherContactMechPurposeId" ignore-if-empty="true"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="otherPcmList">
+                    <set field="otherContactMechId" from="otherPcmList[0].contactMechId"/>
+                    <set field="otherContactMechPurposeId" from="otherPcmList[0].contactMechPurposeId"/>
+                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="otherContactMech">
+                        <field-map field-name="contactMechId" from="otherContactMechId"/>
+                    </entity-find-one>
+                    <set field="otherInfoString" from="otherContactMech.infoString"/>
+                </if>
+            </if>
             <!-- <log level="warn" message="get#PartyContactInfo finish context=${context.context}"/> -->
         </actions>
     </service>
@@ -103,6 +127,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <parameter name="postalContactMechPurposeId"/>
                 <parameter name="postalAddress" type="org.moqui.entity.EntityValue"/>
                 <parameter name="postalAddressStateGeo" type="org.moqui.entity.EntityValue"/>
+                <parameter name="postalAddressGeoPoint" type="org.moqui.entity.EntityValue"/>
             </parameter></parameter>
             <parameter name="telecomNumberList" type="List"><parameter name="infoMap">
                 <parameter name="telecomContactMechId"/>
@@ -130,9 +155,10 @@ This Work includes contributions authored by David E. Jones, not as a
                         <field-map field-name="contactMechId" from="postalContactMechId"/>
                     </entity-find-one>
                     <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
+                    <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
                     <set field="postalAddressInfo" from="[postalContactMechId:postalContactMechId,
                             postalContactMechPurposeId:postalContactMechPurposeId, postalAddress:postalAddress,
-                            postalAddressStateGeo:postalAddressStateGeo]"/>
+                            postalAddressStateGeo:postalAddressStateGeo, postalAddressGeoPoint:postalAddressGeoPoint]"/>
                     <script>postalAddressList.add(postalAddressInfo)</script>
                 </iterate>
             </if>
@@ -202,7 +228,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="postalContactMechId">
                 <service-call name="mantle.party.ContactServices.update#PartyPostalAddress" out-map="paOut"
                         in-map="context + [contactMechId:postalContactMechId, contactMechPurposeId:postalContactMechPurposeId]"/>
-                <else-if condition="address1 &amp;&amp; postalCode">
+                <else-if condition="address1 || city || postalCode">
                     <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
                             in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
                 </else-if>
@@ -234,7 +260,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
 
     <!-- PostalAddress Services -->
-    <service verb="create" noun="PostalAddress" type="inline">
+    <service verb="create" noun="PostalAddress">
         <description>
             Create a Postal Address (and the corresponding ContactMech record).
             If partyId and contactMechPurposeId are also passed will create a PartyContactMech record.
@@ -262,7 +288,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
         </actions>
     </service>
-    <service verb="update" noun="PartyPostalAddress" type="inline">
+    <service verb="update" noun="PartyPostalAddress">
         <description>
             Update a Postal Address for a Party. PostalAddress is immutable, so this creates a new one and associates
             it with the Party, expiring the old associations (PartyContactMech records).
@@ -275,6 +301,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <auto-parameters entity-name="moqui.basic.GeoPoint" include="nonpk"/>
 
             <parameter name="partyId" required="true"/>
             <parameter name="contactMechId" required="true"/>
@@ -285,11 +312,32 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="origPostalAddress"/>
-            <script>newPostalAddress = origPostalAddress.cloneValue()</script>
+
+            <!-- first handle the GeoPoint as a dependent record, getting an updated geoPointId if needed -->
+            <set field="geoPointId" from="origPostalAddress.geoPointId"/>
+            <if condition="geoPointId">
+                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="origGeoPoint"/>
+                <set field="newGeoPoint" from="origGeoPoint.cloneValue()"/>
+                <entity-set value-field="newGeoPoint" include="nonpk"/>
+                <if condition="newGeoPoint != origGeoPoint">
+                    <set field="newGeoPoint.geoPointId" from="null"/>
+                    <entity-sequenced-id-primary value-field="newGeoPoint"/>
+                    <entity-create value-field="newGeoPoint"/>
+                    <set field="geoPointId" from="newGeoPoint.geoPointId"/>
+                </if>
+
+                <else>
+                    <!-- this will get a geoPointId to set below on the PostalAddress -->
+                    <if condition="latitude || elevation">
+                        <service-call name="create#moqui.basic.GeoPoint" in-map="context" out-map="context"/></if>
+                </else>
+            </if>
+
+            <set field="newPostalAddress" from="origPostalAddress.cloneValue()"/>
             <entity-set value-field="newPostalAddress" include="nonpk"/>
             <if condition="newPostalAddress == origPostalAddress">
                 <log level="info" message="No fields were different for Postal Address with ID [${contactMechId}], not updating."/>
-                <return error="false"/>
+                <return/>
             </if>
 
             <entity-find entity-name="mantle.party.contact.PartyContactMech" list="origPcmList">
@@ -345,7 +393,7 @@ This Work includes contributions authored by David E. Jones, not as a
     </service>
 
     <!-- TelecomNumber Services -->
-    <service verb="create" noun="TelecomNumber" type="inline">
+    <service verb="create" noun="TelecomNumber">
         <description>
             Create a Telecom Number (and the corresponding ContactMech record).
             If partyId and contactMechPurposeId are also passed will create a PartyContactMech record.
@@ -380,7 +428,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="result.contactMechId" from="contactMech.contactMechId"/>
         </actions>
     </service>
-    <service verb="update" noun="PartyTelecomNumber" type="inline">
+    <service verb="update" noun="PartyTelecomNumber">
         <description>
             Update a Telecom Number for a Party. TelecomNumber is immutable, so this creates a new one and associates
             it with the Party, expiring the old associations (PartyContactMech records).
