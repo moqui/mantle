@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.3.xsd">
+
+<!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="get" noun="FacilityContactInfo">
+        <in-parameters>
+            <parameter name="facilityId" required="true"/>
+            <parameter name="postalContactMechId"/>
+            <parameter name="postalContactMechPurposeId"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="telecomContactMechPurposeId"/>
+            <parameter name="emailContactMechId"/>
+            <parameter name="emailContactMechPurposeId"/>
+            <parameter name="otherContactMechId"/>
+            <parameter name="otherContactMechPurposeId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="postalContactMechId"/>
+            <parameter name="postalContactMechPurposeId"/>
+            <parameter name="postalAddress" type="org.moqui.entity.EntityValue"/>
+            <parameter name="postalAddressStateGeo" type="org.moqui.entity.EntityValue"/>
+            <parameter name="postalAddressGeoPoint" type="org.moqui.entity.EntityValue"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="telecomContactMechPurposeId"/>
+            <parameter name="telecomNumber" type="org.moqui.entity.EntityValue"/>
+            <parameter name="emailContactMechId"/>
+            <parameter name="emailContactMechPurposeId"/>
+            <parameter name="emailAddress"/>
+            <parameter name="otherContactMechId"/>
+            <parameter name="otherContactMechPurposeId"/>
+            <parameter name="otherInfoString"/>
+        </out-parameters>
+        <actions>
+            <if condition="postalContactMechPurposeId || postalContactMechId">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="postalFcmList">
+                    <date-filter/>
+                    <econdition field-name="facilityId"/>
+                    <econdition field-name="contactMechId" from="postalContactMechId" ignore-if-empty="true"/>
+                    <econdition field-name="contactMechPurposeId" from="postalContactMechPurposeId" ignore-if-empty="true"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="postalFcmList">
+                    <set field="postalContactMechId" from="postalFcmList[0].contactMechId"/>
+                    <set field="postalContactMechPurposeId" from="postalFcmList[0].contactMechPurposeId"/>
+                    <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress">
+                        <field-map field-name="contactMechId" from="postalContactMechId"/>
+                    </entity-find-one>
+                </if>
+                <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
+                <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
+            </if>
+            <if condition="telecomContactMechPurposeId || telecomContactMechId">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="telecomFcmList">
+                    <date-filter/>
+                    <econdition field-name="facilityId"/>
+                    <econdition field-name="contactMechId" from="telecomContactMechId" ignore-if-empty="true"/>
+                    <econdition field-name="contactMechPurposeId" from="telecomContactMechPurposeId" ignore-if-empty="true"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="telecomFcmList">
+                    <set field="telecomContactMechId" from="telecomFcmList[0].contactMechId"/>
+                    <set field="telecomContactMechPurposeId" from="telecomFcmList[0].contactMechPurposeId"/>
+                    <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
+                        <field-map field-name="contactMechId" from="telecomContactMechId"/>
+                    </entity-find-one>
+                </if>
+            </if>
+            <if condition="emailContactMechPurposeId || emailContactMechId">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="emailFcmList">
+                    <date-filter/>
+                    <econdition field-name="facilityId"/>
+                    <econdition field-name="contactMechId" from="emailContactMechId" ignore-if-empty="true"/>
+                    <econdition field-name="contactMechPurposeId" from="emailContactMechPurposeId" ignore-if-empty="true"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="emailFcmList">
+                    <set field="emailContactMechId" from="emailFcmList[0].contactMechId"/>
+                    <set field="emailContactMechPurposeId" from="emailFcmList[0].contactMechPurposeId"/>
+                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
+                        <field-map field-name="contactMechId" from="emailContactMechId"/>
+                    </entity-find-one>
+                    <set field="emailAddress" from="emailContactMech.infoString"/>
+                </if>
+            </if>
+            <if condition="otherContactMechPurposeId || otherContactMechId">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="otherFcmList">
+                    <date-filter/>
+                    <econdition field-name="facilityId"/>
+                    <econdition field-name="contactMechId" from="otherContactMechId" ignore-if-empty="true"/>
+                    <econdition field-name="contactMechPurposeId" from="otherContactMechPurposeId" ignore-if-empty="true"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="otherFcmList">
+                    <set field="otherContactMechId" from="otherFcmList[0].contactMechId"/>
+                    <set field="otherContactMechPurposeId" from="otherFcmList[0].contactMechPurposeId"/>
+                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="otherContactMech">
+                        <field-map field-name="contactMechId" from="otherContactMechId"/>
+                    </entity-find-one>
+                    <set field="otherInfoString" from="otherContactMech.infoString"/>
+                </if>
+            </if>
+            <!-- <log level="warn" message="get#FacilityContactInfo finish context=${context.context}"/> -->
+        </actions>
+    </service>
+
+    <!-- NOTE: to create a PostalAddress for a Facility use mantle.party.ContactServices.create#PostalAddress -->
+    <service verb="update" noun="FacilityPostalAddress">
+        <description>
+            Update a Postal Address for a Facility. PostalAddress is immutable, so this creates a new one and associates
+            it with the Facility, expiring the old associations (FacilityContactMech records).
+
+            If a contactMechPurposeId is passed in it will only update for that purpose, otherwise it will update for
+            all purposes.
+
+            NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
+            directly on the ContactMech entity (do not use this service).
+        </description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <auto-parameters entity-name="moqui.basic.GeoPoint" include="nonpk"/>
+
+            <parameter name="facilityId" required="true"/>
+            <parameter name="contactMechId" required="true"/>
+            <parameter name="contactMechPurposeId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contactMechId" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="origPostalAddress"/>
+
+            <!-- first handle the GeoPoint as a dependent record, getting an updated geoPointId if needed -->
+            <set field="geoPointId" from="origPostalAddress.geoPointId"/>
+            <if condition="geoPointId">
+                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="origGeoPoint"/>
+                <set field="newGeoPoint" from="origGeoPoint.cloneValue()"/>
+                <entity-set value-field="newGeoPoint" include="nonpk"/>
+                <if condition="newGeoPoint != origGeoPoint">
+                    <set field="newGeoPoint.geoPointId" from="null"/>
+                    <entity-sequenced-id-primary value-field="newGeoPoint"/>
+                    <entity-create value-field="newGeoPoint"/>
+                    <set field="geoPointId" from="newGeoPoint.geoPointId"/>
+                </if>
+
+                <else>
+                    <!-- this will get a geoPointId to set below on the PostalAddress -->
+                    <if condition="latitude || elevation">
+                        <service-call name="create#moqui.basic.GeoPoint" in-map="context" out-map="context"/></if>
+                </else>
+            </if>
+
+            <set field="newPostalAddress" from="origPostalAddress.cloneValue()"/>
+            <entity-set value-field="newPostalAddress" include="nonpk"/>
+            <if condition="newPostalAddress == origPostalAddress">
+                <log level="info" message="No fields were different for Postal Address with ID [${contactMechId}], not updating."/>
+                <return/>
+            </if>
+
+            <entity-find entity-name="mantle.facility.FacilityContactMech" list="origFcmList">
+                <date-filter/>
+                <econdition field-name="facilityId"/>
+                <econdition field-name="contactMechId" from="contactMechId"/>
+                <econdition field-name="contactMechPurposeId" from="contactMechPurposeId" ignore-if-empty="true"/>
+            </entity-find>
+            <if condition="!origFcmList">
+                <return error="true" message="Postal Address with ID [${contactMechId}] is not associated with Facility ID [${facilityId}] and purpose [${contactMechPurposeId?:'N/A'}], not updating."/>
+            </if>
+
+            <!-- at this point we have at least one FCM, so create the updated PostalAddress and then expire/update the FCMs -->
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="newContactMech"/>
+            <set field="newContactMech.contactMechId" from="null"/>
+            <entity-sequenced-id-primary value-field="newContactMech"/>
+            <entity-create value-field="newContactMech"/>
+
+            <set field="newPostalAddress.contactMechId" from="newContactMech.contactMechId"/>
+            <entity-create value-field="newPostalAddress"/>
+
+            <iterate list="origFcmList" entry="origFcm">
+                <!-- expire origFcm, create new for new contactMechId -->
+                <set field="origFcm.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="origFcm"/>
+
+                <entity-make-value entity-name="mantle.facility.FacilityContactMech" value-field="newFcm"
+                        map="[facilityId:facilityId, contactMechId:newContactMech.contactMechId, fromDate:ec.user.nowTimestamp]"/>
+                <set field="newFcm.contactMechPurposeId" from="origFcm.contactMechPurposeId"/>
+                <set field="newFcm.extension" from="origFcm.extension"/>
+                <set field="newFcm.comments" from="origFcm.comments"/>
+                <entity-create value-field="newFcm"/>
+            </iterate>
+
+            <set field="result.contactMechId" from="newContactMech.contactMechId"/>
+        </actions>
+    </service>
+
+    <!-- NOTE: to create a TelecomNumber for a Facility use mantle.party.ContactServices.create#TelecomNumber -->
+    <service verb="update" noun="FacilityTelecomNumber">
+        <description>
+            Update a Telecom Number for a Facility. TelecomNumber is immutable, so this creates a new one and associates
+            it with the Facility, expiring the old associations (FacilityContactMech records).
+
+            If a contactMechPurposeId is passed in it will only update for that purpose, otherwise it will update for
+            all purposes.
+
+            NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
+            directly on the ContactMech entity (do not use this service).
+        </description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
+
+            <parameter name="facilityId" required="true"/>
+            <parameter name="contactMechId" required="true"/>
+            <parameter name="contactMechPurposeId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contactMechId" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="origTelecomNumber"/>
+            <script>newTelecomNumber = origTelecomNumber.cloneValue()</script>
+            <entity-set value-field="newTelecomNumber" include="nonpk"/>
+            <if condition="newTelecomNumber == origTelecomNumber">
+                <log level="info" message="No fields were different for Telecom Number with ID [${contactMechId}], not updating."/>
+                <return error="false"/>
+            </if>
+
+            <entity-find entity-name="mantle.facility.FacilityContactMech" list="origFcmList">
+                <date-filter/>
+                <econdition field-name="facilityId" from="facilityId"/>
+                <econdition field-name="contactMechId" from="contactMechId"/>
+                <econdition field-name="contactMechPurposeId" from="contactMechPurposeId" ignore-if-empty="true"/>
+            </entity-find>
+            <if condition="!origFcmList">
+                <return error="true" message="Telecom Number with ID [${contactMechId}] is not associated with Facility ID [${facilityId}] and purpose [${contactMechPurposeId?:'N/A'}], not updating."/>
+            </if>
+
+            <!-- at this point we have at least one FCM, so create the updated TelecomNumber and then expire/update the FCMs -->
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="newContactMech"/>
+            <set field="newContactMech.contactMechId" from="null"/>
+            <entity-sequenced-id-primary value-field="newContactMech"/>
+            <entity-create value-field="newContactMech"/>
+
+            <set field="newTelecomNumber.contactMechId" from="newContactMech.contactMechId"/>
+            <entity-create value-field="newTelecomNumber"/>
+
+            <iterate list="origFcmList" entry="origFcm">
+                <!-- expire origFcm, create new for new contactMechId -->
+                <set field="origFcm.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="origFcm"/>
+
+                <entity-make-value entity-name="mantle.facility.FacilityContactMech" value-field="newFcm"
+                        map="[facilityId:facilityId, contactMechId:newContactMech.contactMechId, fromDate:ec.user.nowTimestamp]"/>
+                <set field="newFcm.contactMechPurposeId" from="origFcm.contactMechPurposeId"/>
+                <set field="newFcm.extension" from="origFcm.extension"/>
+                <set field="newFcm.comments" from="origFcm.comments"/>
+                <entity-create value-field="newFcm"/>
+            </iterate>
+
+            <set field="result.contactMechId" from="newContactMech.contactMechId"/>
+        </actions>
+    </service>
+
+    <!-- NOTE: to create a EmailAddress for a Facility use mantle.party.ContactServices.create#EmailAddress -->
+    <!-- NOTE: to create a other type contact for a Facility use mantle.party.ContactServices.create#ContactMechOther -->
+    <service verb="update" noun="FacilityContactOther">
+        <description>
+            Update 'Other' contact info (not PostalAddress or TelecomNumber) for a Facility. ContactMech is immutable, so
+            this creates a new one and associates it with the Facility, expiring the old associations (FacilityContactMech
+            records).
+
+            If a contactMechPurposeId is passed in it will only update for that purpose, otherwise it will update for
+            all purposes.
+
+            NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
+            directly on the ContactMech entity (do not use this service).
+        </description>
+        <in-parameters>
+            <parameter name="infoString" required="true"/>
+
+            <parameter name="facilityId" required="true"/>
+            <parameter name="contactMechId"/>
+            <parameter name="contactMechPurposeId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contactMechId" required="true"/>
+        </out-parameters>
+        <actions>
+            <if condition="!contactMechId &amp;&amp; !contactMechPurposeId">
+                <return error="false" message="Must specify either a contactMechId or contactMechPurposeId (or both)."/>
+            </if>
+
+            <entity-find entity-name="mantle.facility.FacilityContactMech" list="origFcmList">
+                <date-filter/>
+                <econdition field-name="facilityId"/>
+                <econdition field-name="contactMechId" from="contactMechId" ignore-if-empty="true"/>
+                <econdition field-name="contactMechPurposeId" from="contactMechPurposeId" ignore-if-empty="true"/>
+            </entity-find>
+            <if condition="!origFcmList">
+                <log level="info" message="Contact Info with ID [${contactMechId}] is not associated with Facility ID [${facilityId}] and purpose [${contactMechPurposeId?:'N/A'}], not updating."/>
+                <return/>
+            </if>
+            <set field="contactMechId" from="contactMechId ?: origFcmList[0].contactMechId"/>
+
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="origContactMech"/>
+            <script>newContactMech = origContactMech.cloneValue()</script>
+            <set field="newContactMech.infoString" from="infoString"/>
+            <if condition="newContactMech == origContactMech">
+                <return error="false" message="No fields were different for Postal Address with ID [${contactMechId}], not updating."/>
+            </if>
+
+            <!-- at this point we have at least one FCM, so create the updated ContactMech and then expire/update the FCMs -->
+            <set field="newContactMech.contactMechId" from="null"/>
+            <entity-sequenced-id-primary value-field="newContactMech"/>
+            <entity-create value-field="newContactMech"/>
+
+            <iterate list="origFcmList" entry="origFcm">
+                <!-- expire origFcm, create new for new contactMechId -->
+                <set field="origFcm.thruDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="origFcm"/>
+
+                <entity-make-value entity-name="mantle.facility.FacilityContactMech" value-field="newFcm"
+                        map="[facilityId:facilityId, contactMechId:newContactMech.contactMechId, fromDate:ec.user.nowTimestamp]"/>
+                <set field="newFcm.contactMechPurposeId" from="origFcm.contactMechPurposeId"/>
+                <set field="newFcm.extension" from="origFcm.extension"/>
+                <set field="newFcm.comments" from="origFcm.comments"/>
+                <entity-create value-field="newFcm"/>
+            </iterate>
+
+            <set field="result.contactMechId" from="newContactMech.contactMechId"/>
+        </actions>
+    </service>
+
+    <service verb="delete" noun="FacilityContactMech">
+        <description>Delete service for all types of ContactMech, actually expires FacilityContactMech record.</description>
+        <in-parameters>
+            <parameter name="facilityId" required="true"/>
+            <parameter name="contactMechId" required="true"/>
+            <parameter name="contactMechPurposeId"/>
+        </in-parameters>
+        <actions>
+            <script><![CDATA[
+                def ef = ec.entity.makeFind("mantle.facility.FacilityContactMech")
+                ef.condition([facilityId:facilityId, contactMechId:contactMechId])
+                if (contactMechPurposeId) ef.condition("contactMechPurposeId", contactMechPurposeId)
+                ef.updateAll([thruDate:ec.user.getNowTimestamp()])
+                ]]></script>
+        </actions>
+    </service>
+</services>
