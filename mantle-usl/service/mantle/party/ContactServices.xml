@@ -208,6 +208,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="postalContactMechId"/>
             <parameter name="postalContactMechPurposeId"/>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <auto-parameters entity-name="moqui.basic.GeoPoint" include="nonpk"/>
 
             <parameter name="telecomContactMechId"/>
             <parameter name="telecomContactMechPurposeId"/>
@@ -218,11 +219,17 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="emailContactMechId"/>
             <parameter name="emailContactMechPurposeId"/>
             <parameter name="emailAddress"><text-email/></parameter>
+
+            <parameter name="otherContactMechId"/>
+            <parameter name="otherContactMechTypeEnumId"/>
+            <parameter name="otherContactMechPurposeId"/>
+            <parameter name="otherInfoString"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="postalContactMechId" required="true"/>
-            <parameter name="telecomContactMechId" required="true"/>
-            <parameter name="emailContactMechId" required="true"/>
+            <parameter name="postalContactMechId"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="emailContactMechId"/>
+            <parameter name="otherContactMechId"/>
         </out-parameters>
         <actions>
             <if condition="postalContactMechId">
@@ -255,6 +262,18 @@ This Work includes contributions authored by David E. Jones, not as a
                 </else-if>
             </if>
             <set field="emailContactMechId" from="emOut?.contactMechId ?: emailContactMechId"/>
+
+            <if condition="otherContactMechId">
+                <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="otherOut"
+                        in-map="[infoString:otherInfoString, partyId:partyId, contactMechId:otherContactMechId,
+                            contactMechPurposeId:otherContactMechPurposeId]"/>
+                <else-if condition="otherInfoString">
+                    <service-call name="mantle.party.ContactServices.create#ContactMechOther" out-map="otherOut"
+                            in-map="context + [infoString:otherInfoString, contactMechTypeEnumId:otherContactMechTypeEnumId,
+                                contactMechPurposeId:otherContactMechPurposeId]"/>
+                </else-if>
+            </if>
+            <set field="otherContactMechId" from="otherOut?.contactMechId ?: otherContactMechId"/>
         </actions>
     </service>
 
@@ -270,6 +289,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <auto-parameters entity-name="moqui.basic.GeoPoint" include="nonpk"/>
 
             <parameter name="partyId"/>
+            <parameter name="facilityId"/>
             <parameter name="contactMechPurposeId"/>
         </in-parameters>
         <out-parameters>
@@ -285,6 +305,9 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <if condition="partyId &amp;&amp; contactMechPurposeId">
                 <service-call name="create#mantle.party.contact.PartyContactMech"
+                        in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
+            <if condition="facilityId &amp;&amp; contactMechPurposeId">
+                <service-call name="create#mantle.facility.FacilityContactMech"
                         in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
         </actions>
     </service>
@@ -402,6 +425,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
 
             <parameter name="partyId"/>
+            <parameter name="facilityId"/>
             <parameter name="contactMechPurposeId"/>
         </in-parameters>
         <out-parameters>
@@ -412,6 +436,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     map="[contactMechTypeEnumId:'CmtTelecomNumber']"/>
             <entity-sequenced-id-primary value-field="contactMech"/>
             <entity-create value-field="contactMech"/>
+            <set field="contactMechId" from="contactMech.contactMechId"/>
 
             <entity-make-value entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber"/>
             <set field="telecomNumber.contactMechId" from="contactMech.contactMechId"/>
@@ -419,13 +444,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-create value-field="telecomNumber"/>
 
             <if condition="partyId &amp;&amp; contactMechPurposeId">
-                <entity-make-value entity-name="mantle.party.contact.PartyContactMech" value-field="partyContactMech"
-                    map="[partyId:partyId, contactMechId:contactMech.contactMechId,
-                        contactMechPurposeId:contactMechPurposeId, fromDate:ec.user.nowTimestamp]"/>
-                <entity-create value-field="partyContactMech"/>
-            </if>
-
-            <set field="result.contactMechId" from="contactMech.contactMechId"/>
+                <service-call name="create#mantle.party.contact.PartyContactMech"
+                        in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
+            <if condition="facilityId &amp;&amp; contactMechPurposeId">
+                <service-call name="create#mantle.facility.FacilityContactMech"
+                        in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
         </actions>
     </service>
     <service verb="update" noun="PartyTelecomNumber">
@@ -501,6 +524,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="emailAddress" required="true"><text-email/></parameter>
 
             <parameter name="partyId"/>
+            <parameter name="facilityId"/>
             <parameter name="contactMechPurposeId"/>
         </in-parameters>
         <out-parameters>
@@ -509,7 +533,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <service-call name="mantle.party.ContactServices.create#ContactMechOther" out-map="context"
                     in-map="[infoString:emailAddress, contactMechTypeEnumId:'CmtEmailAddress',
-                        partyId:partyId, contactMechPurposeId:contactMechPurposeId]"/>
+                        partyId:partyId, facilityId:facilityId, contactMechPurposeId:contactMechPurposeId]"/>
         </actions>
     </service>
     <service verb="get" noun="PrimaryEmailAddress">
@@ -545,6 +569,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="contactMechTypeEnumId" required="true"/>
 
             <parameter name="partyId"/>
+            <parameter name="facilityId"/>
             <parameter name="contactMechPurposeId"/>
         </in-parameters>
         <out-parameters>
@@ -555,14 +580,14 @@ This Work includes contributions authored by David E. Jones, not as a
                     map="[contactMechTypeEnumId:contactMechTypeEnumId, infoString:infoString]"/>
             <entity-sequenced-id-primary value-field="contactMech"/>
             <entity-create value-field="contactMech"/>
+            <set field="contactMechId" from="contactMech.contactMechId"/>
 
             <if condition="partyId &amp;&amp; contactMechPurposeId">
-                <entity-make-value entity-name="mantle.party.contact.PartyContactMech" value-field="partyContactMech"
-                        map="[partyId:partyId, contactMechId:contactMech.contactMechId, contactMechPurposeId:contactMechPurposeId, fromDate:ec.user.nowTimestamp]"/>
-                <entity-create value-field="partyContactMech"/>
-            </if>
-
-            <set field="contactMechId" from="contactMech.contactMechId"/>
+                <service-call name="create#mantle.party.contact.PartyContactMech"
+                        in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
+            <if condition="facilityId &amp;&amp; contactMechPurposeId">
+                <service-call name="create#mantle.facility.FacilityContactMech"
+                        in-map="context + [fromDate:ec.user.nowTimestamp]"/></if>
         </actions>
     </service>
     <service verb="update" noun="PartyContactOther">
@@ -634,8 +659,8 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
-    <!-- General "Delete" Service -->
     <service verb="delete" noun="PartyContactMech">
+        <description>Delete service for all types of ContactMech, actually expires PartyContactMech record.</description>
         <in-parameters>
             <parameter name="partyId" required="true"/>
             <parameter name="contactMechId" required="true"/>
