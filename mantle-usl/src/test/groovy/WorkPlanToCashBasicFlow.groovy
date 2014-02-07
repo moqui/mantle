@@ -42,6 +42,8 @@ class WorkPlanToCashBasicFlow extends Specification {
         ec.user.setEffectiveTime(new Timestamp(effectiveTime))
         effectiveThruDate = ec.l10n.parseTimestamp(ec.l10n.formatValue(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')
 
+        ec.entity.tempSetSequencedIdPrimary("moqui.security.UserAccount", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.party.Party", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.work.time.TimeEntry", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55900, 10)
@@ -50,6 +52,8 @@ class WorkPlanToCashBasicFlow extends Specification {
     }
 
     def cleanupSpec() {
+        ec.entity.tempResetSequencedIdPrimary("moqui.security.UserAccount")
+        ec.entity.tempResetSequencedIdPrimary("mantle.party.Party")
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.work.time.TimeEntry")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
@@ -281,13 +285,13 @@ class WorkPlanToCashBasicFlow extends Specification {
                 fromRoleTypeId="ClientBilling" toPartyId="${clientResult.partyId}" toRoleTypeId="CustomerBillTo" fromDate="${effectiveTime}"/>
 
             <moqui.entity.EntityAuditLog auditHistorySeqId="55906" changedEntityName="moqui.security.UserAccount"
-                changedFieldName="username" pkPrimaryValue="100002" newValueText="client.rep" changedDate="${effectiveTime}"
+                changedFieldName="username" pkPrimaryValue="55902" newValueText="client.rep" changedDate="${effectiveTime}"
                 changedByUserId="EX_JOHN_DOE"/>
             <moqui.entity.EntityAuditLog auditHistorySeqId="55907" changedEntityName="mantle.party.Party"
-                changedFieldName="disabled" pkPrimaryValue="100004" newValueText="N" changedDate="${effectiveTime}"
+                changedFieldName="disabled" pkPrimaryValue="55904" newValueText="N" changedDate="${effectiveTime}"
                 changedByUserId="EX_JOHN_DOE"/>
             <moqui.entity.EntityAuditLog auditHistorySeqId="55908" changedEntityName="mantle.party.Person"
-                changedFieldName="lastName" pkPrimaryValue="100004" newValueText="TestRep" changedDate="${effectiveTime}"
+                changedFieldName="lastName" pkPrimaryValue="55904" newValueText="TestRep" changedDate="${effectiveTime}"
                 changedByUserId="EX_JOHN_DOE"/>
 
         </entity-facade-xml>""").check()
