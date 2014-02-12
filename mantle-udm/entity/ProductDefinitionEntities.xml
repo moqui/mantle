@@ -32,6 +32,7 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="Product" package-name="mantle.product">
         <field name="productId" type="id" is-pk="true"/>
         <field name="productTypeEnumId" type="id"/>
+        <field name="statusId" type="id"/>
 
         <field name="productName" type="text-medium"/>
         <field name="description" type="text-long"/>
@@ -52,9 +53,9 @@ and those parts may be licensed under the Apache License 2.0.
             passed to the tax calculation gateway.</description></field>
         <field name="returnable" type="text-indicator"/>
 
-        <field name="requireAmount" type="text-indicator"/>
-        <field name="amountUomTypeId" type="id"/>
-        <field name="fixedAmount" type="currency-amount"><description>For products which are sold in fixed denominations, such as gift certificates or calling cards.</description></field>
+        <field name="amountUomId" type="id"/>
+        <field name="amountFixed" type="currency-amount"><description>For products with fixed amounts such as gift certificate amounts, rope lengths, etc.</description></field>
+        <field name="amountRequire" type="text-indicator"><description>Require an amount in addition to quantity on orders/etc.</description></field>
 
         <field name="originGeoId" type="id"/>
         <field name="billOfMaterialLevel" type="number-integer"/>
@@ -62,6 +63,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="ProductType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="productTypeEnumId"/>
         </relationship>
+        <relationship type="one" title="Product" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="RequirementMethod" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="requirementMethodEnumId"/>
         </relationship>
@@ -71,6 +73,10 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Default" related-entity-name="ShipmentBoxType">
             <key-map field-name="defaultShipmentBoxTypeId"/>
         </relationship>
+        <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="amountUomId"/>
+        </relationship>
+
         <seed-data>
             <!-- Product Type -->
             <moqui.basic.EnumerationType description="Product Type" enumTypeId="ProductType"/>
@@ -86,6 +92,9 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Marketing Package: Manufactured" parentEnumId="PtPhysical" enumId="PtMktPkgManufactured" enumTypeId="ProductType"/>
             <moqui.basic.Enumeration description="Marketing Package: Pick Assembly" parentEnumId="PtPhysical" enumId="PtMktPkgPickAssembly" enumTypeId="ProductType"/>
             <moqui.basic.Enumeration description="Configurable Good" parentEnumId="PtPhysical" enumId="PtConfigurableGood" enumTypeId="ProductType"/>
+
+            <!-- Product Status -->
+            <moqui.basic.StatusType description="Product" statusTypeId="Product"/>
         </seed-data>
     </entity>
     <entity entity-name="ProductAssoc" package-name="mantle.product">
