@@ -71,9 +71,10 @@ This Work includes contributions authored by David E. Jones, not as a
             At the end this optionally logs in the user (for this to work it must be run locally).
         </description>
         <in-parameters>
+            <auto-parameters entity-name="mantle.party.Person" include="nonpk"/>
             <parameter name="firstName" required="true"/>
-            <parameter name="middleName"/>
             <parameter name="lastName" required="true"/>
+
             <parameter name="disabled" default-value="N"/>
 
             <parameter name="emailAddress" required="true"><text-email/></parameter>
@@ -95,7 +96,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <!-- do this first to get a password validation ASAP -->
-            <if condition="newPassword">
+            <if condition="username">
                 <set field="userFullName" value="${firstName} ${middleName? middleName + ' ' : ''}${lastName}"/>
                 <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
                 <set field="userId" from="newUaOut.userId"/>
@@ -103,15 +104,14 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <service-call name="create#mantle.party.Party" in-map="[partyTypeEnumId:'PtyPerson', disabled:disabled]" out-map="newPartyOut"/>
             <set field="partyId" from="newPartyOut.partyId"/>
-            <service-call name="create#mantle.party.Person"
-                    in-map="[partyId:partyId, firstName:firstName, middleName:middleName, lastName:lastName]"/>
+            <service-call name="create#mantle.party.Person" in-map="context"/>
 
             <!-- add the emailAddress -->
             <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emailOut"
                     in-map="[emailAddress:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
             <set field="emailContactMechId" from="emailOut.contactMechId"/>
 
-            <if condition="newPassword">
+            <if condition="username">
                 <!-- add the partyId to the UserAccount -->
                 <service-call name="update#UserAccount" in-map="[userId:newUaOut.userId, partyId:newPartyOut.partyId]"/>
                 <if condition="userGroupId">
@@ -129,9 +129,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="partyId" required="true"/>
-            <parameter name="firstName"/>
-            <parameter name="middleName"/>
-            <parameter name="lastName"/>
+            <auto-parameters entity-name="mantle.party.Person" include="nonpk"/>
+
             <parameter name="disabled"/>
 
             <parameter name="emailAddress"><text-email/></parameter>
@@ -142,6 +141,12 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="timeZone"/>
         </in-parameters>
         <actions>
+            <if condition="!userId">
+                <entity-find entity-name="moqui.security.UserAccount" list="userAccountList">
+                    <econdition field-name="partyId"/>
+                </entity-find>
+                <if condition="userAccountList"><set field="userId" from="userAccountList[0].userId"/></if>
+            </if>
             <if condition="userId"><service-call name="update#moqui.security.UserAccount" in-map="context"/></if>
             <service-call name="update#mantle.party.Party" in-map="context"/>
             <service-call name="update#mantle.party.Person" in-map="context"/>
