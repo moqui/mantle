@@ -37,6 +37,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="requestDate" type="date-time"/>
         <field name="responseRequiredDate" type="date-time"/>
         <field name="requestResolutionEnumId" type="id"/>
+        <field name="facilityId" type="id"/>
         <field name="productStoreId" type="id"/>
         <field name="salesChannelEnumId" type="id"/>
         <field name="fulfillContactMechId" type="id"><description>Where to send the results of the request.</description></field>
@@ -52,11 +53,12 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="RequestResolution" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="requestResolutionEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="ProductStore"/>
+        <relationship type="one" related-entity-name="mantle.product.store.ProductStore"/>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
         <relationship type="one" title="SalesChannel" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="salesChannelEnumId"/>
         </relationship>
-        <relationship type="one" title="Fulfill" related-entity-name="ContactMech">
+        <relationship type="one" title="Fulfill" related-entity-name="mantle.party.contact.ContactMech">
             <key-map field-name="fulfillContactMechId"/>
         </relationship>
         <relationship type="one" title="MaximumAmount" related-entity-name="moqui.basic.Uom">
@@ -135,9 +137,20 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="RequestContent" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
         <field name="contentLocation" type="text-medium" is-pk="true"/>
+        <field name="requestContentTypeEnumId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="mantle.request.Request"/>
+        <relationship type="one" title="RequestContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="requestContentTypeEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- Facility Content Type -->
+            <moqui.basic.EnumerationType description="Request Content Type" enumTypeId="RequestContentType"/>
+            <moqui.basic.Enumeration description="Internal Content" enumId="RqCntInternal" enumTypeId="RequestContentType"/>
+            <moqui.basic.Enumeration description="User Defined Content"  enumId="RqCntUserDefined" enumTypeId="RequestContentType"/>
+            <moqui.basic.Enumeration description="Image URL"  enumId="RqCntImageUrl" enumTypeId="RequestContentType"/>
+        </seed-data>
     </entity>
     <entity entity-name="RequestItem" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
@@ -152,7 +165,23 @@ and those parts may be licensed under the Apache License 2.0.
 
         <relationship type="one" related-entity-name="mantle.request.Request"/>
         <relationship type="one" title="Request" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+    </entity>
+    <entity entity-name="RequestItemOrder" package-name="mantle.request">
+        <field name="requestItemOrderId" type="id" is-pk="true"/>
+        <field name="requestId" type="id"/>
+        <field name="requestItemSeqId" type="id"/>
+        <field name="orderId" type="id"/>
+        <field name="orderItemSeqId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="mantle.request.RequestItem">
+            <key-map field-name="requestId"/>
+            <key-map field-name="requestItemSeqId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.order.OrderItem">
+            <key-map field-name="orderId"/>
+            <key-map field-name="orderItemSeqId"/>
+        </relationship>
     </entity>
     <entity entity-name="RequestNote" package-name="mantle.request">
         <field name="requestId" type="id" is-pk="true"/>
