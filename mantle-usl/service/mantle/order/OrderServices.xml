@@ -115,6 +115,10 @@ h2. General Order Placement and eCommerce Usage
         <in-parameters>
             <parameter name="orderName"/>
 
+            <parameter name="statusId" default-value="OrderOpen">
+                <description>The initial statusId for both header and part.</description></parameter>
+            <parameter name="entryDate" default="ec.user.nowTimestamp"/>
+            <parameter name="visitId" default="ec.user.visitId"/>
             <parameter name="currencyUomId" default-value="USD"/>
             <parameter name="billingAccountId"/>
             <parameter name="productStoreId"/>
@@ -135,29 +139,14 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
-            <!-- always use Open initially, for both header and part -->
-            <set field="statusId" value="OrderOpen"/>
-
-            <entity-make-value entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
-            <entity-set value-field="orderHeader" include="nonpk"/>
-            <set field="orderHeader.entryDate" from="ec.user.nowTimestamp"/>
-            <set field="orderHeader.visitId" from="ec.user.visitId"/>
-            <entity-sequenced-id-primary value-field="orderHeader"/>
-            <entity-create value-field="orderHeader"/>
-
-            <entity-make-value entity-name="mantle.order.OrderPart" value-field="orderPart"/>
-            <entity-set value-field="orderPart" include="nonpk"/>
-            <set field="orderPart.orderId" from="orderHeader.orderId"/>
-            <entity-sequenced-id-secondary value-field="orderPart"/>
-            <entity-create value-field="orderPart"/>
-
-            <set field="result.orderId" from="orderHeader.orderId"/>
-            <set field="result.orderPartSeqId" from="orderPart.orderPartSeqId"/>
+            <service-call name="create#mantle.order.OrderHeader" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.order.OrderPart" in-map="context" out-map="context"/>
         </actions>
     </service>
     <service verb="create" noun="OrderPart">
         <in-parameters>
             <parameter name="orderId" required="true"/>
+            <parameter name="statusId" default-value="OrderOpen"/>
 
             <parameter name="vendorPartyId"/>
             <parameter name="customerPartyId"/>
@@ -167,13 +156,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
-            <entity-make-value entity-name="mantle.order.OrderPart" value-field="orderPart"/>
-            <entity-set value-field="orderHeader" include="nonpk"/>
-            <set field="orderPart.orderId" from="orderHeader.orderId"/>
-            <entity-sequenced-id-secondary value-field="orderPart"/>
-            <entity-create value-field="orderPart"/>
-
-            <set field="result.orderPartSeqId" from="orderPart.orderPartSeqId"/>
+            <service-call name="create#mantle.order.OrderPart" in-map="context" out-map="context"/>
         </actions>
     </service>
 
