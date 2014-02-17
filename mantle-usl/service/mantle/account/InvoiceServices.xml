@@ -119,6 +119,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="statusId"><description>If specified after create set to this statusId (always created
                 initially in InvoiceInProcess or InvoiceIncoming, so there must be a transition to specified status).</description></parameter>
+            <parameter name="invoiceDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <out-parameters><parameter name="invoiceId"/></out-parameters>
         <actions>
@@ -135,7 +136,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
                     in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:initialStatusId,
                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
-                        invoiceDate:ec.user.nowTimestamp, currencyUomId:orderHeader.currencyUomId,
+                        invoiceDate:invoiceDate, currencyUomId:orderHeader.currencyUomId,
                         description:description]"/>
 
             <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
@@ -196,6 +197,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="shipmentId" required="true"/>
             <parameter name="statusId"><description>If specified after create set to this statusId (always created
                 initially in InvoiceInProcess, so there must be a transition to specified status).</description></parameter>
+            <parameter name="invoiceDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <out-parameters><parameter name="invoiceIdByOrderPartIdMap" type="Map"/></out-parameters>
         <actions>
@@ -222,7 +224,7 @@ This Work includes contributions authored by David E. Jones, not as a
                             <service-call name="create#mantle.account.invoice.Invoice" out-map="invOut"
                                     in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
                                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
-                                        invoiceDate:ec.user.nowTimestamp, currencyUomId:orderHeader.currencyUomId,
+                                        invoiceDate:invoiceDate, currencyUomId:orderHeader.currencyUomId,
                                         description:description]"/>
                             <set field="invoiceId" from="invOut.invoiceId"/>
                             <script>invoiceIdByOrderPartIdMap.put(orderItem.orderId + ':' + orderItem.orderPartSeqId, invoiceId)</script>
@@ -361,14 +363,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="toPartyId"/>
             <parameter name="invoiceTypeEnumId" default-value="InvoiceSales"/>
             <parameter name="statusId" default-value="InvoiceIncoming"/>
-            <parameter name="invoiceDate" type="Timestamp"/>
+            <parameter name="invoiceDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="currencyUomId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
         </out-parameters>
         <actions>
-            <if condition="!invoiceDate"><set field="invoiceDate" from="ec.user.nowTimestamp"/></if>
             <if condition="!workEffortId &amp;&amp; !toPartyId">
                 <return error="true" message="Must specify either Project (workEffortId) or To Party (toPartyId)"/>
             </if>
@@ -400,8 +401,9 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="invoiceId"><description>If specified add item(s) to this Invoice. If empty an Invoice will be created.</description></parameter>
             <parameter name="workEffortId" required="true"/>
-            <parameter name="thruDate" type="Timestamp" default-value="${ec.user.nowTimestamp}">
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp">
                 <description>Only TimeEntry records before this date will be included. Defaults to now.</description></parameter>
+            <parameter name="invoiceDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="currencyUomId"/>
             <parameter name="ratePurposeEnumId" default-value="RaprClient"/>
             <parameter name="workerPartyId"><description>If specified only include time entries and expenses from this Party.</description></parameter>
@@ -440,13 +442,13 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
                             in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
                                 fromPartyId:billFromWep?.partyId, toPartyId:billToWep?.partyId,
-                                invoiceDate:ec.user.nowTimestamp, currencyUomId:currencyUomId, description:description]"/>
+                                invoiceDate:invoiceDate, currencyUomId:currencyUomId, description:description]"/>
 
                     <else>
                         <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
                                 in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceIncoming',
                                     fromPartyId:workerPartyId, toPartyId:billFromWep?.partyId,
-                                    invoiceDate:ec.user.nowTimestamp, currencyUomId:currencyUomId, description:description]"/>
+                                    invoiceDate:invoiceDate, currencyUomId:currencyUomId, description:description]"/>
                     </else>
                 </if>
             </if>
@@ -508,7 +510,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="invoiceId" required="true"/>
             <parameter name="workEffortId"><description>If specified get TimeEntry records constrained on it. Generally a task ID.</description></parameter>
             <parameter name="timesheetId"><description>If specified get TimeEntry records constrained on it.</description></parameter>
-            <parameter name="thruDate" type="Timestamp" default-value="${ec.user.nowTimestamp}">
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp">
                 <description>Only TimeEntry records before this date will be included. Defaults to now.</description></parameter>
             <parameter name="createSingleItem" type="Boolean" default-value="false"/>
             <parameter name="currencyUomId" default-value="USD"/>
