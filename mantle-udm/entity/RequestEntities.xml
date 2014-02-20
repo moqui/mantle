@@ -81,6 +81,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration enumId="RqtQuote" description="Quote" enumTypeId="RequestType"/>
             <moqui.basic.Enumeration enumId="RqtSupport" description="Support" enumTypeId="RequestType"/>
             <moqui.basic.Enumeration enumId="RqtInventory" description="Inventory" enumTypeId="RequestType"/>
+            <moqui.basic.Enumeration enumId="RqtPurchase" description="Purchase" enumTypeId="RequestType"/>
 
             <!-- Request Status -->
             <moqui.basic.StatusType description="Request Status" statusTypeId="Request"/>
@@ -170,14 +171,37 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="requiredByDate" type="date-time"/>
         <field name="productId" type="id"/>
         <field name="quantity" type="number-decimal"/>
-        <field name="selectedAmount" type="number-decimal"/>
-        <field name="maximumAmount" type="currency-amount"/>
+        <field name="selectedAmount" type="number-decimal"><description>When Product.amountRequire=Y the amount goes here to supplement the quantity.</description></field>
+        <field name="maximumAmount" type="currency-amount"><description>The maximum amount (price) to pay for the item.</description></field>
         <field name="description" type="text-medium"/>
+        <field name="supplierPartyId" type="id"/>
 
         <relationship type="one" related-entity-name="mantle.request.Request"/>
         <relationship type="one" title="Request" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" title="Supplier" related-entity-name="mantle.party.Party">
+            <key-map field-name="supplierPartyId"/>
+        </relationship>
     </entity>
+    <entity entity-name="RequestItemAssoc" package-name="mantle.request">
+        <field name="requestId" type="id" is-pk="true"/>
+        <field name="requestItemSeqId" type="id" is-pk="true"/>
+        <field name="otherRequestId" type="id" is-pk="true"/>
+        <field name="otherRequestItemSeqId" type="id" is-pk="true"/>
+        <field name="quantity" type="number-decimal"/>
+        <relationship type="one" related-entity-name="mantle.request.RequestItem"/>
+        <relationship type="one" title="Other" related-entity-name="mantle.request.RequestItem">
+            <key-map field-name="otherRequestId" related-field-name="requestId"/>
+            <key-map field-name="otherRequestItemSeqId" related-field-name="requestItemSeqId"/>
+        </relationship>
+    </entity>
+    <view-entity entity-name="RequestItemAndProduct" package-name="mantle.request">
+        <member-entity entity-alias="RQIT" entity-name="mantle.request.RequestItem"/>
+        <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="RQIT">
+            <key-map field-name="productId"/></member-entity>
+        <alias-all entity-alias="RQIT"/>
+        <alias entity-alias="PROD" name="productName"/>
+    </view-entity>
     <entity entity-name="RequestItemOrder" package-name="mantle.request">
         <field name="requestItemOrderId" type="id" is-pk="true"/>
         <field name="requestId" type="id"/>
