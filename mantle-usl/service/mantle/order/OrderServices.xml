@@ -49,9 +49,12 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="paymentList" type="List"/>
             <parameter name="orderPartList" type="List"/>
             <parameter name="orderPartInfoList" type="List"/>
+            <parameter name="statusItem" type="org.moqui.entity.EntityValue"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <set field="statusItem" from="orderHeader.'OrderHeader#moqui.basic.StatusItem'"/>
+
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
                     list="orderItemList" order-by-list="['orderItemSeqId']"/>
             <entity-find-related value-field="orderHeader" relationship-name="mantle.account.payment.Payment"
@@ -85,12 +88,14 @@ h2. General Order Placement and eCommerce Usage
                     partPaymentInfoList.add(partPaymentInfo)
                 }
 
-                EntityValue postalAddress = orderPart.PostalAddress
+                EntityValue postalAddress = orderPart.'mantle.party.contact.PostalAddress'
+                EntityValue postalAddressStateGeo = postalAddress?."StateProvince#moqui.basic.Geo"
+                EntityValue facility = orderPart.'mantle.facility.Facility'
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
-                        postalAddress:postalAddress, postalAddressStateGeo:postalAddress?."StateProvince#moqui.basic.Geo",
-                        telecomNumber:orderPart.TelecomNumber])
+                        postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
+                        telecomNumber:orderPart.TelecomNumber, facility:facility])
             }
             </script>
             <!-- <log level="warn" message="======== OrderDisplayInfo orderPartInfoList: ${orderPartInfoList}"/> -->
@@ -133,6 +138,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="vendorPartyId"/>
             <parameter name="customerPartyId"/>
             <parameter name="otherPartyOrderId"/>
+            <parameter name="facilityId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderId" required="true"/>
@@ -603,6 +609,78 @@ h2. General Order Placement and eCommerce Usage
 
             <service-call name="update#mantle.order.OrderHeader" out-map="context"
                     in-map="[orderId:orderId, statusId:'OrderCancelled']"/>
+        </actions>
+    </service>
+
+    <!-- ========== Order-Request Services ========== -->
+    <service verb="create" noun="PurchaseRequestOrder">
+        <in-parameters>
+            <parameter name="requestId" required="true"/>
+            <parameter name="customerPartyId" required="true">
+                <description>The customer for the PO. Should be an Internal Org.</description></parameter>
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentMethodId"/>
+            <parameter name="shipmentMethodEnumId" default-value="ShMthNoShipping"/>
+            <parameter name="placeAndApproveOrders" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.request.Request" value-field="request"/>
+            <if condition="!request.facilityId">
+                <return error="true" message="Request ${requestId} has no Facility set."/>
+            </if>
+
+            <entity-find entity-name="mantle.facility.FacilityContactMech" list="postalList">
+                <date-filter/><econdition field-name="facilityId" from="request.facilityId"/>
+                <econdition field-name="contactMechPurposeId" operator="in" value="PostalShippingDest,PostalGeneral"/>
+                <order-by field-name="-contactMechPurposeId,-fromDate"/><!-- prefer PostalShippingDest over PostalGeneral, get most recent -->
+            </entity-find>
+            <set field="shippingPostalContactMechId" from="postalList?.first?.contactMechId"/>
+
+            <entity-find entity-name="mantle.facility.FacilityContactMech" list="phoneList">
+                <date-filter/><econdition field-name="facilityId" from="request.facilityId"/>
+                <econdition field-name="contactMechPurposeId" operator="in" value="PhoneShippingDest,PhonePrimary"/>
+                <order-by field-name="-contactMechPurposeId,-fromDate"/><!-- prefer PhoneShippingDest over PhonePrimary, get most recent -->
+            </entity-find>
+            <set field="shippingTelecomContactMechId" from="phoneList?.first?.contactMechId"/>
+
+            <entity-find entity-name="mantle.request.RequestItem" list="allRequestItemList">
+                <econdition field-name="requestId"/></entity-find>
+
+            <!-- split request by supplierPartyId, create one PO for each -->
+            <set field="requestItemListBySupplier" from="[:]"/>
+            <iterate list="allRequestItemList" entry="requestItem">
+                <if condition="!requestItem.supplierPartyId">
+                    <return error="true" message="No Supplier set on item ${requestItem.requestItemSeqId} for Request ${requestId}"/>
+                </if>
+                <script>StupidUtilities.addToListInMap(requestItem.supplierPartyId, requestItem, requestItemListBySupplier)</script>
+            </iterate>
+
+            <iterate list="requestItemListBySupplier" entry="requestItemList" key="supplierPartyId">
+                <service-call name="mantle.order.OrderServices.create#Order" out-map="orderOut"
+                        in-map="[vendorPartyId:supplierPartyId, customerPartyId:customerPartyId,
+                            currencyUomId:(request.currencyUomId ?: 'USD'), facilityId:request.facilityId]"/>
+                <iterate list="requestItemList" entry="requestItem">
+                    <!-- TODO: set price based on SupplierProduct record -->
+                    <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
+                            in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
+                                productId:requestItem.productId, quantity:requestItem.quantity,
+                                itemTypeEnumId:'ItemProduct']"/>
+                </iterate>
+                <service-call name="mantle.order.OrderServices.set#OrderBillingShippingInfo" 
+                        in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
+                            paymentMethodTypeEnumId:paymentMethodTypeEnumId, paymentMethodId:paymentMethodId,
+                            shippingPostalContactMechId:shippingPostalContactMechId,
+                            shippingTelecomContactMechId:shippingTelecomContactMechId,
+                            shipmentMethodEnumId:shipmentMethodEnumId]"/>
+                <if condition="placeAndApproveOrders">
+                    <service-call name="mantle.order.OrderServices.place#Order" in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId]"/>
+                    <service-call name="mantle.order.OrderServices.approve#Order" in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId]"/>
+                </if>
+            </iterate>
         </actions>
     </service>
 </services>
