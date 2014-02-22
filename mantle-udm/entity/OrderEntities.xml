@@ -314,7 +314,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="shipToPartyId" type="id"><description>The customer to ship the order to.</description></field>
         -->
 
-        <field name="facilityId" type="id"><description>The facility to fulfill the order from (if null look up from ProductStore).</description></field>
+        <field name="facilityId" type="id"><description>The Facility to fulfill the order from (if null look up from
+            ProductStore), or for purchase orders the Facility the order will be shipped to.</description></field>
 
         <field name="carrierPartyId" type="id" enable-audit-log="true"/>
         <field name="shipmentMethodEnumId" type="id" enable-audit-log="true"/>
@@ -406,6 +407,23 @@ and those parts may be licensed under the Apache License 2.0.
         <alias-all entity-alias="ORHD"/>
         <alias-all entity-alias="ORPT"><exclude field="statusId"/></alias-all>
         <alias name="partStatusId" entity-alias="ORPT" field="statusId"/>
+    </view-entity>
+    <view-entity entity-name="OrderHeaderPartFacilityStatus" package-name="mantle.order">
+        <member-entity entity-alias="ORHD" entity-name="mantle.order.OrderHeader"/>
+        <member-entity entity-alias="ORPT" entity-name="mantle.order.OrderPart" join-from-alias="ORHD">
+            <key-map field-name="orderId"/>
+        </member-entity>
+        <member-entity entity-alias="STSI" entity-name="moqui.basic.StatusItem" join-from-alias="ORHD">
+            <key-map field-name="statusId"/>
+        </member-entity>
+        <member-entity entity-alias="FAC" entity-name="mantle.facility.Facility" join-from-alias="ORPT" join-optional="true">
+            <key-map field-name="facilityId"/>
+        </member-entity>
+        <alias-all entity-alias="ORHD"/>
+        <alias-all entity-alias="ORPT"><exclude field="statusId"/></alias-all>
+        <alias name="partStatusId" entity-alias="ORPT" field="statusId"/>
+        <alias name="statusDescription" entity-alias="STSI" field="description"/>
+        <alias name="facilityName" entity-alias="FAC"/>
     </view-entity>
 
     <!-- ========================================================= -->
