@@ -22,7 +22,7 @@ and those parts may be licensed under the Apache License 2.0.
     <!--  - mantle.product.cost -->
     <!--  - mantle.product.feature -->
     <!--  - mantle.product.subscription -->
-    <!--  - mantle.product.supplier -->
+    <!--  - mantle.product -->
     <!-- ========================================================= -->
 
     <!-- ========================================================= -->
@@ -311,6 +311,19 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="agreementItemSeqId" type="id"><description>Use along with agreementId to associate the price with
             an AgreementItem.</description></field>
 
+        <field name="otherPartyItemName" type="text-medium"/>
+        <field name="otherPartyItemId" type="id"/>
+        <field name="comments" type="text-long"/>
+
+        <!-- these fields are for supplier pricing (where customerPartyId is an internal organization) -->
+        <field name="quantityIncrement" type="number-decimal"/>
+        <field name="quantityIncluded" type="number-decimal"/>
+        <field name="quantityUomId" type="id"/>
+        <field name="preferredOrderEnumId" type="id"/>
+        <field name="supplierRatingTypeEnumId" type="id"/>
+        <field name="standardLeadTimeDays" type="number-decimal"/>
+        <field name="canDropShip" type="text-indicator"/>
+
         <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" title="ProductPriceType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="priceTypeEnumId"/>
@@ -329,6 +342,17 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="TaxAuthority" related-entity-name="moqui.basic.Geo">
             <key-map field-name="taxAuthGeoId"/>
         </relationship>
+
+        <relationship type="one" title="SupplierPreferredOrder" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="preferredOrderEnumId"/>
+        </relationship>
+        <relationship type="one" title="SupplierRatingType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="supplierRatingTypeEnumId"/>
+        </relationship>
+        <relationship type="one" title="Quantity" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="quantityUomId"/>
+        </relationship>
+
         <seed-data>
             <!-- Product Price Type -->
             <moqui.basic.EnumerationType description="Product Price Type" enumTypeId="ProductPriceType"/>
@@ -349,6 +373,11 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Recurring Charge" enumId="PppRecurring" enumTypeId="ProductPricePurpose"/>
             <moqui.basic.Enumeration description="Usage Charge" enumId="PppUsage" enumTypeId="ProductPricePurpose"/>
             <moqui.basic.Enumeration description="Component Price" enumId="PppComponent" enumTypeId="ProductPricePurpose"/>
+
+            <!-- Supplier Preferred Order -->
+            <moqui.basic.EnumerationType description="Supplier Preferred Order" enumTypeId="SupplierPreferredOrder"/>
+            <moqui.basic.Enumeration enumId="SpoMain" sequenceNum="1" description="Main Supplier" enumTypeId="SupplierPreferredOrder"/>
+            <moqui.basic.Enumeration enumId="SpoAlternate" sequenceNum="2" description="Alternate Supplier" enumTypeId="SupplierPreferredOrder"/>
         </seed-data>
     </entity>
     <entity entity-name="ProductReview" package-name="mantle.product">
@@ -914,48 +943,5 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Parent" related-entity-name="SubscriptionResource">
             <key-map field-name="parentResourceId" related-field-name="subscriptionResourceId"/>
         </relationship>
-    </entity>
-
-    <!-- ========================================================= -->
-    <!-- mantle.product.supplier -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="SupplierProduct" package-name="mantle.product.supplier">
-        <field name="supplierProductId" type="id" is-pk="true"/>
-        <field name="supplierPartyId" type="id"/>
-        <field name="productId" type="id"/>
-        <field name="supplierItemName" type="text-medium"/>
-        <field name="supplierItemId" type="id"/>
-        <field name="comments" type="text-long"/>
-        <field name="price" type="currency-precise"/>
-        <field name="priceUomId" type="id"/>
-        <field name="minQuantity" type="number-decimal"/>
-        <field name="quantityIncrement" type="number-decimal"/>
-        <field name="quantityIncluded" type="number-decimal"/>
-        <field name="quantityUomId" type="id"/>
-        <field name="preferredOrderEnumId" type="id"/>
-        <field name="supplierRatingTypeEnumId" type="id"/>
-        <field name="standardLeadTimeDays" type="number-decimal"/>
-        <field name="canDropShip" type="text-indicator"/>
-        <field name="supplierCommissionPercent" type="number-decimal"/>
-        <relationship type="one" title="Supplier" related-entity-name="Party">
-            <key-map field-name="supplierPartyId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" title="SupplierPreferredOrder" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="preferredOrderEnumId"/>
-        </relationship>
-        <relationship type="one" title="SupplierRatingType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="supplierRatingTypeEnumId"/>
-        </relationship>
-        <relationship type="one" title="Quantity" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="quantityUomId"/>
-        </relationship>
-        <seed-data>
-            <!-- Supplier Preferred Order -->
-            <moqui.basic.EnumerationType description="Supplier Preferred Order" enumTypeId="SupplierPreferredOrder"/>
-            <moqui.basic.Enumeration enumId="SpoMain" sequenceNum="1" description="Main Supplier" enumTypeId="SupplierPreferredOrder"/>
-            <moqui.basic.Enumeration enumId="SpoAlternate" sequenceNum="2" description="Alternate Supplier" enumTypeId="SupplierPreferredOrder"/>
-        </seed-data>
     </entity>
 </entities>
