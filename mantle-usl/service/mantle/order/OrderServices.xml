@@ -252,6 +252,7 @@ h2. General Order Placement and eCommerce Usage
 
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
             <parameter name="selectedAmount" type="BigDecimal"/>
+            <parameter name="requiredByDate" type="Timestamp"/>
 
             <parameter name="unitAmount" type="BigDecimal"/>
             <parameter name="unitListPrice" type="BigDecimal"/>
@@ -266,12 +267,7 @@ h2. General Order Placement and eCommerce Usage
                 <if condition="product == null"><return error="true" message="Product [${productId}] not found."/></if>
             </if>
             <if condition="!itemDescription"><set field="itemDescription" from="product?.productName"/></if>
-            <entity-make-value entity-name="mantle.order.OrderItem" value-field="orderItem"/>
-            <entity-set value-field="orderItem" include="all" set-if-empty="true"/>
-            <entity-sequenced-id-secondary value-field="orderItem"/>
-            <entity-create value-field="orderItem"/>
-
-            <set field="result.orderItemSeqId" from="orderItem.orderItemSeqId"/>
+            <service-call name="create#mantle.order.OrderItem" in-map="context" out-map="context"/>
         </actions>
     </service>
     <service verb="update" noun="OrderItem">
@@ -279,21 +275,13 @@ h2. General Order Placement and eCommerce Usage
             <auto-parameters include="pk" required="true"/>
             <auto-parameters include="nonpk"/>
         </in-parameters>
-        <actions>
-            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
-            <entity-set value-field="orderItem" include="nonpk"/>
-            <entity-update value-field="orderItem"/>
-        </actions>
+        <actions><service-call name="update#mantle.order.OrderItem" in-map="context"/></actions>
     </service>
     <service verb="delete" noun="OrderItem">
         <in-parameters>
             <auto-parameters include="pk" required="true"/>
         </in-parameters>
-        <actions>
-            <entity-make-value entity-name="mantle.order.OrderItem" value-field="orderItem"/>
-            <entity-set value-field="orderItem" include="pk"/>
-            <entity-delete value-field="orderItem"/>
-        </actions>
+        <actions><service-call name="delete#mantle.order.OrderItem" in-map="context"/></actions>
     </service>
 
     <!-- OrderProductQuantity aka "Cart" Services -->
@@ -315,6 +303,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
             <parameter name="itemTypeEnumId" default-value="ItemProduct"/>
             <parameter name="unitAmount" type="BigDecimal"/>
+            <parameter name="requiredByDate" type="Timestamp"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderId" required="true"/>
@@ -379,10 +368,14 @@ h2. General Order Placement and eCommerce Usage
             </if>
 
             <if condition="orderItemList">
-                <set field="orderItemSeqId" from="orderItemList[0].orderItemSeqId"/>
-                <set field="orderPartSeqId" from="orderItemList[0].orderPartSeqId" set-if-empty="false"/>
-                <set field="quantity" from="quantity + orderItemList[0].quantity"/>
-                <service-call name="mantle.order.OrderServices.update#OrderItem" in-map="true"/>
+                <set field="orderItem" from="orderItemList.first"/>
+                <set field="orderItemSeqId" from="orderItem.orderItemSeqId"/>
+                <set field="orderPartSeqId" from="orderItem.orderPartSeqId" set-if-empty="false"/>
+                <set field="quantity" from="quantity + orderItem.quantity"/>
+                <!-- if requiredByDate on orderItem is less than that passed in, make sure to use it instead of the new later one -->
+                <if condition="orderItem.requiredByDate &amp;&amp; requiredByDate &amp;&amp; orderItem.requiredByDate &lt; requiredByDate">
+                    <set field="requiredByDate" from="orderItem.requiredByDate"/></if>
+                <service-call name="mantle.order.OrderServices.update#OrderItem" in-map="context"/>
 
                 <else>
                     <service-call name="mantle.order.OrderServices.create#OrderItem" in-map="context" out-map="createOrderItemOut"/>
@@ -671,22 +664,30 @@ h2. General Order Placement and eCommerce Usage
                 <service-call name="mantle.order.OrderServices.create#Order" out-map="orderOut"
                         in-map="[vendorPartyId:supplierPartyId, customerPartyId:customerPartyId,
                             currencyUomId:(request.currencyUomId ?: 'USD'), facilityId:request.facilityId]"/>
+                <set field="earliestRequiredByDate" from="null"/>
                 <iterate list="requestItemList" entry="requestItem">
-                    <!-- TODO: set price based on ProductPrice record -->
                     <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
                             in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
                                 productId:requestItem.productId, quantity:requestItem.quantity,
-                                itemTypeEnumId:'ItemProduct']"/>
+                                itemTypeEnumId:'ItemProduct', requiredByDate:requestItem.requiredByDate]"/>
+                    <if condition="!earliestRequiredByDate || (requestItem.requiredByDate &amp;&amp; requestItem.requiredByDate &lt; earliestRequiredByDate)">
+                        <set field="earliestRequiredByDate" from="requestItem.requiredByDate"/></if>
                 </iterate>
-                <service-call name="mantle.order.OrderServices.set#OrderBillingShippingInfo" 
+                <if condition="earliestRequiredByDate">
+                    <service-call name="update#mantle.order.OrderPart" in-map="[orderId:orderOut.orderId,
+                            orderPartSeqId:orderOut.orderPartSeqId, shipBeforeDate:earliestRequiredByDate]"/>
+                </if>
+                <service-call name="mantle.order.OrderServices.set#OrderBillingShippingInfo"
                         in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
                             paymentMethodTypeEnumId:paymentMethodTypeEnumId, paymentMethodId:paymentMethodId,
                             shippingPostalContactMechId:shippingPostalContactMechId,
                             shippingTelecomContactMechId:shippingTelecomContactMechId,
                             shipmentMethodEnumId:shipmentMethodEnumId]"/>
                 <if condition="placeAndApproveOrders">
-                    <service-call name="mantle.order.OrderServices.place#Order" in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId]"/>
-                    <service-call name="mantle.order.OrderServices.approve#Order" in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId]"/>
+                    <service-call name="mantle.order.OrderServices.place#Order"
+                            in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId]"/>
+                    <service-call name="mantle.order.OrderServices.approve#Order"
+                            in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId]"/>
                 </if>
             </iterate>
 
