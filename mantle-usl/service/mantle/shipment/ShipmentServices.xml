@@ -14,6 +14,36 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="ShipmentDisplayInfo">
+        <in-parameters><parameter name="shipmentId"/></in-parameters>
+        <out-parameters>
+            <parameter name="shipment" type="Map"/>
+            <parameter name="statusItem" type="Map"/>
+            <parameter name="shipmentItemList" type="List"/>
+            <parameter name="shipmentRouteSegmentList" type="List"/>
+            <parameter name="shipmentPackageList" type="List"/>
+            <parameter name="shipmentItemSourceList" type="List"/>
+            <parameter name="orderIdSet" type="Set"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <set field="statusItem" from="shipment.'Shipment#moqui.basic.StatusItem'"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentItemAndProduct" list="shipmentItemList">
+                <econdition field-name="shipmentId"/><order-by field-name="shipmentItemSeqId"/></entity-find>
+            <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentRouteSegment"
+                    list="shipmentRouteSegmentList" order-by-list="['shipmentRouteSegmentSeqId']"/>
+            <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackage"
+                    list="shipmentPackageList" order-by-list="['shipmentPackageSeqId']"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <set field="orderIdSet" from="new TreeSet()"/>
+            <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
+                <script>orderIdSet.add(shipmentItemSource.orderId)</script></iterate>
+        </actions>
+    </service>
+
     <service verb="ship" noun="OrderPart" transaction="cache">
         <in-parameters>
             <parameter name="orderId" required="true"/>
@@ -54,8 +84,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
-            <parameter name="createPackage" type="Boolean" default-value="true"/>
-            <parameter name="createRouteSegment" type="Boolean" default-value="true"/>
+            <parameter name="createPackage" type="Boolean" default="true"/>
+            <parameter name="createRouteSegment" type="Boolean" default="true"/>
             <parameter name="originFacilityId"/>
             <parameter name="destinationFacilityId"/>
         </in-parameters>
@@ -71,6 +101,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
                 <field-map field-name="partyId" from="orderPart.customerPartyId"/><field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
             <set field="shipmentTypeEnumId" from="customerOrgInternal ? 'ShpTpPurchase' : 'ShpTpSales'"/>
+
+            <if condition="orderPart.facilityId">
+                <if condition="customerOrgInternal">
+                    <set field="destinationFacilityId" from="destinationFacilityId ?: orderPart.facilityId"/>
+                    <else><set field="originFacilityId" from="originFacilityId ?: orderPart.facilityId"/></else>
+                </if>
+            </if>
 
             <!-- create Shipment record, get shipmentId -->
             <service-call name="create#mantle.shipment.Shipment" out-map="context"
