@@ -45,13 +45,17 @@ h2. General Order Placement and eCommerce Usage
         </in-parameters>
         <out-parameters>
             <parameter name="orderHeader" type="org.moqui.entity.EntityValue"/>
+            <parameter name="statusItem" type="org.moqui.entity.EntityValue"/>
             <parameter name="orderItemList" type="List"/>
             <parameter name="paymentList" type="List"/>
+
             <parameter name="shipmentItemSourceList" type="List"/>
             <parameter name="shipmentIdSet" type="Set"/>
+            <parameter name="requestItemOrderList" type="List"/>
+            <parameter name="requestIdSet" type="Set"/>
+
             <parameter name="orderPartList" type="List"/>
             <parameter name="orderPartInfoList" type="List"/>
-            <parameter name="statusItem" type="org.moqui.entity.EntityValue"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
@@ -67,6 +71,12 @@ h2. General Order Placement and eCommerce Usage
             <set field="shipmentIdSet" from="new TreeSet()"/>
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
                 <script>shipmentIdSet.add(shipmentItemSource.shipmentId)</script></iterate>
+
+            <entity-find entity-name="mantle.request.RequestItemOrder" list="requestItemOrderList">
+                <econdition field-name="orderId"/></entity-find>
+            <set field="requestIdSet" from="new TreeSet()"/>
+            <iterate list="requestItemOrderList" entry="requestItemOrder">
+                <script>requestIdSet.add(requestItemOrder.requestId)</script></iterate>
 
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
             <!-- get order info by part for more detailed display -->
@@ -669,7 +679,10 @@ h2. General Order Placement and eCommerce Usage
                     <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
                             in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
                                 productId:requestItem.productId, quantity:requestItem.quantity,
-                                itemTypeEnumId:'ItemProduct', requiredByDate:requestItem.requiredByDate]"/>
+                                itemTypeEnumId:'ItemProduct', requiredByDate:requestItem.requiredByDate]" out-map="addOut"/>
+                    <service-call name="create#mantle.request.RequestItemOrder"
+                            in-map="[requestId:requestItem.requestId, requestItemSeqId:requestItem.requestItemSeqId,
+                                orderId:orderOut.orderId, orderItemSeqId:addOut.orderItemSeqId, quantity:requestItem.quantity]"/>
                     <if condition="!earliestRequiredByDate || (requestItem.requiredByDate &amp;&amp; requestItem.requiredByDate &lt; earliestRequiredByDate)">
                         <set field="earliestRequiredByDate" from="requestItem.requiredByDate"/></if>
                 </iterate>
