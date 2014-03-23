@@ -249,6 +249,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="paymentId" required="true"/>
             <parameter name="paymentGatewayConfigId" required="true"/>
+            <parameter name="cardSecurityCode"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentGatewayResponseId"/>
@@ -333,6 +334,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="productStoreId" required="true"/>
             <parameter name="paymentId" required="true"/>
+            <parameter name="cardSecurityCode"/>
             <parameter name="payment" type="org.moqui.entity.EntityValue"/>
         </in-parameters>
         <out-parameters>
@@ -349,7 +351,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="!productStorePaymentGateway?.paymentGatewayConfigId">
                 <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], type [${payment.paymentMethodTypeEnumId}]"/></if>
             <service-call name="mantle.account.PaymentServices.authorize#SinglePayment" out-map="context"
-                    in-map="[paymentId:payment.paymentId, payment:payment,
+                    in-map="[paymentId:payment.paymentId, cardSecurityCode:cardSecurityCode, payment:payment,
                         paymentGatewayConfigId:productStorePaymentGateway.paymentGatewayConfigId]"/>
         </actions>
     </service>
@@ -387,6 +389,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="paymentGatewayConfigId" required="true"/>
             <parameter name="paymentId" required="true"/>
+            <parameter name="cardSecurityCode"/>
             <parameter name="payment" type="org.moqui.entity.EntityValue"/>
         </in-parameters>
         <out-parameters>
@@ -401,15 +404,26 @@ This Work includes contributions authored by David E. Jones, not as a
                 <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig"/></if>
 
             <service-call name="${paymentGatewayConfig.authorizeServiceName}" out-map="authOut"
-                    in-map="[paymentId:payment.paymentId, paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
+                    in-map="[paymentId:payment.paymentId, cardSecurityCode:cardSecurityCode,
+                    paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
             <set field="paymentGatewayResponseId" from="authOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
             <if condition="paymentGatewayResponse.resultSuccess == 'Y'">
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
                         statusId:'PmntAuthorized', paymentGatewayConfigId:paymentGatewayConfigId]"/>
 
-                <else><service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
-                        statusId:'PmntDeclined', paymentGatewayConfigId:paymentGatewayConfigId]"/></else>
+                <!-- clear CreditCard.cardSecurityCode if present, required by PCI rules (and generally good practice) -->
+                <set field="creditCard" from="payment.'mantle.account.method.CreditCard'"/>
+                <if condition="creditCard?.cardSecurityCode">
+                    <set field="creditCard.cardSecurityCode" from="null"/>
+                    <entity-update value-field="creditCard"/>
+                </if>
+
+
+                <else>
+                    <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
+                            statusId:'PmntDeclined', paymentGatewayConfigId:paymentGatewayConfigId]"/>
+                </else>
             </if>
         </actions>
     </service>
