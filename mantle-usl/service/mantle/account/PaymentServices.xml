@@ -266,6 +266,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
     </service>
     <service verb="release" noun="Payment" type="interface">
+        <description>Release (void) an authorized Payment.</description>
         <in-parameters>
             <parameter name="paymentId" required="true"/>
             <parameter name="amount" type="BigDecimal"/>
@@ -276,6 +277,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
     </service>
     <service verb="refund" noun="Payment" type="interface">
+        <description>Refund (credit) a captured Payment.</description>
         <in-parameters>
             <parameter name="paymentId" required="true"/>
             <parameter name="amount" type="BigDecimal"/>
@@ -425,6 +427,18 @@ This Work includes contributions authored by David E. Jones, not as a
                             statusId:'PmntDeclined', paymentGatewayConfigId:paymentGatewayConfigId]"/>
                 </else>
             </if>
+        </actions>
+    </service>
+
+    <service verb="get" noun="AuthorizePaymentGatewayResponse">
+        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
+        <out-parameters><parameter name="paymentGatewayResponse" type="Map"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.account.method.PaymentGatewayResponse" list="pgrList">
+                <econdition field-name="paymentId"/><econdition field-name="resultSuccess" value="Y"/>
+                <econdition field-name="paymentOperationEnumId" value="PgoAuthorize"/>
+            </entity-find>
+            <set field="paymentGatewayResponse" from="pgrList?.first"/>
         </actions>
     </service>
     
