@@ -401,6 +401,13 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
+
+            <!-- if Payment.statusId is PmntDelivered, don't auth (if PmntAuthorized allow for re-auth) -->
+            <if condition="payment.statusId == 'PmntDelivered'">
+                <log level="info" message="Not authorizing Payment [${paymentId}], already Delivered"/>
+                <return/>
+            </if>
+
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig"
                     value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
@@ -414,6 +421,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="paymentGatewayResponse?.resultSuccess == 'Y'">
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
                         statusId:'PmntAuthorized', paymentGatewayConfigId:paymentGatewayConfigId]"/>
+
+                <!-- if this was an PgoAuthAndCapture immediately set as Delivered -->
+                <if condition="paymentGatewayResponse.paymentOperationEnumId == 'PgoAuthAndCapture'">
+                    <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDelivered']"/>
+                </if>
 
                 <!-- clear CreditCard.cardSecurityCode if present, required by PCI rules (and generally good practice) -->
                 <set field="creditCard" from="payment.'mantle.account.method.CreditCard'"/>
@@ -432,12 +444,14 @@ This Work includes contributions authored by David E. Jones, not as a
     </service>
 
     <service verb="get" noun="AuthorizePaymentGatewayResponse">
+        <description>Get the most recent PaymentGatewayResponse for Authorize or Authorize-And-Capture operations.</description>
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters><parameter name="paymentGatewayResponse" type="Map"/></out-parameters>
         <actions>
             <entity-find entity-name="mantle.account.method.PaymentGatewayResponse" list="pgrList">
                 <econdition field-name="paymentId"/><econdition field-name="resultSuccess" value="Y"/>
-                <econdition field-name="paymentOperationEnumId" value="PgoAuthorize"/>
+                <econdition field-name="paymentOperationEnumId" operator="in" value="PgoAuthorize,PgoAuthAndCapture"/>
+                <order-by field-name="-transactionDate"/>
             </entity-find>
             <set field="paymentGatewayResponse" from="pgrList?.first"/>
         </actions>
@@ -472,11 +486,18 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
             <if condition="amount == null"><set field="amount" from="payment.amount"/></if>
 
+            <!-- if the Payment.statusId is already PmntDelivered don't try again -->
+            <!-- NOTE: also handle other statuses, ie anything other than PmntAuthorized? might be too inflexible... -->
+            <if condition="payment.statusId == 'PmntDelivered'">
+                <log level="info" message="Not capturing Payment [${paymentId}], already Delivered"/>
+                <return/>
+            </if>
+
             <!-- lookup auth PaymentGatewayResponse and use the PaymentGatewayConfig on it -->
-            <entity-find entity-name="mantle.account.method.PaymentGatewayResponse" list="authResponseList">
-                <econdition field-name="paymentId"/><econdition field-name="resultSuccess" value="Y"/></entity-find>
-            <if condition="authResponseList">
-                <set field="paymentGatewayConfigId" from="authResponseList[0].paymentGatewayConfigId"/></if>
+            <service-call name="mantle.account.PaymentServices.get#AuthorizePaymentGatewayResponse" out-map="authRespOut"
+                    in-map="[paymentId:paymentId]"/>
+            <if condition="authRespOut.paymentGatewayResponse">
+                <set field="paymentGatewayConfigId" from="authRespOut.paymentGatewayResponse.paymentGatewayConfigId"/></if>
             <!-- if no auth PGR instead of ProductStorePaymentGateway lookup with paymentGatewayConfigId from Payment -->
             <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
 
@@ -487,6 +508,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
                 <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig"/></if>
+
+            <if condition="!paymentGatewayConfig.captureServiceName">
+                <log level="info" message="Not capturing Payment [${paymentId}], no captureServiceName in PaymentGatewayConfig [${paymentGatewayConfigId}]"/>
+                <return/>
+            </if>
 
             <!-- if auth expired do an auth now -->
             <!-- TODO: determine if auth is expired (based on configured days per CC type...) -->
