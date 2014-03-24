@@ -120,7 +120,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         toPartyId:invoice.fromPartyId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
                         statusId:initialStatusId, effectiveDate:effectiveDate, paymentRefNum:paymentRefNum,
                         amountUomId:amountUomId, amount:amount, comments:comments,
-                        overrideGlAccountId:paymentOverrideGlAccountId]"/>
+                        overrideGlAccountId:paymentOverrideGlAccountId, visitId:ec.user.visitId]"/>
 
             <service-call name="mantle.account.PaymentServices.apply#InvoicePayment" out-map="context"
                     in-map="[paymentId:paymentId, invoiceId:invoiceId, amount:amount,
@@ -315,15 +315,16 @@ This Work includes contributions authored by David E. Jones, not as a
 
                     <else>
                         <set field="authFailed" from="true"/>
-                        <service-call name="mantle.account.PaymentServices.get#PaymentDescription" in-map="context" out-map="context"/>
+                        <service-call name="mantle.account.PaymentServices.get#PaymentDescription"
+                                in-map="[paymentId:payment.paymentId]" out-map="pmtDescOut"/>
                         <if condition="authOut.paymentGatewayResponse.resultDeclined == 'Y'">
-                            <message>${paymentDescription} was declined</message></if>
+                            <message>${pmtDescOut.paymentDescription} was declined</message></if>
                         <if condition="authOut.paymentGatewayResponse.resultNsf == 'Y'">
-                            <message>${paymentDescription} has insufficient funds</message></if>
+                            <message>${pmtDescOut.paymentDescription} has insufficient funds</message></if>
                         <if condition="authOut.paymentGatewayResponse.resultBadExpire == 'Y'">
-                            <message>${paymentDescription} has an invalid expiration date</message></if>
+                            <message>${pmtDescOut.paymentDescription} has an invalid expiration date</message></if>
                         <if condition="authOut.paymentGatewayResponse.resultBadCardNumber == 'Y'">
-                            <message>${paymentDescription} has an invalid card number</message></if>
+                            <message>${pmtDescOut.paymentDescription} has an invalid card number</message></if>
                     </else>
                 </if>
             </iterate>
@@ -410,7 +411,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
             <set field="paymentGatewayResponseId" from="authOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
-            <if condition="paymentGatewayResponse.resultSuccess == 'Y'">
+            <if condition="paymentGatewayResponse?.resultSuccess == 'Y'">
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
                         statusId:'PmntAuthorized', paymentGatewayConfigId:paymentGatewayConfigId]"/>
 
