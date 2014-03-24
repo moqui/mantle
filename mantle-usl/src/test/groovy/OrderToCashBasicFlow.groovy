@@ -126,10 +126,11 @@ class OrderToCashBasicFlow extends Specification {
                 orderPartSeqId="01" statusId="PmntAuthorized" amount="145.68" amountUomId="USD" fromPartyId="CustJqp"
                 toPartyId="ORG_BIZI_RETAIL"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55500"
-                paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoAuthorize"
+                paymentOperationEnumId="PgoAuthorize"
                 paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="145.68" amountUomId="USD"
-                referenceNum="TEST" transactionDate="${effectiveTime}" resultSuccess="Y" resultDeclined="N" resultNsf="N"
+                transactionDate="${effectiveTime}" resultSuccess="Y" resultDeclined="N" resultNsf="N"
                 resultBadExpire="N" resultBadCardNumber="N"/>
+            <!-- don't validate these, allow any payment gateway: paymentGatewayConfigId="TEST_APPROVE" referenceNum="TEST" -->
 
             <mantle.order.OrderPart orderId="${cartOrderId}" orderPartSeqId="01" vendorPartyId="ORG_BIZI_RETAIL"
                 customerPartyId="CustJqp" shipmentMethodEnumId="ShMthGround" postalContactMechId="CustJqpAddr"
@@ -403,10 +404,11 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.account.payment.PaymentApplication paymentApplicationId="55500" paymentId="${setInfoOut.paymentId}"
                 invoiceId="55500" amountApplied="145.68" appliedDate="${effectiveTime}"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55501"
-                paymentGatewayConfigId="TEST_APPROVE" paymentOperationEnumId="PgoCapture"
+                paymentOperationEnumId="PgoCapture"
                 paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="145.68" amountUomId="USD"
-                referenceNum="TEST" transactionDate="${effectiveTime}" resultSuccess="Y" resultDeclined="N" resultNsf="N"
+                transactionDate="${effectiveTime}" resultSuccess="Y" resultDeclined="N" resultNsf="N"
                 resultBadExpire="N" resultBadCardNumber="N"/>
+            <!-- don't validate these, allow any payment gateway: paymentGatewayConfigId="TEST_APPROVE" referenceNum="TEST" -->
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55503" acctgTransTypeEnumId="AttIncomingPayment"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
