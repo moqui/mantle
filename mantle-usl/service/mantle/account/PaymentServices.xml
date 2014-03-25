@@ -309,22 +309,33 @@ This Work includes contributions authored by David E. Jones, not as a
             <iterate list="paymentList" entry="payment">
                 <service-call name="mantle.account.PaymentServices.authorize#StorePayment" out-map="authOut"
                     in-map="[paymentId:payment.paymentId, payment:payment, productStoreId:orderHeader.productStoreId]"/>
-                <if condition="authOut.paymentGatewayResponse.resultSuccess == 'Y'">
-                    <set field="totalAuthorized" from="totalAuthorized + authOut.paymentGatewayResponse.amount"/>
 
-                    <else>
-                        <set field="authFailed" from="true"/>
-                        <service-call name="mantle.account.PaymentServices.get#PaymentDescription"
-                                in-map="[paymentId:payment.paymentId]" out-map="pmtDescOut"/>
-                        <if condition="authOut.paymentGatewayResponse.resultDeclined == 'Y'">
-                            <message>${pmtDescOut.paymentDescription} was declined</message></if>
-                        <if condition="authOut.paymentGatewayResponse.resultNsf == 'Y'">
-                            <message>${pmtDescOut.paymentDescription} has insufficient funds</message></if>
-                        <if condition="authOut.paymentGatewayResponse.resultBadExpire == 'Y'">
-                            <message>${pmtDescOut.paymentDescription} has an invalid expiration date</message></if>
-                        <if condition="authOut.paymentGatewayResponse.resultBadCardNumber == 'Y'">
-                            <message>${pmtDescOut.paymentDescription} has an invalid card number</message></if>
-                    </else>
+                <if condition="!authOut.paymentGatewayResponse">
+                    <set field="authFailed" from="true"/>
+                    <log level="error" message="Authorize Payment [${payment.paymentId}] failed with no PaymentGatewayResponse!"/>
+                    <service-call name="mantle.account.PaymentServices.get#PaymentDescription"
+                            in-map="[paymentId:payment.paymentId]" out-map="pmtDescOut"/>
+                    <message>Authorization failed for ${pmtDescOut.paymentDescription}</message>
+                </if>
+
+                <if condition="authOut.paymentGatewayResponse">
+                    <if condition="authOut.paymentGatewayResponse.resultSuccess == 'Y'">
+                        <set field="totalAuthorized" from="totalAuthorized + authOut.paymentGatewayResponse.amount"/>
+
+                        <else>
+                            <set field="authFailed" from="true"/>
+                            <service-call name="mantle.account.PaymentServices.get#PaymentDescription"
+                                    in-map="[paymentId:payment.paymentId]" out-map="pmtDescOut"/>
+                            <if condition="authOut.paymentGatewayResponse.resultDeclined == 'Y'">
+                                <message>${pmtDescOut.paymentDescription} was declined</message></if>
+                            <if condition="authOut.paymentGatewayResponse.resultNsf == 'Y'">
+                                <message>${pmtDescOut.paymentDescription} has insufficient funds</message></if>
+                            <if condition="authOut.paymentGatewayResponse.resultBadExpire == 'Y'">
+                                <message>${pmtDescOut.paymentDescription} has an invalid expiration date</message></if>
+                            <if condition="authOut.paymentGatewayResponse.resultBadCardNumber == 'Y'">
+                                <message>${pmtDescOut.paymentDescription} has an invalid card number</message></if>
+                        </else>
+                    </if>
                 </if>
             </iterate>
 
