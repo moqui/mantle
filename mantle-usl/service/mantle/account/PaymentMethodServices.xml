@@ -145,6 +145,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-sequenced-id-primary value-field="paymentMethod"/>
             <set field="paymentMethod.fromDate" from="ec.user.nowTimestamp"/>
             <set field="paymentMethod.paymentMethodTypeEnumId" value="PmtCreditCard"/>
+            <set field="paymentMethod.originalPaymentMethodId" from="paymentMethod.paymentMethodId"/>
             <entity-create value-field="paymentMethod"/>
 
             <entity-make-value entity-name="mantle.account.method.CreditCard" value-field="creditCard"/>
@@ -196,6 +197,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="newPaymentMethod.paymentMethodId" from="null"/>
             <entity-sequenced-id-primary value-field="newPaymentMethod"/>
             <set field="newPaymentMethod.fromDate" from="ec.user.nowTimestamp"/>
+            <set field="newPaymentMethod.originalPaymentMethodId" from="origPaymentMethod.originalPaymentMethodId ?: origPaymentMethod.paymentMethodId"/>
             <if condition="!newPaymentMethod.description">
                 <entity-find-one entity-name="moqui.basic.Enumeration" value-field="creditCardTypeEnum">
                     <field-map field-name="enumId" from="creditCardTypeEnumId"/>
@@ -209,6 +211,31 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-create value-field="newCreditCard"/>
 
             <set field="result.paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
+        </actions>
+    </service>
+    <service verb="delete" noun="CreditCard">
+        <description>This does an actual delete to remove credit card information from the system. It will delete the
+            record with the specified ID and all cloned records back to the original (because of the clone on update
+            to make immutable).</description>
+        <in-parameters><parameter name="paymentMethodId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+            <entity-find entity-name="mantle.account.method.PaymentMethod" list="pmList">
+                <econdition field-name="originalPaymentMethodId" from="paymentMethod.originalPaymentMethodId"/>
+            </entity-find>
+
+            <iterate list="pmList" entry="pmValue">
+                <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
+                <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
+            </iterate>
+
+            <!-- if the original record doesn't have originalPaymentMethodId populated it won't have been deleted above -->
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="origPm">
+                <field-map field-name="paymentMethodId" from="paymentMethod.originalPaymentMethodId"/></entity-find-one>
+            <if condition="origPm">
+                <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
+                <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
+            </if>
         </actions>
     </service>
 </services>
