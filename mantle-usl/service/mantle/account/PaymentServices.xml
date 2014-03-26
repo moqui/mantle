@@ -414,7 +414,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- if Payment.statusId is PmntDelivered, don't auth (if PmntAuthorized allow for re-auth) -->
             <if condition="payment.statusId == 'PmntDelivered'">
-                <log level="info" message="Not authorizing Payment [${paymentId}], already Delivered"/>
+                <log level="info" message="Not authorizing Payment [${paymentId}], already delivered (captured)"/>
                 <return/>
             </if>
 
@@ -498,8 +498,8 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- if the Payment.statusId is already PmntDelivered don't try again -->
             <!-- NOTE: also handle other statuses, ie anything other than PmntAuthorized? might be too inflexible... -->
-            <if condition="payment.statusId == 'PmntDelivered'">
-                <log level="info" message="Not capturing Payment [${paymentId}], already Delivered"/>
+            <if condition="payment.statusId != 'PmntAuthorized'">
+                <log level="warn" message="Not capturing Payment [${paymentId}], is in ${payment.statusId} and not the Authorized status."/>
                 <return/>
             </if>
 
@@ -520,6 +520,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig"/></if>
 
             <if condition="!paymentGatewayConfig.captureServiceName">
+                <!-- don't blow up on this, we allow no capture service if intentionally configured that way -->
                 <log level="info" message="Not capturing Payment [${paymentId}], no captureServiceName in PaymentGatewayConfig [${paymentGatewayConfigId}]"/>
                 <return/>
             </if>
@@ -540,6 +541,62 @@ This Work includes contributions authored by David E. Jones, not as a
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDelivered']"/>
 
                 <else><service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDeclined']"/></else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="release" noun="SinglePayment">
+        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
+        <out-parameters><parameter name="paymentGatewayResponseId"/></out-parameters>
+        <actions>
+            <!-- TODO... -->
+        </actions>
+    </service>
+
+    <service verb="refund" noun="SinglePayment">
+        <in-parameters>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="amount" type="BigDecimal"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentGatewayResponseId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <if condition="amount == null"><set field="amount" from="payment.amount"/></if>
+
+            <!-- if the Payment.statusId is already PmntDelivered don't try again -->
+            <!-- NOTE: also handle other statuses, ie anything other than PmntAuthorized? might be too inflexible... -->
+            <if condition="payment.statusId != 'PmntDelivered'">
+                <if condition="payment.statusId == 'PmntAuthorized'">
+                    <return error="true" message="Cannot refund payment [${paymentId}], because it is not delivered (captured). The payment is authorized, so try a release (void)."/>
+                    <else><return error="true" message="Cannot refund payment [${paymentId}], must be delivered (captured)"/></else>
+                </if>
+            </if>
+
+            <!-- lookup auth PaymentGatewayResponse and use the PaymentGatewayConfig on it -->
+            <service-call name="mantle.account.PaymentServices.get#AuthorizePaymentGatewayResponse" out-map="authRespOut"
+                    in-map="[paymentId:paymentId]"/>
+            <if condition="authRespOut.paymentGatewayResponse">
+                <set field="paymentGatewayConfigId" from="authRespOut.paymentGatewayResponse.paymentGatewayConfigId"/></if>
+            <!-- if no auth PGR instead of ProductStorePaymentGateway lookup with paymentGatewayConfigId from Payment -->
+            <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
+
+            <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
+            <if condition="paymentGatewayConfig == null">
+                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig"/></if>
+
+            <if condition="!paymentGatewayConfig.refundServiceName">
+                <!-- don't blow up on this, we allow no refund service if intentionally configured that way -->
+                <log level="warn" message="Not refunding Payment [${paymentId}], no refundServiceName in PaymentGatewayConfig [${paymentGatewayConfigId}]"/>
+                <return/>
+            </if>
+
+            <service-call name="${paymentGatewayConfig.refundServiceName}" out-map="refundOut"
+                    in-map="[paymentId:payment.paymentId, amount:amount, paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
+
+            <set field="paymentGatewayResponseId" from="refundOut.paymentGatewayResponseId"/>
+            <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
+            <if condition="paymentGatewayResponse?.resultSuccess == 'Y'">
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntRefunded']"/>
             </if>
         </actions>
     </service>
