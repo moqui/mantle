@@ -214,12 +214,14 @@ This Work includes contributions authored by David E. Jones, not as a
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
                 <set field="orderItem" from="shipmentItemSource.'mantle.order.OrderItem'"/>
                 <if condition="orderItem &amp;&amp; !shipmentItemSource.invoiceId">
+                    <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
+
                     <set field="invoiceId" from="invoiceIdByOrderPartIdMap[orderItem.orderId + ':' + orderItem.orderPartSeqId]"/>
+
                     <if condition="!invoiceId">
                         <!-- find the OrderPart for the from/toPartyId, etc -->
                         <set field="orderPart" from="orderItem.'mantle.order.OrderPart'"/>
                         <if condition="orderPart">
-                            <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
                             <set field="description" value="Invoice for Order ${orderItem.orderId} part ${orderItem.orderPartSeqId} and Shipment ${shipmentId}"/>
                             <service-call name="create#mantle.account.invoice.Invoice" out-map="invOut"
                                     in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
@@ -230,6 +232,7 @@ This Work includes contributions authored by David E. Jones, not as a
                             <script>invoiceIdByOrderPartIdMap.put(orderItem.orderId + ':' + orderItem.orderPartSeqId, invoiceId)</script>
                         </if>
                     </if>
+
                     <if condition="invoiceId">
                         <!-- create InvoiceItem, OrderItemBilling, set invoiceId,invoiceItemSeqId -->
                         <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
