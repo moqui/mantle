@@ -91,7 +91,7 @@ class OrderToCashBasicFlow extends Specification {
 
         Map priceMap = ec.service.sync().name("mantle.product.PriceServices.get#ProductPrice")
                 .parameters([productId:'DEMO_1_1', priceUomId:priceUomId, productStoreId:productStoreId,
-                vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]).call()
+                    vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]).call()
 
         Map addOut1 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:cartOrderId, productId:'DEMO_1_1', quantity:1, customerPartyId:customerPartyId,
@@ -107,7 +107,7 @@ class OrderToCashBasicFlow extends Specification {
         // with orderPartSeqId
         Map addOut3 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:cartOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_2_1', quantity:7,
-                customerPartyId:customerPartyId, currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
+                    customerPartyId:customerPartyId, currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
 
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:cartOrderId, paymentMethodId:'CustJqpCc', shippingPostalContactMechId:'CustJqpAddr',
