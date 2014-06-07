@@ -174,13 +174,15 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="mantle.party.ContactServices.get#PostalAddressGeoIdSet" out-map="context"
                     in-map="[contactMechId:postalContactMechId]"/>
 
-            <set field="itemCount" from="0"/>
-            <set field="totalQuantity" from="0"/>
-            <set field="totalWeight" from="0"/>
+            <set field="itemCount" from="0" type="BigDecimal"/>
+            <set field="totalQuantity" from="0" type="BigDecimal"/>
+            <set field="totalWeight" from="0" type="BigDecimal"/>
             <iterate list="orderItemList" entry="orderItem">
                 <entity-find-related-one value-field="orderItem" relationship-name="mantle.product.Product"
                         to-value-field="product"/>
-                <if condition="!product?.chargeShipping || product?.chargeShipping == 'Y'">
+                <set field="typeEnum" from="product?.'ProductType#moqui.basic.Enumeration'"/>
+                <if condition="(!product?.chargeShipping || product?.chargeShipping == 'Y') &amp;&amp;
+                        typeEnum?.parentEnumId == 'PtPhysical'">
                     <set field="itemCount" from="itemCount + 1"/>
 
                     <set field="totalQuantity" from="totalQuantity + (orderItem.quantity ?: 0)"/>
@@ -195,24 +197,26 @@ This Work includes contributions authored by David E. Jones, not as a
                 </if>
             </iterate>
 
-            <!-- start with shippingTotal=0 so it can be added to by the rules -->
-            <set field="shippingTotal" from="0" type="BigDecimal"/>
+            <if condition="itemCount">
+                <!-- start with shippingTotal=0 so it can be added to by the rules -->
+                <set field="shippingTotal" from="0" type="BigDecimal"/>
 
-            <!-- run the OrderShippingEstimateKS knowledge session rules -->
-            <script>ec.getStatelessKieSession("OrderShippingRateKS").execute([])</script>
+                <!-- run the OrderShippingEstimateKS knowledge session rules -->
+                <script>ec.getStatelessKieSession("OrderShippingRateKS").execute([])</script>
 
-            <log level="info" message="Calculated shippingTotal [${shippingTotal}] order part [${orderId}:${orderPartSeqId}] carrier [${carrierPartyId}] method [${shipmentMethodEnumId}] address [${postalContactMechId}] geos [${geoIdSet}] items [${itemCount}] quantity [${totalQuantity}] weight [${totalWeight}]"/>
+                <log level="info" message="Calculated shippingTotal [${shippingTotal}] order part [${orderId}:${orderPartSeqId}] carrier [${carrierPartyId}] method [${shipmentMethodEnumId}] address [${postalContactMechId}] geos [${geoIdSet}] items [${itemCount}] quantity [${totalQuantity}] weight [${totalWeight}]"/>
 
-            <if condition="createOrderItem">
-                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="carrierDetail" cache="true">
-                    <field-map field-name="partyId" from="orderPart.carrierPartyId"/></entity-find-one>
-                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="shipmentMethodEnum">
-                    <field-map field-name="enumId" from="orderPart.shipmentMethodEnumId"/></entity-find-one>
-                <set field="carrierName" value="${carrierDetail.firstName?:''} ${carrierDetail.lastName?:''} ${carrierDetail.organizationName?:''}"/>
-                <set field="itemDescription" value="${orderPart.carrierPartyId == '_NA_' ? '' : (carrierName + ' - ') }${shipmentMethodEnum.description}"/>
-                <service-call name="create#mantle.order.OrderItem" in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId,
-                    itemTypeEnumId:'ItemShipping', quantity:1, unitAmount:shippingTotal, itemDescription:itemDescription]"
-                        out-map="context"/>
+                <if condition="createOrderItem">
+                    <entity-find-one entity-name="mantle.party.PartyDetail" value-field="carrierDetail" cache="true">
+                        <field-map field-name="partyId" from="orderPart.carrierPartyId"/></entity-find-one>
+                    <entity-find-one entity-name="moqui.basic.Enumeration" value-field="shipmentMethodEnum">
+                        <field-map field-name="enumId" from="orderPart.shipmentMethodEnumId"/></entity-find-one>
+                    <set field="carrierName" value="${carrierDetail.firstName?:''} ${carrierDetail.lastName?:''} ${carrierDetail.organizationName?:''}"/>
+                    <set field="itemDescription" value="${orderPart.carrierPartyId == '_NA_' ? '' : (carrierName + ' - ') }${shipmentMethodEnum.description}"/>
+                    <service-call name="create#mantle.order.OrderItem" in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId,
+                            itemTypeEnumId:'ItemShipping', quantity:1, unitAmount:shippingTotal, itemDescription:itemDescription]"
+                            out-map="context"/>
+                </if>
             </if>
         </actions>
     </service>
