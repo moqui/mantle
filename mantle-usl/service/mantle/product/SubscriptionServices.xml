@@ -24,14 +24,19 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="subscriptionId" required="true"/></in-parameters>
     </service>
 
-    <service verb="fulfill" noun="OrderSubscriptions">
+    <service verb="fulfill" noun="OrderPartSubscriptions">
         <description>When an order goes to the OrderApproved status (by SECA rule) looks for digital products on the
             order with ProductSubscriptionResource records, and if there is no Subscription record for the OrderItem
             and SubscriptionResource then fulfills the ProductSubscriptionResource and bills for the OrderItem.</description>
-        <in-parameters><parameter name="orderId"/></in-parameters>
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+        </in-parameters>
         <actions>
             <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
-                <econdition field-name="orderId"/></entity-find>
+                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
+                <order-by field-name="orderItemSeqId"/>
+            </entity-find>
 
             <set field="fulfilledOrderItemList" from="[]"/>
             <iterate list="orderItemList" entry="orderItem">
@@ -58,9 +63,18 @@ This Work includes contributions authored by David E. Jones, not as a
                 </if>
             </iterate>
 
-            <!-- TODO: invoice items in fulfilledOrderItemList -->
+            <!-- invoice items in fulfilledOrderItemList -->
+            <if condition="fulfilledOrderItemList">
+                <service-call name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"
+                        in-map="context + [statusId:'InvoiceFinalized', partialOrderItemList:fulfilledOrderItemList]"/>
+            </if>
 
-            <!-- TODO: complete order part if all items in it are fulfilled -->
+            <!-- TODO: capture payment (apply order payment to invoice) -->
+
+            <!-- TODO: complete order part if all items in it are fulfilled; done elsewhere? (see if individual item is fulfilled) -->
+            <!-- TODO: only consider PtDigital items done, not PtDigPhysGood -->
+            <!-- <service-call name="mantle.order.OrderServices.complete#OrderPart"
+                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/> -->
         </actions>
     </service>
     <service verb="fulfill" noun="ProductSubscriptionResource">
