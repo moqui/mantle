@@ -120,6 +120,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="statusId"><description>If specified after create set to this statusId (always created
                 initially in InvoiceInProcess or InvoiceIncoming, so there must be a transition to specified status).</description></parameter>
             <parameter name="invoiceDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="partialOrderItemList" type="List"><description>If specified used instead of all items in
+                the OrderPart. Must be a list of OrderItem EntityValue objects in the OrderPart.</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="invoiceId"/></out-parameters>
         <actions>
@@ -139,10 +141,17 @@ This Work includes contributions authored by David E. Jones, not as a
                         invoiceDate:invoiceDate, currencyUomId:orderHeader.currencyUomId,
                         description:description]"/>
 
-            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
-                <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
-                <order-by field-name="orderItemSeqId"/>
-            </entity-find>
+            <if condition="partialOrderItemList">
+                <set field="orderItemList" from="partialOrderItemList"/>
+
+                <else>
+                    <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
+                        <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
+                        <order-by field-name="orderItemSeqId"/>
+                    </entity-find>
+                </else>
+            </if>
+
             <iterate list="orderItemList" entry="orderItem">
                 <set field="oibBaseMap" from="[orderId:orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
                 <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
