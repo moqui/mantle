@@ -63,18 +63,20 @@ This Work includes contributions authored by David E. Jones, not as a
                 </if>
             </iterate>
 
-            <!-- invoice items in fulfilledOrderItemList -->
             <if condition="fulfilledOrderItemList">
-                <service-call name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"
+                <!-- create invoice for items in fulfilledOrderItemList -->
+                <service-call name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice" out-map="context"
                         in-map="context + [statusId:'InvoiceFinalized', partialOrderItemList:fulfilledOrderItemList]"/>
+
+                <!-- if there are Payment(s) associated with the order, apply them to the invoice (this captures them, etc too) -->
+                <service-call name="mantle.account.PaymentServices.apply#OrderPaymentsToInvoice"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, invoiceId:invoiceId]"/>
+
+                <!-- TODO: complete order part if all items in it are fulfilled; done elsewhere? (see if individual item is fulfilled) -->
+                <!-- TODO: only consider PtDigital items done, not PtDigPhysGood -->
+                <!-- <service-call name="mantle.order.OrderServices.complete#OrderPart"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/> -->
             </if>
-
-            <!-- TODO: capture payment (apply order payment to invoice) -->
-
-            <!-- TODO: complete order part if all items in it are fulfilled; done elsewhere? (see if individual item is fulfilled) -->
-            <!-- TODO: only consider PtDigital items done, not PtDigPhysGood -->
-            <!-- <service-call name="mantle.order.OrderServices.complete#OrderPart"
-                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/> -->
         </actions>
     </service>
     <service verb="fulfill" noun="ProductSubscriptionResource">
