@@ -217,11 +217,8 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([shipmentId:shipResult.shipmentId]).call()
 
         invResult = ec.service.sync().name("mantle.account.InvoiceServices.create#EntireOrderPartInvoice")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, statusId:'InvoiceReceived']).call()
 
-        ec.service.sync().name("update#mantle.account.invoice.Invoice")
-                .parameters([invoiceId:invResult.invoiceId, statusId:'InvoiceReceived']).call()
-        
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment to Shipped status -->
