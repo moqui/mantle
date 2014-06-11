@@ -97,11 +97,11 @@ class OrderTenantAccess extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${cartOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
-                statusId="OrderApproved" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="29.97"/>
+                statusId="OrderCompleted" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="29.97"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentTypeEnumId="PtInvoicePayment"
                 paymentMethodId="CustJqpCc" paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}"
-                orderPartSeqId="01" statusId="PmntAuthorized" amount="29.97" amountUomId="USD" fromPartyId="CustJqp"
+                orderPartSeqId="01" statusId="PmntDelivered" amount="29.97" amountUomId="USD" fromPartyId="CustJqp"
                 toPartyId="ORG_BIZI_RETAIL"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55600"
                 paymentOperationEnumId="PgoAuthorize"
@@ -125,19 +125,6 @@ class OrderTenantAccess extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    def "validate Sales Order Complete"() {
-        when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <!-- OrderHeader status to Completed -->
-            <mantle.order.OrderHeader orderId="${cartOrderId}" statusId="OrderCompleted"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Sales Order Complete data check results: " + dataCheckErrors)
-
-        then:
-        dataCheckErrors.size() == 0
-    }
-
     def "validate Invoice"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
@@ -148,9 +135,9 @@ class OrderTenantAccess extends Specification {
                 description="Invoice for Order ${cartOrderId} part 01" currencyUomId="USD"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55600" invoiceItemSeqId="01" itemTypeEnumId="ItemProduct"
-                productId="DEMO_TNT" quantity="3" amount="9.99" description="Demo Product One-One" itemDate="${effectiveTime}"/>
+                productId="DEMO_TNT" quantity="3" amount="9.99" description="Demo Tenant 1 Month Subscription" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55600" orderId="${cartOrderId}" orderItemSeqId="01"
-                invoiceId="55600" invoiceItemSeqId="01" assetIssuanceId="55600" quantity="3" amount="9.99"/>
+                invoiceId="55600" invoiceItemSeqId="01" quantity="3" amount="9.99"/>
         </entity-facade-xml>""").check()
         logger.info("validate Invoice data check results: " + dataCheckErrors)
 
