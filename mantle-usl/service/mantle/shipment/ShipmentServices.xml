@@ -71,8 +71,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- set Shipment Packed -->
             <service-call name="mantle.shipment.ShipmentServices.pack#Shipment" in-map="[shipmentId:shipmentId]"/>
 
-            <!-- on Shipment Packed mark Order as Completed -->
-            <service-call name="mantle.order.OrderServices.complete#OrderPart"
+            <!-- on Shipment Packed mark Order as Completed (IF all order part items are completed) -->
+            <service-call name="mantle.order.OrderServices.checkComplete#OrderPart"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/>
 
             <!-- set Shipment Shipped -->
@@ -136,26 +136,33 @@ This Work includes contributions authored by David E. Jones, not as a
                     order-by-list="['orderItemSeqId']"/>
             <iterate list="orderItemList" entry="orderItem">
                 <if condition="orderItem.productId">
-                    <service-call name="create#mantle.shipment.ShipmentItem"
-                            in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
-                    <service-call name="create#mantle.shipment.ShipmentItemSource"
-                            in-map="[shipmentId:shipmentId, productId:orderItem.productId, statusId:'SisPending',
+                    <!-- see if Product is a physical item -->
+                    <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true">
+                        <field-map field-name="productId" from="orderItem.productId"/></entity-find-one>
+                    <set field="productTypeEnum" from="product.'ProductType#moqui.basic.Enumeration'"/>
+
+                    <if condition="productTypeEnum.parentEnumId == 'PtPhysical'">
+                        <service-call name="create#mantle.shipment.ShipmentItem"
+                                in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
+                        <service-call name="create#mantle.shipment.ShipmentItemSource"
+                                in-map="[shipmentId:shipmentId, productId:orderItem.productId, statusId:'SisPending',
                                 quantity:orderItem.quantity, quantityNotHandled:orderItem.quantity,
                                 orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId]"/>
 
-                    <!-- for mantle.order.OrderItemBilling set the invoiceId/invoiceItemSeqId on it -->
-                    <set field="quantityNotBilled" from="orderItem.quantity"/>
-                    <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
-                        <econdition field-name="orderId"/><econdition field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/>
-                    </entity-find>
-                    <iterate list="orderItemBillingList" entry="orderItemBilling">
-                        <if condition="!orderItemBilling.shipmentId &amp;&amp; quantityNotBilled >= orderItemBilling.quantity">
-                            <set field="orderItemBilling.shipmentId" from="shipmentId"/>
-                            <entity-update value-field="orderItemBilling"/>
-                            <set field="quantityNotBilled" from="quantityNotBilled - orderItemBilling.quantity"/>
-                        </if>
-                    </iterate>
-                    <!-- if quantityNotBilled > 0 do anything here? we don't have another Invoice/Item with quantity to match... -->
+                        <!-- for mantle.order.OrderItemBilling set the invoiceId/invoiceItemSeqId on it -->
+                        <set field="quantityNotBilled" from="orderItem.quantity"/>
+                        <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                            <econdition field-name="orderId"/><econdition field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/>
+                        </entity-find>
+                        <iterate list="orderItemBillingList" entry="orderItemBilling">
+                            <if condition="!orderItemBilling.shipmentId &amp;&amp; quantityNotBilled >= orderItemBilling.quantity">
+                                <set field="orderItemBilling.shipmentId" from="shipmentId"/>
+                                <entity-update value-field="orderItemBilling"/>
+                                <set field="quantityNotBilled" from="quantityNotBilled - orderItemBilling.quantity"/>
+                            </if>
+                        </iterate>
+                        <!-- if quantityNotBilled > 0 do anything here? we don't have another Invoice/Item with quantity to match... -->
+                    </if>
                 </if>
             </iterate>
 
