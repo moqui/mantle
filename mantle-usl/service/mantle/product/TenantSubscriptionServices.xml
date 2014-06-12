@@ -19,11 +19,22 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find-one entity-name="mantle.product.subscription.Subscription" value-field="subscription"/>
 
-            <!-- TODO: how to get parameters for provision tenant, especially tenant ID, admin user, etc? -->
+            <!-- TODO: how to get parameters for provision tenant, especially tenant ID, admin user, etc when order placed? -->
 
+            <entity-find-one entity-name="moqui.security.UserAccount" value-field="sua">
+                <field-map field-name="partyId" from="subscription.subscriberPartyId"/></entity-find-one>
+
+            <set field="tenantMap" from="[tenantId:subscription.subscriberPartyId, hostName:subscription.subscriberPartyId,
+                    tenantName:sua.userFullName, dataLoadTypes:'seed']"/>
+            <set field="randomPassword" from="StupidUtilities.getRandomString(10) + 'a1!'"/>
+            <set field="userMap" from="[username:sua.username, userFullName:sua.userFullName,
+                    newPassword:randomPassword, newPasswordVerify:randomPassword,
+                    emailAddress:sua.emailAddress, currencyUomId:sua.currencyUomId, locale:sua.locale, timeZone:sua.timeZone]"/>
 
             <!-- TODO: for now just provisions for the Derby DB, make it configurable somehow, or just customize code to handle it? -->
-            <service-call name="org.moqui.impl.TenantServices.provision#TenantDerby" in-map="context"/>
+
+            <service-call name="org.moqui.impl.TenantServices.provision#TenantDerby" in-map="tenantMap + userMap"
+                    include-user-login="true" async="true"/>
         </actions>
     </service>
     <service verb="revoke" noun="TenantAccess">
