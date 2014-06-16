@@ -33,8 +33,16 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- TODO: for now just provisions for the Derby DB, make it configurable somehow, or just customize code to handle it? -->
 
-            <service-call name="org.moqui.impl.TenantServices.provision#TenantDerby" in-map="tenantMap + userMap"
-                    include-user-login="true" async="true"/>
+            <!-- <service-call name="org.moqui.impl.TenantServices.provision#TenantDerby" in-map="tenantMap + userMap" async="true"/> -->
+            <script>
+                import org.moqui.context.ExecutionContext
+                import org.moqui.service.ServiceResultWaiter
+
+                ExecutionContext ec = context.ec
+                ServiceResultWaiter srw = ec.service.async().name("org.moqui.impl.TenantServices.provision#TenantDerby")
+                        .parameters(tenantMap + userMap).callWaiter()
+                srw.waitForResult()
+            </script>
         </actions>
     </service>
     <service verb="revoke" noun="TenantAccess">
