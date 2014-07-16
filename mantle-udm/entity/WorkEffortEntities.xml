@@ -17,96 +17,9 @@ and those parts may be licensed under the Apache License 2.0.
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.4.xsd">
 
     <!-- ========================================================= -->
-    <!--  - mantle.work.time -->
     <!--  - mantle.work.effort -->
+    <!--  - mantle.work.time -->
     <!-- ========================================================= -->
-
-    <!-- ========================================================= -->
-    <!-- mantle.work.time -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="TimeEntry" package-name="mantle.work.time">
-        <field name="timeEntryId" type="id" is-pk="true"/>
-        <field name="timesheetId" type="id"/>
-        <field name="partyId" type="id"/>
-        <field name="rateTypeEnumId" type="id"/>
-        <field name="rateAmountId" type="id"/>
-        <field name="vendorRateAmountId" type="id"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="hours" type="number-decimal"/>
-        <field name="breakHours" type="number-decimal"/>
-        <field name="comments" type="text-long"/>
-        <field name="workEffortId" type="id"/>
-        <field name="invoiceId" type="id"/>
-        <field name="invoiceItemSeqId" type="id"/>
-        <field name="vendorInvoiceId" type="id"/>
-        <field name="vendorInvoiceItemSeqId" type="id"/>
-        <relationship type="one" related-entity-name="mantle.work.time.Timesheet"/>
-        <relationship type="one" related-entity-name="mantle.party.Party"/>
-        <relationship type="one-nofk" related-entity-name="mantle.party.Person"/>
-        <relationship type="one" title="RateType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="rateTypeEnumId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.humanres.rate.RateAmount"/>
-        <relationship type="one" title="Vendor" related-entity-name="mantle.humanres.rate.RateAmount">
-            <key-map field-name="vendorRateAmountId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" related-entity-name="mantle.account.invoice.InvoiceItem">
-            <key-map field-name="invoiceId"/>
-            <key-map field-name="invoiceItemSeqId"/>
-        </relationship>
-        <relationship type="one" title="Vendor" related-entity-name="mantle.account.invoice.InvoiceItem">
-            <key-map field-name="vendorInvoiceId" related-field-name="invoiceId"/>
-            <key-map field-name="vendorInvoiceItemSeqId" related-field-name="invoiceItemSeqId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="Timesheet" package-name="mantle.work.time">
-        <field name="timesheetId" type="id" is-pk="true"/>
-        <field name="partyId" type="id"/>
-        <field name="clientPartyId" type="id"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="comments" type="text-medium"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" title="Client" related-entity-name="Party">
-            <key-map field-name="clientPartyId"/>
-        </relationship>
-        <relationship type="one" title="Timesheet" related-entity-name="moqui.basic.StatusItem"/>
-        <seed-data>
-            <!-- Timesheet Status -->
-            <moqui.basic.StatusType description="Timesheet" statusTypeId="Timesheet"/>
-            <moqui.basic.StatusItem description="In-Process" sequenceNum="1" statusId="TIMESHEET_IN_PROCESS" statusTypeId="Timesheet"/>
-            <moqui.basic.StatusItem description="Completed" sequenceNum="2" statusId="TIMESHEET_COMPLETED" statusTypeId="Timesheet"/>
-            <moqui.basic.StatusItem description="Approved" sequenceNum="3" statusId="TIMESHEET_APPROVED" statusTypeId="Timesheet"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="TIMESHEET_IN_PROCESS" toStatusId="TIMESHEET_COMPLETED" transitionName="Confirm complete"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="TIMESHEET_COMPLETED" toStatusId="TIMESHEET_APPROVED" transitionName="Approve"/>
-        </seed-data>
-    </entity>
-    <entity entity-name="TimesheetParty" package-name="mantle.work.time">
-        <field name="timesheetId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="Timesheet"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
-    </entity>
-    <view-entity entity-name="TimeEntrySummary" package-name="mantle.work.time">
-        <member-entity entity-alias="TENT" entity-name="mantle.work.time.TimeEntry"/>
-        <alias entity-alias="TENT" name="workEffortId"/>
-        <alias entity-alias="TENT" name="timesheetId"/>
-        <alias entity-alias="TENT" name="rateTypeEnumId"/>
-        <alias entity-alias="TENT" name="hours" function="sum"/>
-        <alias entity-alias="TENT" name="breakHours" function="sum"/>
-    </view-entity>
-    <view-entity entity-name="TaskTimeSummary" package-name="mantle.work.time">
-        <member-entity entity-alias="TENT" entity-name="mantle.work.effort.WorkEffort"/>
-        <alias entity-alias="TENT" name="rootWorkEffortId"/>
-        <alias entity-alias="TENT" name="estimatedWorkTime" function="sum"/>
-        <alias entity-alias="TENT" name="actualWorkTime" function="sum"/>
-    </view-entity>
 
     <!-- ========================================================= -->
     <!-- mantle.work.effort -->
@@ -626,4 +539,91 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="skillTypeEnumId"/>
         </relationship>
     </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.work.time -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="TimeEntry" package-name="mantle.work.time">
+        <field name="timeEntryId" type="id" is-pk="true"/>
+        <field name="timesheetId" type="id"/>
+        <field name="partyId" type="id"/>
+        <field name="rateTypeEnumId" type="id"/>
+        <field name="rateAmountId" type="id"/>
+        <field name="vendorRateAmountId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="hours" type="number-decimal"/>
+        <field name="breakHours" type="number-decimal"/>
+        <field name="comments" type="text-long"/>
+        <field name="workEffortId" type="id"/>
+        <field name="invoiceId" type="id"/>
+        <field name="invoiceItemSeqId" type="id"/>
+        <field name="vendorInvoiceId" type="id"/>
+        <field name="vendorInvoiceItemSeqId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.work.time.Timesheet"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one-nofk" related-entity-name="mantle.party.Person"/>
+        <relationship type="one" title="RateType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="rateTypeEnumId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.humanres.rate.RateAmount"/>
+        <relationship type="one" title="Vendor" related-entity-name="mantle.humanres.rate.RateAmount">
+            <key-map field-name="vendorRateAmountId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
+        <relationship type="one" related-entity-name="mantle.account.invoice.InvoiceItem">
+            <key-map field-name="invoiceId"/>
+            <key-map field-name="invoiceItemSeqId"/>
+        </relationship>
+        <relationship type="one" title="Vendor" related-entity-name="mantle.account.invoice.InvoiceItem">
+            <key-map field-name="vendorInvoiceId" related-field-name="invoiceId"/>
+            <key-map field-name="vendorInvoiceItemSeqId" related-field-name="invoiceItemSeqId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="Timesheet" package-name="mantle.work.time">
+        <field name="timesheetId" type="id" is-pk="true"/>
+        <field name="partyId" type="id"/>
+        <field name="clientPartyId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="comments" type="text-medium"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" title="Client" related-entity-name="Party">
+            <key-map field-name="clientPartyId"/>
+        </relationship>
+        <relationship type="one" title="Timesheet" related-entity-name="moqui.basic.StatusItem"/>
+        <seed-data>
+            <!-- Timesheet Status -->
+            <moqui.basic.StatusType description="Timesheet" statusTypeId="Timesheet"/>
+            <moqui.basic.StatusItem description="In-Process" sequenceNum="1" statusId="TIMESHEET_IN_PROCESS" statusTypeId="Timesheet"/>
+            <moqui.basic.StatusItem description="Completed" sequenceNum="2" statusId="TIMESHEET_COMPLETED" statusTypeId="Timesheet"/>
+            <moqui.basic.StatusItem description="Approved" sequenceNum="3" statusId="TIMESHEET_APPROVED" statusTypeId="Timesheet"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="TIMESHEET_IN_PROCESS" toStatusId="TIMESHEET_COMPLETED" transitionName="Confirm complete"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="TIMESHEET_COMPLETED" toStatusId="TIMESHEET_APPROVED" transitionName="Approve"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="TimesheetParty" package-name="mantle.work.time">
+        <field name="timesheetId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="Timesheet"/>
+        <relationship type="one" related-entity-name="Party"/>
+        <relationship type="one" related-entity-name="RoleType"/>
+    </entity>
+    <view-entity entity-name="TimeEntrySummary" package-name="mantle.work.time">
+        <member-entity entity-alias="TENT" entity-name="mantle.work.time.TimeEntry"/>
+        <alias entity-alias="TENT" name="workEffortId"/>
+        <alias entity-alias="TENT" name="timesheetId"/>
+        <alias entity-alias="TENT" name="rateTypeEnumId"/>
+        <alias entity-alias="TENT" name="hours" function="sum"/>
+        <alias entity-alias="TENT" name="breakHours" function="sum"/>
+    </view-entity>
+    <view-entity entity-name="TaskTimeSummary" package-name="mantle.work.time">
+        <member-entity entity-alias="TENT" entity-name="mantle.work.effort.WorkEffort"/>
+        <alias entity-alias="TENT" name="rootWorkEffortId"/>
+        <alias entity-alias="TENT" name="estimatedWorkTime" function="sum"/>
+        <alias entity-alias="TENT" name="actualWorkTime" function="sum"/>
+    </view-entity>
 </entities>
