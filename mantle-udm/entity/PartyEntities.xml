@@ -592,7 +592,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="communicationEventId" type="id" is-pk="true"/>
         <field name="communicationEventTypeId" type="id"/>
         <field name="contactMechTypeEnumId" type="id"/>
-        <field name="statusId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
 
         <!-- needed? <field name="originalCommEventId" type="id"/> -->
         <field name="parentCommEventId" type="id"/>
@@ -659,25 +659,32 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusItem description="Ready" sequenceNum="2" statusId="CeReady" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Sent" sequenceNum="10" statusId="CeSent" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Received" sequenceNum="11" statusId="CeReceived" statusTypeId="CommunicationEvent"/>
+            <moqui.basic.StatusItem description="Viewed" sequenceNum="12" statusId="CeViewed" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Resolved" sequenceNum="20" statusId="CeResolved" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Referred" sequenceNum="21" statusId="CeReferred" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Bounced" sequenceNum="50" statusId="CeBounced" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Unknown Party" sequenceNum="98" statusId="CeUnknownParty" statusTypeId="CommunicationEvent"/><!-- unknown incoming email address -->
             <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="CeCancelled" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeInProgress" toStatusId="CeReady" transitionName="Entered"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeInProgress" toStatusId="CeReceived" transitionName="Complete"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReady" toStatusId="CeSent" transitionName="Complete"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReady" toStatusId="CeReceived" transitionName="Complete"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeSent" toStatusId="CeReceived" transitionName="Complete"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeInProgress" toStatusId="CeReceived" transitionName="Receive"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReady" toStatusId="CeSent" transitionName="Send"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReady" toStatusId="CeReceived" transitionName="Receive"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeSent" toStatusId="CeReceived" transitionName="Receive"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeSent" toStatusId="CeViewed" transitionName="View"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeViewed" transitionName="View"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeResolved" transitionName="Resolve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeReferred" transitionName="Refer"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeBounced" transitionName="Bounced"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeReceived" transitionName="Complete"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeReady" transitionName="Corrected"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeBounced" transitionName="Bounce"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeResolved" transitionName="Resolve"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeReferred" transitionName="Refer"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeBounced" transitionName="Bounce"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeReceived" transitionName="Receive"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeReady" transitionName="Correct (Ready)"/>
 
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReady" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeInProgress" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeCancelled" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeResolved" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReferred" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeCancelled" transitionName="Cancel"/>
