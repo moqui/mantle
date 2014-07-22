@@ -254,7 +254,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
-        <relationship type="one" related-entity-name="GeoPoint"/>
+        <relationship type="one" related-entity-name="moqui.basic.GeoPoint"/>
     </entity>
     <entity entity-name="AssetIdentification" package-name="mantle.product.asset">
         <field name="assetId" type="id" is-pk="true"/>
@@ -273,6 +273,20 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Vehicle Identification Number (VIN)" enumId="AitVin" enumTypeId="AssetIdentificationType"/>
             <moqui.basic.Enumeration description="Gas Card Number" enumId="AitGasCard" enumTypeId="AssetIdentificationType"/>
         </seed-data>
+    </entity>
+    <entity entity-name="AssetPartyAssignment" package-name="mantle.product.asset">
+        <field name="assetId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="allocatedDate" type="date-time"/>
+        <field name="statusId" type="id"/>
+        <field name="comments" type="text-medium"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
     </entity>
     <entity entity-name="AssetProduct" package-name="mantle.product.asset">
         <field name="assetId" type="id" is-pk="true"/>
@@ -312,31 +326,19 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="amountUomId"/>
         </relationship>
     </entity>
-    <entity entity-name="AssetPartyAssignment" package-name="mantle.product.asset">
-        <field name="assetId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="allocatedDate" type="date-time"/>
-        <field name="statusId" type="id"/>
-        <field name="comments" type="text-medium"/>
-        <relationship type="one" related-entity-name="Party"/>
-        <relationship type="one" related-entity-name="RoleType"/>
-        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
-    </entity>
 
     <entity entity-name="Container" package-name="mantle.product.asset">
         <field name="containerId" type="id" is-pk="true"/>
         <field name="containerTypeEnumId" type="id"/>
         <field name="facilityId" type="id" enable-audit-log="true"/>
+        <field name="locationSeqId" type="id" enable-audit-log="true"/>
         <field name="geoPointId" type="id" enable-audit-log="true"/>
         <field name="description" type="text-medium"/>
         <relationship type="one" title="ContainerType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="containerTypeEnumId"/>
         </relationship>
-        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one-nofk" related-entity-name="FacilityLocation"/>
     </entity>
     <entity entity-name="Lot" package-name="mantle.product.asset">
         <field name="lotId" type="id" is-pk="true"/>
@@ -571,25 +573,22 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="maintenanceTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
         <field name="templateWorkEffortId" type="id">
-            <description>Template of Maintenance Plan. WorkEffort may have WorkEffortAssocs for tasks/breakdown details.
-            </description>
+            <description>Template of Maintenance Plan. WorkEffort may have WorkEffortAssoc records for tasks/breakdown
+                details.</description>
         </field>
         <field name="intervalQuantity" type="number-decimal"/>
         <field name="intervalUomId" type="id">
             <description>UOM for intervalQuantity; if used intervalMeterTypeId is generally not used (ie one or the
-                other)
-            </description>
+                other)</description>
         </field>
         <field name="intervalMeterTypeId" type="id">
             <description>Meter Type for intervalQuantity; if used intervalUomId is generally not used (ie one or the
-                other)
-            </description>
+                other)</description>
         </field>
         <field name="repeatCount" type="number-integer">
-            <description>If 0 or null means no limit to repeat count; can be used with multiple ProductMaint records for
-                a single ProductMaintType in cases where maintenance intervals are not evenly distributed, or only need
-                to be done once like a break-in period
-            </description>
+            <description>If 0 or null means no limit to repeat count; can be used with multiple ProductMaintenance
+                records for a single MaintenanceType in cases where maintenance intervals are not evenly distributed,
+                or only need to be done once like a break-in period</description>
         </field>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" title="MaintenanceType" related-entity-name="moqui.basic.Enumeration">
@@ -648,11 +647,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="shipmentId"/>
             <key-map field-name="shipmentPackageSeqId"/>
         </relationship>
-        <relationship type="one" related-entity-name="ShipmentItem">
-            <key-map field-name="shipmentId"/>
-            <key-map field-name="productId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="ReturnItem">
+        <relationship type="one" related-entity-name="mantle.order.return.ReturnItem">
             <key-map field-name="returnId"/>
             <key-map field-name="returnItemSeqId"/>
         </relationship>
