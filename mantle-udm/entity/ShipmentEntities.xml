@@ -16,147 +16,11 @@ and those parts may be licensed under the Apache License 2.0.
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.4.xsd">
     <!-- ========================================================= -->
+    <!--  - mantle.shipment -->
     <!--  - mantle.shipment.carrier -->
     <!--  - mantle.shipment.picklist -->
-    <!--  - mantle.shipment -->
     <!-- ========================================================= -->
 
-
-    <!-- ========================================================= -->
-    <!-- mantle.shipment.carrier -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="CarrierShipmentMethod" package-name="mantle.shipment.carrier">
-        <field name="carrierPartyId" type="id" is-pk="true"/>
-        <field name="shipmentMethodEnumId" type="id" is-pk="true"/>
-        <field name="sequenceNum" type="number-integer"/>
-        <field name="carrierServiceCode" type="text-short"/>
-        <field name="scaCode" type="text-short"><description>Standard Carrier Alpha Code</description></field>
-        <relationship type="one" title="Carrier" related-entity-name="mantle.party.Party">
-            <key-map field-name="carrierPartyId"/>
-        </relationship>
-        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="shipmentMethodEnumId"/>
-        </relationship>
-        <seed-data>
-            <!-- Shipment Method -->
-            <moqui.basic.EnumerationType description="Shipment Method" enumTypeId="ShipmentMethod"/>
-            <moqui.basic.Enumeration description="No Shipping" enumId="ShMthNoShipping" enumTypeId="ShipmentMethod"/>
-            <moqui.basic.Enumeration description="Next Day" enumId="ShMthNextDay" enumTypeId="ShipmentMethod"/>
-            <moqui.basic.Enumeration description="Second Day" enumId="ShMthSecondDay" enumTypeId="ShipmentMethod"/>
-            <moqui.basic.Enumeration description="Third Day" enumId="ShMthThirdDay" enumTypeId="ShipmentMethod"/>
-            <moqui.basic.Enumeration description="Ground" enumId="ShMthGround" enumTypeId="ShipmentMethod"/>
-
-            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthNoShipping" sequenceNum="0"/>
-            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthGround" sequenceNum="1"/>
-            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthNextDay" sequenceNum="2"/>
-            <!-- Standard Carrier Alpha Codes (1-day, 2-day, 3-day, Ground) -->
-            <!-- UPS: UPS1, UPS2, UPS3, UPSG -->
-            <!-- FedEx: FDXSO, FDX2D, FDXES, FDXG -->
-            <!-- DHL: DZNA, DDAG, AAJL (international air) -->
-        </seed-data>
-    </entity>
-    <entity entity-name="CarrierShipmentBoxType" package-name="mantle.shipment.carrier">
-        <field name="carrierPartyId" type="id" is-pk="true"/>
-        <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
-        <field name="packagingTypeCode" type="id"/>
-        <field name="oversizeCode" type="text-short"/>
-        <relationship type="one" related-entity-name="ShipmentBoxType"/>
-        <relationship type="one" title="Carrier" related-entity-name="Party">
-            <key-map field-name="carrierPartyId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="Delivery" package-name="mantle.shipment.carrier">
-        <field name="deliveryId" type="id" is-pk="true"/>
-        <field name="originFacilityId" type="id"/>
-        <field name="destFacilityId" type="id"/>
-        <field name="actualStartDate" type="date-time"/>
-        <field name="actualArrivalDate" type="date-time"/>
-        <field name="estimatedStartDate" type="date-time"/>
-        <field name="estimatedArrivalDate" type="date-time"/>
-        <field name="assetId" type="id"/>
-        <field name="startMileage" type="number-decimal"/>
-        <field name="endMileage" type="number-decimal"/>
-        <field name="fuelUsed" type="number-decimal"/>
-        <relationship type="one" related-entity-name="Asset"/>
-        <relationship type="one" title="Origin" related-entity-name="mantle.facility.Facility">
-            <key-map field-name="originFacilityId"/>
-        </relationship>
-        <relationship type="one" title="Dest" related-entity-name="mantle.facility.Facility">
-            <key-map field-name="destFacilityId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="PartyCarrierAccount" package-name="mantle.shipment.carrier">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="carrierPartyId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="accountNumber" type="id"/>
-        <relationship type="one" related-entity-name="Party">
-            <key-map field-name="partyId"/>
-        </relationship>
-        <relationship type="one" title="Carrier" related-entity-name="Party">
-            <key-map field-name="carrierPartyId"/>
-        </relationship>
-    </entity>
-    <entity entity-name="ShippingGatewayConfig" package-name="mantle.shipment.carrier">
-        <field name="shippingGatewayConfigId" type="id" is-pk="true"/>
-        <field name="shippingGatewayTypeEnumId" type="id"><description>Each shipping gateway integration should define a
-            ShippingGatewayType Enumeration record plus an entity with a shared PK (ie PK is shippingGatewayConfigId).</description></field>
-        <field name="description" type="text-medium"/>
-        <field name="getOrderRateServiceName" type="text-medium"><description>Service implementing
-            mantle.shipment.CarrierServices.get#OrderShippingRate interface.</description></field>
-        <field name="estimateRateServiceName" type="text-medium"><description>Service implementing
-            mantle.shipment.CarrierServices.estimate#ShippingRate interface.</description></field>
-        <field name="requestLabelsServiceName" type="text-medium"><description>Service implementing
-            mantle.shipment.CarrierServices.request#ShippingLabels interface.</description></field>
-        <field name="voidLabelsServiceName" type="text-medium"><description>Service implementing
-            mantle.shipment.CarrierServices.void#ShippingLabels interface.</description></field>
-        <field name="trackLabelsServiceName" type="text-medium"><description>Service implementing
-            mantle.shipment.CarrierServices.track#ShippingLabels interface.</description></field>
-        <field name="validateAddressServiceName" type="text-medium"><description>Service implementing
-            mantle.shipment.CarrierServices.validate#ShippingPostalAddress interface.</description></field>
-        <relationship type="one" title="ShippingGatewayType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="shippingGatewayTypeEnumId"/>
-        </relationship>
-        <seed-data>
-            <!-- Shipping Gateway Type -->
-            <moqui.basic.EnumerationType description="Shipping Gateway Type" enumTypeId="ShippingGatewayType"/>
-            <moqui.basic.Enumeration description="Local Shipping Gateway" enumId="ShGtwyLocal" enumTypeId="ShippingGatewayType"/>
-
-            <mantle.shipment.carrier.ShippingGatewayConfig shippingGatewayConfigId="NA_LOCAL"
-                    shippingGatewayTypeEnumId="ShGtwyLocal" description="Local gateway for order shipping rate"
-                    getOrderRateServiceName="mantle.shipment.CarrierServices.get#OrderShippingRateLocal"/>
-        </seed-data>
-    </entity>
-
-    <!-- ========================================================= -->
-    <!-- mantle.shipment.picklist -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="Picklist" package-name="mantle.shipment.picklist">
-        <description>A Picklist is a way to organize pending Shipments during a pick/pack process.</description>
-        <field name="picklistId" type="id" is-pk="true"/>
-        <field name="description" type="text-medium"/>
-        <field name="facilityId" type="id"/>
-        <field name="shipmentMethodEnumId" type="id"/>
-        <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="picklistDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
-        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="shipmentMethodEnumId"/>
-        </relationship>
-        <relationship type="one" title="Picklist" related-entity-name="moqui.basic.StatusItem"/>
-    </entity>
-    <entity entity-name="PicklistParty" package-name="mantle.shipment.picklist">
-        <field name="picklistId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.shipment.picklist.Picklist"/>
-        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
-    </entity>
 
     <!-- ========================================================= -->
     <!-- mantle.shipment -->
@@ -514,4 +378,140 @@ and those parts may be licensed under the Apache License 2.0.
         <alias name="originFacilityName" entity-alias="OFAC" field="facilityName"/>
         <alias name="destinationFacilityName" entity-alias="DFAC" field="facilityName"/>
     </view-entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.carrier -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="CarrierShipmentMethod" package-name="mantle.shipment.carrier">
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="shipmentMethodEnumId" type="id" is-pk="true"/>
+        <field name="sequenceNum" type="number-integer"/>
+        <field name="carrierServiceCode" type="text-short"/>
+        <field name="scaCode" type="text-short"><description>Standard Carrier Alpha Code</description></field>
+        <relationship type="one" title="Carrier" related-entity-name="mantle.party.Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="shipmentMethodEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- Shipment Method -->
+            <moqui.basic.EnumerationType description="Shipment Method" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="No Shipping" enumId="ShMthNoShipping" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="Next Day" enumId="ShMthNextDay" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="Second Day" enumId="ShMthSecondDay" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="Third Day" enumId="ShMthThirdDay" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="Ground" enumId="ShMthGround" enumTypeId="ShipmentMethod"/>
+
+            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthNoShipping" sequenceNum="0"/>
+            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthGround" sequenceNum="1"/>
+            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthNextDay" sequenceNum="2"/>
+            <!-- Standard Carrier Alpha Codes (1-day, 2-day, 3-day, Ground) -->
+            <!-- UPS: UPS1, UPS2, UPS3, UPSG -->
+            <!-- FedEx: FDXSO, FDX2D, FDXES, FDXG -->
+            <!-- DHL: DZNA, DDAG, AAJL (international air) -->
+        </seed-data>
+    </entity>
+    <entity entity-name="CarrierShipmentBoxType" package-name="mantle.shipment.carrier">
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
+        <field name="packagingTypeCode" type="id"/>
+        <field name="oversizeCode" type="text-short"/>
+        <relationship type="one" related-entity-name="ShipmentBoxType"/>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="Delivery" package-name="mantle.shipment.carrier">
+        <field name="deliveryId" type="id" is-pk="true"/>
+        <field name="originFacilityId" type="id"/>
+        <field name="destFacilityId" type="id"/>
+        <field name="actualStartDate" type="date-time"/>
+        <field name="actualArrivalDate" type="date-time"/>
+        <field name="estimatedStartDate" type="date-time"/>
+        <field name="estimatedArrivalDate" type="date-time"/>
+        <field name="assetId" type="id"/>
+        <field name="startMileage" type="number-decimal"/>
+        <field name="endMileage" type="number-decimal"/>
+        <field name="fuelUsed" type="number-decimal"/>
+        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" title="Origin" related-entity-name="mantle.facility.Facility">
+            <key-map field-name="originFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Dest" related-entity-name="mantle.facility.Facility">
+            <key-map field-name="destFacilityId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="PartyCarrierAccount" package-name="mantle.shipment.carrier">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="carrierPartyId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="accountNumber" type="id"/>
+        <relationship type="one" related-entity-name="Party">
+            <key-map field-name="partyId"/>
+        </relationship>
+        <relationship type="one" title="Carrier" related-entity-name="Party">
+            <key-map field-name="carrierPartyId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ShippingGatewayConfig" package-name="mantle.shipment.carrier">
+        <field name="shippingGatewayConfigId" type="id" is-pk="true"/>
+        <field name="shippingGatewayTypeEnumId" type="id"><description>Each shipping gateway integration should define a
+            ShippingGatewayType Enumeration record plus an entity with a shared PK (ie PK is shippingGatewayConfigId).</description></field>
+        <field name="description" type="text-medium"/>
+        <field name="getOrderRateServiceName" type="text-medium"><description>Service implementing
+            mantle.shipment.CarrierServices.get#OrderShippingRate interface.</description></field>
+        <field name="estimateRateServiceName" type="text-medium"><description>Service implementing
+            mantle.shipment.CarrierServices.estimate#ShippingRate interface.</description></field>
+        <field name="requestLabelsServiceName" type="text-medium"><description>Service implementing
+            mantle.shipment.CarrierServices.request#ShippingLabels interface.</description></field>
+        <field name="voidLabelsServiceName" type="text-medium"><description>Service implementing
+            mantle.shipment.CarrierServices.void#ShippingLabels interface.</description></field>
+        <field name="trackLabelsServiceName" type="text-medium"><description>Service implementing
+            mantle.shipment.CarrierServices.track#ShippingLabels interface.</description></field>
+        <field name="validateAddressServiceName" type="text-medium"><description>Service implementing
+            mantle.shipment.CarrierServices.validate#ShippingPostalAddress interface.</description></field>
+        <relationship type="one" title="ShippingGatewayType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="shippingGatewayTypeEnumId"/>
+        </relationship>
+        <seed-data>
+            <!-- Shipping Gateway Type -->
+            <moqui.basic.EnumerationType description="Shipping Gateway Type" enumTypeId="ShippingGatewayType"/>
+            <moqui.basic.Enumeration description="Local Shipping Gateway" enumId="ShGtwyLocal" enumTypeId="ShippingGatewayType"/>
+
+            <mantle.shipment.carrier.ShippingGatewayConfig shippingGatewayConfigId="NA_LOCAL"
+                    shippingGatewayTypeEnumId="ShGtwyLocal" description="Local gateway for order shipping rate"
+                    getOrderRateServiceName="mantle.shipment.CarrierServices.get#OrderShippingRateLocal"/>
+        </seed-data>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.picklist -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Picklist" package-name="mantle.shipment.picklist">
+        <description>A Picklist is a way to organize pending Shipments during a pick/pack process.</description>
+        <field name="picklistId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="facilityId" type="id"/>
+        <field name="shipmentMethodEnumId" type="id"/>
+        <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="picklistDate" type="date-time"/>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="shipmentMethodEnumId"/>
+        </relationship>
+        <relationship type="one" title="Picklist" related-entity-name="moqui.basic.StatusItem"/>
+    </entity>
+    <entity entity-name="PicklistParty" package-name="mantle.shipment.picklist">
+        <field name="picklistId" type="id" is-pk="true"/>
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="roleTypeId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="mantle.shipment.picklist.Picklist"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
+    </entity>
 </entities>
