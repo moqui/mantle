@@ -94,7 +94,7 @@ class OrderToCashBasicFlow extends Specification {
                     vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]).call()
 
         Map addOut1 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
-                .parameters([orderId:cartOrderId, productId:'DEMO_1_1', quantity:1, customerPartyId:customerPartyId,
+                .parameters([productId:'DEMO_1_1', quantity:1, customerPartyId:customerPartyId,
                     currencyUomId:currencyUomId, productStoreId:productStoreId]).call()
 
         cartOrderId = addOut1.orderId
