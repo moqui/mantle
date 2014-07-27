@@ -310,7 +310,7 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "complete Purchase Order"() {
         when:
-        // after Shipment Packed mark Order as Completed
+        // after Shipment Delivered mark Order as Completed
         ec.service.sync().name("mantle.order.OrderServices.complete#OrderPart")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
 
