@@ -527,8 +527,6 @@ class WorkPlanToCashBasicFlow extends Specification {
                     statusId:'ReqSubmitted', responseRequiredDate:'2013-11-15 15:00:00']).call()
         ec.service.sync().name("mantle.request.RequestServices.update#Request")
                 .parameters([requestId:createReqResult.requestId, statusId:'ReqReviewed']).call()
-        ec.service.sync().name("mantle.request.RequestServices.update#Request")
-                .parameters([requestId:createReqResult.requestId, statusId:'ReqCompleted']).call()
 
         Map createReqTskResult = ec.service.sync().name("mantle.work.TaskServices.create#Task")
                 .parameters([rootWorkEffortId:'TEST', workEffortName:'Test Request 1 Task',
@@ -539,6 +537,10 @@ class WorkPlanToCashBasicFlow extends Specification {
         ec.service.sync().name("mantle.work.TaskServices.update#Task")
                 .parameters([workEffortId:createReqTskResult.workEffortId, statusId:'WeComplete',
                     resolutionEnumId:'WerCompleted']).call()
+
+        // task completed, now complete request
+        ec.service.sync().name("mantle.request.RequestServices.update#Request")
+                .parameters([requestId:createReqResult.requestId, statusId:'ReqCompleted']).call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.request.Request requestId="${createReqResult.requestId}" requestTypeEnumId="RqtSupport"
