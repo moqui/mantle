@@ -565,20 +565,21 @@ class WorkPlanToCashBasicFlow extends Specification {
             <moqui.entity.EntityAuditLog auditHistorySeqId="55928" changedEntityName="mantle.request.Request"
                 changedFieldName="statusId" pkPrimaryValue="100000" oldValueText="ReqSubmitted"
                 newValueText="ReqReviewed" changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
-            <moqui.entity.EntityAuditLog auditHistorySeqId="55929" changedEntityName="mantle.request.Request"
-                changedFieldName="statusId" pkPrimaryValue="100000" oldValueText="ReqReviewed"
-                newValueText="ReqCompleted" changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
-            <moqui.entity.EntityAuditLog auditHistorySeqId="55930" changedEntityName="mantle.work.effort.WorkEffort"
+
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55929" changedEntityName="mantle.work.effort.WorkEffort"
                 changedFieldName="statusId" pkPrimaryValue="${createReqTskResult.workEffortId}" newValueText="WeApproved"
                 changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
-            <moqui.entity.EntityAuditLog auditHistorySeqId="55931" changedEntityName="mantle.work.effort.WorkEffortParty"
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55930" changedEntityName="mantle.work.effort.WorkEffortParty"
                 changedFieldName="statusId" pkPrimaryValue="${createReqTskResult.workEffortId}"
                 pkSecondaryValue="${workerResult.partyId}"
                 pkRestCombinedValue="roleTypeId:'Worker',fromDate:'${effectiveTime}'" newValueText="PRTYASGN_ASSIGNED"
                 changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
-            <moqui.entity.EntityAuditLog auditHistorySeqId="55932" changedEntityName="mantle.work.effort.WorkEffort"
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55931" changedEntityName="mantle.work.effort.WorkEffort"
                 changedFieldName="statusId" pkPrimaryValue="${createReqTskResult.workEffortId}" oldValueText="WeApproved"
                 newValueText="WeComplete" changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
+            <moqui.entity.EntityAuditLog auditHistorySeqId="55932" changedEntityName="mantle.request.Request"
+                changedFieldName="statusId" pkPrimaryValue="100000" oldValueText="ReqReviewed"
+                newValueText="ReqCompleted" changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
 
         </entity-facade-xml>""").check()
         logger.info("create Request and Task for Request data check results: " + dataCheckErrors)
