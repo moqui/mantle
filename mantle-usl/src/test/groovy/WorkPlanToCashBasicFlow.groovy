@@ -183,11 +183,11 @@ class WorkPlanToCashBasicFlow extends Specification {
         // Rate Amounts
         clientRateResult = ec.service.sync().name("create#mantle.humanres.rate.RateAmount")
                 .parameters([rateTypeEnumId:'RatpStandard', ratePurposeEnumId:'RaprClient', timePeriodUomId:'TF_hr',
-                emplPositionClassId:'Programmer', fromDate:'2010-02-03 00:00:00', rateAmount:'60.00',
+                emplPositionClassId:'Programmer', fromDate:'1265184000000', rateAmount:'60.00',
                 rateCurrencyUomId:'USD', partyId:workerResult.partyId]).call()
         vendorRateResult = ec.service.sync().name("create#mantle.humanres.rate.RateAmount")
                 .parameters([rateTypeEnumId:'RatpStandard', ratePurposeEnumId:'RaprVendor', timePeriodUomId:'TF_hr',
-                emplPositionClassId:'Programmer', fromDate:'2010-02-03 00:00:00', rateAmount:'40.00',
+                emplPositionClassId:'Programmer', fromDate:'1265184000000', rateAmount:'40.00',
                 rateCurrencyUomId:'USD', partyId:workerResult.partyId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
@@ -208,10 +208,10 @@ class WorkPlanToCashBasicFlow extends Specification {
 
             <mantle.humanres.rate.RateAmount rateAmountId="${clientRateResult.rateAmountId}" rateTypeEnumId="RatpStandard"
                 ratePurposeEnumId="RaprClient" timePeriodUomId="TF_hr" partyId="${workerResult.partyId}"
-                emplPositionClassId="Programmer" fromDate="2010-02-03 00:00:00" rateAmount="60.00" rateCurrencyUomId="USD"/>
+                emplPositionClassId="Programmer" fromDate="1265184000000" rateAmount="60.00" rateCurrencyUomId="USD"/>
             <mantle.humanres.rate.RateAmount rateAmountId="${vendorRateResult.rateAmountId}" rateTypeEnumId="RatpStandard"
                 ratePurposeEnumId="RaprVendor" timePeriodUomId="TF_hr" partyId="${workerResult.partyId}"
-                emplPositionClassId="Programmer" fromDate="2010-02-03 00:00:00" rateAmount="40.00" rateCurrencyUomId="USD"/>
+                emplPositionClassId="Programmer" fromDate="1265184000000" rateAmount="40.00" rateCurrencyUomId="USD"/>
 
             <moqui.entity.EntityAuditLog auditHistorySeqId="55903" changedEntityName="moqui.security.UserAccount"
                 changedFieldName="username" pkPrimaryValue="${workerResult.userId}" newValueText="worker" changedDate="${effectiveTime}"
