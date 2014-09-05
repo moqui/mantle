@@ -40,7 +40,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="shipmentId"/></entity-find>
             <set field="orderIdSet" from="new TreeSet()"/>
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
-                <script>orderIdSet.add(shipmentItemSource.orderId)</script></iterate>
+                <script>if (shipmentItemSource.orderId) orderIdSet.add(shipmentItemSource.orderId)</script></iterate>
         </actions>
     </service>
 
@@ -56,6 +56,20 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <service-call name="create#mantle.shipment.Shipment" in-map="context" out-map="context"/>
             <service-call name="create#mantle.shipment.ShipmentRouteSegment" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="create" noun="ShipmentItem">
+        <description>Create a ShipmentItem and a single ShipmentItemSource with quantityNotHandled defaulting to the full quantity.</description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.shipment.ShipmentItem" required="true"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentItemSource"/>
+            <parameter name="statusId" default="SisPending"/>
+        </in-parameters>
+        <out-parameters><parameter name="shipmentItemSourceId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.shipment.ShipmentItem" in-map="context" out-map="context"/>
+            <set field="quantityNotHandled" from="quantityNotHandled != null ? quantityNotHandled : quantity"/>
+            <service-call name="create#mantle.shipment.ShipmentItemSource" in-map="context" out-map="context"/>
         </actions>
     </service>
 
@@ -321,7 +335,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="facilityId" from="shipmentRouteSegmentList?.first?.destinationFacilityId"/>
             </if>
             <if condition="!facilityId"><return error="true" message="Cannot receive Product ${productId} on Shipment ${shipmentId}, no facilityId specified."/></if>
-            
+
             <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList" cache="false">
                 <econdition field-name="shipmentId"/><econdition field-name="productId"/>
                 <econdition field-name="quantityNotHandled" operator="greater" from="0"/>
