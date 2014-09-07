@@ -19,6 +19,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters>
             <parameter name="shipment" type="Map"/>
             <parameter name="statusItem" type="Map"/>
+            <parameter name="fromPartyDetail" type="Map"/>
+            <parameter name="toPartyDetail" type="Map"/>
             <parameter name="shipmentItemDetailList" type="List"/>
             <parameter name="shipmentRouteSegmentList" type="List"/>
             <parameter name="shipmentPackageList" type="List"/>
@@ -28,6 +30,10 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
             <set field="statusItem" from="shipment.'Shipment#moqui.basic.StatusItem'"/>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromPartyDetail">
+                <field-map field-name="partyId" from="shipment.fromPartyId"/></entity-find-one>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toPartyDetail">
+                <field-map field-name="partyId" from="shipment.toPartyId"/></entity-find-one>
 
             <entity-find entity-name="mantle.shipment.ShipmentItemDetail" list="shipmentItemDetailList">
                 <econdition field-name="shipmentId"/><order-by field-name="shipmentItemSeqId"/></entity-find>
@@ -56,6 +62,25 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <service-call name="create#mantle.shipment.Shipment" in-map="context" out-map="context"/>
             <service-call name="create#mantle.shipment.ShipmentRouteSegment" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="ShipmentAndRouteSegment">
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="shipmentRouteSegmentSeqId"/>
+            <auto-parameters entity-name="mantle.shipment.Shipment" include="nonpk"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentRouteSegment" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.shipment.Shipment" in-map="context" out-map="context"/>
+            <if condition="!shipmentRouteSegmentSeqId">
+                <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                    <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+                <set field="shipmentRouteSegmentSeqId" from="srsList?.get(0).shipmentRouteSegmentSeqId"/>
+            </if>
+            <if condition="shipmentRouteSegmentSeqId">
+                <service-call name="update#mantle.shipment.ShipmentRouteSegment" in-map="context" out-map="context"/>
+            </if>
         </actions>
     </service>
     <service verb="create" noun="ShipmentItem">
