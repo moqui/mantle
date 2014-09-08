@@ -41,6 +41,8 @@ and those parts may be licensed under the Apache License 2.0.
             greater than one. If N (default) asset is a single item and may have a serial number, etc.</description></field>
         <field name="quantityOnHandTotal" type="number-decimal"/>
         <field name="availableToPromiseTotal" type="number-decimal"/>
+        <field name="originalQuantity" type="number-decimal"/>
+        <field name="originalQuantityUomId" type="id"/>
 
         <field name="assetName" type="text-medium"/>
         <field name="comments" type="text-medium"/>
@@ -61,9 +63,11 @@ and those parts may be licensed under the Apache License 2.0.
 
         <field name="calendarId" type="id"/>
 
-        <field name="facilityId" type="id"/>
+        <field name="originFacilityId" type="id"><description>Origin Facility, where manufactured or came from.</description></field>
+        <field name="facilityId" type="id"><description>Current Facility, where stored.</description></field>
         <field name="locationSeqId" type="id"/>
-        <field name="containerId" type="id"/>
+        <field name="containerId" type="id"><description>Container stored in, if specified the current facilityId and
+            locationSeqId should come from the container and not from this record.</description></field>
         <field name="lotId" type="id"/>
 
         <field name="acquireOrderId" type="id"/>
@@ -74,25 +78,31 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="depreciation" type="currency-amount"/>
         <field name="depreciationTypeEnumId" type="id"/>
 
+        <relationship type="one" title="Parent" related-entity-name="mantle.product.asset.Asset">
+            <key-map field-name="parentAssetId" related-field-name="assetId"/>
+        </relationship>
         <relationship type="one" title="AssetType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="assetTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="Parent" related-entity-name="Asset">
-            <key-map field-name="parentAssetId" related-field-name="assetId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" title="AssetClass" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="classEnumId"/>
         </relationship>
         <relationship type="one" title="Asset" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="Owner" related-entity-name="Party">
+        <relationship type="one" title="Owner" related-entity-name="mantle.party.Party">
             <key-map field-name="ownerPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="Facility"/>
-        <relationship type="one-nofk" related-entity-name="FacilityLocation"/>
-        <relationship type="one" related-entity-name="Container"/>
-        <relationship type="one" related-entity-name="Lot"/>
-        <relationship type="one" title="Acquire" related-entity-name="OrderItem">
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" title="OriginalQuantity" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="originalQuantityUomId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="mantle.facility.Facility">
+            <key-map field-name="originFacilityId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one-nofk" related-entity-name="mantle.facility.FacilityLocation"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Container"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Lot"/>
+        <relationship type="one" title="Acquire" related-entity-name="mantle.order.OrderItem">
             <key-map field-name="acquireOrderId" related-field-name="orderId"/>
             <key-map field-name="acquireOrderItemSeqId" related-field-name="orderItemSeqId"/>
         </relationship>
