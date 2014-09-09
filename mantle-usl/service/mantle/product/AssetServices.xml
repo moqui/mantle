@@ -271,8 +271,12 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="classEnumId"/>
             <parameter name="statusId"><description>If assetTypeEnumId == AstTpInventory then defaults to AstAvailable,
                 otherwise defaults to AstInStorage.</description></parameter>
+
+            <auto-parameters entity-name="mantle.product.asset.Asset" include="nonpk"/>
             <parameter name="assetName"><description>Defaults to OrderItem.itemDescription if available.</description></parameter>
-            <parameter name="serialNumber"/>
+            <parameter name="facilityId" required="true"/>
+            <parameter name="ownerPartyId"><description>If not passed in and orderId and orderItemSeqId are then uses
+                OrderPart.customerPartyId, otherwise uses Facility.ownerPartyId.</description></parameter>
 
             <parameter name="shipmentId"/>
             <parameter name="shipmentPackageSeqId"/>
@@ -280,11 +284,6 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="orderItemSeqId"/>
             <parameter name="returnId"/>
             <parameter name="returnItemSeqId"/>
-
-            <parameter name="facilityId" required="true"/>
-            <parameter name="locationSeqId"/>
-            <parameter name="ownerPartyId"><description>If not passed in and orderId and orderItemSeqId are then uses
-                OrderPart.customerPartyId, otherwise uses Facility.ownerPartyId.</description></parameter>
 
             <parameter name="quantityRejected" type="BigDecimal"/>
             <parameter name="rejectionReasonEnumId"/>
@@ -312,12 +311,9 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <if condition="!assetId">
                 <service-call name="create#mantle.product.asset.Asset" out-map="context" 
-                        in-map="[assetTypeEnumId:assetTypeEnumId, classEnumId:classEnumId, statusId:statusId,
-                            ownerPartyId:ownerPartyId, productId:productId, hasQuantity:hasQuantity,
-                            quantityOnHandTotal:0, availableToPromiseTotal:0, assetName:assetName, serialNumber:serialNumber,
-                            receivedDate:receivedDate, acquiredDate:(orderHeader?.placedDate ?: ec.user.nowTimestamp),
-                            facilityId:facilityId, locationSeqId:locationSeqId, acquireOrderId:orderId,
-                            acquireOrderItemSeqId:orderItemSeqId, acquireCost:orderItem?.unitAmount,
+                        in-map="context + [quantityOnHandTotal:0, availableToPromiseTotal:0,
+                            acquiredDate:(orderHeader?.placedDate ?: ec.user.nowTimestamp),
+                            acquireOrderId:orderId, acquireOrderItemSeqId:orderItemSeqId, acquireCost:orderItem?.unitAmount,
                             acquireCostUomId:orderHeader?.currencyUomId]"/>
             </if>
 
