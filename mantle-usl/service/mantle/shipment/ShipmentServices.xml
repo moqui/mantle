@@ -88,7 +88,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <description>Create a ShipmentItem and a single ShipmentItemSource with quantityNotHandled defaulting to the full quantity.</description>
         <in-parameters>
             <auto-parameters entity-name="mantle.shipment.ShipmentItem" required="true"/>
-            <auto-parameters entity-name="mantle.shipment.ShipmentItemSource"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentItemSource" include="nonpk"/>
             <parameter name="statusId" default="SisPending"/>
         </in-parameters>
         <out-parameters><parameter name="shipmentItemSourceId"/></out-parameters>
@@ -96,6 +96,39 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="create#mantle.shipment.ShipmentItem" in-map="context" out-map="context"/>
             <set field="quantityNotHandled" from="quantityNotHandled != null ? quantityNotHandled : quantity"/>
             <service-call name="create#mantle.shipment.ShipmentItemSource" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="ShipmentItem">
+        <description>Update a ShipmentItem and if applicable a related ShipmentItemSource.</description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.shipment.ShipmentItem" required="true"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentItemSource"/>
+        </in-parameters>
+        <out-parameters><parameter name="shipmentItemSourceId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.ShipmentItem" value-field="shipmentItem"/>
+            <set field="quantityChange" from="quantity - shipmentItem.quantity"/>
+            <entity-set value-field="shipmentItem"/>
+            <entity-update value-field="shipmentItem"/>
+
+            <if condition="shipmentItemSourceId">
+                <entity-find-one entity-name="mantle.shipment.ShipmentItemSource" value-field="sis"/>
+                <else>
+                    <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
+                        <econdition field-name="shipmentId"/><econdition field-name="productId"/></entity-find>
+                    <set field="sis" from="sisList?.first"/>
+                </else>
+            </if>
+            <if condition="sis">
+                <set field="sis.quantity" from="(sis.quantity ?: 0) + quantityChange"/>
+                <set field="sis.quantityNotHandled" from="(sis.quantityNotHandled ?: 0) + quantityChange"/>
+                <entity-update value-field="sis"/>
+
+                <else>
+                    <service-call name="create#mantle.shipment.ShipmentItemSource"
+                            in-map="context + [quantity:quantity, quantityNotHandled:quantityChange, statusId:'SisPending']"/>
+                </else>
+            </if>
         </actions>
     </service>
     <service verb="ensure" noun="ShipmentItemQuantityRemaining">
@@ -112,21 +145,9 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="quantityRemaining" from="shipmentItem.quantity - (shipmentItemDetail.quantityAcceptedTotal ?: 0) - (shipmentItemDetail.quantityRejectedTotal ?: 0)"/>
                 <if condition="quantityRemaining &lt; newQuantityRemaining">
                     <set field="incrementQuantity" from="newQuantityRemaining - quantityRemaining"/>
-                    <set field="shipmentItem.quantity" from="shipmentItem.quantity + incrementQuantity"/>
-                    <entity-update value-field="shipmentItem"/>
-                    <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
-                        <econdition field-name="shipmentId"/><econdition field-name="productId"/></entity-find>
-                    <if condition="sisList">
-                        <set field="sis" from="sisList.first"/>
-                        <set field="sis.quantity" from="(sis.quantity ?: 0) + incrementQuantity"/>
-                        <set field="sis.quantityNotHandled" from="(sis.quantityNotHandled ?: 0) + incrementQuantity"/>
-                        <entity-update value-field="sis"/>
-
-                        <else>
-                            <service-call name="create#mantle.shipment.ShipmentItemSource"
-                                    in-map="[quantityNotHandled:incrementQuantity, statusId:'SisPending'] + shipmentItem"/>
-                        </else>
-                    </if>
+                    <service-call name="mantle.shipment.ShipmentServices.update#ShipmentItem"
+                            in-map="[shipmentId:shipmentId, productId:productId,
+                                quantity:(shipmentItem.quantity + incrementQuantity)]"/>
                 </if>
 
                 <else>
@@ -442,7 +463,12 @@ This Work includes contributions authored by David E. Jones, not as a
             </iterate>
 
             <if condition="quantityAcceptedRemaining > 0 || quantityRejectedRemaining > 0">
-                <message>Not sufficient quantity to receive ${quantityAcceptedRemaining} of ${quantityAccepted} accepted or ${quantityRejectedRemaining} of ${quantityRejected} rejected.</message>
+                <!-- <message>Not sufficient quantity in item source(s) to receive ${quantityAcceptedRemaining} of ${quantityAccepted} accepted or ${quantityRejectedRemaining} of ${quantityRejected} rejected.</message> -->
+                <!-- ShipmentItemSource(s) all used up, just receive outside context of an order/etc -->
+                <service-call name="mantle.product.AssetServices.receive#Asset" out-map="receiveAssetOut"
+                        in-map="context + [productId:productId, quantity:quantityToAccept, shipmentId:shipmentId,
+                            facilityId:facilityId, quantityRejected:quantityToReject, rejectionReasonEnumId:rejectionReasonEnumId]"/>
+                <script>assetIdList.add(receiveAssetOut.assetId)</script>
             </if>
         </actions>
     </service>
