@@ -25,12 +25,19 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="wepList">
                 <date-filter/><econdition field-name="workEffortId"/><econdition field-name="roleTypeId"/>
             </entity-find>
+            <set field="foundExisting" from="false"/>
             <iterate list="wepList" entry="wepValue">
-                <set field="wepValue.thruDate" from="ec.user.nowTimestamp"/>
-                <entity-update value-field="wepValue"/>
+                <if condition="wepValue.partyId != newPartyId">
+                    <set field="wepValue.thruDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="wepValue"/>
+
+                    <else><set field="foundExisting" from="true"/></else>
+                </if>
             </iterate>
-            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+            <if condition="!foundExisting">
+                <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
                     partyId:newPartyId, roleTypeId:roleTypeId, fromDate:ec.user.nowTimestamp, statusId:statusId]"/>
+            </if>
         </actions>
     </service>
 </services>
