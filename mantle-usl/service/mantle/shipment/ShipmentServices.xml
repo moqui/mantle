@@ -87,7 +87,9 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="create" noun="ShipmentItem">
         <description>Create a ShipmentItem and a single ShipmentItemSource with quantityNotHandled defaulting to the full quantity.</description>
         <in-parameters>
-            <auto-parameters entity-name="mantle.shipment.ShipmentItem" required="true"/>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="productId" required="true"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentItem" include="nonpk"/>
             <auto-parameters entity-name="mantle.shipment.ShipmentItemSource" include="nonpk"/>
             <parameter name="statusId" default="SisPending"/>
         </in-parameters>
@@ -101,7 +103,9 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="update" noun="ShipmentItem">
         <description>Update a ShipmentItem and if applicable a related ShipmentItemSource.</description>
         <in-parameters>
-            <auto-parameters entity-name="mantle.shipment.ShipmentItem" required="true"/>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="productId" required="true"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentItem" include="nonpk"/>
             <auto-parameters entity-name="mantle.shipment.ShipmentItemSource"/>
         </in-parameters>
         <out-parameters><parameter name="shipmentItemSourceId"/></out-parameters>
@@ -464,6 +468,37 @@ This Work includes contributions authored by David E. Jones, not as a
                             facilityId:facilityId, quantityRejected:quantityRejectedRemaining, rejectionReasonEnumId:rejectionReasonEnumId]"/>
                 <script>assetIdList.add(receiveAssetOut.assetId)</script>
             </if>
+        </actions>
+    </service>
+
+    <service verb="convert" noun="ProductBoxQuantity">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="originalQuantity" type="BigDecimal"/>
+            <parameter name="shipmentBoxTypeId"/>
+            <parameter name="originalQuantityUomId"><description>If not specified uses ShipmentBoxType.capacityUomId</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="originalQuantityUomId"/>
+            <parameter name="convertedQuantity" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <if condition="originalQuantity == null">
+                <set field="convertedQuantity" from="0"/>
+                <return/>
+            </if>
+
+            <if condition="shipmentBoxTypeId &amp;&amp; !originalQuantityUomId">
+                <entity-find-one entity-name="mantle.shipment.ShipmentBoxType" value-field="shipmentBoxType" cache="true"/>
+                <set field="originalQuantityUomId" from="shipmentBoxType.capacityUomId"/>
+            </if>
+
+            <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true"/>
+            <if condition="!product?.amountUomId"><return error="true" message="Cannot convert quantity for product [${productId}], no amountUomId found."/></if>
+
+            <service-call name="org.moqui.impl.BasicServices.convert#Uom" out-map="convertQuantityOut"
+                    in-map="[uomId:originalQuantityUomId, toUomId:product.amountUomId, amount:originalQuantity]"/>
+            <set field="convertedQuantity" from="convertQuantityOut?.convertedAmount ?: 0"/>
         </actions>
     </service>
 
