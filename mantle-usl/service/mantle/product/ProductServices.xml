@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.4.xsd">
+    <service verb="create" noun="VariantProducts">
+        <in-parameters>
+            <parameter name="productId"/>
+            <parameter name="productTypeEnumId"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
+
+            <!-- find all PfatSelectable features for the product and related categories -->
+            <entity-find entity-name="mantle.product.feature.ProductFeatureAndAppl" list="pfaaList">
+                <econdition field-name="productId"/>
+                <econdition field-name="applTypeEnumId" value="PfatSelectable"/>
+            </entity-find>
+
+            <set field="allPfagaList" from="[]"/>
+            <entity-find entity-name="mantle.product.category.ProductCategoryMember" list="pcmList">
+                <date-filter/><econdition field-name="productId"/></entity-find>
+            <iterate list="pcmList" entry="pcm">
+                <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
+                    <date-filter/><econdition field-name="productCategoryId" from="pcm.productCategoryId"/>
+                    <econdition field-name="applTypeEnumId" value="PfatSelectable"/>
+                </entity-find>
+                <iterate list="pcfgaList" entry="pcfga">
+                    <entity-find entity-name="mantle.product.feature.ProductFeatureAndGroupAppl" list="pfagaList">
+                        <econdition field-name="productFeatureGroupId" from="pcfga.productFeatureGroupId"/></entity-find>
+                    <script>allPfagaList.addAll(pfagaList)</script>
+                </iterate>
+            </iterate>
+
+            <!-- split by feature type -->
+            <set field="featuresByType" from="[:]"/>
+            <iterate list="pfaaList" entry="pfaa"><script>StupidUtilities.addToListInMap(pfaa.productFeatureTypeEnumId, pfaa, featuresByType)</script></iterate>
+            <iterate list="pfagaList" entry="pfaga"><script>StupidUtilities.addToListInMap(pfaga.productFeatureTypeEnumId, pfaga, featuresByType)</script></iterate>
+            <!-- now we want an ordered list to track the index -->
+            <set field="featureListList" from="[]"/>
+            <script>featureListList.addAll(featuresByType.values())</script>
+
+            <!-- create a variant for each combination of features by type -->
+            <script><![CDATA[
+                import org.moqui.context.ExecutionContext
+                import org.moqui.entity.EntityValue
+                ExecutionContext ec = context.ec
+
+                def recursiveCreate(ExecutionContext ec, EntityValue product, List<List<EntityValue>> featureListList,
+                                    ArrayList<EntityValue> featureList, int level) {
+
+                    for (int i = 0; i < featureListList[level].size(); i++) {
+                        featureList[level] = featureListList.get(level).get(i)
+                        if (level == featureListList.size() - 1) {
+                            // at the bottom, create the variant
+
+                            String productId = product.productId
+                            String productName = product.productName
+                            for (EntityValue feature in featureList) {
+                                EntityValue typeEnum = ec.entity.makeFind("moqui.basic.Enumeration")
+                                        .condition("enumId", feature.productFeatureTypeEnumId).useCache(true).one()
+                                productId = productId + "_" + feature.productFeatureId
+                                productName = productName + " " + typeEnum.description + " " + feature.description
+                            }
+
+                            EntityValue newProduct = product.cloneValue()
+                            newProduct.productName = productName; newProduct.productId = productId
+                            if (productTypeEnumId) newProduct.productTypeEnumId = productTypeEnumId
+                            newProduct.create()
+
+                            ec.service.sync().name("create", "mantle.product.ProductAssoc")
+                                    .parameters([productId:product.productId, toProductId:newProduct.productId,
+                                                 productAssocTypeEnumId:"PatVariant", fromDate:ec.user.nowTimestamp]).call()
+
+                            for (EntityValue feature in featureList) {
+                                ec.service.sync().name("create", "mantle.product.feature.ProductFeatureAppl")
+                                        .parameters([productId:newProduct.productId, productFeatureId:feature.productFeatureId,
+                                                     fromDate:ec.user.nowTimestamp, applTypeEnumId:"PfatDistinguishing"]).call()
+                            }
+
+                            ec.logger.info("Created variant of ${product.productId}: ${newProduct.productId}:${newProduct.productName}")
+                        } else {
+                            recursiveCreate(ec, product, featureListList, featureList, level + 1)
+                        }
+                    }
+                }
+
+                recursiveCreate(ec, product, featureListList, new ArrayList(featureListList.size()), 0)
+                ]]></script>
+        </actions>
+    </service>
+</services>
