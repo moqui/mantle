@@ -17,9 +17,8 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="create" noun="Project">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
             <parameter name="workEffortName" required="true"/>
-            <parameter name="description"/>
-            <parameter name="priority"/>
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="statusId" default-value="WeInPlanning"/>
@@ -63,13 +62,9 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="update" noun="Project">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
-            <parameter name="workEffortName"/>
-            <parameter name="description"/>
-            <parameter name="priority"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
-            <parameter name="statusId"/>
-            <parameter name="statusFlowId"/>
 
             <parameter name="clientPartyId"/>
             <parameter name="clientBillingPartyId"/>
@@ -116,6 +111,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="clientAverageHourCost" type="BigDecimal"/>
             <parameter name="clientEstimatedCost" type="BigDecimal"/>
             <parameter name="estimatedCompletePercent" type="BigDecimal"/>
+            <parameter name="estimatedOverBudget" type="Boolean"/>
+            <parameter name="taskCount" type="Long"/>
+            <parameter name="taskCountByStatusMap" type="Map"/>
         </out-parameters>
         <actions>
             <set field="actualProfit" from="(workEffort.actualClientCost ?: 0) - (workEffort.actualCost ?: 0)"/>
@@ -124,6 +122,19 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="clientAverageHourCost" from="workEffort.actualWorkTime ? ((workEffort.actualClientCost ?: 0) / workEffort.actualWorkTime) : 0"/>
             <set field="clientEstimatedCost" from="clientAverageHourCost * workEffort.estimatedWorkTime"/>
             <set field="estimatedCompletePercent" from="workEffort.estimatedWorkTime ? ((workEffort.actualWorkTime ?: 0) / workEffort.estimatedWorkTime) * 100 : 0"/>
+            <set field="estimatedOverBudget" from="estimatedCompletePercent &lt; clientBudgetUsedPercent"/>
+
+            <entity-find-count entity-name="mantle.work.effort.WorkEffort" count-field="taskCount">
+                <econdition field-name="rootWorkEffortId" from="workEffort.workEffortId"/>
+                <econdition field-name="workEffortTypeEnumId" value="WetTask"/>
+            </entity-find-count>
+            <entity-find entity-name="mantle.work.effort.ProjectTaskCounts" list="taskStatusCountList">
+                <econdition field-name="rootWorkEffortId" from="workEffort.workEffortId"/>
+                <select-field field-name="statusId"/><select-field field-name="taskCount"/>
+            </entity-find>
+            <set field="taskCountByStatusMap" from="[:]"/>
+            <iterate list="taskStatusCountList" entry="taskStatusCount">
+                <script>taskCountByStatusMap.put(taskStatusCount.statusId, taskStatusCount.taskCount)</script></iterate>
         </actions>
     </service>
 
