@@ -17,9 +17,8 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="create" noun="Project">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
             <parameter name="workEffortName" required="true"/>
-            <parameter name="description"/>
-            <parameter name="priority"/>
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="statusId" default-value="WeInPlanning"/>
@@ -63,13 +62,9 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="update" noun="Project">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
-            <parameter name="workEffortName"/>
-            <parameter name="description"/>
-            <parameter name="priority"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
-            <parameter name="statusId"/>
-            <parameter name="statusFlowId"/>
 
             <parameter name="clientPartyId"/>
             <parameter name="clientBillingPartyId"/>
@@ -113,17 +108,62 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="actualProfit" type="BigDecimal"/>
             <parameter name="clientBudgetRemaining" type="BigDecimal"/>
             <parameter name="clientBudgetUsedPercent" type="BigDecimal"/>
+            <parameter name="clientActualOverBudget" type="Boolean"/>
+
+            <parameter name="actualPlusRemainingTime" type="BigDecimal"/>
+            <parameter name="bestTimeEstimate" type="BigDecimal"/>
+            <parameter name="estimatedCompletePercent" type="BigDecimal"/>
+            <parameter name="estimatedRemainingPercent" type="BigDecimal"/>
+            <parameter name="estimatedActualPlusRemainingDiff" type="BigDecimal"/>
+            <parameter name="actualPlusRemainingOverEstimated" type="Boolean"/>
+
             <parameter name="clientAverageHourCost" type="BigDecimal"/>
             <parameter name="clientEstimatedCost" type="BigDecimal"/>
-            <parameter name="estimatedCompletePercent" type="BigDecimal"/>
+            <parameter name="clientBudgetEstimateDiff" type="BigDecimal"/>
+
+            <parameter name="estimatedCompleteBudgetPercentGap" type="BigDecimal"/>
+            <parameter name="estimatedCompleteOverBudget" type="Boolean"/>
+
+            <parameter name="projectWarning" type="Boolean"/>
+            <parameter name="projectDanger" type="Boolean"/>
+
+            <parameter name="taskCount" type="Long"/>
+            <parameter name="taskCountByStatusMap" type="Map"/>
         </out-parameters>
         <actions>
             <set field="actualProfit" from="(workEffort.actualClientCost ?: 0) - (workEffort.actualCost ?: 0)"/>
             <set field="clientBudgetRemaining" from="(workEffort.totalClientCostAllowed ?: 0) - (workEffort.actualClientCost ?: 0)"/>
             <set field="clientBudgetUsedPercent" from="workEffort.totalClientCostAllowed ? ((workEffort.actualClientCost ?: 0) / workEffort.totalClientCostAllowed) * 100 : 0"/>
-            <set field="clientAverageHourCost" from="workEffort.actualWorkTime ? ((workEffort.actualClientCost ?: 0) / workEffort.actualWorkTime) : 0"/>
-            <set field="clientEstimatedCost" from="clientAverageHourCost * workEffort.estimatedWorkTime"/>
+            <set field="clientActualOverBudget" from="workEffort.actualClientCost &gt; workEffort.totalClientCostAllowed"/>
+
+            <set field="actualPlusRemainingTime" from="workEffort.actualWorkTime + workEffort.remainingWorkTime"/>
+            <set field="bestTimeEstimate" from="actualPlusRemainingTime &gt; workEffort.estimatedWorkTime ? actualPlusRemainingTime : workEffort.estimatedWorkTime "/>
             <set field="estimatedCompletePercent" from="workEffort.estimatedWorkTime ? ((workEffort.actualWorkTime ?: 0) / workEffort.estimatedWorkTime) * 100 : 0"/>
+            <set field="estimatedRemainingPercent" from="workEffort.estimatedWorkTime ? ((workEffort.remainingWorkTime ?: 0) / workEffort.estimatedWorkTime) * 100 : 0"/>
+            <set field="estimatedActualPlusRemainingDiff" from="workEffort.estimatedWorkTime - actualPlusRemainingTime"/>
+            <set field="actualPlusRemainingOverEstimated" from="actualPlusRemainingTime &gt; workEffort.estimatedWorkTime"/>
+
+            <set field="clientAverageHourCost" from="workEffort.actualWorkTime ? ((workEffort.actualClientCost ?: 0) / workEffort.actualWorkTime) : 0"/>
+            <set field="clientEstimatedCost" from="clientAverageHourCost * bestTimeEstimate"/>
+            <set field="clientBudgetEstimateDiff" from="(workEffort.totalClientCostAllowed ?: 0) - clientEstimatedCost"/>
+
+            <set field="estimatedCompleteBudgetPercentGap" from="estimatedCompletePercent - clientBudgetUsedPercent"/>
+            <set field="estimatedCompleteOverBudget" from="estimatedCompletePercent &lt; clientBudgetUsedPercent"/>
+
+            <set field="projectDanger" from="clientActualOverBudget | actualPlusRemainingOverEstimated"/>
+            <set field="projectWarning" from="estimatedCompleteOverBudget"/>
+
+            <entity-find-count entity-name="mantle.work.effort.WorkEffort" count-field="taskCount">
+                <econdition field-name="rootWorkEffortId" from="workEffort.workEffortId"/>
+                <econdition field-name="workEffortTypeEnumId" value="WetTask"/>
+            </entity-find-count>
+            <entity-find entity-name="mantle.work.effort.ProjectTaskCounts" list="taskStatusCountList">
+                <econdition field-name="rootWorkEffortId" from="workEffort.workEffortId"/>
+                <select-field field-name="statusId"/><select-field field-name="taskCount"/>
+            </entity-find>
+            <set field="taskCountByStatusMap" from="[:]"/>
+            <iterate list="taskStatusCountList" entry="taskStatusCount">
+                <script>taskCountByStatusMap.put(taskStatusCount.statusId, taskStatusCount.taskCount)</script></iterate>
         </actions>
     </service>
 
