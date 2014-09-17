@@ -42,8 +42,12 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="quantityOnHandTotal" type="number-decimal"/>
         <field name="availableToPromiseTotal" type="number-decimal"/>
 
+        <field name="originalQuantity" type="number-decimal"/>
+        <field name="originalQuantityUomId" type="id"><description>QOHT and ATPT are in units of the Product (amountUomId).
+            This field specifies the original UOM (along with originalQuantity) when it differs from Product.amountUomId.</description></field>
+
         <field name="assetName" type="text-medium"/>
-        <field name="comments" type="text-medium"/>
+        <field name="comments" type="text-long"/>
 
         <field name="serialNumber" type="text-medium"/>
         <field name="softIdentifier" type="text-medium"/>
@@ -59,11 +63,12 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="productionCapacity" type="number-decimal"/>
         <field name="productionCapacityUomId" type="id"/>
 
-        <field name="calendarId" type="id"/>
-
-        <field name="facilityId" type="id"/>
+        <field name="originId" type="id"><description>Origin ID, the ID used wherever this came from.</description></field>
+        <field name="originFacilityId" type="id"><description>Origin Facility, where manufactured or came from.</description></field>
+        <field name="facilityId" type="id"><description>Current Facility, where stored.</description></field>
         <field name="locationSeqId" type="id"/>
-        <field name="containerId" type="id"/>
+        <field name="containerId" type="id"><description>Container stored in, if specified the current facilityId and
+            locationSeqId should come from the container and not from this record.</description></field>
         <field name="lotId" type="id"/>
 
         <field name="acquireOrderId" type="id"/>
@@ -74,25 +79,31 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="depreciation" type="currency-amount"/>
         <field name="depreciationTypeEnumId" type="id"/>
 
+        <relationship type="one" title="Parent" related-entity-name="mantle.product.asset.Asset">
+            <key-map field-name="parentAssetId" related-field-name="assetId"/>
+        </relationship>
         <relationship type="one" title="AssetType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="assetTypeEnumId"/>
         </relationship>
-        <relationship type="one" title="Parent" related-entity-name="Asset">
-            <key-map field-name="parentAssetId" related-field-name="assetId"/>
-        </relationship>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" title="AssetClass" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="classEnumId"/>
         </relationship>
         <relationship type="one" title="Asset" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="Owner" related-entity-name="Party">
+        <relationship type="one" title="Owner" related-entity-name="mantle.party.Party">
             <key-map field-name="ownerPartyId"/>
         </relationship>
-        <relationship type="one" related-entity-name="Facility"/>
-        <relationship type="one-nofk" related-entity-name="FacilityLocation"/>
-        <relationship type="one" related-entity-name="Container"/>
-        <relationship type="one" related-entity-name="Lot"/>
-        <relationship type="one" title="Acquire" related-entity-name="OrderItem">
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" title="OriginalQuantity" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="originalQuantityUomId"/>
+        </relationship>
+        <relationship type="one" title="Origin" related-entity-name="mantle.facility.Facility">
+            <key-map field-name="originFacilityId"/>
+        </relationship>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one-nofk" related-entity-name="mantle.facility.FacilityLocation"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Container"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Lot"/>
+        <relationship type="one" title="Acquire" related-entity-name="mantle.order.OrderItem">
             <key-map field-name="acquireOrderId" related-field-name="orderId"/>
             <key-map field-name="acquireOrderItemSeqId" related-field-name="orderItemSeqId"/>
         </relationship>
@@ -148,7 +159,7 @@ and those parts may be licensed under the Apache License 2.0.
 
             <!-- Asset Status -->
             <moqui.basic.StatusType description="Asset" statusTypeId="Asset"/>
-            <moqui.basic.StatusItem description="On Order" sequenceNum="1" statusId="AstOnOrder" statusTypeId="Asset"/>
+            <moqui.basic.StatusItem description="Incoming" sequenceNum="1" statusId="AstIncoming" statusTypeId="Asset"/>
             <moqui.basic.StatusItem description="Available" sequenceNum="2" statusId="AstAvailable" statusTypeId="Asset"/>
             <moqui.basic.StatusItem description="Promised" sequenceNum="3" statusId="AstPromised" statusTypeId="Asset"/>
             <moqui.basic.StatusItem description="Delivered" sequenceNum="4" statusId="AstDelivered" statusTypeId="Asset"/>
@@ -162,7 +173,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusItem description="Returned" sequenceNum="20" statusId="AstReturned" statusTypeId="Asset"/>
             <moqui.basic.StatusItem description="Defective" sequenceNum="21" statusId="AstDefective" statusTypeId="Asset"/>
 
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstOnOrder" toStatusId="AstAvailable" transitionName="Order Arrived"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstIncoming" toStatusId="AstAvailable" transitionName="Arrived"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstPromised" transitionName="Promise"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstOnHold" transitionName="Hold"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstDefective" transitionName="Mark As Defective"/>
@@ -330,6 +341,7 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="Container" package-name="mantle.product.asset">
         <field name="containerId" type="id" is-pk="true"/>
         <field name="containerTypeEnumId" type="id"/>
+        <field name="externalId" type="id"><description>An identifier for the container in an external system (source, origin, etc).</description></field>
         <field name="facilityId" type="id" enable-audit-log="true"/>
         <field name="locationSeqId" type="id" enable-audit-log="true"/>
         <field name="geoPointId" type="id" enable-audit-log="true"/>
@@ -350,7 +362,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="physicalInventoryId" type="id" is-pk="true"/>
         <field name="physicalInventoryDate" type="date-time"/>
         <field name="partyId" type="id"/>
-        <field name="generalComments" type="text-long"/>
+        <field name="comments" type="text-long"/>
     </entity>
 
     <!-- ========================================================= -->
@@ -485,29 +497,6 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Cleaning" enumId="MntTpCleaning" enumTypeId="MaintenanceType"/>
         </seed-data>
     </entity>
-    <entity entity-name="AssetMaintenanceMeter" package-name="mantle.product.maintenance">
-        <field name="assetMaintenanceId" type="id" is-pk="true"/>
-        <field name="productMeterTypeId" type="id" is-pk="true"/>
-        <field name="meterValue" type="number-decimal"/>
-        <relationship type="one" related-entity-name="mantle.product.maintenance.AssetMaintenance"/>
-        <relationship type="one" related-entity-name="ProductMeterType"/>
-        <seed-data>
-            <!-- Product Meter Type -->
-            <moqui.basic.EnumerationType description="Product Meter Type" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Speedometer" enumId="PdMtrSpeedometer" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Tachometer" enumId="PdMtrTachometer" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Distance Meter" enumId="PdMtrDistance" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Motor Time Meter" enumId="PdMtrMotorTime" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Use Count Meter" enumId="PdMtrUseCount" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Copy Count Meter" enumId="PdMtrCopyCount" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Trip Meter" enumId="PdMtrTripMeter" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Tachograph" enumId="PdMtrTachograph" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Taximeter" enumId="PdMtrTaximeter" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Event Data Recorder" enumId="PdMtrEventDataRec" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Pedometer" enumId="PdMtrPedometer" enumTypeId="ProductMeterType"/>
-            <moqui.basic.Enumeration description="Odometer" enumId="PdMtrOdometer" enumTypeId="ProductMeterType"/>
-        </seed-data>
-    </entity>
     <entity entity-name="AssetMaintenanceOrderItem" package-name="mantle.product.maintenance">
         <field name="assetMaintenanceId" type="id" is-pk="true"/>
         <field name="orderId" type="id" is-pk="true"/>
@@ -565,6 +554,21 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="Default" related-entity-name="moqui.basic.Uom">
             <key-map field-name="defaultUomId"/>
         </relationship>
+        <seed-data>
+            <!-- Product Meter Type -->
+            <mantle.product.maintenance.ProductMeterType description="Speedometer" productMeterTypeId="PdMtrSpeedometer"/>
+            <mantle.product.maintenance.ProductMeterType description="Tachometer" productMeterTypeId="PdMtrTachometer"/>
+            <mantle.product.maintenance.ProductMeterType description="Distance Meter" productMeterTypeId="PdMtrDistance"/>
+            <mantle.product.maintenance.ProductMeterType description="Motor Time Meter" productMeterTypeId="PdMtrMotorTime"/>
+            <mantle.product.maintenance.ProductMeterType description="Use Count Meter" productMeterTypeId="PdMtrUseCount"/>
+            <mantle.product.maintenance.ProductMeterType description="Copy Count Meter" productMeterTypeId="PdMtrCopyCount"/>
+            <mantle.product.maintenance.ProductMeterType description="Trip Meter" productMeterTypeId="PdMtrTripMeter"/>
+            <mantle.product.maintenance.ProductMeterType description="Tachograph" productMeterTypeId="PdMtrTachograph"/>
+            <mantle.product.maintenance.ProductMeterType description="Taximeter" productMeterTypeId="PdMtrTaximeter"/>
+            <mantle.product.maintenance.ProductMeterType description="Event Data Recorder" productMeterTypeId="PdMtrEventDataRec"/>
+            <mantle.product.maintenance.ProductMeterType description="Pedometer" productMeterTypeId="PdMtrPedometer"/>
+            <mantle.product.maintenance.ProductMeterType description="Odometer" productMeterTypeId="PdMtrOdometer"/>
+        </seed-data>
     </entity>
     <entity entity-name="ProductMaintenance" package-name="mantle.product.maintenance">
         <description>This is used to specify the details for scheduled maintenance.</description>

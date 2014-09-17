@@ -98,6 +98,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipInput" toStatusId="ShipCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipScheduled" toStatusId="ShipPicked" transitionName="Pick"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipScheduled" toStatusId="ShipPacked" transitionName="Pack"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipScheduled" toStatusId="ShipShipped" transitionName="Ship"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipScheduled" toStatusId="ShipDelivered" transitionName="Deliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipScheduled" toStatusId="ShipCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipPicked" toStatusId="ShipPacked" transitionName="Pack"/>
@@ -106,28 +107,6 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipPicked" toStatusId="ShipCancelled" transitionName="Cancel"/>
         </seed-data>
     </entity>
-    <view-entity entity-name="ShipmentSegmentFacilityStatus" package-name="mantle.shipment">
-        <member-entity entity-alias="SHMT" entity-name="mantle.shipment.Shipment"/>
-        <member-entity entity-alias="SHRS" entity-name="mantle.shipment.ShipmentRouteSegment" join-from-alias="SHMT">
-            <key-map field-name="shipmentId"/>
-        </member-entity>
-        <member-entity entity-alias="STSI" entity-name="moqui.basic.StatusItem" join-from-alias="SHMT">
-            <key-map field-name="statusId"/>
-        </member-entity>
-        <member-entity entity-alias="OFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
-            <key-map field-name="originFacilityId" related-field-name="facilityId"/>
-        </member-entity>
-        <member-entity entity-alias="DFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
-            <key-map field-name="destinationFacilityId" related-field-name="facilityId"/>
-        </member-entity>
-        <alias-all entity-alias="SHMT"/>
-        <alias-all entity-alias="SHRS"><exclude field="statusId"/><exclude field="costUomId"/><exclude field="estimatedArrivalDate"/></alias-all>
-        <alias name="segmentStatusId" entity-alias="SHRS" field="statusId"/>
-        <alias name="segmentEstimatedArrivalDate" entity-alias="SHRS" field="estimatedArrivalDate"/>
-        <alias name="statusDescription" entity-alias="STSI" field="description"/>
-        <alias name="originFacilityName" entity-alias="OFAC" field="facilityName"/>
-        <alias name="destinationFacilityName" entity-alias="DFAC" field="facilityName"/>
-    </view-entity>
 
     <entity entity-name="ShipmentBoxType" package-name="mantle.shipment">
         <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
@@ -138,6 +117,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="boxHeight" type="number-decimal"/>
         <field name="weightUomId" type="id"/>
         <field name="boxWeight" type="number-decimal"/>
+        <field name="capacityUomId" type="id"/>
+        <field name="boxCapacity" type="number-decimal"/>
         <relationship type="one" title="Dimension" related-entity-name="moqui.basic.Uom">
             <key-map field-name="dimensionUomId"/>
         </relationship>
@@ -160,19 +141,6 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="mantle.shipment.Shipment"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
     </entity>
-    <view-entity entity-name="ShipmentItemDetail" package-name="mantle.shipment">
-        <member-entity entity-alias="SHITM" entity-name="mantle.shipment.ShipmentItem"/>
-        <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="SHITM">
-            <key-map field-name="productId"/>
-        </member-entity>
-        <member-entity entity-alias="ASRC" entity-name="mantle.product.receipt.AssetReceipt" join-from-alias="SHITM" join-optional="true">
-            <key-map field-name="productId"/><key-map field-name="shipmentId"/>
-        </member-entity>
-        <alias-all entity-alias="SHITM"/>
-        <alias-all entity-alias="PROD"/>
-        <alias name="quantityAcceptedTotal" entity-alias="ASRC" field="quantityAccepted" function="sum"/>
-        <alias name="quantityRejectedTotal" entity-alias="ASRC" field="quantityRejected" function="sum"/>
-    </view-entity>
     <entity entity-name="ShipmentItemSource" package-name="mantle.shipment">
         <field name="shipmentItemSourceId" type="id" is-pk="true"/>
         <field name="shipmentId" type="id"/>
@@ -210,6 +178,9 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SisPending" toStatusId="SisPicked" transitionName="Pick"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SisPending" toStatusId="SisPacked" transitionName="Pack"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SisPicked" toStatusId="SisPacked" transitionName="Pack"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SisPending" toStatusId="SisReceived" transitionName="Receive"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SisPicked" toStatusId="SisReceived" transitionName="Receive"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SisPacked" toStatusId="SisReceived" transitionName="Receive"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="SisPending" toStatusId="SisCancelled" transitionName="Cancel"/>
         </seed-data>
     </entity>
@@ -362,22 +333,6 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShrssAccepted" toStatusId="ShrssVoided" transitionName="Void"/>
         </seed-data>
     </entity>
-    <view-entity entity-name="ShipmentRouteSegmentDetail" package-name="mantle.shipment">
-        <member-entity entity-alias="SHRS" entity-name="mantle.shipment.ShipmentRouteSegment"/>
-        <member-entity entity-alias="STSI" entity-name="moqui.basic.StatusItem" join-from-alias="SHRS" join-optional="true">
-            <key-map field-name="statusId"/>
-        </member-entity>
-        <member-entity entity-alias="OFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
-            <key-map field-name="originFacilityId" related-field-name="facilityId"/>
-        </member-entity>
-        <member-entity entity-alias="DFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
-            <key-map field-name="destinationFacilityId" related-field-name="facilityId"/>
-        </member-entity>
-        <alias-all entity-alias="SHRS"/>
-        <alias name="statusDescription" entity-alias="STSI" field="description"/>
-        <alias name="originFacilityName" entity-alias="OFAC" field="facilityName"/>
-        <alias name="destinationFacilityName" entity-alias="DFAC" field="facilityName"/>
-    </view-entity>
 
     <!-- ========================================================= -->
     <!-- mantle.shipment.carrier -->

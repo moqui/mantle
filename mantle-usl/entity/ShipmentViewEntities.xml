@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+
+This Work includes contributions authored by contributors to Apache OFBiz
+and those parts may be licensed under the Apache License 2.0.
+-->
+<entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.4.xsd">
+    <!-- ========================================================= -->
+    <!--  - mantle.shipment -->
+    <!--  - mantle.shipment.carrier -->
+    <!--  - mantle.shipment.picklist -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment -->
+    <!-- ========================================================= -->
+
+    <view-entity entity-name="ShipmentSegmentFacilityStatus" package-name="mantle.shipment">
+        <member-entity entity-alias="SHMT" entity-name="mantle.shipment.Shipment"/>
+        <member-entity entity-alias="SHRS" entity-name="mantle.shipment.ShipmentRouteSegment" join-from-alias="SHMT">
+            <key-map field-name="shipmentId"/>
+        </member-entity>
+        <member-entity entity-alias="STSI" entity-name="moqui.basic.StatusItem" join-from-alias="SHMT">
+            <key-map field-name="statusId"/>
+        </member-entity>
+        <member-entity entity-alias="OFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
+            <key-map field-name="originFacilityId" related-field-name="facilityId"/>
+        </member-entity>
+        <member-entity entity-alias="DFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
+            <key-map field-name="destinationFacilityId" related-field-name="facilityId"/>
+        </member-entity>
+        <alias-all entity-alias="SHMT"/>
+        <alias-all entity-alias="SHRS"><exclude field="statusId"/><exclude field="costUomId"/><exclude field="estimatedArrivalDate"/></alias-all>
+        <alias name="segmentStatusId" entity-alias="SHRS" field="statusId"/>
+        <alias name="segmentEstimatedArrivalDate" entity-alias="SHRS" field="estimatedArrivalDate"/>
+        <alias name="statusDescription" entity-alias="STSI" field="description"/>
+        <alias name="originFacilityName" entity-alias="OFAC" field="facilityName"/>
+        <alias name="destinationFacilityName" entity-alias="DFAC" field="facilityName"/>
+    </view-entity>
+
+    <view-entity entity-name="ShipmentItemDetail" package-name="mantle.shipment">
+        <member-entity entity-alias="SHITM" entity-name="mantle.shipment.ShipmentItem"/>
+        <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="SHITM">
+            <key-map field-name="productId"/>
+        </member-entity>
+        <member-entity entity-alias="ASRC" entity-name="mantle.product.receipt.AssetReceipt" join-from-alias="SHITM" join-optional="true">
+            <key-map field-name="productId"/><key-map field-name="shipmentId"/>
+        </member-entity>
+        <alias-all entity-alias="SHITM"/>
+        <alias-all entity-alias="PROD"/>
+        <alias name="quantityAcceptedTotal" entity-alias="ASRC" field="quantityAccepted" function="sum"/>
+        <alias name="quantityRejectedTotal" entity-alias="ASRC" field="quantityRejected" function="sum"/>
+    </view-entity>
+    <view-entity entity-name="ShipmentRouteSegmentDetail" package-name="mantle.shipment">
+        <member-entity entity-alias="SHRS" entity-name="mantle.shipment.ShipmentRouteSegment"/>
+        <member-entity entity-alias="STSI" entity-name="moqui.basic.StatusItem" join-from-alias="SHRS" join-optional="true">
+            <key-map field-name="statusId"/>
+        </member-entity>
+        <member-entity entity-alias="OFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
+            <key-map field-name="originFacilityId" related-field-name="facilityId"/>
+        </member-entity>
+        <member-entity entity-alias="DFAC" entity-name="mantle.facility.Facility" join-from-alias="SHRS" join-optional="true">
+            <key-map field-name="destinationFacilityId" related-field-name="facilityId"/>
+        </member-entity>
+        <alias-all entity-alias="SHRS"/>
+        <alias name="statusDescription" entity-alias="STSI" field="description"/>
+        <alias name="originFacilityName" entity-alias="OFAC" field="facilityName"/>
+        <alias name="destinationFacilityName" entity-alias="DFAC" field="facilityName"/>
+    </view-entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.carrier -->
+    <!-- ========================================================= -->
+
+
+    <!-- ========================================================= -->
+    <!-- mantle.shipment.picklist -->
+    <!-- ========================================================= -->
+
+</entities>

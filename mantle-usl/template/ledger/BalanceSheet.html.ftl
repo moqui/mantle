@@ -35,43 +35,55 @@ This Work includes contributions authored by David E. Jones, not as a
         </div>
     </div>
     <div class="form-body">
+        <#if assetInfoMap??>
         <div class="form-row">
             <div class="form-cell">${assetInfoMap.className}</div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(assetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList assetInfoMap.childClassInfoList 1/>
+        </#if>
 
+        <#if contraAssetInfoMap??>
         <div class="form-row">
             <div class="form-cell">${contraAssetInfoMap.className}</div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(contraAssetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList contraAssetInfoMap.childClassInfoList 1/>
+        </#if>
 
+        <#if assetInfoMap?? && contraAssetInfoMap??>
         <div class="form-row">
             <div class="form-cell"><span class="form-title">Asset - Contra Asset Total</span></div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(assetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraAssetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
+        </#if>
     </div>
 
 
 
     <div class="form-body">
+        <#if liabilityInfoMap??>
         <div class="form-row">
             <div class="form-cell">${liabilityInfoMap.className}</div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(liabilityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList liabilityInfoMap.childClassInfoList 1/>
+        </#if>
 
 
+        <#if equityInfoMap??>
         <div class="form-row">
             <div class="form-cell">${equityInfoMap.className}</div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency">${ec.l10n.formatCurrency(equityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
         <@showChildClassList equityInfoMap.childClassInfoList 1/>
+        </#if>
 
+        <#if liabilityInfoMap?? && equityInfoMap??>
         <div class="form-row">
             <div class="form-cell"><span class="form-title">Liability + Equity Total</span></div>
             <#list timePeriodIdList as timePeriodId><div class="form-cell"><span class="currency form-title">${ec.l10n.formatCurrency(liabilityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + equityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</span></div></#list>
         </div>
+        </#if>
     </div>
 </div>

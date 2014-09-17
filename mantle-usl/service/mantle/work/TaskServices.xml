@@ -94,6 +94,16 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
+    <service verb="set" noun="TaskDefaults">
+        <description>This service runs by EECA rule before creates and updates set some defaults.</description>
+        <in-parameters><parameter name="entityValue" type="Map"/></in-parameters>
+        <actions>
+            <set field="entityValue.actualWorkTime" from="entityValue.actualWorkTime ?: 0 as BigDecimal"/>
+            <if condition="entityValue.remainingWorkTime == null &amp;&amp; entityValue.estimatedWorkTime &amp;&amp; entityValue.estimatedWorkTime &gt; entityValue.actualWorkTime">
+                <set field="entityValue.remainingWorkTime" from="entityValue.estimatedWorkTime - entityValue.actualWorkTime"/>
+            </if>
+        </actions>
+    </service>
 
     <service verb="add" noun="TaskComment">
         <in-parameters>
@@ -146,19 +156,39 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="remainingWorkTime != null">
                 <service-call name="update#mantle.work.effort.WorkEffort"
                         in-map="[workEffortId:workEffortId, remainingWorkTime:remainingWorkTime]"/>
+
+                <else>
+                    <!-- auto deduct from remainingWorkTime -->
+                    <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="task"/>
+                    <if condition="task.remainingWorkTime">
+                        <set field="task.remainingWorkTime" from="task.remainingWorkTime - hours"/>
+                        <if condition="task.remainingWorkTime &lt; 0"><set field="task.remainingWorkTime" from="0"/></if>
+                        <entity-update value-field="task"/>
+                    </if>
+                </else>
             </if>
         </actions>
     </service>
     <service verb="update" noun="TaskFromTime" authenticate="anonymous-all">
         <in-parameters><parameter name="workEffortId" required="true"/></in-parameters>
         <actions>
-            <entity-find entity-name="mantle.work.time.TimeEntrySummary" list="timeEntrySummaryList">
-                <econdition field-name="workEffortId"/>
-                <select-field field-name="hours"/>
-            </entity-find>
-            <if condition="timeEntrySummaryList">
+            <entity-find entity-name="mantle.work.time.TimeEntryAndRates" list="tearList">
+                <econdition field-name="workEffortId"/></entity-find>
+            <if condition="tearList">
+                <set field="actualWorkTime" from="0"/>
+                <set field="actualClientCost" from="0"/>
+                <set field="actualCost" from="0"/>
+                <iterate list="tearList" entry="tear">
+                    <set field="actualWorkTime" from="actualWorkTime + tear.hours"/>
+                    <if condition="tear.clientRateAmount">
+                        <set field="actualClientCost" from="actualClientCost + (tear.hours * tear.clientRateAmount)"/></if>
+                    <if condition="tear.vendorRateAmount">
+                        <set field="actualCost" from="actualCost + (tear.hours * tear.vendorRateAmount)"/></if>
+                </iterate>
+                <!-- <log level="warn" message="======== time for ${workEffortId}: ${actualWorkTime}, ${actualCost}, ${actualClientCost}\n${tearList}"/> -->
                 <service-call name="update#mantle.work.effort.WorkEffort"
-                        in-map="[workEffortId:workEffortId, actualWorkTime:timeEntrySummaryList[0].hours]"/>
+                        in-map="[workEffortId:workEffortId, actualWorkTime:actualWorkTime,
+                                actualCost:actualCost, actualClientCost:actualClientCost]"/>
             </if>
         </actions>
     </service>
@@ -166,16 +196,16 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="rootWorkEffortId" required="true"/></in-parameters>
         <actions>
             <entity-find entity-name="mantle.work.time.TaskTimeSummary" list="ttsList">
-                <econdition field-name="rootWorkEffortId"/>
-                <select-field field-name="actualWorkTime"/>
-                <select-field field-name="estimatedWorkTime"/>
-            </entity-find>
+                <econdition field-name="rootWorkEffortId"/></entity-find>
             <if condition="ttsList">
                 <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="rootWorkEffort">
                     <field-map field-name="workEffortId" from="rootWorkEffortId"/>
                 </entity-find-one>
                 <set field="rootWorkEffort.actualWorkTime" from="ttsList[0].actualWorkTime"/>
                 <set field="rootWorkEffort.estimatedWorkTime" from="ttsList[0].estimatedWorkTime"/>
+                <set field="rootWorkEffort.remainingWorkTime" from="ttsList[0].remainingWorkTime"/>
+                <set field="rootWorkEffort.actualCost" from="ttsList[0].actualCost"/>
+                <set field="rootWorkEffort.actualClientCost" from="ttsList[0].actualClientCost"/>
                 <entity-update value-field="rootWorkEffort"/>
             </if>
         </actions>
