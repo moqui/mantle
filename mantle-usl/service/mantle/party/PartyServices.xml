@@ -14,6 +14,7 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="find" noun="Party" type="script"
              location="component://mantle-usl/service/mantle/party/PartyServices/findParty.groovy">
         <in-parameters>
+            <parameter name="partyId"/>
             <parameter name="partyTypeEnumId"/>
             <parameter name="roleTypeId"/>
             <parameter name="username"/>
@@ -33,13 +34,19 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="contactOwnerPartyId"/>
 
             <parameter name="orderByField"/>
-            <parameter name="pageIndex" type="Integer" default-value="0"/>
-            <parameter name="pageSize" type="Integer" default-value="20"/>
-            <parameter name="pageNoLimit" type="Boolean" default-value="false"/>
+            <parameter name="pageIndex" type="Integer" default="0"/>
+            <parameter name="pageSize" type="Integer" default="20"/>
+            <parameter name="pageNoLimit" type="Boolean" default="false"/>
+            <parameter name="leadingWildcard" type="Boolean" default="false"><description>Defaults for false for DB query performance reasons.</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="partyIdList" type="List"/>
-            <parameter name="totalResults" type="Integer"/>
+            <parameter name="partyIdListCount" type="Integer"/>
+            <parameter name="partyIdListPageIndex" type="Integer"/>
+            <parameter name="partyIdListPageSize" type="Integer"/>
+            <parameter name="partyIdListPageMaxIndex" type="Integer"/>
+            <parameter name="partyIdListPageRangeLow" type="Integer"/>
+            <parameter name="partyIdListPageRangeHigh" type="Integer"/>
         </out-parameters>
     </service>
     <service verb="search" noun="Person">
@@ -97,7 +104,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <!-- do this first to get a password validation ASAP -->
             <if condition="username">
-                <set field="userFullName" value="${firstName} ${middleName? middleName + ' ' : ''}${lastName}"/>
+                <set field="userFullName" value="${firstName} ${middleName ? middleName + ' ' : ''}${lastName}"/>
                 <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
                 <set field="userId" from="newUaOut.userId"/>
             </if>
