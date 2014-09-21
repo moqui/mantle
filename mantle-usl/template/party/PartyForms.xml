@@ -23,6 +23,11 @@ This Work includes contributions authored by David E. Jones, not as a
         <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
         <default-response url="."/>
     </transition>
+    <!-- an example of a transition to call store#PaymentMethodInfo; this does a create or update -->
+    <transition name="storePaymentMethodInfo">
+        <service-call name="mantle.account.PaymentMethodServices.store#PaymentMethodInfo"/>
+        <default-response url="."/>
+    </transition>
 
     <actions>
         <!-- an example of a call to get#PartyContactInfo to populate the form, plus a call to flatten the Map for
@@ -31,6 +36,10 @@ This Work includes contributions authored by David E. Jones, not as a
                 in-map="[partyId:partyId, postalContactMechPurposeId:'PostalBilling',
                     telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling']"/>
         <set field="contactInfoFlat" from="StupidUtilities.flattenNestedMap(billingContactInfo)"/>
+
+        <service-call name="mantle.account.PaymentMethodServices.get#PartyPaymentMethodInfo" out-map="methodInfo"
+                in-map="[partyId:partyId]"/>
+        <set field="methodInfoFlat" from="StupidUtilities.flattenNestedMap(methodInfo)"/>
     </actions>
     <widgets>
         <form-single name="ContactInfo" transition="storeContactInfo" map="contactInfoFlat">
@@ -186,6 +195,78 @@ This Work includes contributions authored by David E. Jones, not as a
                     <field-ref name="contactNumber"/></field-row-big>
                 <field-ref name="emailContactMechPurposeId"/>
                 <field-ref name="emailAddress"/>
+                <fields-not-referenced/>
+                <field-ref name="submitButton"/>
+            </field-layout>
+        </form-single>
+
+        <form-single name="PaymentMethodInfo" transition="storePaymentMethodInfo" map="methodInfoFlat">
+            <!-- TODO: support other payment method types! (make many fields conditional, etc) -->
+            <field name="partyId"><default-field><hidden/></default-field></field>
+            <field name="paymentMethodId"><default-field><hidden/></default-field></field>
+            <field name="paymentMethodTypeEnumId"><default-field><hidden/></default-field></field>
+
+            <field name="firstNameOnCard"><default-field><text-line size="20"/></default-field></field>
+            <field name="lastNameOnCard"><default-field><text-line size="20"/></default-field></field>
+
+            <field name="creditCardTypeEnumId"><default-field title="Card Type">
+                <drop-down><entity-options key="${enumId}" text="${description}">
+                    <entity-find entity-name="moqui.basic.Enumeration">
+                        <econdition field-name="enumTypeId" value="CreditCardType"/>
+                        <order-by field-name="description"/>
+                    </entity-find>
+                </entity-options></drop-down>
+            </default-field></field>
+            <field name="cardNumber">
+                <conditional-field condition="!_formMap?.paymentMethodId"><text-line size="16"/></conditional-field>
+                <default-field><display text="${_formMap?.maskedCardNumber?:''}" also-hidden="false"/></default-field>
+            </field>
+            <!-- <field name="expireDate"><default-field><text-line size="7"/></default-field></field> -->
+            <field name="expireMonth"><default-field title=""><drop-down>
+                <option key="01"/><option key="02"/><option key="03"/><option key="04"/><option key="05"/>
+                <option key="06"/><option key="07"/><option key="08"/><option key="09"/><option key="10"/>
+                <option key="11"/><option key="12"/>
+            </drop-down></default-field></field>
+            <field name="expireYear"><default-field title=""><drop-down>
+                <option key="2013"/><option key="2014"/><option key="2015"/><option key="2016"/>
+                <option key="2017"/><option key="2018"/><option key="2019"/><option key="2020"/>
+            </drop-down></default-field></field>
+
+            <field name="postalContactMechId"><default-field><hidden/></default-field></field>
+
+            <field name="countryGeoId"><default-field title="Country"><hidden default-value="USA"/></default-field></field>
+            <field name="address1"><default-field title="Address Line 1"><text-line size="30"/></default-field></field>
+            <field name="unitNumber"><default-field><text-line size="10"/></default-field></field>
+            <field name="address2"><default-field title="Address Line 2"><text-line size="30"/></default-field></field>
+            <field name="city"><default-field title=""><text-line size="16"/></default-field></field>
+            <field name="stateProvinceGeoId"><default-field title="">
+                <drop-down><entity-options key="${toGeoId}" text="${geoName}">
+                    <entity-find entity-name="GeoAssocAndToDetail">
+                        <econdition field-name="geoId" value="USA"/>
+                        <econdition field-name="geoAssocTypeEnumId" value="GAT_REGIONS"/>
+                        <order-by field-name="geoName"/>
+                    </entity-find>
+                </entity-options></drop-down>
+            </default-field></field>
+            <field name="postalCode"><default-field title=""><text-line size="8"/></default-field></field>
+            <field name="postalCodeExt"><default-field title=""><text-line size="4"/></default-field></field>
+
+            <field name="telecomContactMechId"><default-field><hidden/></default-field></field>
+            <field name="countryCode"><default-field title=""><text-line size="3" maxlength="3" default-value="+1"/></default-field></field>
+            <field name="areaCode"><default-field title=""><text-line size="3" maxlength="3"/></default-field></field>
+            <field name="contactNumber"><default-field title=""><text-line size="8" maxlength="8"/></default-field></field>
+
+            <field name="submitButton"><default-field title="${_formMap?.paymentMethodId ? 'Update' : 'Create'}"><submit/></default-field></field>
+
+            <field-layout>
+                <field-ref name="firstNameOnCard"/><field-ref name="lastNameOnCard"/>
+                <field-ref name="creditCardTypeEnumId"/><field-ref name="cardNumber"/>
+                <field-row-big title="Expire Date"><field-ref name="expireMonth"/><field-ref name="expireYear"/></field-row-big>
+                <field-ref name="countryGeoId"/>
+                <field-row><field-ref name="address1"/><field-ref name="unitNumber"/></field-row>
+                <field-ref name="address2"/>
+                <field-row-big title="City/State/Zip"><field-ref name="city"/><field-ref name="stateProvinceGeoId"/><field-ref name="postalCode"/><field-ref name="postalCodeExt"/></field-row-big>
+                <field-row-big title="Phone"><field-ref name="countryCode"/><field-ref name="areaCode"/><field-ref name="contactNumber"/></field-row-big>
                 <fields-not-referenced/>
                 <field-ref name="submitButton"/>
             </field-layout>
