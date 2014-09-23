@@ -107,7 +107,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                     itemTypeEnumId:'ItemProduct']).call()
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'EQUIP_1', quantity:1,
-                    itemTypeEnumId:'ItemAsset', unitAmount:10000]).call()
+                    itemTypeEnumId:'ItemAssetEquipment', unitAmount:10000]).call()
 
         // add shipping charge
         ec.service.sync().name("mantle.order.OrderServices.create#OrderItem")
@@ -141,7 +141,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="150" unitAmount="8.00" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="100" unitAmount="4.50" isModifiedPrice="N"/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemAsset"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemAssetEquipment"
                 productId="EQUIP_1" itemDescription="Picker Bot 2000" quantity="1" unitAmount="10000" isModifiedPrice="Y"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemShipping"
                 itemDescription="Incoming Freight" quantity="1" unitAmount="145.00"/>
@@ -246,7 +246,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"
-                itemTypeEnumId="ItemAsset" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
+                itemTypeEnumId="ItemAssetEquipment" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
                 itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55402" orderId="${purchaseOrderId}" orderItemSeqId="03"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" quantity="1" amount="10,000"
