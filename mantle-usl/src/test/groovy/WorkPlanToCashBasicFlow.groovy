@@ -175,20 +175,20 @@ class WorkPlanToCashBasicFlow extends Specification {
         // worker
         workerResult = ec.service.sync().name("mantle.party.PartyServices.create#Account")
                 .parameters([firstName:'Test', lastName:'Worker', emailAddress:'worker@test.com',
-                username:'worker', newPassword:'moqui1!', newPasswordVerify:'moqui1!', loginAfterCreate:'false']).call()
+                    username:'worker', newPassword:'moqui1!', newPasswordVerify:'moqui1!', loginAfterCreate:'false']).call()
         Map workerRelResult = ec.service.sync().name("create#mantle.party.PartyRelationship")
                 .parameters([relationshipTypeEnumId:'PrtAgent', fromPartyId:workerResult.partyId,
-                fromRoleTypeId:'Worker', toPartyId:vendorResult.partyId, toRoleTypeId:'VendorBillFrom',
-                fromDate:ec.user.nowTimestamp]).call()
+                    fromRoleTypeId:'Worker', toPartyId:vendorResult.partyId, toRoleTypeId:'VendorBillFrom',
+                    fromDate:ec.user.nowTimestamp]).call()
         // Rate Amounts
         clientRateResult = ec.service.sync().name("create#mantle.humanres.rate.RateAmount")
                 .parameters([rateTypeEnumId:'RatpStandard', ratePurposeEnumId:'RaprClient', timePeriodUomId:'TF_hr',
-                emplPositionClassId:'Programmer', fromDate:'1265184000000', rateAmount:'60.00',
-                rateCurrencyUomId:'USD', partyId:workerResult.partyId]).call()
+                    emplPositionClassId:'Programmer', fromDate:'1265184000000', rateAmount:'60.00',
+                    rateCurrencyUomId:'USD', partyId:workerResult.partyId]).call()
         vendorRateResult = ec.service.sync().name("create#mantle.humanres.rate.RateAmount")
                 .parameters([rateTypeEnumId:'RatpStandard', ratePurposeEnumId:'RaprVendor', timePeriodUomId:'TF_hr',
-                emplPositionClassId:'Programmer', fromDate:'1265184000000', rateAmount:'40.00',
-                rateCurrencyUomId:'USD', partyId:workerResult.partyId]).call()
+                    emplPositionClassId:'Programmer', fromDate:'1265184000000', rateAmount:'40.00',
+                    rateCurrencyUomId:'USD', partyId:workerResult.partyId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
@@ -235,18 +235,18 @@ class WorkPlanToCashBasicFlow extends Specification {
                 .parameters([roleTypeId:'CustomerBillTo', organizationName:'Test Client']).call()
         Map clientCiResult = ec.service.sync().name("mantle.party.ContactServices.store#PartyContactInfo")
                 .parameters([partyId:clientResult.partyId, postalContactMechPurposeId:'PostalBilling',
-                telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling', countryGeoId:'USA',
-                address1:'1350 E. Flamingo Rd.', unitNumber:'1234', city:'Las Vegas', stateProvinceGeoId:'USA_NV',
-                postalCode:'89119', postalCodeExt:'5263', countryCode:'+1', areaCode:'702', contactNumber:'123-4567',
-                emailAddress:'client.ap@test.com']).call()
+                    telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling', countryGeoId:'USA',
+                    address1:'1350 E. Flamingo Rd.', unitNumber:'1234', city:'Las Vegas', stateProvinceGeoId:'USA_NV',
+                    postalCode:'89119', postalCodeExt:'5263', countryCode:'+1', areaCode:'702', contactNumber:'123-4567',
+                    emailAddress:'client.ap@test.com']).call()
 
         Map clientRepResult = ec.service.sync().name("mantle.party.PartyServices.create#Account")
                 .parameters([firstName:'Client', lastName:'TestRep', emailAddress:'client.rep@test.com',
-                username:'client.rep', newPassword:'moqui1!', newPasswordVerify:'moqui1!', loginAfterCreate:'false']).call()
+                    username:'client.rep', newPassword:'moqui1!', newPasswordVerify:'moqui1!', loginAfterCreate:'false']).call()
         Map repRelResult = ec.service.sync().name("create#mantle.party.PartyRelationship")
                 .parameters([relationshipTypeEnumId:'PrtRepresentative', fromPartyId:clientRepResult.partyId,
-                fromRoleTypeId:'ClientBilling', toPartyId:clientResult.partyId, toRoleTypeId:'CustomerBillTo',
-                fromDate:ec.user.nowTimestamp]).call()
+                    fromRoleTypeId:'ClientBilling', toPartyId:clientResult.partyId, toRoleTypeId:'CustomerBillTo',
+                    fromDate:ec.user.nowTimestamp]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
@@ -304,7 +304,8 @@ class WorkPlanToCashBasicFlow extends Specification {
     def "create TEST Project"() {
         when:
         ec.service.sync().name("mantle.work.ProjectServices.create#Project")
-                .parameters([workEffortId:'TEST', workEffortName:'Test Proj', clientPartyId:clientResult.partyId, vendorPartyId:vendorResult.partyId])
+                .parameters([workEffortId:'TEST', workEffortName:'Test Proj', clientPartyId:clientResult.partyId,
+                    vendorPartyId:vendorResult.partyId, totalClientCostAllowed:"2000", costUomId:"USD"])
                 .call()
         ec.service.sync().name("mantle.work.ProjectServices.update#Project")
                 .parameters([workEffortId:'TEST', workEffortName:'Test Project', statusId:'WeInProgress'])
@@ -312,7 +313,7 @@ class WorkPlanToCashBasicFlow extends Specification {
         // assign Joe Developer to TEST project as Programmer (necessary for determining RateAmount, etc)
         ec.service.sync().name("create#mantle.work.effort.WorkEffortParty")
                 .parameters([workEffortId:'TEST', partyId:workerResult.partyId, roleTypeId:'Worker', emplPositionClassId:'Programmer',
-                fromDate:'2013-11-01', statusId:'PRTYASGN_ASSIGNED']).call()
+                    fromDate:'2013-11-01', statusId:'PRTYASGN_ASSIGNED']).call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.work.effort.WorkEffort workEffortId="TEST" workEffortTypeEnumId="WetProject" statusId="WeInProgress" workEffortName="Test Project"/>
@@ -348,11 +349,11 @@ class WorkPlanToCashBasicFlow extends Specification {
         when:
         ec.service.sync().name("mantle.work.ProjectServices.create#Milestone")
                 .parameters([rootWorkEffortId:'TEST', workEffortId:'TEST-MS-01', workEffortName:'Test Milestone 1',
-                estimatedStartDate:'2013-11-01', estimatedCompletionDate:'2013-11-30', statusId:'WeInProgress'])
+                    estimatedStartDate:'2013-11-01', estimatedCompletionDate:'2013-11-30', statusId:'WeInProgress'])
                 .call()
         ec.service.sync().name("mantle.work.ProjectServices.create#Milestone")
                 .parameters([rootWorkEffortId:'TEST', workEffortId:'TEST-MS-02', workEffortName:'Test Milestone 2',
-                estimatedStartDate:'2013-12-01', estimatedCompletionDate:'2013-12-31', statusId:'WeApproved'])
+                    estimatedStartDate:'2013-12-01', estimatedCompletionDate:'2013-12-31', statusId:'WeApproved'])
                 .call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
@@ -378,21 +379,21 @@ class WorkPlanToCashBasicFlow extends Specification {
         when:
         ec.service.sync().name("mantle.work.TaskServices.create#Task")
                 .parameters([rootWorkEffortId:'TEST', parentWorkEffortId:null, workEffortId:'TEST-001', milestoneWorkEffortId:'TEST-MS-01',
-                workEffortName:'Test Task 1', estimatedCompletionDate:'2013-11-15', statusId:'WeApproved',
-                assignToPartyId:workerResult.partyId, priority:3, purposeEnumId:'WepTask', estimatedWorkTime:10,
-                description:'Will be really great when it\'s done'])
+                    workEffortName:'Test Task 1', estimatedCompletionDate:'2013-11-15', statusId:'WeApproved',
+                    assignToPartyId:workerResult.partyId, priority:3, purposeEnumId:'WepTask', estimatedWorkTime:10,
+                    description:'Will be really great when it\'s done'])
                 .call()
         ec.service.sync().name("mantle.work.TaskServices.create#Task")
                 .parameters([rootWorkEffortId:'TEST', parentWorkEffortId:'TEST-001', workEffortId:'TEST-001A', milestoneWorkEffortId:'TEST-MS-01',
-                workEffortName:'Test Task 1A', estimatedCompletionDate:'2013-11-15', statusId:'WeInPlanning',
-                assignToPartyId:workerResult.partyId, priority:4, purposeEnumId:'WepNewFeature', estimatedWorkTime:2,
-                description:'One piece of the puzzle'])
+                    workEffortName:'Test Task 1A', estimatedCompletionDate:'2013-11-15', statusId:'WeInPlanning',
+                    assignToPartyId:workerResult.partyId, priority:4, purposeEnumId:'WepNewFeature', estimatedWorkTime:2,
+                    description:'One piece of the puzzle'])
                 .call()
         ec.service.sync().name("mantle.work.TaskServices.create#Task")
                 .parameters([rootWorkEffortId:'TEST', parentWorkEffortId:'TEST-001', workEffortId:'TEST-001B', milestoneWorkEffortId:'TEST-MS-01',
-                workEffortName:'Test Task 1B', estimatedCompletionDate:'2013-11-15', statusId:'WeApproved',
-                assignToPartyId:workerResult.partyId, priority:4, purposeEnumId:'WepFix', estimatedWorkTime:2,
-                description:'Broken piece of the puzzle'])
+                    workEffortName:'Test Task 1B', estimatedCompletionDate:'2013-11-15', statusId:'WeApproved',
+                    assignToPartyId:workerResult.partyId, priority:4, purposeEnumId:'WepFix', estimatedWorkTime:2,
+                    description:'Broken piece of the puzzle'])
                 .call()
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.work.effort.WorkEffort workEffortId="TEST-001" rootWorkEffortId="TEST" workEffortTypeEnumId="WetTask"
