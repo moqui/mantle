@@ -64,7 +64,6 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="actualStartDate" type="date-time"/>
         <field name="actualCompletionDate" type="date-time"/>
 
-        <!-- TODO: find an alternative to this, maybe a separate entity with enum for different time values -->
         <field name="estimatedWorkTime" type="number-decimal"/>
         <field name="estimatedSetupTime" type="number-decimal"/>
         <field name="remainingWorkTime" type="number-decimal"/>
@@ -101,7 +100,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="resolutionEnumId"/>
         </relationship>
         <relationship type="one" title="WorkEffort" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" related-entity-name="Facility"/>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
         <relationship type="one" title="Time" related-entity-name="moqui.basic.Uom">
             <key-map field-name="timeUomId"/>
         </relationship>
@@ -198,7 +197,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="allocatedCost" type="currency-amount"/>
         <field name="comments" type="text-medium"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
         <relationship type="one" title="WorkEffortAssetAssign" related-entity-name="moqui.basic.StatusItem"/>
         <seed-data>
             <!-- Work Effort Asset Assignment Status -->
@@ -215,7 +214,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="estimatedDuration" type="number-decimal"/>
         <field name="estimatedCost" type="currency-amount"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" title="Asset" related-entity-name="Product">
+        <relationship type="one" title="Asset" related-entity-name="mantle.product.Product">
             <key-map field-name="assetProductId"/>
         </relationship>
     </entity>
@@ -223,7 +222,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="workEffortId" type="id" is-pk="true"/>
         <field name="assetId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
     </entity>
     <entity entity-name="WorkEffortAssetUsed" package-name="mantle.work.effort">
         <field name="workEffortId" type="id" is-pk="true"/>
@@ -231,7 +230,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="statusId" type="id"/>
         <field name="quantity" type="number-decimal"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" related-entity-name="Asset"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
         <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
     </entity>
 
@@ -333,7 +332,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="workEffortId" type="id" is-pk="true"/>
         <field name="deliverableId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" related-entity-name="Deliverable"/>
+        <relationship type="one" related-entity-name="mantle.work.effort.Deliverable"/>
     </entity>
     <entity entity-name="WorkEffortNote" package-name="mantle.work.effort">
         <field name="workEffortId" type="id" is-pk="true"/>
@@ -418,7 +417,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="estimatedQuantity" type="number-decimal"/>
         <field name="estimatedCost" type="currency-amount"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" title="WorkEffortProductType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="typeEnumId"/>
         </relationship>
@@ -450,6 +449,40 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="SkillType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="skillTypeEnumId"/>
         </relationship>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.work.estimate -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="ProductionEstimate" package-name="mantle.work.estimate">
+        <field name="productionEstimateId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="facilityId" type="id"/>
+        <field name="destinationFacilityId" type="id"/>
+        <field name="quantity" type="number-decimal"/>
+        <field name="quantityUomId" type="id"/>
+        <field name="readyDate" type="date-time"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one" title="Destination" related-entity-name="mantle.facility.Facility">
+            <key-map field-name="destinationFacilityId"/>
+        </relationship>
+        <relationship type="one" title="Time" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="timeUomId"/>
+        </relationship>
+    </entity>
+    <entity entity-name="ProductionEstimateWorkEff" package-name="mantle.work.estimate">
+        <field name="productionEstimateId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="mantle.work.estimate.ProductionEstimate"/>
+        <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
+    </entity>
+    <entity entity-name="ProductionEstimateAsset" package-name="mantle.work.estimate">
+        <field name="productionEstimateId" type="id" is-pk="true"/>
+        <field name="assetId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="mantle.work.estimate.ProductionEstimate"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
     </entity>
 
     <!-- ========================================================= -->
