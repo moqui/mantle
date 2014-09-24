@@ -10,57 +10,143 @@ this Work and assume any risks associated with your use of this Work.
 This Work includes contributions authored by David E. Jones, not as a
 "work for hire", who hereby disclaims any copyright to the same.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.4.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
 <!-- STATUS: EXPERIMENTAL -->
 
-    <service verb="get" noun="PartyCreditCardInfo">
+    <service verb="get" noun="PartyPaymentMethodInfo">
         <in-parameters>
             <parameter name="partyId" required="true"/>
+            <parameter name="paymentMethodId"/>
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtCreditCard"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentMethodId"/>
             <parameter name="paymentMethod" type="org.moqui.entity.EntityValue"/>
             <parameter name="creditCard" type="org.moqui.entity.EntityValue"/>
             <parameter name="creditCardTypeEnum" type="org.moqui.entity.EntityValue"/>
+            <parameter name="expireMonth"/><parameter name="expireYear"/>
+            <parameter name="maskedCardNumber"/>
             <parameter name="postalContactMechId"/>
             <parameter name="postalAddress" type="org.moqui.entity.EntityValue"/>
             <parameter name="postalAddressStateGeo" type="org.moqui.entity.EntityValue"/>
             <parameter name="telecomContactMechId"/>
             <parameter name="telecomNumber" type="org.moqui.entity.EntityValue"/>
+            <parameter name="emailContactMechId"/>
+            <parameter name="emailAddress"/>
+        </out-parameters>
+        <actions>
+            <if condition="paymentMethodId">
+                <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+
+                <else>
+                    <entity-find entity-name="mantle.account.method.PaymentMethod" list="paymentMethodList">
+                        <date-filter/>
+                        <econdition field-name="ownerPartyId" from="partyId"/>
+                        <econdition field-name="paymentMethodTypeEnumId"/>
+                        <order-by field-name="-fromDate"/><!-- get the most recent one if there is more than one -->
+                    </entity-find>
+                    <set field="paymentMethod" from="paymentMethodList.first"/>
+                </else>
+            </if>
+            <set field="paymentMethodId" from="paymentMethod?.paymentMethodId"/>
+
+            <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.account.method.CreditCard" to-value-field="creditCard"/>
+            <entity-find-related-one value-field="creditCard" relationship-name="CreditCardType#moqui.basic.Enumeration" to-value-field="creditCardTypeEnum"/>
+
+            <set field="expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
+            <set field="expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
+
+            <set field="cardNumber" from="creditCard?.cardNumber"/>
+            <set field="maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
+
+            <!-- TODO: support other payment method types! -->
+
+            <set field="postalContactMechId" from="paymentMethod?.postalContactMechId"/>
+            <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.PostalAddress" to-value-field="postalAddress"/>
+            <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
+            <set field="telecomContactMechId" from="paymentMethod?.telecomContactMechId"/>
+            <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.TelecomNumber" to-value-field="telecomNumber"/>
+
+            <entity-find-related-one value-field="paymentMethod" relationship-name="Email#mantle.party.contact.ContactMech" to-value-field="emailContactMech"/>
+            <set field="emailContactMechId" from="paymentMethod?.emailContactMechId"/>
+            <set field="emailAddress" from="emailContactMech?.infoString"/>
+        </actions>
+    </service>
+    <service verb="get" noun="PartyPaymentMethodInfoList">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="paymentMethodTypeEnumId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="methodInfoList" type="List"><parameter name="infoMap">
+                <parameter name="paymentMethodId"/>
+                <parameter name="paymentMethod" type="org.moqui.entity.EntityValue"/>
+                <parameter name="creditCard" type="org.moqui.entity.EntityValue"/>
+                <parameter name="creditCardTypeEnum" type="org.moqui.entity.EntityValue"/>
+                <parameter name="expireMonth"/><parameter name="expireYear"/>
+                <parameter name="maskedCardNumber"/>
+                <parameter name="postalContactMechId"/>
+                <parameter name="postalAddress" type="org.moqui.entity.EntityValue"/>
+                <parameter name="postalAddressStateGeo" type="org.moqui.entity.EntityValue"/>
+                <parameter name="telecomContactMechId"/>
+                <parameter name="telecomNumber" type="org.moqui.entity.EntityValue"/>
+                <parameter name="emailContactMechId"/>
+                <parameter name="emailAddress"/>
+            </parameter></parameter>
         </out-parameters>
         <actions>
             <entity-find entity-name="PaymentMethod" list="paymentMethodList">
                 <date-filter/>
                 <econdition field-name="ownerPartyId" from="partyId"/>
-                <econdition field-name="paymentMethodTypeEnumId" value="PmtCreditCard"/>
+                <econdition field-name="paymentMethodTypeEnumId" ignore-if-empty="true"/>
                 <order-by field-name="-fromDate"/><!-- get the most recent one if there is more than one -->
             </entity-find>
-            <set field="paymentMethod" from="paymentMethodList.first"/>
-            <set field="paymentMethodId" from="paymentMethod?.paymentMethodId"/>
 
-            <entity-find-related-one value-field="paymentMethod" relationship-name="CreditCard" to-value-field="creditCard"/>
-            <entity-find-related-one value-field="creditCard" relationship-name="CreditCardType#moqui.basic.Enumeration" to-value-field="creditCardTypeEnum"/>
+            <set field="methodInfoList" from="[]"/>
+            <iterate list="paymentMethodList" entry="paymentMethod">
+                <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.account.method.CreditCard" to-value-field="creditCard"/>
+                <entity-find-related-one value-field="creditCard" relationship-name="CreditCardType#moqui.basic.Enumeration" to-value-field="creditCardTypeEnum"/>
 
-            <set field="postalContactMechId" from="paymentMethod?.postalContactMechId"/>
-            <entity-find-related-one value-field="paymentMethod" relationship-name="PostalAddress" to-value-field="postalAddress"/>
-            <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
-            <set field="telecomContactMechId" from="paymentMethod?.telecomContactMechId"/>
-            <entity-find-related-one value-field="paymentMethod" relationship-name="TelecomNumber" to-value-field="telecomNumber"/>
+                <set field="expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
+                <set field="expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
+
+                <set field="cardNumber" from="creditCard?.cardNumber"/>
+                <set field="maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
+
+                <!-- TODO: support other payment method types! -->
+
+                <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.PostalAddress" to-value-field="postalAddress"/>
+                <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
+                <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.TelecomNumber" to-value-field="telecomNumber"/>
+                <entity-find-related-one value-field="paymentMethod" relationship-name="Email#mantle.party.contact.ContactMech" to-value-field="emailContactMech"/>
+
+                <script>methodInfoList.add([paymentMethodId:paymentMethod.paymentMethodId, paymentMethod:paymentMethod,
+                                                creditCard:creditCard, creditCardTypeEnum:creditCardTypeEnum,
+                                                expireMonth:expireMonth, expireYear:expireYear, maskedCardNumber:maskedCardNumber,
+                                                postalContactMechId:paymentMethod?.postalContactMechId,
+                                                postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
+                                                telecomContactMechId:paymentMethod?.telecomContactMechId,
+                                                telecomNumber:telecomNumber,
+                                                emailContactMechId:paymentMethod?.emailContactMechId,
+                                                emailAddress:emailContactMech?.infoString])</script>
+            </iterate>
         </actions>
     </service>
 
-    <service verb="store" noun="CreditCardInfo">
+    <service verb="store" noun="PaymentMethodInfo">
         <in-parameters>
             <parameter name="partyId" required="true"/>
 
             <parameter name="paymentMethodId"/>
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtCreditCard"/>
+
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk">
                 <exclude field-name="cardNumberLookupHash"/><exclude field-name="consecutiveFailedAuths"/>
                 <exclude field-name="lastFailedAuthDate"/><exclude field-name="consecutiveFailedNsf"/>
                 <exclude field-name="lastFailedNsfDate"/>
             </auto-parameters>
-            <parameter name="cardNumber" required="true"><credit-card/></parameter>
+            <parameter name="cardNumber"><credit-card/></parameter><!-- not required because often empty on update, ie for public facing masked cards -->
             <parameter name="expireMonth" required="true"/>
             <parameter name="expireYear" required="true"/>
             <parameter name="expireDate" default-value="${expireMonth}/${expireYear}">
@@ -99,6 +185,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- update PaymentMethod last so we know new postalContactMechId and telecomContactMechId updates (if applicable) -->
             <if condition="paymentMethodId">
+                <!-- TODO: support other payment method types! -->
                 <service-call name="mantle.account.PaymentMethodServices.update#CreditCard" in-map="context" out-map="ccOut"/>
 
                 <else>
