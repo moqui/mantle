@@ -83,17 +83,18 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="lastName" required="true"/>
 
             <parameter name="disabled" default-value="N"/>
+            <parameter name="requirePasswordChange" default-value="N"/>
 
             <parameter name="emailAddress" required="true"><text-email/></parameter>
             <parameter name="username" default-value="${emailAddress}"/>
-            <parameter name="newPassword"><description>If empty won't create a UserAccount record.</description></parameter>
+            <parameter name="newPassword"><description>If empty won't set a password, user will have to change or reset.</description></parameter>
             <parameter name="newPasswordVerify"/>
-            <parameter name="userGroupId"/>
 
             <parameter name="currencyUomId"/>
             <parameter name="locale"/>
             <parameter name="timeZone"/>
 
+            <parameter name="userGroupId"/>
             <parameter name="loginAfterCreate" type="Boolean" default-value="true"/>
         </in-parameters>
         <out-parameters>
@@ -104,8 +105,17 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <!-- do this first to get a password validation ASAP -->
             <if condition="username">
+                <!-- see if username already in use -->
+                <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                    <econdition field-name="username"/></entity-find>
+                <if condition="existingUaList"><return error="true" message="Username [${username}] is already in use. Choose another."/></if>
+
                 <set field="userFullName" value="${firstName} ${middleName ? middleName + ' ' : ''}${lastName}"/>
-                <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
+                <if condition="newPassword">
+                    <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
+
+                    <else><service-call name="create#moqui.security.UserAccount" in-map="context" out-map="newUaOut"/></else>
+                </if>
                 <set field="userId" from="newUaOut.userId"/>
             </if>
 
@@ -120,7 +130,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <if condition="username">
                 <!-- add the partyId to the UserAccount -->
-                <service-call name="update#UserAccount" in-map="[userId:newUaOut.userId, partyId:newPartyOut.partyId]"/>
+                <service-call name="update#moqui.security.UserAccount" in-map="[userId:newUaOut.userId, partyId:newPartyOut.partyId]"/>
                 <if condition="userGroupId">
                     <service-call name="create#moqui.security.UserGroupMember"
                             in-map="[userGroupId:userGroupId, userId:userId, fromDate:ec.user.nowTimestamp]"/>
@@ -133,12 +143,14 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
     <service verb="update" noun="Account">
+        <description>Update Person, UserAccount, and EmailPrimary.</description>
         <in-parameters>
             <parameter name="userId"/>
             <parameter name="partyId" required="true"/>
             <auto-parameters entity-name="mantle.party.Person" include="nonpk"/>
 
             <parameter name="disabled"/>
+            <parameter name="requirePasswordChange"/>
 
             <parameter name="emailAddress"><text-email/></parameter>
             <parameter name="username"/>
@@ -155,6 +167,99 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="userId"><service-call name="update#moqui.security.UserAccount" in-map="context"/></if>
             <service-call name="update#mantle.party.Party" in-map="context"/>
             <service-call name="update#mantle.party.Person" in-map="context"/>
+            <service-call name="mantle.party.ContactServices.update#PartyContactOther"
+                    in-map="[infoString:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="PartyUserAccount">
+        <description>Create a UserAccount for a Party, and set EmailPrimary if applicable.</description>
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+
+            <parameter name="emailAddress"><text-email/></parameter>
+            <parameter name="username" required="true"/>
+
+            <parameter name="newPassword"><description>If empty won't set a password, user will have to change or reset.</description></parameter>
+            <parameter name="newPasswordVerify"/>
+            <parameter name="disabled" default-value="N"/>
+            <parameter name="requirePasswordChange" default-value="N"/>
+
+            <parameter name="currencyUomId"/>
+            <parameter name="locale"/>
+            <parameter name="timeZone"/>
+
+            <parameter name="userGroupId"/>
+        </in-parameters>
+        <out-parameters><parameter name="userId"/></out-parameters>
+        <actions>
+            <!-- see if username already in use -->
+            <entity-find entity-name="moqui.security.UserAccount" list="existingUaList">
+                <econdition field-name="username"/></entity-find>
+            <if condition="existingUaList"><return error="true" message="Username [${username}] is already in use. Choose another."/></if>
+
+            <!-- handle emailAddress, EmailPrimary -->
+            <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="primaryEmailList">
+                <date-filter/><econdition field-name="partyId"/>
+                <econdition field-name="contactMechPurposeId" value="EmailPrimary"/>
+                <order-by field-name="-fromDate"/>
+            </entity-find>
+            <if condition="emailAddress">
+                <if condition="primaryEmailList">
+                    <service-call name="mantle.party.ContactServices.update#PartyContactOther"
+                            in-map="[infoString:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
+
+                    <else>
+                        <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emailOut"
+                                in-map="[emailAddress:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
+                    </else>
+                </if>
+
+                <else>
+                    <!-- no email address passed? use the EmailPrimary -->
+                    <set field="emailAddress" from="primaryEmailList?.first?.infoString"/>
+                </else>
+            </if>
+
+            <entity-find-one entity-name="mantle.party.Person" value-field="person"/>
+            <if condition="!person"><return error="true" message="Party [${partyId}] is not a person, not creating user account."/></if>
+            <set field="userFullName" value="${person?.firstName} ${person?.middleName ? person.middleName + ' ' : ''}${person?.lastName}"/>
+
+            <if condition="newPassword">
+                <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
+                <service-call name="update#moqui.security.UserAccount" in-map="[userId:userId, partyId:partyId]"/>
+
+                <else><service-call name="create#moqui.security.UserAccount" in-map="context" out-map="context"/></else>
+            </if>
+
+            <if condition="userGroupId">
+                <service-call name="create#moqui.security.UserGroupMember"
+                        in-map="[userGroupId:userGroupId, userId:userId, fromDate:ec.user.nowTimestamp]"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="update" noun="PartyUserAccount">
+        <description>Update only the UserAccount and EmailPrimary.</description>
+        <in-parameters>
+            <parameter name="userId"/>
+            <parameter name="partyId" required="true"/>
+
+            <parameter name="emailAddress"><text-email/></parameter>
+            <parameter name="username"/>
+
+            <parameter name="disabled"/>
+            <parameter name="requirePasswordChange"/>
+
+            <parameter name="currencyUomId"/>
+            <parameter name="locale"/>
+            <parameter name="timeZone"/>
+        </in-parameters>
+        <actions>
+            <if condition="!userId">
+                <entity-find entity-name="moqui.security.UserAccount" list="userAccountList"><econdition field-name="partyId"/></entity-find>
+                <set field="userId" from="userAccountList?.first?.userId"/>
+            </if>
+            <if condition="userId"><service-call name="update#moqui.security.UserAccount" in-map="context"/></if>
             <service-call name="mantle.party.ContactServices.update#PartyContactOther"
                     in-map="[infoString:emailAddress, partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
         </actions>
@@ -215,5 +320,15 @@ This Work includes contributions authored by David E. Jones, not as a
                 <service-call name="update#mantle.party.Organization" in-map="context"/>
             </if>
         </actions>
+    </service>
+    
+    <service verb="create" noun="PartyNote">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="userId" default="ec.user.userId"/>
+            <parameter name="noteDate" default="ec.user.nowTimestamp"/>
+            <parameter name="noteText" required="true"/>
+        </in-parameters>
+        <actions><service-call name="create#mantle.party.PartyNote" in-map="context"/></actions>
     </service>
 </services>
