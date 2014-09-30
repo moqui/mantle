@@ -130,12 +130,12 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
                 statusId="OrderApproved" currencyUomId="USD" grandTotal="11795.00"/>
 
-            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}"
+            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" fromPartyId="${customerPartyId}" toPartyId="${vendorPartyId}"
                 paymentMethodTypeEnumId="PmtCompanyCheck" orderId="${purchaseOrderId}" orderPartSeqId="01"
                 statusId="PmntPromised" amount="11795.00" amountUomId="USD"/>
 
-            <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="MiddlemanInc"
-                customerPartyId="ORG_BIZI_RETAIL" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_BIZI_RTL_SA"
+            <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="${vendorPartyId}"
+                customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_BIZI_RTL_SA"
                 telecomContactMechId="ORG_BIZI_RTL_PT" partTotal=""/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="150" unitAmount="8.00" isModifiedPrice="N"/>
