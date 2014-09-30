@@ -83,6 +83,8 @@ h2. General Order Placement and eCommerce Usage
             <script>
             import org.moqui.entity.EntityList
             import org.moqui.entity.EntityValue
+            import org.moqui.context.ExecutionContext
+            ExecutionContext ec = context.ec
 
             orderPartInfoList = []
             for (EntityValue orderPart in orderPartList) {
@@ -112,11 +114,14 @@ h2. General Order Placement and eCommerce Usage
                 EntityValue postalAddress = orderPart.'mantle.party.contact.PostalAddress'
                 EntityValue postalAddressStateGeo = postalAddress?."StateProvince#moqui.basic.Geo"
                 EntityValue facility = orderPart.'mantle.facility.Facility'
+                EntityValue customerDetail = ec.entity.makeFind("mantle.party.PartyDetail").condition("partyId", orderPart.customerPartyId).one()
+                EntityValue vendorDetail = ec.entity.makeFind("mantle.party.PartyDetail").condition("partyId", orderPart.vendorPartyId).one()
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
                         postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
-                        telecomNumber:orderPart.TelecomNumber, facility:facility])
+                        telecomNumber:orderPart.TelecomNumber, facility:facility,
+                        customerDetail:customerDetail, vendorDetail:vendorDetail])
             }
             </script>
             <!-- <log level="warn" message="======== OrderDisplayInfo orderPartInfoList: ${orderPartInfoList}"/> -->
@@ -160,6 +165,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="customerPartyId"/>
             <parameter name="otherPartyOrderId"/>
             <parameter name="facilityId"/>
+            <parameter name="shipBeforeDate"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderId" required="true"/>
