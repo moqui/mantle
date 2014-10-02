@@ -53,6 +53,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="shipmentIdSet" type="Set"/>
             <parameter name="requestItemOrderList" type="List"/>
             <parameter name="requestIdSet" type="Set"/>
+            <parameter name="statusHistoryList" type="List"/>
 
             <parameter name="orderPartList" type="List"/>
             <parameter name="orderPartInfoList" type="List"/>
@@ -78,6 +79,13 @@ h2. General Order Placement and eCommerce Usage
             <iterate list="requestItemOrderList" entry="requestItemOrder">
                 <script>requestIdSet.add(requestItemOrder.requestId)</script></iterate>
 
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.order.OrderHeader"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="orderId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
             <!-- get order info by part for more detailed display -->
             <script>
@@ -91,7 +99,9 @@ h2. General Order Placement and eCommerce Usage
                 partOrderItemList = orderItemList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
                 partPaymentList = paymentList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
                 partPaymentInfoList = []
+                BigDecimal paymentsTotal = 0
                 for (EntityValue partPayment in partPaymentList) {
+                    paymentsTotal += partPayment.amount
                     Map partPaymentInfo = [partPayment:partPayment]
                     EntityValue paymentMethod = partPayment.PaymentMethod
                     EntityValue paymentMethodTypeEnum = partPayment."PaymentMethodType#moqui.basic.Enumeration"
@@ -119,6 +129,7 @@ h2. General Order Placement and eCommerce Usage
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
+                        paymentsTotal:paymentsTotal,
                         postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
                         telecomNumber:orderPart.TelecomNumber, facility:facility,
                         customerDetail:customerDetail, vendorDetail:vendorDetail])
