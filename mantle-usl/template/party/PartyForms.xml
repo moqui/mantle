@@ -23,6 +23,15 @@ This Work includes contributions authored by David E. Jones, not as a
         <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
         <default-response url="."/>
     </transition>
+    <!-- this should ALWAYS be included for postal address forms (copy into your screen) -->
+    <transition name="getGeoCountryStates">
+        <actions>
+            <service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown" in-map="[geoId:countryGeoId]" out-map="context"/>
+            <script>ec.web.sendJsonResponse(resultList)</script>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+
     <!-- an example of a transition to call store#PaymentMethodInfo; this does a create or update -->
     <transition name="storePaymentMethodInfo">
         <service-call name="mantle.account.PaymentMethodServices.store#PaymentMethodInfo"/>
@@ -73,22 +82,6 @@ This Work includes contributions authored by David E. Jones, not as a
                 <default-field><ignored/></default-field>
             </field>
 
-            <!-- TODO: list countries, when one selected populate state drop-down below
-            <field name="countryGeoId"><default-field title="Country">
-                <drop-down allow-empty="false" no-current-selected-key="USA">
-                    <entity-options key="geoId" text="${geoName} (${geoCodeAlpha3})">
-                        <entity-find entity-name="Geo" cache="true">
-                            <econdition field-name="geoTypeEnumId" value="GEOT_COUNTRY"/>
-                            <order-by field-name="geoName"/>
-                        </entity-find>
-                    </entity-options>
-                </drop-down>
-            </default-field></field> -->
-            <field name="countryGeoId">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="Country"><hidden default-value="USA"/></conditional-field>
-                <default-field><ignored/></default-field>
-            </field>
-
             <field name="address1">
                 <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="Address Line 1"><text-line size="30"/></conditional-field>
                 <default-field><ignored/></default-field>
@@ -106,15 +99,35 @@ This Work includes contributions authored by David E. Jones, not as a
                     <text-line size="16"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
+            <field name="countryGeoId">
+                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="">
+                    <drop-down no-current-selected-key="USA">
+                        <entity-options key="${geoId}" text="${geoName}">
+                            <entity-find entity-name="moqui.basic.Geo" list="geoList">
+                                <econdition field-name="geoTypeEnumId" value="GEOT_COUNTRY"/>
+                                <order-by field-name="geoName"/>
+                            </entity-find>
+                        </entity-options>
+                    </drop-down>
+                </conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
             <field name="stateProvinceGeoId">
                 <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="">
-                    <drop-down><entity-options key="${toGeoId}" text="${geoName}">
-                        <entity-find entity-name="moqui.basic.GeoAssocAndToDetail">
-                            <econdition field-name="geoId" value="USA"/>
-                            <econdition field-name="geoAssocTypeEnumId" value="GAT_REGIONS"/>
-                            <order-by field-name="geoName"/>
-                        </entity-find>
-                    </entity-options></drop-down>
+                    <drop-down>
+                        <dynamic-options transition="getGeoCountryStates" value-field="geoId" label-field="label">
+                            <depends-on field="countryGeoId"/>
+                        </dynamic-options>
+                        <!--
+                        <entity-options key="${toGeoId}" text="${geoName}">
+                            <entity-find entity-name="moqui.basic.GeoAssocAndToDetail">
+                                <econdition field-name="geoId" value="USA"/>
+                                <econdition field-name="geoAssocTypeEnumId" value="GAT_REGIONS"/>
+                                <order-by field-name="geoName"/>
+                            </entity-find>
+                        </entity-options>
+                        -->
+                    </drop-down>
                 </conditional-field>
                 <default-field><ignored/></default-field>
             </field>
@@ -195,8 +208,10 @@ This Work includes contributions authored by David E. Jones, not as a
                 <field-ref name="attnName"/>
                 <field-row><field-ref name="address1"/><field-ref name="unitNumber"/></field-row>
                 <field-ref name="address2"/>
-                <field-row-big title="City/State/Zip"><field-ref name="city"/><field-ref name="stateProvinceGeoId"/>
+                <field-row-big title="City/Zip"><field-ref name="city"/>
                     <field-ref name="postalCode"/><field-ref name="postalCodeExt"/></field-row-big>
+                <field-row-big title="Country/State"><field-ref name="countryGeoId"/>
+                    <field-ref name="stateProvinceGeoId"/></field-row-big>
                 <field-ref name="telecomContactMechPurposeId"/>
                 <field-row-big title="Phone"><field-ref name="countryCode"/><field-ref name="areaCode"/>
                     <field-ref name="contactNumber"/></field-row-big>
