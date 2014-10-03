@@ -47,6 +47,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderHeader" type="org.moqui.entity.EntityValue"/>
             <parameter name="statusItem" type="org.moqui.entity.EntityValue"/>
             <parameter name="orderItemList" type="List"/>
+            <parameter name="orderItemWithChildrenSet" type="Set"/>
             <parameter name="paymentList" type="List"/>
 
             <parameter name="shipmentItemSourceList" type="List"/>
@@ -66,9 +67,11 @@ h2. General Order Placement and eCommerce Usage
                     list="orderItemList" order-by-list="['orderItemSeqId']"/>
             <!-- put items with parentItemSeqId in the list after their parent -->
             <script><![CDATA[
+                orderItemWithChildrenSet = new HashSet()
                 List reverseList = orderItemList.cloneList().orderByFields(["-orderItemSeqId"])
                 for (def orderItem in reverseList) {
                     if (orderItem.parentItemSeqId) {
+                        orderItemWithChildrenSet.add(orderItem.parentItemSeqId)
                         orderItemList.move(orderItemList.indexMatching([orderItemSeqId:orderItem.orderItemSeqId]),
                                 orderItemList.indexMatching([orderItemSeqId:orderItem.parentItemSeqId])+1)
                     }
@@ -291,22 +294,11 @@ h2. General Order Placement and eCommerce Usage
     <service verb="create" noun="OrderItem">
         <in-parameters>
             <parameter name="orderId" required="true"/>
+            <auto-parameters entity-name="mantle.order.OrderItem" include="nonpk"/>
+
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="itemTypeEnumId" default-value="ItemProduct"/>
-
-            <parameter name="productId"/>
-            <parameter name="productConfigSavedId"/>
-
-            <parameter name="itemDescription"/>
-            <parameter name="comments"/>
-
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
-            <parameter name="selectedAmount" type="BigDecimal"/>
-            <parameter name="requiredByDate" type="Timestamp"/>
-
-            <parameter name="unitAmount" type="BigDecimal"/>
-            <parameter name="unitListPrice" type="BigDecimal"/>
-            <parameter name="isModifiedPrice"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderItemSeqId" required="true"/>
