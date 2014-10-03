@@ -64,6 +64,17 @@ h2. General Order Placement and eCommerce Usage
 
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
                     list="orderItemList" order-by-list="['orderItemSeqId']"/>
+            <!-- put items with parentItemSeqId in the list after their parent -->
+            <script><![CDATA[
+                List reverseList = orderItemList.cloneList().orderByFields(["-orderItemSeqId"])
+                for (def orderItem in reverseList) {
+                    if (orderItem.parentItemSeqId) {
+                        orderItemList.move(orderItemList.indexMatching([orderItemSeqId:orderItem.orderItemSeqId]),
+                                orderItemList.indexMatching([orderItemSeqId:orderItem.parentItemSeqId])+1)
+                    }
+                }
+                ]]></script>
+
             <entity-find-related value-field="orderHeader" relationship-name="mantle.account.payment.Payment"
                     list="paymentList" order-by-list="['paymentId']"/>
             
@@ -97,6 +108,7 @@ h2. General Order Placement and eCommerce Usage
             orderPartInfoList = []
             for (EntityValue orderPart in orderPartList) {
                 partOrderItemList = orderItemList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
+                partNoParentOrderItemList = partOrderItemList.cloneList().filterByAnd([parentItemSeqId:null])
                 partPaymentList = paymentList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
                 partPaymentInfoList = []
                 BigDecimal paymentsTotal = 0
@@ -127,6 +139,7 @@ h2. General Order Placement and eCommerce Usage
                 EntityValue customerDetail = ec.entity.makeFind("mantle.party.PartyDetail").condition("partyId", orderPart.customerPartyId).one()
                 EntityValue vendorDetail = ec.entity.makeFind("mantle.party.PartyDetail").condition("partyId", orderPart.vendorPartyId).one()
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
+                        partNoParentOrderItemList:partNoParentOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
                         paymentsTotal:paymentsTotal,
