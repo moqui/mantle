@@ -12,6 +12,122 @@ This Work includes contributions authored by David E. Jones, not as a
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
+    <service verb="get" noun="Facility" allow-remote="true">
+        <in-parameters><parameter name="facilityId" required="true"/></in-parameters>
+        <out-parameters>
+            <auto-parameters entity-name="mantle.facility.Facility" include="nonpk"/>
+
+            <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <parameter name="longitude" type="BigDecimal"/>
+            <parameter name="latitude" type="BigDecimal"/>
+
+            <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
+            <parameter name="emailAddress"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="facility"/>
+            <service-call name="mantle.facility.ContactServices.get#FacilityContactInfo" out-map="contactOut"
+                    in-map="[facilityId:facilityId, postalContactMechPurposeId:'PostalPrimary',
+                        telecomContactMechPurposeId:'PhonePrimary', emailContactMechPurposeId:'EmailPrimary',
+                        otherContactMechPurposeId:'WebUrlPrimary']"/>
+            <service-call name="mantle.facility.ContactServices.get#FacilityContactInfo" out-map="contactFaxOut"
+                    in-map="[facilityId:facilityId, telecomContactMechPurposeId:'PhoneFax']"/>
+            <script>context.putAll(facility)</script>
+            <script>context.putAll(StupidUtilities.flattenNestedMap(contactOut))</script>
+            <set field="emailAddress" from="contactOut.emailAddress"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="Facility" allow-remote="true">
+        <in-parameters>
+            <parameter name="facilityId"/>
+            <auto-parameters entity-name="mantle.facility.Facility" include="nonpk"/>
+            <parameter name="facilityName" required="true"/>
+
+            <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <parameter name="longitude" type="BigDecimal"/>
+            <parameter name="latitude" type="BigDecimal"/>
+
+            <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
+            <parameter name="areaCode"><text-digits/></parameter>
+            <parameter name="contactNumber"><matches regexp="^\d\d[-\. \d]*\d\d$" message="Please enter a valid phone number"/></parameter>
+            <parameter name="emailAddress"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="facilityId" required="true"/>
+        </out-parameters>
+        <actions>
+            <service-call name="create#mantle.facility.Facility" out-map="context" in-map="context"/>
+
+            <if condition="address1 || city || postalCode">
+                <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
+                        in-map="context + [contactMechPurposeId:'PostalPrimary']"/></if>
+            <if condition="contactNumber">
+                <service-call name="mantle.party.ContactServices.create#TelecomNumber" out-map="phoneOut"
+                        in-map="context + [contactMechPurposeId:'PhonePrimary']"/></if>
+            <if condition="emailAddress">
+                <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emOut"
+                        in-map="[facilityId:facilityId, emailAddress:emailAddress, contactMechPurposeId:'EmailPrimary']"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="Facility" allow-remote="true">
+        <in-parameters>
+            <parameter name="facilityId" required="true"/>
+            <auto-parameters entity-name="mantle.facility.Facility" include="nonpk"/>
+
+            <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <parameter name="longitude" type="BigDecimal"/>
+            <parameter name="latitude" type="BigDecimal"/>
+
+            <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
+            <parameter name="areaCode"><text-digits/></parameter>
+            <parameter name="contactNumber"><matches regexp="^\d\d[-\. \d]*\d\d$" message="Please enter a valid phone number"/></parameter>
+            <parameter name="emailAddress"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.facility.Facility" in-map="context" out-map="context"/>
+
+            <!-- update PostalAddress and GeoPoint -->
+            <if condition="address1 || city || postalCode">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="addressFcmList"><date-filter/>
+                    <econdition field-name="facilityId"/><econdition field-name="contactMechPurposeId" value="PostalPrimary"/>
+                </entity-find>
+                <if condition="addressFcmList">
+                    <service-call name="mantle.facility.ContactServices.update#FacilityPostalAddress" out-map="paOut"
+                            in-map="context + [contactMechId:addressFcmList[0].contactMechId, contactMechPurposeId:'PostalPrimary']"/>
+                    <else><service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
+                            in-map="context + [contactMechPurposeId:'PostalPrimary']"/></else>
+                </if>
+                <else><!-- TODO: should we expire if no data passed? --></else>
+            </if>
+
+            <if condition="contactNumber">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="phoneFcmList"><date-filter/>
+                    <econdition field-name="facilityId"/><econdition field-name="contactMechPurposeId" value="PhonePrimary"/>
+                </entity-find>
+                <if condition="phoneFcmList">
+                    <service-call name="mantle.facility.ContactServices.update#FacilityTelecomNumber" out-map="phoneOut"
+                            in-map="context + [contactMechId:phoneFcmList[0].contactMechId, contactMechPurposeId:'PhonePrimary']"/>
+                    <else><service-call name="mantle.party.ContactServices.create#TelecomNumber" out-map="phoneOut"
+                            in-map="context + [contactMechPurposeId:'PhonePrimary']"/></else>
+                </if>
+                <else><!-- TODO: should we expire if no data passed? --></else>
+            </if>
+            <if condition="emailAddress">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="emailFcmList"><date-filter/>
+                    <econdition field-name="facilityId"/><econdition field-name="contactMechPurposeId" value="EmailPrimary"/>
+                </entity-find>
+                <if condition="emailFcmList">
+                    <service-call name="mantle.facility.ContactServices.update#FacilityContactOther" out-map="emOut"
+                            in-map="[facilityId:facilityId, contactMechId:emailFcmList[0].contactMechId, infoString:emailAddress, contactMechPurposeId:'EmailPrimary']"/>
+                    <else><service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emOut"
+                            in-map="[facilityId:facilityId, emailAddress:emailAddress, contactMechPurposeId:'EmailPrimary']"/></else>
+                </if>
+                <else><!-- TODO: should we expire if no data passed? --></else>
+            </if>
+        </actions>
+    </service>
+
     <service verb="create" noun="FacilityLocation" type="entity-auto">
         <in-parameters>
             <auto-parameters entity-name="mantle.facility.FacilityLocation"/>

@@ -14,6 +14,50 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="FacilityDefaultShipDest">
+        <in-parameters>
+            <parameter name="facilityId"/>
+            <parameter name="postalContactMechId"/>
+            <parameter name="telecomContactMechId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="postalContactMechId"/>
+            <parameter name="telecomContactMechId"/>
+        </out-parameters>
+        <actions>
+            <if condition="facilityId &amp;&amp; !postalContactMechId">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="fcmList">
+                    <date-filter/><econdition field-name="facilityId"/>
+                    <econdition field-name="contactMechPurposeId" value="PostalShippingDest"/>
+                </entity-find>
+                <if condition="!fcmList">
+                    <entity-find entity-name="mantle.facility.FacilityContactMech" list="fcmList">
+                        <date-filter/><econdition field-name="facilityId"/>
+                        <econdition field-name="contactMechPurposeId" value="PostalPrimary"/>
+                    </entity-find>
+                </if>
+                <if condition="fcmList">
+                    <set field="postalContactMechId" from="fcmList.first.contactMechId"/>
+                </if>
+            </if>
+            <if condition="facilityId &amp;&amp; !telecomContactMechId">
+                <entity-find entity-name="mantle.facility.FacilityContactMech" list="fcmList">
+                    <date-filter/><econdition field-name="facilityId"/>
+                    <econdition field-name="contactMechPurposeId" value="PhoneShippingDest"/>
+                </entity-find>
+                <if condition="!fcmList">
+                    <entity-find entity-name="mantle.facility.FacilityContactMech" list="fcmList">
+                        <date-filter/><econdition field-name="facilityId"/>
+                        <econdition field-name="contactMechPurposeId" value="PhonePrimary"/>
+                    </entity-find>
+                </if>
+                <if condition="fcmList">
+                    <set field="telecomContactMechId" from="fcmList.first.contactMechId"/>
+                </if>
+            </if>
+        </actions>
+    </service>
+    
     <service verb="get" noun="FacilityContactInfo">
         <in-parameters>
             <parameter name="facilityId" required="true"/>

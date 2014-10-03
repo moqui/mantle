@@ -101,10 +101,10 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_1_1', quantity:150,
-                    itemTypeEnumId:'ItemProduct']).call()
+                    itemTypeEnumId:'ItemInventory']).call()
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_3_1', quantity:100,
-                    itemTypeEnumId:'ItemProduct']).call()
+                    itemTypeEnumId:'ItemInventory']).call()
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'EQUIP_1', quantity:1,
                     itemTypeEnumId:'ItemAssetEquipment', unitAmount:10000]).call()
@@ -112,7 +112,7 @@ class OrderProcureToPayBasicFlow extends Specification {
         // add shipping charge
         ec.service.sync().name("mantle.order.OrderServices.create#OrderItem")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, unitAmount:145.00,
-                    itemTypeEnumId:'ItemShipping', itemDescription:'Incoming Freight']).call()
+                    itemTypeEnumId:'ItemExpShipping', itemDescription:'Incoming Freight']).call()
 
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId,
@@ -130,20 +130,20 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
                 statusId="OrderApproved" currencyUomId="USD" grandTotal="11795.00"/>
 
-            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}"
+            <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" fromPartyId="${customerPartyId}" toPartyId="${vendorPartyId}"
                 paymentMethodTypeEnumId="PmtCompanyCheck" orderId="${purchaseOrderId}" orderPartSeqId="01"
                 statusId="PmntPromised" amount="11795.00" amountUomId="USD"/>
 
-            <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="MiddlemanInc"
-                customerPartyId="ORG_BIZI_RETAIL" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_BIZI_RTL_SA"
+            <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="${vendorPartyId}"
+                customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_BIZI_RTL_SA"
                 telecomContactMechId="ORG_BIZI_RTL_PT" partTotal=""/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="150" unitAmount="8.00" isModifiedPrice="N"/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="100" unitAmount="4.50" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemAssetEquipment"
                 productId="EQUIP_1" itemDescription="Picker Bot 2000" quantity="1" unitAmount="10000" isModifiedPrice="Y"/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemShipping"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemExpShipping"
                 itemDescription="Incoming Freight" quantity="1" unitAmount="145.00"/>
         </entity-facade-xml>""").check()
         logger.info("create Purchase Order data check results: " + dataCheckErrors)
@@ -232,14 +232,14 @@ class OrderProcureToPayBasicFlow extends Specification {
                 currencyUomId="USD"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"
-                itemTypeEnumId="ItemProduct" productId="DEMO_1_1" quantity="150" amount="8.00"
+                itemTypeEnumId="ItemInventory" productId="DEMO_1_1" quantity="150" amount="8.00"
                 description="Demo Product One-One" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
                 shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"
-                itemTypeEnumId="ItemProduct" productId="DEMO_3_1" quantity="100" amount="4.50"
+                itemTypeEnumId="ItemInventory" productId="DEMO_3_1" quantity="100" amount="4.50"
                 description="Demo Product Three-One" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
@@ -253,7 +253,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="04"
-                itemTypeEnumId="ItemShipping" quantity="1" amount="145" description="Incoming Freight"
+                itemTypeEnumId="ItemExpShipping" quantity="1" amount="145" description="Incoming Freight"
                 itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55403" orderId="${purchaseOrderId}" orderItemSeqId="04"
                 invoiceId="${invResult.invoiceId}" invoiceItemSeqId="04" quantity="1" amount="145"/>

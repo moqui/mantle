@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
+        default-menu-title="Contact Info" default-menu-index="2">
+
+    <transition name="updateContactInfo"><default-response url="UpdateContactInfo"/></transition>
+    <transition name="removeContactInfo">
+        <service-call name="mantle.party.ContactServices.delete#PartyContactMech"/>
+        <default-response url="."/>
+    </transition>
+
+    <pre-actions>
+        <set field="partyId" from="ec.user.userAccount.partyId"/>
+    </pre-actions>
+    <actions>
+    </actions>
+    <widgets>
+        <section name="ContactInfoSection">
+            <actions>
+                <service-call name="mantle.party.ContactServices.get#PartyContactInfoList" out-map="contactOut"
+                        in-map="[partyId:partyId, getAll:true]"/>
+            </actions>
+            <widgets>
+                <container-box>
+                    <box-header><label text="Email Addresses" type="h5"/></box-header>
+                    <box-toolbar>
+                        <dynamic-dialog id="AddEmailInfo" button-text="Add Email" transition="updateContactInfo"
+                                parameter-map="[partyId:partyId, createEmail:'true']"/>
+                    </box-toolbar>
+                    <box-body>
+                        <container style="float-box" type="ul">
+                            <section-iterate name="EmailInfoSection" list="contactOut.emailAddressList" entry="contactInfo">
+                                <widgets>
+                                    <container type="li">
+                                        <label text="${contactInfo.emailContactMechPurpose.description}" type="p"/>
+                                        <render-mode><text type="html" location="component://mantle-usl/template/party/ContactInfo.html.gstring"/></render-mode>
+                                        <dynamic-dialog id="UpdateEmailInfo" button-text="Update"
+                                                transition="updateContactInfo"
+                                                parameter-map="[partyId:partyId, emailContactMechId:contactInfo.emailContactMechId,
+                                                            emailContactMechPurposeId:contactInfo.emailContactMechPurposeId]"/>
+                                        <link url="removeContactInfo" text="Remove"
+                                                parameter-map="[partyId:partyId, contactMechId:contactInfo.emailContactMechId,
+                                                            contactMechPurposeId:contactInfo.emailContactMechPurposeId]"/>
+                                    </container>
+                                </widgets>
+                            </section-iterate>
+                        </container>
+                    </box-body>
+                </container-box>
+
+                <container-box>
+                    <box-header><label text="Phone Numbers" type="h5"/></box-header>
+                    <box-toolbar>
+                        <dynamic-dialog id="AddPhoneInfo" button-text="Add Phone" transition="updateContactInfo"
+                                parameter-map="[partyId:partyId, createTelecom:'true']"/>
+                    </box-toolbar>
+                    <box-body>
+                        <container style="float-box" type="ul">
+                            <section-iterate name="PhoneInfoSection" list="contactOut.telecomNumberList" entry="contactInfo">
+                                <widgets>
+                                    <container type="li">
+                                        <label text="${contactInfo.telecomContactMechPurpose.description}" type="p"/>
+                                        <render-mode><text type="html" location="component://mantle-usl/template/party/ContactInfo.html.gstring"/></render-mode>
+                                        <dynamic-dialog id="UpdatePhoneInfo" button-text="Update"
+                                                transition="updateContactInfo"
+                                                parameter-map="[partyId:partyId, telecomContactMechId:contactInfo.telecomContactMechId,
+                                                            telecomContactMechPurposeId:contactInfo.telecomContactMechPurposeId]"/>
+                                        <link url="removeContactInfo" text="Remove"
+                                                parameter-map="[partyId:partyId, contactMechId:contactInfo.telecomContactMechId,
+                                                            contactMechPurposeId:contactInfo.telecomContactMechPurposeId]"/>
+                                    </container>
+                                </widgets>
+                            </section-iterate>
+                        </container>
+                    </box-body>
+                </container-box>
+
+                <container-box>
+                    <box-header><label text="Mailing Addresses" type="h5"/></box-header>
+                    <box-toolbar>
+                        <dynamic-dialog id="AddAddressInfo" button-text="Add Address" transition="updateContactInfo"
+                                width="800" parameter-map="[partyId:partyId, createPostal:'true', createTelecom:'true']"/>
+                    </box-toolbar>
+                    <box-body>
+                        <container style="float-box" type="ul">
+                            <section-iterate name="PostalInfoSection" list="contactOut.postalAddressList" entry="contactInfo">
+                                <widgets>
+                                    <container type="li">
+                                        <label text="${contactInfo.postalContactMechPurpose.description}" type="p"/>
+                                        <render-mode><text type="html" location="component://mantle-usl/template/party/ContactInfo.html.gstring"/></render-mode>
+                                            <dynamic-dialog id="UpdatePostalInfo" button-text="Update Address"
+                                                    transition="updateContactInfo" width="800"
+                                                    parameter-map="[partyId:partyId, postalContactMechId:contactInfo.postalContactMechId,
+                                                                postalContactMechPurposeId:contactInfo.postalContactMechPurposeId]"/>
+                                            <link url="removeContactInfo" text="Remove"
+                                                    parameter-map="[partyId:partyId, contactMechId:contactInfo.postalContactMechId,
+                                                                contactMechPurposeId:contactInfo.postalContactMechPurposeId]"/>
+                                    </container>
+                                </widgets>
+                            </section-iterate>
+                        </container>
+                    </box-body>
+                </container-box>
+            </widgets>
+        </section>
+    </widgets>
+</screen>

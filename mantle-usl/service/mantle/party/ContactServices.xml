@@ -28,17 +28,21 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters>
             <parameter name="postalContactMechId"/>
+            <parameter name="postalContactMech" type="org.moqui.entity.EntityValue"/>
             <parameter name="postalContactMechPurposeId"/>
             <parameter name="postalAddress" type="org.moqui.entity.EntityValue"/>
             <parameter name="postalAddressStateGeo" type="org.moqui.entity.EntityValue"/>
             <parameter name="postalAddressGeoPoint" type="org.moqui.entity.EntityValue"/>
             <parameter name="telecomContactMechId"/>
+            <parameter name="telecomContactMech" type="org.moqui.entity.EntityValue"/>
             <parameter name="telecomContactMechPurposeId"/>
             <parameter name="telecomNumber" type="org.moqui.entity.EntityValue"/>
             <parameter name="emailContactMechId"/>
+            <parameter name="emailContactMech" type="org.moqui.entity.EntityValue"/>
             <parameter name="emailContactMechPurposeId"/>
             <parameter name="emailAddress"/>
             <parameter name="otherContactMechId"/>
+            <parameter name="otherContactMech" type="org.moqui.entity.EntityValue"/>
             <parameter name="otherContactMechPurposeId"/>
             <parameter name="otherInfoString"/>
         </out-parameters>
@@ -54,6 +58,9 @@ This Work includes contributions authored by David E. Jones, not as a
                 <if condition="postalPcmList">
                     <set field="postalContactMechId" from="postalPcmList[0].contactMechId"/>
                     <set field="postalContactMechPurposeId" from="postalPcmList[0].contactMechPurposeId"/>
+                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="postalContactMech">
+                        <field-map field-name="contactMechId" from="postalContactMechId"/>
+                    </entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress">
                         <field-map field-name="contactMechId" from="postalContactMechId"/>
                     </entity-find-one>
@@ -61,6 +68,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
                 <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
             </if>
+
             <if condition="telecomContactMechPurposeId || telecomContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
                     <date-filter/>
@@ -72,11 +80,24 @@ This Work includes contributions authored by David E. Jones, not as a
                 <if condition="telecomPcmList">
                     <set field="telecomContactMechId" from="telecomPcmList[0].contactMechId"/>
                     <set field="telecomContactMechPurposeId" from="telecomPcmList[0].contactMechPurposeId"/>
+                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
+                        <field-map field-name="contactMechId" from="telecomContactMechId"/>
+                    </entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
                         <field-map field-name="contactMechId" from="telecomContactMechId"/>
                     </entity-find-one>
                 </if>
             </if>
+            <if condition="!telecomContactMech &amp;&amp; postalAddress?.telecomContactMechId">
+                <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
+                    <field-map field-name="contactMechId" from="postalAddress.telecomContactMechId"/>
+                </entity-find-one>
+                <set field="telecomContactMechId" from="telecomContactMech.contactMechId"/>
+                <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
+                    <field-map field-name="contactMechId" from="telecomContactMechId"/>
+                </entity-find-one>
+            </if>
+
             <if condition="emailContactMechPurposeId || emailContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
                     <date-filter/>
@@ -94,6 +115,14 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="emailAddress" from="emailContactMech.infoString"/>
                 </if>
             </if>
+            <if condition="!emailContactMech &amp;&amp; postalAddress?.emailContactMechId">
+                <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
+                    <field-map field-name="contactMechId" from="postalAddress.emailContactMechId"/>
+                </entity-find-one>
+                <set field="emailContactMechId" from="emailContactMech.contactMechId"/>
+                <set field="emailAddress" from="emailContactMech.infoString"/>
+            </if>
+
             <if condition="otherContactMechPurposeId || otherContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="otherPcmList">
                     <date-filter/>
@@ -125,20 +154,29 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters>
             <parameter name="postalAddressList" type="List"><parameter name="infoMap">
                 <parameter name="postalContactMechId"/>
+                <parameter name="postalContactMech" type="org.moqui.entity.EntityValue"/>
                 <parameter name="postalContactMechPurposeId"/>
                 <parameter name="postalContactMechPurpose" type="org.moqui.entity.EntityValue"/>
                 <parameter name="postalAddress" type="org.moqui.entity.EntityValue"/>
                 <parameter name="postalAddressStateGeo" type="org.moqui.entity.EntityValue"/>
                 <parameter name="postalAddressGeoPoint" type="org.moqui.entity.EntityValue"/>
+                <parameter name="telecomContactMechId"/>
+                <parameter name="telecomContactMech" type="org.moqui.entity.EntityValue"/>
+                <parameter name="telecomNumber" type="org.moqui.entity.EntityValue"/>
+                <parameter name="emailContactMechId"/>
+                <parameter name="emailContactMech" type="org.moqui.entity.EntityValue"/>
+                <parameter name="emailAddress"/>
             </parameter></parameter>
             <parameter name="telecomNumberList" type="List"><parameter name="infoMap">
                 <parameter name="telecomContactMechId"/>
+                <parameter name="telecomContactMech" type="org.moqui.entity.EntityValue"/>
                 <parameter name="telecomContactMechPurposeId"/>
                 <parameter name="telecomContactMechPurpose" type="org.moqui.entity.EntityValue"/>
                 <parameter name="telecomNumber" type="org.moqui.entity.EntityValue"/>
             </parameter></parameter>
             <parameter name="emailAddressList" type="List"><parameter name="infoMap">
                 <parameter name="emailContactMechId"/>
+                <parameter name="emailContactMech" type="org.moqui.entity.EntityValue"/>
                 <parameter name="emailContactMechPurposeId"/>
                 <parameter name="emailContactMechPurpose" type="org.moqui.entity.EntityValue"/>
                 <parameter name="emailAddress"/>
@@ -163,6 +201,9 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="postalAddressList" from="[]"/>
                 <iterate list="postalPcmList" entry="postalPcm">
                     <set field="postalContactMechId" from="postalPcm.contactMechId"/>
+                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="postalContactMech">
+                        <field-map field-name="contactMechId" from="postalContactMechId"/>
+                    </entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress">
                         <field-map field-name="contactMechId" from="postalContactMechId"/>
                     </entity-find-one>
@@ -171,10 +212,29 @@ This Work includes contributions authored by David E. Jones, not as a
                     </entity-find-one>
                     <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
                     <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
-                    <set field="postalAddressInfo" from="[postalContactMechId:postalContactMechId,
+
+                    <if condition="postalAddress.telecomContactMechId">
+                        <set field="telecomContactMechId" from="postalAddress.telecomContactMechId"/>
+                        <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
+                            <field-map field-name="contactMechId" from="telecomContactMechId"/>
+                        </entity-find-one>
+                        <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
+                            <field-map field-name="contactMechId" from="telecomContactMechId"/>
+                        </entity-find-one>
+                    </if>
+                    <if condition="postalAddress.emailContactMechId">
+                        <set field="emailContactMechId" from="postalAddress.emailContactMechId"/>
+                        <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
+                            <field-map field-name="contactMechId" from="emailContactMechId"/>
+                        </entity-find-one>
+                    </if>
+
+                    <set field="postalAddressInfo" from="[postalContactMechId:postalContactMechId, postalContactMech:postalContactMech,
                             postalContactMechPurposeId:postalPcm.contactMechPurposeId, postalContactMechPurpose:postalContactMechPurpose,
                             postalAddress:postalAddress,
-                            postalAddressStateGeo:postalAddressStateGeo, postalAddressGeoPoint:postalAddressGeoPoint]"/>
+                            postalAddressStateGeo:postalAddressStateGeo, postalAddressGeoPoint:postalAddressGeoPoint,
+                            telecomContactMechId:telecomContactMechId, telecomContactMech:telecomContactMech, telecomNumber:telecomNumber,
+                            emailContactMechId:emailContactMechId, emailContactMech:emailContactMech, emailAddress:emailContactMech?.infoString]"/>
                     <script>postalAddressList.add(postalAddressInfo)</script>
                 </iterate>
             </if>
@@ -197,13 +257,16 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="telecomNumberList" from="[]"/>
                 <iterate list="telecomPcmList" entry="telecomPcm">
                     <set field="telecomContactMechId" from="telecomPcm.contactMechId"/>
+                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
+                        <field-map field-name="contactMechId" from="telecomContactMechId"/>
+                    </entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
                         <field-map field-name="contactMechId" from="telecomContactMechId"/>
                     </entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.ContactMechPurpose" value-field="telecomContactMechPurpose">
                         <field-map field-name="contactMechPurposeId" from="telecomPcm.contactMechPurposeId"/>
                     </entity-find-one>
-                    <set field="telecomNumberInfo" from="[telecomContactMechId:telecomContactMechId,
+                    <set field="telecomNumberInfo" from="[telecomContactMechId:telecomContactMechId, telecomContactMechId:telecomContactMechId,
                             telecomContactMechPurposeId:telecomPcm.contactMechPurposeId, telecomContactMechPurpose:telecomContactMechPurpose,
                             telecomNumber:telecomNumber]"/>
                     <script>telecomNumberList.add(telecomNumberInfo)</script>
@@ -234,7 +297,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <entity-find-one entity-name="mantle.party.contact.ContactMechPurpose" value-field="emailContactMechPurpose">
                         <field-map field-name="contactMechPurposeId" from="emailPcm.contactMechPurposeId"/>
                     </entity-find-one>
-                    <set field="emailAddressInfo" from="[emailContactMechId:emailContactMechId,
+                    <set field="emailAddressInfo" from="[emailContactMechId:emailContactMechId, emailContactMech:emailContactMech,
                             emailContactMechPurposeId:emailPcm.contactMechPurposeId, emailContactMechPurpose:emailContactMechPurpose,
                             emailAddress:emailContactMech.infoString]"/>
                     <script>emailAddressList.add(emailAddressInfo)</script>
@@ -274,16 +337,6 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="otherContactMechId"/>
         </out-parameters>
         <actions>
-            <if condition="postalContactMechId">
-                <service-call name="mantle.party.ContactServices.update#PartyPostalAddress" out-map="paOut"
-                        in-map="context + [contactMechId:postalContactMechId, contactMechPurposeId:postalContactMechPurposeId]"/>
-                <else-if condition="address1 || city || postalCode">
-                    <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
-                            in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
-                </else-if>
-            </if>
-            <set field="postalContactMechId" from="paOut?.contactMechId ?: postalContactMechId"/>
-
             <if condition="telecomContactMechId">
                 <service-call name="mantle.party.ContactServices.update#PartyTelecomNumber" out-map="tnOut"
                         in-map="context + [contactMechId:telecomContactMechId, contactMechPurposeId:telecomContactMechPurposeId]"/>
@@ -316,6 +369,17 @@ This Work includes contributions authored by David E. Jones, not as a
                 </else-if>
             </if>
             <set field="otherContactMechId" from="otherOut?.contactMechId ?: otherContactMechId"/>
+
+            <!-- do postal last so PostalAddress.telecomContactMechId and emailContactMechId can be populated -->
+            <if condition="postalContactMechId">
+                <service-call name="mantle.party.ContactServices.update#PartyPostalAddress" out-map="paOut"
+                        in-map="context + [contactMechId:postalContactMechId, contactMechPurposeId:postalContactMechPurposeId]"/>
+                <else-if condition="address1 || city || postalCode">
+                    <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
+                            in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
+                </else-if>
+            </if>
+            <set field="postalContactMechId" from="paOut?.contactMechId ?: postalContactMechId"/>
         </actions>
     </service>
 
