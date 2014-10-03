@@ -47,12 +47,14 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderHeader" type="org.moqui.entity.EntityValue"/>
             <parameter name="statusItem" type="org.moqui.entity.EntityValue"/>
             <parameter name="orderItemList" type="List"/>
+            <parameter name="orderItemWithChildrenSet" type="Set"/>
             <parameter name="paymentList" type="List"/>
 
             <parameter name="shipmentItemSourceList" type="List"/>
             <parameter name="shipmentIdSet" type="Set"/>
             <parameter name="requestItemOrderList" type="List"/>
             <parameter name="requestIdSet" type="Set"/>
+            <parameter name="statusHistoryList" type="List"/>
 
             <parameter name="orderPartList" type="List"/>
             <parameter name="orderPartInfoList" type="List"/>
@@ -63,6 +65,19 @@ h2. General Order Placement and eCommerce Usage
 
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
                     list="orderItemList" order-by-list="['orderItemSeqId']"/>
+            <!-- put items with parentItemSeqId in the list after their parent -->
+            <script><![CDATA[
+                orderItemWithChildrenSet = new HashSet()
+                List reverseList = orderItemList.cloneList().orderByFields(["-orderItemSeqId"])
+                for (def orderItem in reverseList) {
+                    if (orderItem.parentItemSeqId) {
+                        orderItemWithChildrenSet.add(orderItem.parentItemSeqId)
+                        orderItemList.move(orderItemList.indexMatching([orderItemSeqId:orderItem.orderItemSeqId]),
+                                orderItemList.indexMatching([orderItemSeqId:orderItem.parentItemSeqId])+1)
+                    }
+                }
+                ]]></script>
+
             <entity-find-related value-field="orderHeader" relationship-name="mantle.account.payment.Payment"
                     list="paymentList" order-by-list="['paymentId']"/>
             
@@ -78,18 +93,30 @@ h2. General Order Placement and eCommerce Usage
             <iterate list="requestItemOrderList" entry="requestItemOrder">
                 <script>requestIdSet.add(requestItemOrder.requestId)</script></iterate>
 
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.order.OrderHeader"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="orderId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
             <!-- get order info by part for more detailed display -->
             <script>
             import org.moqui.entity.EntityList
             import org.moqui.entity.EntityValue
+            import org.moqui.context.ExecutionContext
+            ExecutionContext ec = context.ec
 
             orderPartInfoList = []
             for (EntityValue orderPart in orderPartList) {
                 partOrderItemList = orderItemList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
+                partNoParentOrderItemList = partOrderItemList.cloneList().filterByAnd([parentItemSeqId:null])
                 partPaymentList = paymentList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
                 partPaymentInfoList = []
+                BigDecimal paymentsTotal = 0
                 for (EntityValue partPayment in partPaymentList) {
+                    paymentsTotal += partPayment.amount
                     Map partPaymentInfo = [partPayment:partPayment]
                     EntityValue paymentMethod = partPayment.PaymentMethod
                     EntityValue paymentMethodTypeEnum = partPayment."PaymentMethodType#moqui.basic.Enumeration"
@@ -112,11 +139,16 @@ h2. General Order Placement and eCommerce Usage
                 EntityValue postalAddress = orderPart.'mantle.party.contact.PostalAddress'
                 EntityValue postalAddressStateGeo = postalAddress?."StateProvince#moqui.basic.Geo"
                 EntityValue facility = orderPart.'mantle.facility.Facility'
+                EntityValue customerDetail = ec.entity.makeFind("mantle.party.PartyDetail").condition("partyId", orderPart.customerPartyId).one()
+                EntityValue vendorDetail = ec.entity.makeFind("mantle.party.PartyDetail").condition("partyId", orderPart.vendorPartyId).one()
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
+                        partNoParentOrderItemList:partNoParentOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
+                        paymentsTotal:paymentsTotal,
                         postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
-                        telecomNumber:orderPart.TelecomNumber, facility:facility])
+                        telecomNumber:orderPart.TelecomNumber, facility:facility,
+                        customerDetail:customerDetail, vendorDetail:vendorDetail])
             }
             </script>
             <!-- <log level="warn" message="======== OrderDisplayInfo orderPartInfoList: ${orderPartInfoList}"/> -->
@@ -141,6 +173,9 @@ h2. General Order Placement and eCommerce Usage
         <in-parameters>
             <parameter name="orderName"/>
 
+            <!-- parameters for the initial OrderPart -->
+            <auto-parameters entity-name="mantle.order.OrderPart" include="nonpk"/>
+
             <parameter name="statusId" default-value="OrderOpen">
                 <description>The initial statusId for both header and part.</description></parameter>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -154,12 +189,6 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="externalId"/>
             <parameter name="syncStatusId"/>
             <parameter name="firstAttemptOrderId"/>
-
-            <!-- parameters for the initial OrderPart -->
-            <parameter name="vendorPartyId"/>
-            <parameter name="customerPartyId"/>
-            <parameter name="otherPartyOrderId"/>
-            <parameter name="facilityId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderId" required="true"/>
@@ -167,23 +196,34 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <service-call name="create#mantle.order.OrderHeader" in-map="context" out-map="context"/>
+
+            <service-call name="mantle.facility.ContactServices.get#FacilityDefaultShipDest" in-map="context" out-map="context"/>
             <service-call name="create#mantle.order.OrderPart" in-map="context" out-map="context"/>
         </actions>
     </service>
     <service verb="create" noun="OrderPart">
         <in-parameters>
             <parameter name="orderId" required="true"/>
+            <auto-parameters entity-name="mantle.order.OrderPart" include="nonpk"/>
             <parameter name="statusId" default-value="OrderOpen"/>
-
-            <parameter name="vendorPartyId"/>
-            <parameter name="customerPartyId"/>
-            <parameter name="otherPartyOrderId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <service-call name="mantle.facility.ContactServices.get#FacilityDefaultShipDest" in-map="context" out-map="context"/>
             <service-call name="create#mantle.order.OrderPart" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="OrderPart">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+            <auto-parameters entity-name="mantle.order.OrderPart" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <service-call name="mantle.facility.ContactServices.get#FacilityDefaultShipDest" in-map="context" out-map="context"/>
+            <service-call name="update#mantle.order.OrderPart" in-map="context" out-map="context"/>
         </actions>
     </service>
 
@@ -254,22 +294,11 @@ h2. General Order Placement and eCommerce Usage
     <service verb="create" noun="OrderItem">
         <in-parameters>
             <parameter name="orderId" required="true"/>
+            <auto-parameters entity-name="mantle.order.OrderItem" include="nonpk"/>
+
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="itemTypeEnumId" default-value="ItemProduct"/>
-
-            <parameter name="productId"/>
-            <parameter name="productConfigSavedId"/>
-
-            <parameter name="itemDescription"/>
-            <parameter name="comments"/>
-
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
-            <parameter name="selectedAmount" type="BigDecimal"/>
-            <parameter name="requiredByDate" type="Timestamp"/>
-
-            <parameter name="unitAmount" type="BigDecimal"/>
-            <parameter name="unitListPrice" type="BigDecimal"/>
-            <parameter name="isModifiedPrice"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderItemSeqId" required="true"/>
@@ -313,6 +342,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="productStoreId"/>
 
             <parameter name="productId" required="true"/>
+            <parameter name="description"/>
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
             <parameter name="itemTypeEnumId" default-value="ItemProduct"/>
             <parameter name="unitAmount" type="BigDecimal"/>
@@ -545,6 +575,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="paymentMethodId"/>
             <parameter name="paymentMethodTypeEnumId"/>
+            <parameter name="amount" type="BigDecimal"><description>Defaults to OrderPart.partTotal</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentId"/>
@@ -555,7 +586,7 @@ h2. General Order Placement and eCommerce Usage
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentTypeEnumId:'PtInvoicePayment',
                         paymentMethodId:paymentMethodId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
-                        amount:orderPart.partTotal, amountUomId:orderHeader.currencyUomId, statusId:'PmntPromised',
+                        amount:(amount ?: orderPart.partTotal), amountUomId:orderHeader.currencyUomId, statusId:'PmntPromised',
                         fromPartyId:orderPart.customerPartyId, toPartyId:orderPart.vendorPartyId,
                         visitId:orderHeader.visitId]"/>
         </actions>
