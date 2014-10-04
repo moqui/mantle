@@ -31,7 +31,7 @@ class OrderProcureToPayBasicFlow extends Specification {
     @Shared
     String purchaseOrderId = null, orderPartSeqId
     @Shared
-    Map setInfoOut, invResult, shipResult, sendPmtResult
+    Map setInfoOut, shipResult, sendPmtResult
     @Shared
     String vendorPartyId = 'MiddlemanInc', customerPartyId = 'ORG_BIZI_RETAIL'
     @Shared
@@ -205,71 +205,19 @@ class OrderProcureToPayBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    def "process Purchase Invoice"() {
+    def "set Shipment Shipped"() {
         when:
-        // NOTE: in real-world scenarios the invoice received may not match what is expected, may be for multiple or
-        //     partial purchase orders, etc; for this we'll simply create an invoice automatically from the Order
-        // to somewhat simulate real-world, create in InvoiceIncoming then change to InvoiceReceived to allow for manual
-        //     changes between
-
         // set Shipment Shipped
         ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment")
                 .parameters([shipmentId:shipResult.shipmentId]).call()
-
-        invResult = ec.service.sync().name("mantle.account.InvoiceServices.create#EntireOrderPartInvoice")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, statusId:'InvoiceReceived']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment to Shipped status -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipShipped" fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL"/>
-
-            <!-- Invoice created and received, not yet approved/etc -->
-            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" invoiceTypeEnumId="InvoiceSales"
-                fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL" statusId="InvoiceReceived"
-                invoiceDate="${effectiveTime}" description="Invoice for Order ${purchaseOrderId} part 01"
-                currencyUomId="USD"/>
-
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"
-                itemTypeEnumId="ItemInventory" productId="DEMO_1_1" quantity="150" amount="8.00"
-                description="Demo Product One-One" itemDate="${effectiveTime}"/>
-            <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
-                shipmentId="${shipResult.shipmentId}"/>
-
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"
-                itemTypeEnumId="ItemInventory" productId="DEMO_3_1" quantity="100" amount="4.50"
-                description="Demo Product Three-One" itemDate="${effectiveTime}"/>
-            <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
-                shipmentId="${shipResult.shipmentId}"/>
-
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"
-                itemTypeEnumId="ItemAssetEquipment" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
-                itemDate="${effectiveTime}"/>
-            <mantle.order.OrderItemBilling orderItemBillingId="55402" orderId="${purchaseOrderId}" orderItemSeqId="03"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" quantity="1" amount="10,000"
-                shipmentId="${shipResult.shipmentId}"/>
-
-            <mantle.account.invoice.InvoiceItem invoiceId="${invResult.invoiceId}" invoiceItemSeqId="04"
-                itemTypeEnumId="ItemExpShipping" quantity="1" amount="145" description="Incoming Freight"
-                itemDate="${effectiveTime}"/>
-            <mantle.order.OrderItemBilling orderItemBillingId="55403" orderId="${purchaseOrderId}" orderItemSeqId="04"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="04" quantity="1" amount="145"/>
-
-            <!-- ShipmentItemSource now has invoiceId and invoiceItemSeqId -->
-            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending" quantity="150"
-                quantityNotHandled="150" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
-            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending" quantity="100"
-                quantityNotHandled="100" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
-            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
-                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="1"
-                quantityNotHandled="1" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+        logger.info("set Shipment Shipped data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -365,25 +313,25 @@ class OrderProcureToPayBasicFlow extends Specification {
 
             <!-- verify assetReceiptId set on OrderItemBilling, and that all else is the same -->
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01" quantity="150" amount="8.00"
+                invoiceId="55400" invoiceItemSeqId="01" quantity="150" amount="8.00"
                 shipmentId="${shipResult.shipmentId}" assetReceiptId="55400"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02" quantity="100" amount="4.50"
+                invoiceId="55400" invoiceItemSeqId="02" quantity="100" amount="4.50"
                 shipmentId="${shipResult.shipmentId}" assetReceiptId="55401"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55402" orderId="${purchaseOrderId}" orderItemSeqId="03"
-                invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03" quantity="1" amount="10,000"
+                invoiceId="55400" invoiceItemSeqId="03" quantity="1" amount="10,000"
                 shipmentId="${shipResult.shipmentId}" assetReceiptId="55402"/>
 
             <!-- ShipmentItemSource now has quantityNotHandled="0" and statusId to SisReceived -->
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisReceived" quantity="150"
-                quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="01"/>
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="01"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisReceived" quantity="100"
-                quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="02"/>
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="02"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
-                quantityNotHandled="0" invoiceId="${invResult.invoiceId}" invoiceItemSeqId="03"/>
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
         logger.info("validate Assets Received data check results: " + dataCheckErrors)
 
@@ -426,15 +374,82 @@ class OrderProcureToPayBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
+    def "process Purchase Invoice"() {
+        when:
+        // NOTE: in real-world scenarios the invoice received may not match what is expected, may be for multiple or
+        //     partial purchase orders, etc; for this we'll simply create an invoice automatically from the Order
+        // to somewhat simulate real-world, create in InvoiceIncoming then change to InvoiceReceived to allow for manual
+        //     changes between
+
+        // invResult = ec.service.sync().name("mantle.account.InvoiceServices.create#EntireOrderPartInvoice")
+        //         .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, statusId:'InvoiceReceived']).call()
+
+        // This is how we would do it manually for the Shipment, but is done by an SECA rule when Shipment is marked as ShipDelivered
+        // Map invResult = ec.service.sync().name("mantle.account.InvoiceServices.create#PurchaseShipmentInvoices")
+        //         .parameters([shipmentId:shipResult.shipmentId, statusId:'InvoiceReceived']).call()
+        // invoiceId = invResult.invoiceIdList.first
+
+        // NOTE: this has sequenced IDs so is sensitive to run order!
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <!-- Invoice created and received, not yet approved/etc -->
+            <mantle.account.invoice.Invoice invoiceId="55400" invoiceTypeEnumId="InvoiceSales"
+                fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL" statusId="InvoiceReceived"
+                invoiceDate="${effectiveTime}" description="Invoice for Order ${purchaseOrderId} part 01 and Shipment ${shipResult.shipmentId}"
+                currencyUomId="USD"/>
+
+            <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="01"
+                itemTypeEnumId="ItemInventory" productId="DEMO_1_1" quantity="150" amount="8.00"
+                description="Demo Product One-One" itemDate="${effectiveTime}"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
+                invoiceId="55400" invoiceItemSeqId="01" quantity="150" amount="8.00"
+                shipmentId="${shipResult.shipmentId}"/>
+
+            <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="02"
+                itemTypeEnumId="ItemInventory" productId="DEMO_3_1" quantity="100" amount="4.50"
+                description="Demo Product Three-One" itemDate="${effectiveTime}"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
+                invoiceId="55400" invoiceItemSeqId="02" quantity="100" amount="4.50"
+                shipmentId="${shipResult.shipmentId}"/>
+
+            <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="03"
+                itemTypeEnumId="ItemAssetEquipment" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
+                itemDate="${effectiveTime}"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55402" orderId="${purchaseOrderId}" orderItemSeqId="03"
+                invoiceId="55400" invoiceItemSeqId="03" quantity="1" amount="10,000"
+                shipmentId="${shipResult.shipmentId}"/>
+
+            <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="04"
+                itemTypeEnumId="ItemExpShipping" quantity="1" amount="145" description="Incoming Freight"
+                itemDate="${effectiveTime}"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55403" orderId="${purchaseOrderId}" orderItemSeqId="04"
+                invoiceId="55400" invoiceItemSeqId="04" quantity="1" amount="145"/>
+
+            <!-- ShipmentItemSource now has invoiceId and invoiceItemSeqId -->
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisReceived" quantity="150"
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="01"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
+                productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisReceived" quantity="100"
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="02"/>
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="03"/>
+        </entity-facade-xml>""").check()
+        logger.info("process Purchase Invoice data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
     def "approve Purchase Invoice"() {
         when:
         // approve Invoice from Vendor (will trigger GL posting)
         ec.service.sync().name("update#mantle.account.invoice.Invoice")
-                .parameters([invoiceId:invResult.invoiceId, statusId:'InvoiceApproved']).call()
+                .parameters([invoiceId:'55400', statusId:'InvoiceApproved']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" statusId="InvoiceApproved"/>
+            <mantle.account.invoice.Invoice invoiceId="55400" statusId="InvoiceApproved"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
@@ -450,7 +465,7 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55402" acctgTransTypeEnumId="AttPurchaseInvoice"
                 organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
-                otherPartyId="MiddlemanInc" invoiceId="${invResult.invoiceId}"/>
+                otherPartyId="MiddlemanInc" invoiceId="55400"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="D"
                 amount="1200" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
@@ -477,20 +492,20 @@ class OrderProcureToPayBasicFlow extends Specification {
         when:
         // record Payment for Invoice and apply to Invoice (will trigger GL posting for Payment and Payment Application)
         sendPmtResult = ec.service.sync().name("mantle.account.PaymentServices.send#PromisedPayment")
-                .parameters([invoiceId:invResult.invoiceId, paymentId:setInfoOut.paymentId]).call()
+                .parameters([invoiceId:'55400', paymentId:setInfoOut.paymentId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.payment.PaymentApplication paymentApplicationId="${sendPmtResult.paymentApplicationId}"
-                paymentId="${setInfoOut.paymentId}" invoiceId="${invResult.invoiceId}" amountApplied="11795.00"
+                paymentId="${setInfoOut.paymentId}" invoiceId="55400" amountApplied="11795.00"
                 appliedDate="${effectiveTime}"/>
             <!-- Payment to Delivered status, set effectiveDate -->
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"
                 effectiveDate="${effectiveTime}"/>
             <!-- Invoice to Payment Sent status -->
-            <mantle.account.invoice.Invoice invoiceId="${invResult.invoiceId}" invoiceTypeEnumId="InvoiceSales"
+            <mantle.account.invoice.Invoice invoiceId="55400" invoiceTypeEnumId="InvoiceSales"
                 fromPartyId="MiddlemanInc" toPartyId="ORG_BIZI_RETAIL" statusId="InvoicePmtSent" invoiceDate="${effectiveTime}"
-                description="Invoice for Order ${purchaseOrderId} part 01" currencyUomId="USD"/>
+                currencyUomId="USD"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
