@@ -52,6 +52,8 @@ h2. General Order Placement and eCommerce Usage
 
             <parameter name="shipmentItemSourceList" type="List"/>
             <parameter name="shipmentIdSet" type="Set"/>
+            <parameter name="orderItemBillingList" type="List"/>
+            <parameter name="invoiceIdSet" type="Set"/>
             <parameter name="requestItemOrderList" type="List"/>
             <parameter name="requestIdSet" type="Set"/>
             <parameter name="statusHistoryList" type="List"/>
@@ -86,6 +88,12 @@ h2. General Order Placement and eCommerce Usage
             <set field="shipmentIdSet" from="new TreeSet()"/>
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
                 <script>shipmentIdSet.add(shipmentItemSource.shipmentId)</script></iterate>
+
+            <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                <econdition field-name="orderId"/><order-by field-name="orderItemSeqId"/></entity-find>
+            <set field="invoiceIdSet" from="new TreeSet()"/>
+            <iterate list="orderItemBillingList" entry="orderItemBilling">
+                <script>invoiceIdSet.add(orderItemBilling.invoiceId)</script></iterate>
 
             <entity-find entity-name="mantle.request.RequestItemOrder" list="requestItemOrderList">
                 <econdition field-name="orderId"/></entity-find>
@@ -136,6 +144,7 @@ h2. General Order Placement and eCommerce Usage
                     partPaymentInfoList.add(partPaymentInfo)
                 }
 
+                BigDecimal partTotalUnpaid = (orderPart.partTotal ?: 0) - (paymentsTotal ?: 0)
                 EntityValue postalAddress = orderPart.'mantle.party.contact.PostalAddress'
                 EntityValue postalAddressStateGeo = postalAddress?."StateProvince#moqui.basic.Geo"
                 EntityValue facility = orderPart.'mantle.facility.Facility'
@@ -145,7 +154,7 @@ h2. General Order Placement and eCommerce Usage
                         partNoParentOrderItemList:partNoParentOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
-                        paymentsTotal:paymentsTotal,
+                        paymentsTotal:paymentsTotal, partTotalUnpaid:partTotalUnpaid,
                         postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
                         telecomNumber:orderPart.TelecomNumber, facility:facility,
                         customerDetail:customerDetail, vendorDetail:vendorDetail])
