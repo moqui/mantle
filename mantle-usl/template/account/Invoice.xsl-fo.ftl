@@ -25,7 +25,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <fo:page-sequence master-reference="letter-portrait">
         <fo:static-content flow-name="xsl-region-before">
-            <fo:block font-size="14pt" text-align="center" border-bottom="thin solid black">${(fromParty.organizationName)!""} ${(fromParty.firstName)!""} ${(fromParty.lastName)!""}</fo:block>
+            <fo:block font-size="14pt" text-align="center" border-bottom="thin solid black">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromParty.organizationName!"", true))!""}${(fromParty.firstName)!""} ${(fromParty.lastName)!""}</fo:block>
         </fo:static-content>
         <fo:static-content flow-name="xsl-region-after" font-size="8pt">
             <fo:block border-top="thin solid black">
@@ -100,7 +100,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         <fo:table-cell padding="${cellPadding}"><fo:block>${(itemTypeEnum.description)!""}</fo:block></fo:table-cell>
                         <fo:table-cell padding="${cellPadding}"><fo:block>${ec.l10n.formatValue(invoiceItem.itemDate, "dd MMM yyyy")}</fo:block></fo:table-cell>
                         <fo:table-cell padding="${cellPadding}">
-                            <fo:block>${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(invoiceItem.description, true)}</fo:block>
+                            <fo:block>${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(invoiceItem.description!"", true)}</fo:block>
                             <#if (timeEntry.workEffortId)?has_content><fo:block>Task: ${timeEntry.workEffortId} - ${workEffort.workEffortName!""}</fo:block></#if>
                             <#if rateTypeEnum?has_content><fo:block>Rate: ${rateTypeEnum.description}</fo:block></#if>
                             <#if timeEntry?has_content><fo:block>${ec.l10n.formatValue(timeEntry.fromDate, "dd MMM yyyy hh:mm")} to ${ec.l10n.formatValue(timeEntry.thruDate, "dd MMM yyyy hh:mm")}, Break ${timeEntry.breakHours!"0"}h</fo:block></#if>
