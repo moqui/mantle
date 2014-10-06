@@ -25,7 +25,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <fo:page-sequence master-reference="letter-portrait">
         <fo:static-content flow-name="xsl-region-before">
-            <fo:block font-size="14pt" text-align="center" border-bottom="thin solid black">${(fromParty.organizationName)!""} ${(fromParty.firstName)!""} ${(fromParty.lastName)!""}</fo:block>
+            <fo:block font-size="14pt" text-align="center" border-bottom="thin solid black">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromParty.organizationName!"", true))!""}${(fromParty.firstName)!""} ${(fromParty.lastName)!""}</fo:block>
         </fo:static-content>
         <fo:static-content flow-name="xsl-region-after" font-size="8pt">
             <fo:block border-top="thin solid black">
