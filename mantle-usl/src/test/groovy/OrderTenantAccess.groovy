@@ -102,7 +102,7 @@ class OrderTenantAccess extends Specification {
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentTypeEnumId="PtInvoicePayment"
                 paymentMethodId="CustJqpCc" paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}"
                 orderPartSeqId="01" statusId="PmntDelivered" amount="29.97" amountUomId="USD" fromPartyId="CustJqp"
-                toPartyId="ORG_BIZI_RETAIL"/>
+                toPartyId="ORG_ZIZI_RETAIL"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55600"
                 paymentOperationEnumId="PgoAuthorize"
                 paymentId="${setInfoOut.paymentId}" paymentMethodId="CustJqpCc" amount="29.97" amountUomId="USD"
@@ -110,7 +110,7 @@ class OrderTenantAccess extends Specification {
                 resultBadExpire="N" resultBadCardNumber="N"/>
             <!-- don't validate these, allow any payment gateway: paymentGatewayConfigId="TEST_APPROVE" referenceNum="TEST" -->
 
-            <mantle.order.OrderPart orderId="${cartOrderId}" orderPartSeqId="01" vendorPartyId="ORG_BIZI_RETAIL"
+            <mantle.order.OrderPart orderId="${cartOrderId}" orderPartSeqId="01" vendorPartyId="ORG_ZIZI_RETAIL"
                 customerPartyId="CustJqp" shipmentMethodEnumId="ShMthGround" postalContactMechId="CustJqpAddr"
                 telecomContactMechId="CustJqpTeln" partTotal="29.97"/>
             <mantle.order.OrderItem orderId="${cartOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemProduct"
@@ -119,7 +119,7 @@ class OrderTenantAccess extends Specification {
         logger.info("create Sales Order data check results: " + dataCheckErrors)
 
         then:
-        vendorPartyId == 'ORG_BIZI_RETAIL'
+        vendorPartyId == 'ORG_ZIZI_RETAIL'
         customerPartyId == 'CustJqp'
 
         dataCheckErrors.size() == 0
@@ -131,7 +131,7 @@ class OrderTenantAccess extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and Finalized (status set by action in SECA rule), then Payment Received (status set by Payment application) -->
             <mantle.account.invoice.Invoice invoiceId="55600" invoiceTypeEnumId="InvoiceSales"
-                fromPartyId="ORG_BIZI_RETAIL" toPartyId="CustJqp" statusId="InvoicePmtRecvd" invoiceDate="${effectiveTime}"
+                fromPartyId="ORG_ZIZI_RETAIL" toPartyId="CustJqp" statusId="InvoicePmtRecvd" invoiceDate="${effectiveTime}"
                 description="Invoice for Order ${cartOrderId} part 01" currencyUomId="USD"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55600" invoiceItemSeqId="01" itemTypeEnumId="ItemProduct"
@@ -151,7 +151,7 @@ class OrderTenantAccess extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Finalized Invoice -->
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55600" acctgTransTypeEnumId="AttSalesInvoice"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
+                organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 invoiceId="55600"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55600" acctgTransEntrySeqId="01" debitCreditFlag="C"
@@ -182,7 +182,7 @@ class OrderTenantAccess extends Specification {
             <!-- don't validate these, allow any payment gateway: paymentGatewayConfigId="TEST_APPROVE" referenceNum="TEST" -->
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55601" acctgTransTypeEnumId="AttIncomingPayment"
-                organizationPartyId="ORG_BIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
+                organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 paymentId="${setInfoOut.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55601" acctgTransEntrySeqId="01" debitCreditFlag="C"
