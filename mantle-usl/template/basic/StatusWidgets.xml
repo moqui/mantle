@@ -42,5 +42,43 @@ This Work includes contributions authored by David E. Jones, not as a
                 </container>
             </widgets>
         </section>
+
+        <!-- this requires a statusHistoryList field in the context (with moqui.entity.EntityAuditLog values) OR a
+            changedEntityName (like "moqui.example.Example") and pkPrimaryValue (exampleId, orderId, etc value) -->
+        <section name="StatusHistorySection">
+            <actions>
+                <if condition="!statusHistoryList &amp;&amp; changedEntityName">
+                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                        <econdition field-name="changedEntityName"/>
+                        <econdition field-name="changedFieldName" value="statusId"/>
+                        <econdition field-name="pkPrimaryValue"/>
+                        <order-by field-name="changedDate"/>
+                    </entity-find>
+                </if>
+            </actions>
+            <widgets>
+                <container-box>
+                    <box-header><label text="Status History" type="h5"/></box-header>
+                    <box-body>
+                        <section-iterate name="StatusHistoryList" list="statusHistoryList" entry="statusHistory">
+                            <actions>
+                                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
+                                    <field-map field-name="userId" from="statusHistory?.changedByUserId"/>
+                                </entity-find-one>
+                                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">
+                                    <field-map field-name="statusId" from="statusHistory?.oldValueText"/>
+                                </entity-find-one>
+                                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem" cache="true">
+                                    <field-map field-name="statusId" from="statusHistory?.newValueText"/>
+                                </entity-find-one>
+                            </actions>
+                            <widgets>
+                                <label text="${oldStatusItem ? oldStatusItem.description + ' to ' : ''}${statusItem?.description}${(userAccount?.username ? ' by ' + userAccount.username : '')} at ${ec.l10n.formatValue(statusHistory.changedDate, 'yyyy-MM-dd HH:mm')}" type="p"/>
+                            </widgets>
+                        </section-iterate>
+                    </box-body>
+                </container-box>
+            </widgets>
+        </section>
     </widgets>
 </screen>
