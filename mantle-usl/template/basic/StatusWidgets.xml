@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
+        default-menu-include="false">
+
+    <!-- NOTE: this screen is not meant to be rendered, it is just a library of sections to include and forms to extend in other screens -->
+
+    <parameter name="statusId"/>
+
+    <transition name="updateStatus">
+        <service-call name="update#moqui.example.Example"/>
+        <default-response url="."/>
+    </transition>
+
+    <widgets>
+        <!-- this requires a statusId field in the context, and a updateStatus transition with the PK and statusId as parameters -->
+        <section name="StatusChangeSection">
+            <actions>
+                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem"/>
+                <entity-find entity-name="moqui.basic.StatusFlowTransitionToDetail" list="statusTransitionList">
+                    <econdition field-name="statusId"/><order-by field-name="transitionSequence,transitionName"/></entity-find>
+            </actions>
+            <widgets>
+                <container style="shaded-area" type="span">
+                    <label text="Status " type="strong"/>
+                    <label text="(Current: ${statusItem?.description ?: ''})" type="span"/>
+                    <section-iterate name="StatusChangeLinkSection" list="statusTransitionList" entry="statusTransition">
+                        <widgets><link url="updateStatus" text="${statusTransition.transitionName} (${statusTransition.description})"
+                                parameter-map="[statusId:statusTransition.toStatusId]"/></widgets>
+                    </section-iterate>
+                </container>
+            </widgets>
+        </section>
+    </widgets>
+</screen>
