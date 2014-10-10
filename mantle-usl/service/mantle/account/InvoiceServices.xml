@@ -14,6 +14,45 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="InvoiceDisplayInfo">
+        <in-parameters><parameter name="invoiceId"/></in-parameters>
+        <out-parameters>
+            <parameter name="invoice" type="org.moqui.entity.EntityValue"/>
+
+            <parameter name="invoiceTotal" type="BigDecimal"/>
+            <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
+            <parameter name="unpaidTotal" type="BigDecimal"/>
+            <parameter name="statusHistoryList" type="List"/>
+
+            <parameter name="orderItemBillingList" type="List"/>
+            <parameter name="orderIdSet" type="Set"/>
+            <parameter name="shipmentItemSourceList" type="List"/>
+            <parameter name="shipmentIdSet" type="Set"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="context"/>
+
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.account.invoice.Invoice"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="invoiceId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+
+            <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                <econdition field-name="invoiceId"/><order-by field-name="invoiceItemSeqId"/></entity-find>
+            <set field="orderIdSet" from="new TreeSet()"/>
+            <iterate list="orderItemBillingList" entry="orderItemBilling">
+                <script>orderIdSet.add(orderItemBilling.orderId)</script></iterate>
+
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
+                <econdition field-name="invoiceId"/></entity-find>
+            <set field="shipmentIdSet" from="new TreeSet()"/>
+            <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
+                <script>shipmentIdSet.add(shipmentItemSource.shipmentId)</script></iterate>
+        </actions>
+    </service>
     <service verb="get" noun="InvoiceTotal">
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <out-parameters>
@@ -41,6 +80,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="unpaidTotal" from="invoiceTotal - appliedPaymentsTotal"/>
         </actions>
     </service>
+
     <service verb="get" noun="InvoicePrintInfo">
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <out-parameters>
