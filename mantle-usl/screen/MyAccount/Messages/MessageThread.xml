@@ -23,6 +23,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <default-response type="none"/>
     </transition>
 
+    <transition name="updateStatus"><service-call name="update#mantle.party.communication.CommunicationEvent"/>
+        <default-response url="."/></transition>
     <transition name="replyMessage">
         <service-call name="mantle.party.CommunicationServices.reply#CommunicationEvent" in-map="context"/>
         <default-response url="."/>
@@ -48,6 +50,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <field-map field-name="partyId" from="commEvent?.fromPartyId"/></entity-find-one>
         <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toParty">
             <field-map field-name="partyId" from="commEvent?.toPartyId"/></entity-find-one>
+        <set field="statusId" from="commEvent.statusId"/>
     </actions>
     <widgets>
         <label text="${rootCommEvent?.subject ?: 'Thread'}" type="h2"/>
@@ -60,8 +63,10 @@ This Work includes contributions authored by David E. Jones, not as a
                         <actions>
                             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="msgFrom">
                                 <field-map field-name="partyId" from="nodeList_entry?.fromPartyId"/></entity-find-one>
+                            <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem">
+                                <field-map field-name="statusId" from="nodeList_entry?.statusId"/></entity-find-one>
                         </actions>
-                        <link url="messageThread" text="${msgFrom?.organizationName?:''}${msgFrom?.firstName?:''} ${msgFrom?.lastName?:''} at ${ec.l10n.formatValue(nodeList_entry?.entryDate, 'yyyy-MM-dd HH:mm')}"
+                        <link url="messageThread" text="${msgFrom?.organizationName?:''}${msgFrom?.firstName?:''} ${msgFrom?.lastName?:''} at ${ec.l10n.formatValue(nodeList_entry?.entryDate, 'yyyy-MM-dd HH:mm')} (${statusItem?.description})"
                                 id="${treeNodeId == '#' ? '' : treeNodeId + '/'}${nodeList_entry?.communicationEventId}">
                             <parameter name="communicationEventId" from="nodeList_entry?.communicationEventId"/></link>
                         <tree-sub-node node-name="MessageNode" list="childMessages">
@@ -104,9 +109,12 @@ This Work includes contributions authored by David E. Jones, not as a
                         </container-dialog>
                     </box-toolbar>
                     <box-body>
-                        <label text="From ${fromParty?.organizationName?:''}${fromParty?.firstName?:''} ${fromParty?.lastName?:''}," type="strong"/>
-                        <label text="to ${toParty?.organizationName?:''}${toParty?.firstName?:''} ${toParty?.lastName?:''}" type="strong"/>
-                        <label text="at ${ec.l10n.formatValue(commEvent?.entryDate, 'yyyy-MM-dd HH:mm')}" type="strong"/>
+                        <container>
+                            <label text="From ${fromParty?.organizationName?:''}${fromParty?.firstName?:''} ${fromParty?.lastName?:''}," type="strong"/>
+                            <label text="to ${toParty?.organizationName?:''}${toParty?.firstName?:''} ${toParty?.lastName?:''}" type="strong"/>
+                            <label text="at ${ec.l10n.formatValue(commEvent?.entryDate, 'yyyy-MM-dd HH:mm')}" type="strong"/>
+                        </container>
+                        <section-include name="StatusChangeSection" location="component://mantle-usl/template/basic/StatusWidgets.xml"/>
 
                         <label text="${commEvent.body}" type="pre"/>
                     </box-body>
