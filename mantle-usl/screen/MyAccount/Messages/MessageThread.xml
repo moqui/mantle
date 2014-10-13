@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
+        default-menu-title="Message" default-menu-index="1">
+
+    <parameter name="communicationEventId"/>
+
+    <transition name="singleMessage"><default-response url="SingleMessage"/></transition>
+    <transition name="messageThread"><default-response url="."/></transition>
+    <transition name="getTreeSubNodes">
+        <actions><script>sri.getActiveScreenDef().getTree('MessageTree').sendSubNodeJson()</script></actions>
+        <default-response type="none"/>
+    </transition>
+
+    <actions>
+        <entity-find-one entity-name="mantle.party.communication.CommunicationEvent" value-field="commEvent"/>
+        <set field="rootCommEventId" from="commEvent.rootCommEventId ?: commEvent.communicationEventId"/>
+        <entity-find-one entity-name="mantle.party.communication.CommunicationEvent" value-field="rootCommEvent">
+            <field-map field-name="communicationEventId" from="rootCommEventId"/></entity-find-one>
+
+        <script>
+            idPathSb = new StringBuilder(commEvent.communicationEventId)
+            def curCe = commEvent
+            while (curCe.parentCommEventId) {
+                idPathSb.insert(0, "/").insert(0, curCe.parentCommEventId)
+                curCe = ec.entity.makeFind("mantle.party.communication.CommunicationEvent")
+                        .condition("communicationEventId", curCe.parentCommEventId).one()
+            }
+        </script>
+    </actions>
+    <widgets>
+        <label text="${rootCommEvent?.subject ?: 'Thread'}" type="h2"/>
+
+        <container style="row">
+            <container style="col-lg-4">
+                <tree name="MessageTree" open-path="${idPathSb.toString()}">
+                    <parameter name="rootCommEventId"/>
+                    <tree-node name="MessageNode">
+                        <actions>
+                            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="msgFrom">
+                                <field-map field-name="partyId" from="nodeList_entry?.fromPartyId"/></entity-find-one>
+                            <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem">
+                                <field-map field-name="statusId" from="nodeList_entry?.statusId"/></entity-find-one>
+                        </actions>
+                        <link url="singleMessage" dynamic-load-id="SingleMessageContainer"
+                                text="${msgFrom?.organizationName?:''}${msgFrom?.firstName?:''} ${msgFrom?.lastName?:''} at ${ec.l10n.formatValue(nodeList_entry?.entryDate, 'yyyy-MM-dd HH:mm')} (${statusItem?.description})"
+                                id="${treeNodeId == '#' ? '' : treeNodeId + '/'}${nodeList_entry?.communicationEventId}">
+                            <parameter name="communicationEventId" from="nodeList_entry?.communicationEventId"/></link>
+                        <tree-sub-node node-name="MessageNode" list="childMessages">
+                            <actions>
+                                <set field="messageId" from="treeNodeId.split('/').last()"/>
+                                <entity-find entity-name="mantle.party.communication.CommunicationEvent" list="childMessages">
+                                    <econdition field-name="parentCommEventId" from="messageId"/>
+                                    <order-by field-name="entryDate"/>
+                                </entity-find>
+                            </actions>
+                        </tree-sub-node>
+                    </tree-node>
+                    <tree-sub-node node-name="MessageNode" list="topLevelMessages">
+                        <actions>
+                            <entity-find-one entity-name="mantle.party.communication.CommunicationEvent" value-field="rootCommEvent">
+                                <field-map field-name="communicationEventId" from="rootCommEventId"/></entity-find-one>
+                            <set field="topLevelMessages" from="[rootCommEvent]"/>
+                        </actions>
+                    </tree-sub-node>
+                </tree>
+            </container>
+            <container style="col-lg-8">
+                <dynamic-container id="SingleMessageContainer" transition="singleMessage"/>
+            </container>
+        </container>
+
+    </widgets>
+</screen>
