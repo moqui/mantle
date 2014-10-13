@@ -16,18 +16,11 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <parameter name="communicationEventId"/>
 
-    <transition name="editMessage"><default-response url="../EditMessage"/></transition>
+    <transition name="singleMessage"><default-response url="SingleMessage"/></transition>
     <transition name="messageThread"><default-response url="."/></transition>
     <transition name="getTreeSubNodes">
         <actions><script>sri.getActiveScreenDef().getTree('MessageTree').sendSubNodeJson()</script></actions>
         <default-response type="none"/>
-    </transition>
-
-    <transition name="updateStatus"><service-call name="update#mantle.party.communication.CommunicationEvent"/>
-        <default-response url="."/></transition>
-    <transition name="replyMessage">
-        <service-call name="mantle.party.CommunicationServices.reply#CommunicationEvent" in-map="context"/>
-        <default-response url="."/>
     </transition>
 
     <actions>
@@ -45,12 +38,6 @@ This Work includes contributions authored by David E. Jones, not as a
                         .condition("communicationEventId", curCe.parentCommEventId).one()
             }
         </script>
-
-        <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromParty">
-            <field-map field-name="partyId" from="commEvent?.fromPartyId"/></entity-find-one>
-        <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toParty">
-            <field-map field-name="partyId" from="commEvent?.toPartyId"/></entity-find-one>
-        <set field="statusId" from="commEvent.statusId"/>
     </actions>
     <widgets>
         <label text="${rootCommEvent?.subject ?: 'Thread'}" type="h2"/>
@@ -66,7 +53,8 @@ This Work includes contributions authored by David E. Jones, not as a
                             <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem">
                                 <field-map field-name="statusId" from="nodeList_entry?.statusId"/></entity-find-one>
                         </actions>
-                        <link url="messageThread" text="${msgFrom?.organizationName?:''}${msgFrom?.firstName?:''} ${msgFrom?.lastName?:''} at ${ec.l10n.formatValue(nodeList_entry?.entryDate, 'yyyy-MM-dd HH:mm')} (${statusItem?.description})"
+                        <link url="singleMessage" dynamic-load-id="SingleMessageContainer"
+                                text="${msgFrom?.organizationName?:''}${msgFrom?.firstName?:''} ${msgFrom?.lastName?:''} at ${ec.l10n.formatValue(nodeList_entry?.entryDate, 'yyyy-MM-dd HH:mm')} (${statusItem?.description})"
                                 id="${treeNodeId == '#' ? '' : treeNodeId + '/'}${nodeList_entry?.communicationEventId}">
                             <parameter name="communicationEventId" from="nodeList_entry?.communicationEventId"/></link>
                         <tree-sub-node node-name="MessageNode" list="childMessages">
@@ -89,36 +77,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </tree>
             </container>
             <container style="col-lg-8">
-                <container-box>
-                    <box-header><label text="${commEvent.subject ?: 'Message'}" type="h5"/></box-header>
-                    <box-toolbar>
-                        <link url="editMessage" text="Edit"/>
-                        <container-dialog id="ReplyDialog" button-text="Reply">
-                            <form-single name="ReplyMessageForm" transition="replyMessage">
-                                <field name="communicationEventId"><default-field><hidden/></default-field></field>
-                                <field name="parentCommEventId" entry-name="communicationEventId"><default-field><hidden/></default-field></field>
-                                <field name="subject"><default-field><text-line default-value="Re: ${commEvent.subject}" size="60"/></default-field></field>
-                                <field name="body"><default-field title=""><text-area rows="10" cols="80"/></default-field></field>
-                                <field name="submitButton"><default-field title="Reply"><submit/></default-field></field>
-                                <field-layout>
-                                    <field-ref name="subject"/>
-                                    <field-row-big><field-ref name="body"/></field-row-big>
-                                    <field-ref name="submitButton"/>
-                                </field-layout>
-                            </form-single>
-                        </container-dialog>
-                    </box-toolbar>
-                    <box-body>
-                        <container>
-                            <label text="From ${fromParty?.organizationName?:''}${fromParty?.firstName?:''} ${fromParty?.lastName?:''}," type="strong"/>
-                            <label text="to ${toParty?.organizationName?:''}${toParty?.firstName?:''} ${toParty?.lastName?:''}" type="strong"/>
-                            <label text="at ${ec.l10n.formatValue(commEvent?.entryDate, 'yyyy-MM-dd HH:mm')}" type="strong"/>
-                        </container>
-                        <section-include name="StatusChangeSection" location="component://mantle-usl/template/basic/StatusWidgets.xml"/>
-
-                        <label text="${commEvent.body}" type="pre"/>
-                    </box-body>
-                </container-box>
+                <dynamic-container id="SingleMessageContainer" transition="singleMessage"/>
             </container>
         </container>
 
