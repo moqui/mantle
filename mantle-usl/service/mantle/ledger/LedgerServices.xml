@@ -596,6 +596,14 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod" for-update="true"/>
 
+            <if condition="timePeriod.isClosed == 'Y'">
+                <message error="true">Not closing period ${timePeriod.periodName} [${timePeriodId}], already closed.</message>
+            </if>
+
+            <if condition="ec.user.nowTimestamp.before(timePeriod.thruDate)">
+                <message error="true">Not closing period ${timePeriod.periodName} [${timePeriodId}], period has not ended (ends on ${timePeriod.thruDate}).</message>
+            </if>
+
             <!-- if any child periods make sure they are closed -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="childTimePeriodList">
                 <econdition field-name="parentPeriodId" from="timePeriodId"/>
