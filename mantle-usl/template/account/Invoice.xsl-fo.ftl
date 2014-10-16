@@ -40,7 +40,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     -- ${fromContactInfo.emailAddress}
                 </#if>
                 </fo:block>
-                <fo:block text-align="center">Invoice #${invoiceId} -- ${ec.l10n.formatValue(invoice.invoiceDate, "dd MMM yyyy")} -- Page <fo:page-number/></fo:block>
+                <fo:block text-align="center">Invoice #${invoiceId} -- ${ec.l10n.format(invoice.invoiceDate, "dd MMM yyyy")} -- Page <fo:page-number/></fo:block>
             </fo:block>
         </fo:static-content>
 
@@ -51,8 +51,8 @@ This Work includes contributions authored by David E. Jones, not as a
                 <fo:table-body><fo:table-row>
                     <fo:table-cell padding="3pt">
                         <fo:block>Invoice #${invoiceId}</fo:block>
-                        <fo:block>Date: ${ec.l10n.formatValue(invoice.invoiceDate, "dd MMM yyyy")}</fo:block>
-                        <#if invoice.dueDate?exists><fo:block>Due: ${ec.l10n.formatValue(invoice.dueDate, "dd MMM yyyy")}</fo:block></#if>
+                        <fo:block>Date: ${ec.l10n.format(invoice.invoiceDate, "dd MMM yyyy")}</fo:block>
+                        <#if invoice.dueDate?exists><fo:block>Due: ${ec.l10n.format(invoice.dueDate, "dd MMM yyyy")}</fo:block></#if>
                         <#if settlementTerm?has_content><fo:block>Term: ${settlementTerm.description}</fo:block></#if>
                         <fo:block>Total: ${ec.l10n.formatCurrency(invoiceTotal, invoice.currencyUomId, 2)} ${invoice.currencyUomId}</fo:block>
                     </fo:table-cell>
@@ -98,12 +98,12 @@ This Work includes contributions authored by David E. Jones, not as a
                     <fo:table-row font-size="8pt" border-bottom="thin solid black">
                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${invoiceItem.invoiceItemSeqId}</fo:block></fo:table-cell>
                         <fo:table-cell padding="${cellPadding}"><fo:block>${(itemTypeEnum.description)!""}</fo:block></fo:table-cell>
-                        <fo:table-cell padding="${cellPadding}"><fo:block>${ec.l10n.formatValue(invoiceItem.itemDate, "dd MMM yyyy")}</fo:block></fo:table-cell>
+                        <fo:table-cell padding="${cellPadding}"><fo:block>${ec.l10n.format(invoiceItem.itemDate, "dd MMM yyyy")}</fo:block></fo:table-cell>
                         <fo:table-cell padding="${cellPadding}">
                             <fo:block>${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(invoiceItem.description!"", true)}</fo:block>
                             <#if (timeEntry.workEffortId)?has_content><fo:block>Task: ${timeEntry.workEffortId} - ${workEffort.workEffortName!""}</fo:block></#if>
                             <#if rateTypeEnum?has_content><fo:block>Rate: ${rateTypeEnum.description}</fo:block></#if>
-                            <#if timeEntry?has_content><fo:block>${ec.l10n.formatValue(timeEntry.fromDate, "dd MMM yyyy hh:mm")} to ${ec.l10n.formatValue(timeEntry.thruDate, "dd MMM yyyy hh:mm")}, Break ${timeEntry.breakHours!"0"}h</fo:block></#if>
+                            <#if timeEntry?has_content><fo:block>${ec.l10n.format(timeEntry.fromDate, "dd MMM yyyy hh:mm")} to ${ec.l10n.format(timeEntry.thruDate, "dd MMM yyyy hh:mm")}, Break ${timeEntry.breakHours!"0"}h</fo:block></#if>
                         </fo:table-cell>
                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${invoiceItem.quantity!"1"}</fo:block></fo:table-cell>
                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">${ec.l10n.formatCurrency(invoiceItem.amount, invoice.currencyUomId, 2)}</fo:block></fo:table-cell>

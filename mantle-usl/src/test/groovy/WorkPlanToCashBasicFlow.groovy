@@ -40,7 +40,7 @@ class WorkPlanToCashBasicFlow extends Specification {
         ec.user.loginUser("john.doe", "moqui", null)
         // set an effective date so data check works, etc
         ec.user.setEffectiveTime(new Timestamp(effectiveTime))
-        effectiveThruDate = ec.l10n.parseTimestamp(ec.l10n.formatValue(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')
+        effectiveThruDate = ec.l10n.parseTimestamp(ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')
 
         ec.entity.tempSetSequencedIdPrimary("moqui.security.UserAccount", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.party.Party", 55900, 10)
