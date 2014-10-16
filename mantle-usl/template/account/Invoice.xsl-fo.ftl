@@ -131,7 +131,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </fo:table-header>
                 <fo:table-body>
                 <#list itemTypeSummaryMapList as itemTypeSummaryMap>
-                    <#assign itemTypeEnum = ec.entity.makeFind("moqui.basic.Enumeration").condition("enumId", itemTypeSummaryMap.itemTypeEnumId).useCache(true).one()>
+                    <#assign itemTypeEnum = ec.entity.find("moqui.basic.Enumeration").condition("enumId", itemTypeSummaryMap.itemTypeEnumId).useCache(true).one()>
                     <fo:table-row font-size="8pt" border-bottom="thin solid black">
                         <fo:table-cell padding="${cellPadding}"><fo:block>${(itemTypeEnum.description)!""}</fo:block></fo:table-cell>
                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${itemTypeSummaryMap.quantity}</fo:block></fo:table-cell>

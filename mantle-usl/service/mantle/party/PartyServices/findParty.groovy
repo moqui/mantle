@@ -22,7 +22,7 @@ ExecutionContext ec = context.ec
 
 // NOTE: doing a find with a static view-entity because the Entity Facade will only select the fields specified and the
 //     join in the associated member-entities
-EntityFind ef = ec.entity.makeFind("mantle.party.FindPartyView").distinct(true)
+EntityFind ef = ec.entity.find("mantle.party.FindPartyView").distinct(true)
 
 ef.selectField("partyId")
 
