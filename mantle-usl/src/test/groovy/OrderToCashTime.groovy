@@ -54,7 +54,7 @@ class OrderToCashTime extends Specification {
             ec.user.loginUser("joe@public.com", "moqui", null)
 
             String productStoreId = "POPC_DEFAULT"
-            EntityValue productStore = ec.entity.makeFind("mantle.product.store.ProductStore").condition("productStoreId", productStoreId).useCache(true).one()
+            EntityValue productStore = ec.entity.find("mantle.product.store.ProductStore").condition("productStoreId", productStoreId).useCache(true).one()
             String currencyUomId = productStore.defaultCurrencyUomId
             // String priceUomId = productStore.defaultCurrencyUomId
             // String defaultLocale = productStore.defaultLocale

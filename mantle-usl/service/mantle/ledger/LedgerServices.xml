@@ -14,6 +14,18 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="create" noun="GlAccount" type="entity-auto">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.ledger.account.GlAccount"/>
+            <parameter name="glAccountId" default="accountCode"/>
+            <parameter name="accountCode" required="true"/>
+            <parameter name="accountName" required="true"/>
+            <parameter name="glAccountClassEnumId" required="true"/>
+            <parameter name="glResourceTypeEnumId" default-value="GlrtMoney"/>
+        </in-parameters>
+        <out-parameters><parameter name="glAccountId"/></out-parameters>
+    </service>
+
     <service verb="init" noun="PartyAccountingConfiguration">
         <in-parameters>
             <parameter name="sourcePartyId" required="true"/>
@@ -445,7 +457,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </description>
         <in-parameters>
             <parameter name="organizationPartyId"/>
-            <parameter name="basisDate" type="java.sql.Date" default-value="${new java.sql.Date(ec.user.nowTimestamp.time)}"/>
+            <parameter name="basisDate" type="java.sql.Date" default="new java.sql.Date(ec.user.nowTimestamp.time)"/>
         </in-parameters>
         <actions>
             <script>basisCal = ec.user.getCalendarSafe(); basisCal.setTime(basisDate)</script>
@@ -595,6 +607,14 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters><parameter name="timePeriodId" required="true"/></in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod" for-update="true"/>
+
+            <if condition="timePeriod.isClosed == 'Y'">
+                <message error="true">Not closing period ${timePeriod.periodName} [${timePeriodId}], already closed.</message>
+            </if>
+
+            <if condition="ec.user.nowTimestamp.before(timePeriod.thruDate)">
+                <message error="true">Not closing period ${timePeriod.periodName} [${timePeriodId}], period has not ended (ends on ${timePeriod.thruDate}).</message>
+            </if>
 
             <!-- if any child periods make sure they are closed -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="childTimePeriodList">
