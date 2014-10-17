@@ -14,7 +14,7 @@ This Work includes contributions authored by David E. Jones, not as a
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
         default-menu-title="Message" default-menu-index="1">
 
-    <parameter name="communicationEventId"/>
+    <parameter name="communicationEventId" required="true"/>
 
     <transition name="singleMessage"><default-response url="SingleMessage"/></transition>
     <transition name="messageThread"><default-response url="."/></transition>
@@ -34,7 +34,7 @@ This Work includes contributions authored by David E. Jones, not as a
             def curCe = commEvent
             while (curCe.parentCommEventId) {
                 idPathSb.insert(0, "/").insert(0, curCe.parentCommEventId)
-                curCe = ec.entity.makeFind("mantle.party.communication.CommunicationEvent")
+                curCe = ec.entity.find("mantle.party.communication.CommunicationEvent")
                         .condition("communicationEventId", curCe.parentCommEventId).one()
             }
         </script>
@@ -54,7 +54,7 @@ This Work includes contributions authored by David E. Jones, not as a
                                 <field-map field-name="statusId" from="nodeList_entry?.statusId"/></entity-find-one>
                         </actions>
                         <link url="singleMessage" dynamic-load-id="SingleMessageContainer"
-                                text="${msgFrom?.organizationName?:''}${msgFrom?.firstName?:''} ${msgFrom?.lastName?:''} at ${ec.l10n.formatValue(nodeList_entry?.entryDate, 'yyyy-MM-dd HH:mm')} (${statusItem?.description})"
+                                text="${msgFrom?.organizationName?:''}${msgFrom?.firstName?:''} ${msgFrom?.lastName?:''} at ${ec.l10n.format(nodeList_entry?.entryDate, 'yyyy-MM-dd HH:mm')} (${statusItem?.description})"
                                 id="${treeNodeId == '#' ? '' : treeNodeId + '/'}${nodeList_entry?.communicationEventId}">
                             <parameter name="communicationEventId" from="nodeList_entry?.communicationEventId"/></link>
                         <tree-sub-node node-name="MessageNode" list="childMessages">
