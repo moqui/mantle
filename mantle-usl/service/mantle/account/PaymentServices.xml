@@ -13,7 +13,41 @@ This Work includes contributions authored by David E. Jones, not as a
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
 <!-- STATUS: EXPERIMENTAL -->
+    <service verb="get" noun="PaymentDisplayInfo">
+        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="payment" type="org.moqui.entity.EntityValue"/>
 
+            <parameter name="paymentDescription"/>
+            <parameter name="paymentTotal" type="BigDecimal"/>
+            <parameter name="appliedTotal" type="BigDecimal"/>
+            <parameter name="unappliedTotal" type="BigDecimal"/>
+
+            <parameter name="statusHistoryList" type="List"/>
+            <parameter name="paymentApplicationList" type="List"/>
+            <parameter name="invoiceIdSet" type="Set"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+
+            <service-call name="mantle.account.PaymentServices.get#PaymentDescription" in-map="context" out-map="context"/>
+            <service-call name="mantle.account.PaymentServices.get#PaymentTotals" in-map="context" out-map="context"/>
+
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.account.payment.Payment"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="paymentId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
+
+            <set field="invoiceIdSet" from="new TreeSet()"/>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <script>if (paymentApplication.invoiceId) invoiceIdSet.add(paymentApplication.invoiceId)</script></iterate>
+        </actions>
+    </service>
     <service verb="get" noun="PaymentDescription">
         <in-parameters><parameter name="paymentId" required="true"/><parameter name="payment" type="org.moqui.entity.EntityValue"/></in-parameters>
         <out-parameters><parameter name="paymentDescription"/></out-parameters>
