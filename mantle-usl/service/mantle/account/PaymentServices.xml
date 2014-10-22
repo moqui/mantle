@@ -34,6 +34,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <parameter name="invoiceTotal" type="BigDecimal"/>
                     <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
                     <parameter name="unpaidTotal" type="BigDecimal"/>
+                    <parameter name="maxApplicableAmount" type="BigDecimal"/>
                 </parameter>
             </parameter>
         </out-parameters>
@@ -72,7 +73,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="unpaidInvoiceInfoList" from="[]"/>
             <iterate list="unpaidInvoiceList" entry="unpaidInvoice">
                 <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:unpaidInvoice.invoiceId]" out-map="invTot"/>
-                <script>unpaidInvoiceInfoList.add(invTot + [invoice:unpaidInvoice])</script>
+                <set field="maxApplicableAmount" from="unappliedTotal"/>
+                <if condition="maxApplicableAmount > invTot.unpaidTotal"><set field="maxApplicableAmount" from="invTot.unpaidTotal"/></if>
+                <script>unpaidInvoiceInfoList.add(invTot + [invoice:unpaidInvoice, maxApplicableAmount:maxApplicableAmount])</script>
             </iterate>
         </actions>
     </service>
@@ -261,9 +264,20 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="amountApplied" type="BigDecimal"/>
         </out-parameters>
         <actions>
-            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" out-map="context"
-                    in-map="[invoiceId:invoiceId]"/>
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="context"/>
             <set field="amountApplied" from="amount > unpaidTotal ? unpaidTotal : amount"/>
+
+            <service-call name="mantle.account.PaymentServices.get#PaymentTotals" in-map="[paymentId:paymentId]" out-map="context"/>
+            <if condition="amountApplied > unappliedTotal"><set field="amountApplied" from="unappliedTotal"/></if>
+
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <if condition="payment.fromPartyId != invoice.toPartyId">
+                <return error="true" message="Cannot apply payment [${paymentId}] to invoice [invoiceId], payment is from a different party [${payment.fromPartyId}] than invoice is to [${invoice.toPartyId}]"/></if>
+            <if condition="payment.toPartyId != invoice.fromPartyId">
+                <return error="true" message="Cannot apply payment [${paymentId}] to invoice [invoiceId], payment is to a different party [${payment.toPartyId}] than invoice is from [${invoice.fromPartyId}]"/></if>
+
+            <service-call name="mantle.account.PaymentServices.check#InvoiceStatusForPayment" in-map="[invoiceId:invoiceId]"/>
 
             <service-call name="create#mantle.account.payment.PaymentApplication" out-map="context"
                     in-map="[paymentId:paymentId, invoiceId:invoiceId, billingAccountId:billingAccountId,
