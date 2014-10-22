@@ -16,16 +16,26 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="get" noun="PaymentDisplayInfo">
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters>
-            <parameter name="payment" type="org.moqui.entity.EntityValue"/>
+            <parameter name="payment" type="EntityValue"/>
 
             <parameter name="paymentDescription"/>
             <parameter name="paymentTotal" type="BigDecimal"/>
             <parameter name="appliedTotal" type="BigDecimal"/>
             <parameter name="unappliedTotal" type="BigDecimal"/>
 
-            <parameter name="statusHistoryList" type="List"/>
-            <parameter name="paymentApplicationList" type="List"/>
+            <parameter name="statusHistoryList" type="EntityList"/>
+            <parameter name="paymentApplicationList" type="EntityList"/>
+            <parameter name="orderItemBillingList" type="EntityList"/>
             <parameter name="invoiceIdSet" type="Set"/>
+            
+            <parameter name="unpaidInvoiceInfoList" type="List">
+                <parameter name="TheMap" type="Map">
+                    <parameter name="invoice" type="EntityValue"/>
+                    <parameter name="invoiceTotal" type="BigDecimal"/>
+                    <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
+                    <parameter name="unpaidTotal" type="BigDecimal"/>
+                </parameter>
+            </parameter>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
@@ -43,9 +53,27 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
 
+            <if condition="payment.orderId">
+                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                    <econdition field-name="orderId" from="payment.orderId"/><order-by field-name="invoiceItemSeqId"/></entity-find>
+            </if>
+
             <set field="invoiceIdSet" from="new TreeSet()"/>
             <iterate list="paymentApplicationList" entry="paymentApplication">
                 <script>if (paymentApplication.invoiceId) invoiceIdSet.add(paymentApplication.invoiceId)</script></iterate>
+            <iterate list="orderItemBillingList" entry="orderItemBilling">
+                <script>invoiceIdSet.add(orderItemBilling.invoiceId)</script></iterate>
+
+            <entity-find entity-name="mantle.account.invoice.Invoice" list="unpaidInvoiceList">
+                <econdition field-name="fromPartyId" from="payment.toPartyId"/>
+                <econdition field-name="toPartyId" from="payment.fromPartyId"/>
+                <econdition field-name="statusId" operator="in" value="InvoiceFinalized,InvoiceSent,InvoiceReceived,InvoiceApproved"/>
+            </entity-find>
+            <set field="unpaidInvoiceInfoList" from="[]"/>
+            <iterate list="unpaidInvoiceList" entry="unpaidInvoice">
+                <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:unpaidInvoice.invoiceId]" out-map="invTot"/>
+                <script>unpaidInvoiceInfoList.add(invTot + [invoice:unpaidInvoice])</script>
+            </iterate>
         </actions>
     </service>
     <service verb="get" noun="PaymentDescription">
