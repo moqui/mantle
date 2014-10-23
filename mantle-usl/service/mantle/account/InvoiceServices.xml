@@ -164,6 +164,28 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="create" noun="Invoice">
+        <description>Create an invoice manually (as opposed to for an order part, shipment, project/work, etc). Initial
+            status is InvoiceInProcess unless toPartyId is has the OrgInternal role, then it is InvoiceIncoming.</description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.invoice.Invoice" include="nonpk">
+                <exclude field-name="statusId"/></auto-parameters>
+            <parameter name="fromPartyId" required="true"/>
+            <parameter name="toPartyId" required="true"/>
+            <parameter name="invoiceTypeEnumId" default-value="InvoiceSales"/>
+            <parameter name="invoiceDate" default="ec.user.nowTimestamp"/>
+            <parameter name="currencyUomId" default-value="USD"/>
+        </in-parameters>
+        <out-parameters><parameter name="invoiceId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="toOrgInternal">
+                <field-map field-name="partyId" from="toPartyId"/><field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+            <set field="statusId" from="toOrgInternal ? 'InvoiceIncoming' : 'InvoiceInProcess'"/>
+
+            <service-call name="create#mantle.account.invoice.Invoice" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
     <service verb="create" noun="EntireOrderPartInvoice">
         <!-- Invoice based on OrderPart (for non-shipping orders or orders invoiced before shipping) -->
         <in-parameters>
