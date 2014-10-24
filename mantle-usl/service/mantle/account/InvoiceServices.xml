@@ -17,21 +17,26 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="get" noun="InvoiceDisplayInfo">
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <out-parameters>
-            <parameter name="invoice" type="org.moqui.entity.EntityValue"/>
+            <parameter name="invoice" type="EntityValue"/>
 
             <parameter name="invoiceTotal" type="BigDecimal"/>
             <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
             <parameter name="unpaidTotal" type="BigDecimal"/>
-            <parameter name="statusHistoryList" type="List"/>
+            <parameter name="paymentApplicationList" type="EntityList"/>
+            <parameter name="statusHistoryList" type="EntityList"/>
 
-            <parameter name="orderItemBillingList" type="List"/>
+            <parameter name="orderItemBillingList" type="EntityList"/>
             <parameter name="orderIdSet" type="Set"/>
-            <parameter name="shipmentItemSourceList" type="List"/>
+            <parameter name="orderPromisedPaymentList" type="EntityList"/>
+            <parameter name="shipmentItemSourceList" type="EntityList"/>
             <parameter name="shipmentIdSet" type="Set"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
             <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="context"/>
+
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="invoiceId"/><order-by field-name="appliedDate"/></entity-find>
 
             <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
                 <econdition field-name="changedEntityName" value="mantle.account.invoice.Invoice"/>
@@ -45,6 +50,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="orderIdSet" from="new TreeSet()"/>
             <iterate list="orderItemBillingList" entry="orderItemBilling">
                 <script>orderIdSet.add(orderItemBilling.orderId)</script></iterate>
+
+            <if condition="orderIdSet">
+                <entity-find entity-name="mantle.account.payment.Payment" list="orderPromisedPaymentList">
+                    <econdition field-name="orderId" operator="in" from="orderIdSet"/>
+                    <econdition field-name="statusId" operator="in" value="PmntPromised,PmntAuthorized"/>
+                </entity-find>
+            </if>
 
             <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
                 <econdition field-name="invoiceId"/></entity-find>
@@ -84,20 +96,20 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="get" noun="InvoicePrintInfo">
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <out-parameters>
-            <parameter name="invoice" type="org.moqui.entity.EntityValue"/>
-            <parameter name="currentStatus" type="org.moqui.entity.EntityValue"/>
+            <parameter name="invoice" type="EntityValue"/>
+            <parameter name="currentStatus" type="EntityValue"/>
             <parameter name="invoiceTotal" type="BigDecimal"/>
             <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
             <parameter name="unpaidTotal" type="BigDecimal"/>
 
-            <parameter name="invoiceItemList" type="List"><parameter name="entry" type="org.moqui.entity.EntityValue"/></parameter>
+            <parameter name="invoiceItemList" type="List"><parameter name="entry" type="EntityValue"/></parameter>
             <parameter name="itemTypeSummaryMapList" type="List"/>
 
-            <parameter name="fromParty" type="org.moqui.entity.EntityValue"/>
+            <parameter name="fromParty" type="EntityValue"/>
             <parameter name="fromContactInfo" type="Map"><description>From the mantle.party.ContactServices.get#PartyContactInfo service.</description></parameter>
-            <parameter name="toParty" type="org.moqui.entity.EntityValue"/>
+            <parameter name="toParty" type="EntityValue"/>
             <parameter name="toContactInfo" type="Map"><description>From the mantle.party.ContactServices.get#PartyContactInfo service.</description></parameter>
-            <parameter name="toBillingRep" type="org.moqui.entity.EntityValue"/>
+            <parameter name="toBillingRep" type="EntityValue"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
@@ -149,6 +161,28 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toBillingRep">
                 <field-map field-name="partyId" from="toBillingRelList?.first?.fromPartyId"/>
             </entity-find-one>
+        </actions>
+    </service>
+
+    <service verb="create" noun="Invoice">
+        <description>Create an invoice manually (as opposed to for an order part, shipment, project/work, etc). Initial
+            status is InvoiceInProcess unless toPartyId is has the OrgInternal role, then it is InvoiceIncoming.</description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.invoice.Invoice" include="nonpk">
+                <exclude field-name="statusId"/></auto-parameters>
+            <parameter name="fromPartyId" required="true"/>
+            <parameter name="toPartyId" required="true"/>
+            <parameter name="invoiceTypeEnumId" default-value="InvoiceSales"/>
+            <parameter name="invoiceDate" default="ec.user.nowTimestamp"/>
+            <parameter name="currencyUomId" default-value="USD"/>
+        </in-parameters>
+        <out-parameters><parameter name="invoiceId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="toOrgInternal">
+                <field-map field-name="partyId" from="toPartyId"/><field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+            <set field="statusId" from="toOrgInternal ? 'InvoiceIncoming' : 'InvoiceInProcess'"/>
+
+            <service-call name="create#mantle.account.invoice.Invoice" in-map="context" out-map="context"/>
         </actions>
     </service>
 
