@@ -18,6 +18,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="productId" required="true"/>
             <parameter name="applTypeEnumId"/>
+            <parameter name="productFeatureGroupIdSet" type="Set"/>
         </in-parameters>
         <out-parameters>
             <parameter name="productFeatureList" type="List"/>
@@ -36,6 +37,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <iterate list="pcmList" entry="pcm">
                 <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
                     <date-filter/><econdition field-name="productCategoryId" from="pcm.productCategoryId"/>
+                    <econdition field-name="productFeatureGroupId" operator="in" from="productFeatureGroupIdSet" ignore-if-empty="true"/>
                     <econdition field-name="applTypeEnumId" from="applTypeEnumId" ignore-if-empty="true"/>
                 </entity-find>
                 <iterate list="pcfgaList" entry="pcfga">
@@ -46,18 +48,46 @@ This Work includes contributions authored by David E. Jones, not as a
             </iterate>
         </actions>
     </service>
+    <service verb="find" noun="ProductFeatureGroups">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="applTypeEnumId" default-value="PfatSelectable"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="productFeatureGroupList" type="List"/>
+        </out-parameters>
+        <actions>
+            <set field="productFeatureGroupList" from="[]"/>
+
+            <entity-find entity-name="mantle.product.category.ProductCategoryMember" list="pcmList">
+                <date-filter/><econdition field-name="productId"/></entity-find>
+            <iterate list="pcmList" entry="pcm">
+                <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
+                    <date-filter/><econdition field-name="productCategoryId" from="pcm.productCategoryId"/>
+                    <econdition field-name="productFeatureGroupId" operator="in" from="productFeatureGroupIdSet" ignore-if-empty="true"/>
+                    <econdition field-name="applTypeEnumId" from="applTypeEnumId" ignore-if-empty="true"/>
+                </entity-find>
+                <iterate list="pcfgaList" entry="pcfga">
+                    <entity-find-one entity-name="mantle.product.feature.ProductFeatureGroup" value-field="pfg" cache="true">
+                        <field-map field-name="productFeatureGroupId" from="pcfga.productFeatureGroupId"/></entity-find-one>
+                    <script>productFeatureGroupList.add(pfg)</script>
+                </iterate>
+            </iterate>
+        </actions>
+    </service>
 
     <service verb="create" noun="VariantProducts">
         <in-parameters>
             <parameter name="productId"/>
             <parameter name="productTypeEnumId"/>
+            <parameter name="productFeatureGroupIdSet" type="Set"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
 
             <!-- find all PfatSelectable features for the product and related categories -->
             <service-call name="mantle.product.ProductServices.find#ProductFeatures" out-map="context"
-                in-map="[productId:productId, applTypeEnumId:'PfatSelectable']"/>
+                in-map="[productId:productId, applTypeEnumId:'PfatSelectable', productFeatureGroupIdSet:productFeatureGroupIdSet]"/>
 
             <!-- split by feature type -->
             <set field="featuresByType" from="[:]"/>
@@ -73,6 +103,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <script><![CDATA[
                 import org.moqui.context.ExecutionContext
                 import org.moqui.entity.EntityValue
+                import org.moqui.entity.EntityCondition
+
                 ExecutionContext ec = context.ec
 
                 def recursiveCreate(ExecutionContext ec, EntityValue product, List<List<EntityValue>> featureListList,
@@ -92,10 +124,24 @@ This Work includes contributions authored by David E. Jones, not as a
                                 productName = productName + " " + typeEnum.description + " " + feature.description
                             }
 
-                            // see if product exists before creating
+                            // see if product exists (by ID) before creating
                             EntityValue existingProduct = ec.entity.find("mantle.product.Product")
                                     .condition("productId", productId).one()
                             if (existingProduct) continue
+
+                            // see if variant with the same features exists
+                            EntityList allVariants = ec.entity.find("mantle.product.ProductAssoc")
+                                    .condition([productId: product.productId, productAssocTypeEnumId: "PatVariant"])
+                                    .conditionDate(null, null, null).list()
+                            Set checkProductIds = new HashSet((Collection) allVariants.toProductId)
+                            for (EntityValue feature in featureList) {
+                                if (!checkProductIds) break
+                                EntityList remainingWithFeature = ec.entity.find("mantle.product.feature.ProductFeatureAppl")
+                                        .condition("productId", EntityCondition.IN, checkProductIds)
+                                        .condition("productFeatureId", feature.productFeatureId).list()
+                                checkProductIds = new HashSet((Collection) remainingWithFeature.productId)
+                            }
+                            if (checkProductIds) continue
 
                             EntityValue newProduct = product.cloneValue()
                             newProduct.productName = productName; newProduct.productId = productId
