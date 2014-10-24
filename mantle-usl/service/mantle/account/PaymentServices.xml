@@ -13,9 +13,74 @@ This Work includes contributions authored by David E. Jones, not as a
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
 <!-- STATUS: EXPERIMENTAL -->
+    <service verb="get" noun="PaymentDisplayInfo">
+        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="payment" type="EntityValue"/>
 
+            <parameter name="paymentDescription"/>
+            <parameter name="paymentTotal" type="BigDecimal"/>
+            <parameter name="appliedTotal" type="BigDecimal"/>
+            <parameter name="unappliedTotal" type="BigDecimal"/>
+
+            <parameter name="statusHistoryList" type="EntityList"/>
+            <parameter name="paymentApplicationList" type="EntityList"/>
+            <parameter name="orderItemBillingList" type="EntityList"/>
+            <parameter name="invoiceIdSet" type="Set"/>
+            
+            <parameter name="unpaidInvoiceInfoList" type="List">
+                <parameter name="TheMap" type="Map">
+                    <parameter name="invoice" type="EntityValue"/>
+                    <parameter name="invoiceTotal" type="BigDecimal"/>
+                    <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
+                    <parameter name="unpaidTotal" type="BigDecimal"/>
+                    <parameter name="maxApplicableAmount" type="BigDecimal"/>
+                </parameter>
+            </parameter>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+
+            <service-call name="mantle.account.PaymentServices.get#PaymentDescription" in-map="context" out-map="context"/>
+            <service-call name="mantle.account.PaymentServices.get#PaymentTotals" in-map="context" out-map="context"/>
+
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.account.payment.Payment"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="paymentId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
+
+            <if condition="payment.orderId">
+                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                    <econdition field-name="orderId" from="payment.orderId"/><order-by field-name="invoiceItemSeqId"/></entity-find>
+            </if>
+
+            <set field="invoiceIdSet" from="new TreeSet()"/>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <script>if (paymentApplication.invoiceId) invoiceIdSet.add(paymentApplication.invoiceId)</script></iterate>
+            <iterate list="orderItemBillingList" entry="orderItemBilling">
+                <script>invoiceIdSet.add(orderItemBilling.invoiceId)</script></iterate>
+
+            <entity-find entity-name="mantle.account.invoice.Invoice" list="unpaidInvoiceList">
+                <econdition field-name="fromPartyId" from="payment.toPartyId"/>
+                <econdition field-name="toPartyId" from="payment.fromPartyId"/>
+                <econdition field-name="statusId" operator="in" value="InvoiceFinalized,InvoiceSent,InvoiceReceived,InvoiceApproved"/>
+            </entity-find>
+            <set field="unpaidInvoiceInfoList" from="[]"/>
+            <iterate list="unpaidInvoiceList" entry="unpaidInvoice">
+                <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:unpaidInvoice.invoiceId]" out-map="invTot"/>
+                <set field="maxApplicableAmount" from="unappliedTotal"/>
+                <if condition="maxApplicableAmount > invTot.unpaidTotal"><set field="maxApplicableAmount" from="invTot.unpaidTotal"/></if>
+                <script>unpaidInvoiceInfoList.add(invTot + [invoice:unpaidInvoice, maxApplicableAmount:maxApplicableAmount])</script>
+            </iterate>
+        </actions>
+    </service>
     <service verb="get" noun="PaymentDescription">
-        <in-parameters><parameter name="paymentId" required="true"/><parameter name="payment" type="org.moqui.entity.EntityValue"/></in-parameters>
+        <in-parameters><parameter name="paymentId" required="true"/><parameter name="payment" type="EntityValue"/></in-parameters>
         <out-parameters><parameter name="paymentDescription"/></out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
@@ -68,6 +133,20 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="create" noun="Payment">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.payment.Payment" include="nonpk"/>
+            <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
+            <parameter name="statusId" default-value="PmntProposed"/>
+            <parameter name="fromPartyId" required="true"/>
+            <parameter name="toPartyId" required="true"/>
+            <parameter name="amount" type="BigDecimal" default="0"/>
+            <parameter name="amountUomId" default-value="USD"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentId"/></out-parameters>
+        <actions><service-call name="create#mantle.account.payment.Payment" in-map="context" out-map="context"/></actions>
+    </service>
+
     <service verb="create" noun="InvoicePayment" transaction="cache">
         <description>
             Create a Payment for an Invoice and apply it to the Invoice.
@@ -88,7 +167,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="amountUomId"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
-            <parameter name="effectiveDate" type="Timestamp" default-value="${ec.user.nowTimestamp}"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="paymentRefNum"/>
             <parameter name="comments"/>
             <parameter name="paymentOverrideGlAccountId"/>
@@ -99,18 +178,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="paymentApplicationId"/>
         </out-parameters>
         <actions>
+            <service-call name="mantle.account.PaymentServices.check#InvoiceStatusForPayment" in-map="[invoiceId:invoiceId]"/>
+
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
-
-            <set field="validStatusIds" from="['InvoiceInProcess', 'InvoiceFinalized', 'InvoiceSent', 'InvoiceWriteOff', 'InvoiceReceived', 'InvoiceApproved']"/>
-            <if condition="!validStatusIds.contains(invoice.statusId)">
-                <entity-find-related-one value-field="invoice" relationship-name="Invoice#moqui.basic.StatusItem" to-value-field="statusEnum"/>
-                <return error="true" message="Invoice is in ${statusEnum.description} status, payment not allowed."/>
-            </if>
-
-            <if condition="invoice.statusId == 'InvoiceInProcess'">
-                <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoiceFinalized']"/></if>
-            <if condition="invoice.statusId == 'InvoiceReceived'">
-                <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoiceApproved']"/></if>
 
             <set field="initialStatusId" from="statusId == 'PmntProposed' ? statusId : 'PmntPromised'"/>
 
@@ -139,6 +209,10 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="paymentId" required="true"/>
             <parameter name="invoiceId" required="true"/>
+            <parameter name="statusId" default-value="PmntDelivered"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="paymentRefNum"/>
+            <parameter name="comments"/>
             <parameter name="billingAccountId"/>
             <parameter name="overrideGlAccountId"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to Payment.amount and if different from
@@ -150,13 +224,33 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="amountApplied" type="BigDecimal"/>
         </out-parameters>
         <actions>
+            <service-call name="mantle.account.PaymentServices.check#InvoiceStatusForPayment" in-map="[invoiceId:invoiceId]"/>
+
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
             <if condition="!amount"><set field="amount" from="payment.amount"/></if>
             <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, amount:amount,
-                    statusId:'PmntDelivered', effectiveDate:ec.user.nowTimestamp]"/>
+                    statusId:statusId, effectiveDate:effectiveDate, paymentRefNum:paymentRefNum, comments:comments]"/>
             <service-call name="mantle.account.PaymentServices.apply#InvoicePayment" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="check" noun="InvoiceStatusForPayment">
+        <in-parameters><parameter name="invoiceId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+
+            <set field="validStatusIds" from="['InvoiceInProcess', 'InvoiceFinalized', 'InvoiceSent', 'InvoiceWriteOff', 'InvoiceReceived', 'InvoiceApproved']"/>
+            <if condition="!validStatusIds.contains(invoice.statusId)">
+                <entity-find-related-one value-field="invoice" relationship-name="Invoice#moqui.basic.StatusItem" to-value-field="statusEnum"/>
+                <return error="true" message="Invoice is in ${statusEnum.description} status, payment not allowed."/>
+            </if>
+
+            <if condition="invoice.statusId == 'InvoiceInProcess'">
+                <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoiceFinalized']"/></if>
+            <if condition="invoice.statusId == 'InvoiceReceived'">
+                <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoiceApproved']"/></if>
+        </actions>
+    </service>
+
     <service verb="apply" noun="InvoicePayment">
         <in-parameters>
             <parameter name="paymentId" required="true"/>
@@ -170,9 +264,20 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="amountApplied" type="BigDecimal"/>
         </out-parameters>
         <actions>
-            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" out-map="context"
-                    in-map="[invoiceId:invoiceId]"/>
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="context"/>
             <set field="amountApplied" from="amount > unpaidTotal ? unpaidTotal : amount"/>
+
+            <service-call name="mantle.account.PaymentServices.get#PaymentTotals" in-map="[paymentId:paymentId]" out-map="context"/>
+            <if condition="amountApplied > unappliedTotal"><set field="amountApplied" from="unappliedTotal"/></if>
+
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <if condition="payment.fromPartyId != invoice.toPartyId">
+                <return error="true" message="Cannot apply payment [${paymentId}] to invoice [invoiceId], payment is from a different party [${payment.fromPartyId}] than invoice is to [${invoice.toPartyId}]"/></if>
+            <if condition="payment.toPartyId != invoice.fromPartyId">
+                <return error="true" message="Cannot apply payment [${paymentId}] to invoice [invoiceId], payment is to a different party [${payment.toPartyId}] than invoice is from [${invoice.fromPartyId}]"/></if>
+
+            <service-call name="mantle.account.PaymentServices.check#InvoiceStatusForPayment" in-map="[invoiceId:invoiceId]"/>
 
             <service-call name="create#mantle.account.payment.PaymentApplication" out-map="context"
                     in-map="[paymentId:paymentId, invoiceId:invoiceId, billingAccountId:billingAccountId,
@@ -348,11 +453,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="productStoreId" required="true"/>
             <parameter name="paymentId" required="true"/>
             <parameter name="cardSecurityCode"/>
-            <parameter name="payment" type="org.moqui.entity.EntityValue"/>
+            <parameter name="payment" type="EntityValue"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentGatewayResponseId"/>
-            <parameter name="paymentGatewayResponse" type="org.moqui.entity.EntityValue"/>
+            <parameter name="paymentGatewayResponse" type="EntityValue"/>
         </out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
@@ -403,11 +508,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="paymentGatewayConfigId" required="true"/>
             <parameter name="paymentId" required="true"/>
             <parameter name="cardSecurityCode"/>
-            <parameter name="payment" type="org.moqui.entity.EntityValue"/>
+            <parameter name="payment" type="EntityValue"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentGatewayResponseId"/>
-            <parameter name="paymentGatewayResponse" type="org.moqui.entity.EntityValue"/>
+            <parameter name="paymentGatewayResponse" type="EntityValue"/>
         </out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
@@ -485,12 +590,12 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="capture" noun="SinglePayment">
         <in-parameters>
             <parameter name="paymentId" required="true"/>
-            <parameter name="payment" type="org.moqui.entity.EntityValue"/>
+            <parameter name="payment" type="EntityValue"/>
             <parameter name="amount" type="BigDecimal"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentGatewayResponseId"/>
-            <parameter name="paymentGatewayResponse" type="org.moqui.entity.EntityValue"/>
+            <parameter name="paymentGatewayResponse" type="EntityValue"/>
         </out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
