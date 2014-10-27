@@ -222,6 +222,35 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <!-- Manual Accounting Transaction services -->
+    <service verb="create" noun="AcctgTrans">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.ledger.transaction.AcctgTrans" include="nonpk">
+                <exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+            <parameter name="acctgTransTypeEnumId" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="transactionDate" default="ec.user.nowTimestamp"/>
+            <parameter name="amountUomId" default-value="USD"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <set field="isPosted" value="N"/>
+            <service-call name="create#mantle.ledger.transaction.AcctgTrans" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="AcctgTrans">
+        <in-parameters>
+            <parameter name="acctgTransId" required="true"/>
+            <auto-parameters entity-name="mantle.ledger.transaction.AcctgTrans" include="nonpk">
+                <exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot update transaction [${acctgTransId}], already posted."/></if>
+            <service-call name="update#mantle.ledger.transaction.AcctgTrans" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
     <!-- Accounting Transaction (AcctgTrans) Posting Services -->
     <service verb="calculate" noun="AcctgTransTrialBalance">
         <description>Add up debits and credits for an AcctgTrans and get the difference.</description>
