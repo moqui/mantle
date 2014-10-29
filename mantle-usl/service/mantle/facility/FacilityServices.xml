@@ -128,6 +128,32 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="update" noun="FacilityCertification">
+        <in-parameters>
+            <parameter name="facilityCertificationId" required="true"/>
+            <auto-parameters entity-name="FacilityCertification" include="nonpk"/>
+            <parameter name="documentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.facility.FacilityCertification" value-field="facilityCertification"/>
+            <set field="facilityId" from="facilityCertification.facilityId"/>
+            <if condition="documentFile != null">
+                <if condition="!documentLocation">
+                    <set field="filename" from="documentFile.getName()"/>
+                    <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+                    <set field="documentLocation" value="${contentRoot}/facility/${facilityId?:'_NA_'}/${facilityCertificationId}/${filename}"/>
+                </if>
+                <set field="docRr" from="ec.resource.getLocationReference(documentLocation)"/>
+                <script>
+                    fileStream = documentFile.getInputStream()
+                    try { docRr.putStream(fileStream) } finally { fileStream.close() }
+                </script>
+            </if>
+
+            <service-call name="update#mantle.facility.FacilityCertification" in-map="context"/>
+        </actions>
+    </service>
+
     <service verb="create" noun="FacilityLocation" type="entity-auto">
         <in-parameters>
             <auto-parameters entity-name="mantle.facility.FacilityLocation"/>
