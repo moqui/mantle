@@ -468,7 +468,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <description>Create a new transaction that is the reverse of the original (for each entry debits to credit and
             vice versa, transaction date set to now, etc).</description>
         <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
-        <out-parameters><parameter name="reverseAcctgTransId" required="true"/></out-parameters>
+        <out-parameters><parameter name="acctgTransId" required="true"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
             <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
@@ -512,6 +512,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:reverseAcctgTransId]"/>
                 </else>
             </if>
+
+            <set field="acctgTransId" from="reverseAcctgTransId"/>
         </actions>
     </service>
 
@@ -720,7 +722,28 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
-    <!-- GL Journal Posting Services -->
+    <!-- GL Journal Services -->
+    <service verb="create" noun="GlJournal">
+        <in-parameters>
+            <auto-parameters include="nonpk"><exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+            <parameter name="glJournalName" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="glJournalId"/></out-parameters>
+        <actions>
+            <set field="isPosted" value="N"/>
+            <service-call name="create#mantle.ledger.transaction.GlJournal" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="GlJournal">
+        <in-parameters>
+            <parameter name="glJournalId" required="true"/>
+            <auto-parameters include="nonpk"><exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.ledger.transaction.GlJournal" in-map="context"/>
+        </actions>
+    </service>
+
     <service verb="calculate" noun="GlJournalTrialBalance">
         <in-parameters><parameter name="glJournalId" required="true"/></in-parameters>
         <out-parameters>
