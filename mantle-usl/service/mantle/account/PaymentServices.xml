@@ -27,7 +27,10 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="paymentApplicationList" type="EntityList"/>
             <parameter name="orderItemBillingList" type="EntityList"/>
             <parameter name="invoiceIdSet" type="Set"/>
-            
+
+            <parameter name="acctgTransList" type="EntityList"/>
+            <parameter name="acctgTransIdSet" type="Set"/>
+
             <parameter name="unpaidInvoiceInfoList" type="List">
                 <parameter name="TheMap" type="Map">
                     <parameter name="invoice" type="EntityValue"/>
@@ -64,6 +67,13 @@ This Work includes contributions authored by David E. Jones, not as a
                 <script>if (paymentApplication.invoiceId) invoiceIdSet.add(paymentApplication.invoiceId)</script></iterate>
             <iterate list="orderItemBillingList" entry="orderItemBilling">
                 <script>invoiceIdSet.add(orderItemBilling.invoiceId)</script></iterate>
+
+
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="paymentId"/></entity-find>
+            <set field="acctgTransIdSet" from="new TreeSet()"/>
+            <iterate list="acctgTransList" entry="acctgTrans">
+                <script>acctgTransIdSet.add(acctgTrans.acctgTransId)</script></iterate>
 
             <entity-find entity-name="mantle.account.invoice.Invoice" list="unpaidInvoiceList">
                 <econdition field-name="fromPartyId" from="payment.toPartyId"/>
@@ -141,10 +151,29 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="fromPartyId" required="true"/>
             <parameter name="toPartyId" required="true"/>
             <parameter name="amount" type="BigDecimal" default="0"/>
-            <parameter name="amountUomId" default-value="USD"/>
+            <parameter name="amountUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for whichever
+                Party (from or to) is an internal organization with an accounting preference record.</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="paymentId"/></out-parameters>
-        <actions><service-call name="create#mantle.account.payment.Payment" in-map="context" out-map="context"/></actions>
+        <actions>
+            <if condition="!amountUomId">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                        in-map="[organizationPartyId:fromPartyId]"/>
+                <if condition="partyAcctgPreference">
+                    <set field="amountUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+                    <else>
+                        <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                                in-map="[organizationPartyId:toPartyId]"/>
+                        <if condition="partyAcctgPreference">
+                            <set field="amountUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+                        </if>
+                    </else>
+                </if>
+            </if>
+            <if condition="!amountUomId"><set field="amountUomId" value="USD"/></if>
+
+            <service-call name="create#mantle.account.payment.Payment" in-map="context" out-map="context"/>
+        </actions>
     </service>
 
     <service verb="create" noun="InvoicePayment" transaction="cache">
@@ -272,6 +301,8 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <if condition="payment.amountUomId != invoice.currencyUomId">
+                <return error="true" message="Cannot apply payment [${paymentId}] to invoice [invoiceId], payment has a different currency [${payment.amountUomId}] than invoice [${invoice.currencyUomId}]"/></if>
             <if condition="payment.fromPartyId != invoice.toPartyId">
                 <return error="true" message="Cannot apply payment [${paymentId}] to invoice [invoiceId], payment is from a different party [${payment.fromPartyId}] than invoice is to [${invoice.toPartyId}]"/></if>
             <if condition="payment.toPartyId != invoice.fromPartyId">
