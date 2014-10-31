@@ -30,6 +30,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="sourcePartyId" required="true"/>
             <parameter name="organizationPartyId" required="true"/>
+            <auto-parameters entity-name="mantle.ledger.config.PartyAcctgPreference" include="nonpk"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="existingPartyAcctgPreference">
@@ -40,17 +41,21 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
 
             <!-- create an error Journal mantle.ledger.transaction.GlJournal -->
+            <entity-find-one entity-name="mantle.party.Organization" value-field="organization">
+                <field-map field-name="partyId" from="organizationPartyId"/></entity-find-one>
             <set field="errorGlJournalId" value="${organizationPartyId}Error"/>
             <service-call name="create#mantle.ledger.transaction.GlJournal"
                     in-map="[organizationPartyId:organizationPartyId, glJournalId:errorGlJournalId,
                         glJournalTypeEnumId:'GLJRNL_ERROR', isPosted:'N',
-                        glJournalName:('Error Journal for ' + organizationPartyId)]"/>
+                        glJournalName:('Error Journal for ' + (organization?.organizationName ?: organizationPartyId))]"/>
 
             <!-- copy the mantle.ledger.config.PartyAcctgPreference -->
-            <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference">
+            <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="sourcePartyAcctgPreference">
                 <field-map field-name="organizationPartyId" from="sourcePartyId"/>
             </entity-find-one>
-            <if condition="!partyAcctgPreference"><return error="true" message="Could not find PartyAcctgPreference for source party [${sourcePartyId}]"/></if>
+            <if condition="!sourcePartyAcctgPreference"><return error="true" message="Could not find PartyAcctgPreference for source party [${sourcePartyId}]"/></if>
+            <set field="partyAcctgPreference" from="sourcePartyAcctgPreference.cloneValue()"/>
+            <entity-set value-field="partyAcctgPreference" include="nonpk" set-if-empty="false"/>
             <service-call name="create#mantle.ledger.config.PartyAcctgPreference"
                     in-map="partyAcctgPreference + [organizationPartyId:organizationPartyId, errorGlJournalId:errorGlJournalId]"/>
 
