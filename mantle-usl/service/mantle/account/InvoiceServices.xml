@@ -183,10 +183,27 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="toPartyId" required="true"/>
             <parameter name="invoiceTypeEnumId" default-value="InvoiceSales"/>
             <parameter name="invoiceDate" default="ec.user.nowTimestamp"/>
-            <parameter name="currencyUomId" default-value="USD"/>
+            <parameter name="currencyUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for whichever
+                Party (from or to) is an internal organization with an accounting preference record.</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="invoiceId"/></out-parameters>
         <actions>
+            <if condition="!currencyUomId">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                        in-map="[organizationPartyId:fromPartyId]"/>
+                <if condition="partyAcctgPreference">
+                    <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+                    <else>
+                        <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                                in-map="[organizationPartyId:toPartyId]"/>
+                        <if condition="partyAcctgPreference">
+                            <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+                        </if>
+                    </else>
+                </if>
+            </if>
+            <if condition="!currencyUomId"><set field="currencyUomId" value="USD"/></if>
+
             <entity-find-one entity-name="mantle.party.PartyRole" value-field="toOrgInternal">
                 <field-map field-name="partyId" from="toPartyId"/><field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
             <set field="statusId" from="toOrgInternal ? 'InvoiceIncoming' : 'InvoiceInProcess'"/>
