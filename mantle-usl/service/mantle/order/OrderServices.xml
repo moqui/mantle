@@ -189,7 +189,8 @@ h2. General Order Placement and eCommerce Usage
                 <description>The initial statusId for both header and part.</description></parameter>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="visitId" default="ec.user.visitId"/>
-            <parameter name="currencyUomId" default-value="USD"/>
+            <parameter name="currencyUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for whichever
+                Party (customer or vendor) is an internal organization with an accounting preference record.</description></parameter>
             <parameter name="billingAccountId"/>
             <parameter name="productStoreId"/>
             <parameter name="salesChannelEnumId"/>
@@ -204,6 +205,22 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <if condition="!currencyUomId">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                        in-map="[organizationPartyId:customerPartyId]"/>
+                <if condition="partyAcctgPreference">
+                    <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+                    <else>
+                        <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                                in-map="[organizationPartyId:vendorPartyId]"/>
+                        <if condition="partyAcctgPreference">
+                            <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+                        </if>
+                    </else>
+                </if>
+            </if>
+            <if condition="!currencyUomId"><set field="currencyUomId" value="USD"/></if>
+
             <service-call name="create#mantle.order.OrderHeader" in-map="context" out-map="context"/>
 
             <service-call name="mantle.facility.ContactServices.get#FacilityDefaultShipDest" in-map="context" out-map="context"/>

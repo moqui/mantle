@@ -43,6 +43,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="errorGlJournalId" value="${organizationPartyId}Error"/>
             <service-call name="create#mantle.ledger.transaction.GlJournal"
                     in-map="[organizationPartyId:organizationPartyId, glJournalId:errorGlJournalId,
+                        glJournalTypeEnumId:'GLJRNL_ERROR', isPosted:'N',
                         glJournalName:('Error Journal for ' + organizationPartyId)]"/>
 
             <!-- copy the mantle.ledger.config.PartyAcctgPreference -->
@@ -219,6 +220,74 @@ This Work includes contributions authored by David E. Jones, not as a
                                 glAccountTypeEnumId:glAccountTypeEnumId]"/>
                 </if>
             </if>
+        </actions>
+    </service>
+
+    <!-- Manual Accounting Transaction services -->
+    <service verb="create" noun="AcctgTrans">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.ledger.transaction.AcctgTrans" include="nonpk">
+                <exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+            <parameter name="acctgTransTypeEnumId" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="transactionDate" default="ec.user.nowTimestamp"/>
+            <parameter name="amountUomId" default-value="USD"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <set field="isPosted" value="N"/>
+            <service-call name="create#mantle.ledger.transaction.AcctgTrans" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="AcctgTrans">
+        <in-parameters>
+            <parameter name="acctgTransId" required="true"/>
+            <auto-parameters entity-name="mantle.ledger.transaction.AcctgTrans" include="nonpk">
+                <exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot update transaction [${acctgTransId}], already posted."/></if>
+            <service-call name="update#mantle.ledger.transaction.AcctgTrans" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="AcctgTransEntry">
+        <in-parameters>
+            <parameter name="acctgTransId" required="true"/>
+            <auto-parameters entity-name="mantle.ledger.transaction.AcctgTransEntry" include="nonpk"/>
+            <parameter name="debitCreditFlag" required="true"/>
+            <parameter name="amount" required="true"/>
+            <parameter name="glAccountId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransEntrySeqId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot create entry for transaction [${acctgTransId}], already posted."/></if>
+            <service-call name="create#mantle.ledger.transaction.AcctgTransEntry" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="AcctgTransEntry">
+        <in-parameters>
+            <parameter name="acctgTransId" required="true"/>
+            <parameter name="acctgTransEntrySeqId" required="true"/>
+            <auto-parameters entity-name="mantle.ledger.transaction.AcctgTransEntry" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot update entry for transaction [${acctgTransId}], already posted."/></if>
+            <service-call name="update#mantle.ledger.transaction.AcctgTransEntry" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="delete" noun="AcctgTransEntry">
+        <in-parameters>
+            <parameter name="acctgTransId" required="true"/>
+            <parameter name="acctgTransEntrySeqId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot delete entry for transaction [${acctgTransId}], already posted."/></if>
+            <service-call name="delete#mantle.ledger.transaction.AcctgTransEntry" in-map="context"/>
         </actions>
     </service>
 
@@ -400,7 +469,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <description>Create a new transaction that is the reverse of the original (for each entry debits to credit and
             vice versa, transaction date set to now, etc).</description>
         <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
-        <out-parameters><parameter name="reverseAcctgTransId" required="true"/></out-parameters>
+        <out-parameters><parameter name="acctgTransId" required="true"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
             <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
@@ -444,6 +513,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:reverseAcctgTransId]"/>
                 </else>
             </if>
+
+            <set field="acctgTransId" from="reverseAcctgTransId"/>
         </actions>
     </service>
 
@@ -652,7 +723,29 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
-    <!-- GL Journal Posting Services -->
+    <!-- GL Journal Services -->
+    <service verb="create" noun="GlJournal">
+        <in-parameters>
+            <auto-parameters include="nonpk"><exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+            <parameter name="glJournalName" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="glJournalId"/></out-parameters>
+        <actions>
+            <set field="isPosted" value="N"/>
+            <service-call name="create#mantle.ledger.transaction.GlJournal" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="GlJournal">
+        <in-parameters>
+            <parameter name="glJournalId" required="true"/>
+            <auto-parameters include="nonpk"><exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.ledger.transaction.GlJournal" in-map="context"/>
+        </actions>
+    </service>
+
+    <!-- is this even needed for anything?
     <service verb="calculate" noun="GlJournalTrialBalance">
         <in-parameters><parameter name="glJournalId" required="true"/></in-parameters>
         <out-parameters>
@@ -661,14 +754,27 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="debitCreditDifference" type="BigDecimal"/>
         </out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <!- - implement this...? - ->
         </actions>
     </service>
+    -->
     <service verb="post" noun="GlJournal">
         <description>Posts a GL Journal (GlJournal) by posting each transaction (AcctgTrans) in the journal.</description>
         <in-parameters><parameter name="glJournalId" required="true"/></in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="glJournalId"/><order-by field-name="acctgTransId"/>
+            </entity-find>
+            <set field="txPostCount" from="0"/>
+            <iterate list="acctgTransList" entry="acctgTrans">
+                <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans"
+                        in-map="[acctgTransId:acctgTrans.acctgTransId]"/>
+                <if condition="ec.message.hasError()">
+                    <return error="true"/>
+                    <else><set field="txPostCount" from="txPostCount + 1"/></else>
+                </if>
+            </iterate>
+            <message>Posted ${txPostCount} transactions</message>
         </actions>
     </service>
 </services>
