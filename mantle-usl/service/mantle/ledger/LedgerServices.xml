@@ -745,6 +745,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <!-- is this even needed for anything?
     <service verb="calculate" noun="GlJournalTrialBalance">
         <in-parameters><parameter name="glJournalId" required="true"/></in-parameters>
         <out-parameters>
@@ -753,14 +754,27 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="debitCreditDifference" type="BigDecimal"/>
         </out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <!- - implement this...? - ->
         </actions>
     </service>
+    -->
     <service verb="post" noun="GlJournal">
         <description>Posts a GL Journal (GlJournal) by posting each transaction (AcctgTrans) in the journal.</description>
         <in-parameters><parameter name="glJournalId" required="true"/></in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="glJournalId"/><order-by field-name="acctgTransId"/>
+            </entity-find>
+            <set field="txPostCount" from="0"/>
+            <iterate list="acctgTransList" entry="acctgTrans">
+                <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans"
+                        in-map="[acctgTransId:acctgTrans.acctgTransId]"/>
+                <if condition="ec.message.hasError()">
+                    <return error="true"/>
+                    <else><set field="txPostCount" from="txPostCount + 1"/></else>
+                </if>
+            </iterate>
+            <message>Posted ${txPostCount} transactions</message>
         </actions>
     </service>
 </services>
