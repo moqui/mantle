@@ -98,7 +98,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="isRefundable" type="text-indicator"/>
-        <field name="balanceUomId" type="id"/>
+        <field name="currencyUomId" type="id"/>
         <field name="actualBalance" type="currency-amount"><description>Calculated as the sum of
             FinancialAccountTrans.amount</description></field>
         <field name="availableBalance" type="currency-amount"><description>Calculated as actualBalance minus sum of
@@ -118,8 +118,8 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="PostTo" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="postToGlAccountId"/>
         </relationship>
-        <relationship type="one" title="Balance" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="balanceUomId"/>
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="currencyUomId"/>
         </relationship>
         <relationship type="one" title="Replenish" related-entity-name="mantle.account.method.PaymentMethod">
             <key-map field-name="replenishPaymentId"/>
@@ -163,11 +163,12 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="mantle.party.Party"/>
         <relationship type="one" related-entity-name="mantle.party.RoleType"/>
     </entity>
-    <entity entity-name="FinancialAccountTrans" package-name="mantle.account.financial">
+    <entity entity-name="FinancialAccountTrans" package-name="mantle.account.financial" create-only="true">
         <field name="finAccountTransId" type="id" is-pk="true"/>
         <field name="finAccountTransTypeEnumId" type="id"/>
         <field name="finAccountId" type="id"/>
-        <field name="statusId" type="id"/>
+        <field name="finAccountAuthId" type="id"><description>Only set for withdrawals based on an auth.</description></field>
+        <!-- don't want status, using create-only approach: <field name="statusId" type="id"/> -->
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
         <field name="glReconciliationId" type="id"/>
@@ -185,6 +186,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="finAccountTransTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccount"/>
+        <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountAuth"/>
         <relationship type="one" title="FinancialAccountTrans" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="From" related-entity-name="mantle.party.Party">
             <key-map field-name="fromPartyId"/>
@@ -212,6 +214,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Adjustment" enumId="FattAdjustment" enumTypeId="FinancialAccountTransType"/>
 
             <!-- Financial Account Trans Status -->
+            <!-- don't want status, using create-only approach:
             <moqui.basic.StatusType statusTypeId="FinancialAccountTrans" description="Financial Account Trans Status"/>
             <moqui.basic.StatusItem statusId="FatCreated" statusTypeId="FinancialAccountTrans" sequenceNum="1" description="Created"/>
             <moqui.basic.StatusItem statusId="FatApproved" statusTypeId="FinancialAccountTrans" sequenceNum="2" description="Approved"/>
@@ -219,6 +222,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FatCreated" toStatusId="FatApproved" transitionName="Approve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FatCreated" toStatusId="FatCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FatApproved" toStatusId="FatCancelled" transitionName="Cancel"/>
+            -->
 
             <!-- Financial Account Trans Reason -->
             <moqui.basic.EnumerationType description="Financial Account Trans Reason" enumTypeId="FinancialAccountTransReason"/>

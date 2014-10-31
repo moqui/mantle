@@ -13,40 +13,67 @@ This Work includes contributions authored by David E. Jones, not as a
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
 <!-- STATUS: EXPERIMENTAL -->
-
-    <service verb="depositTo" noun="FinancialAccount">
+    
+    <service verb="calculate" noun="FinancialAccountTotals">
+        <description>Calculates totals from FinancialAccountTrans and FinancialAccountAuth records, records them
+            on the FinancialAccount record and returns them.</description>
         <in-parameters>
-            <parameter name="finAccountId" required="true"/>
-            <parameter name="amount" type="BigDecimal" required="true"/>
-            <parameter name="amountUomId"/>
-            <parameter name="isRefund" type="Boolean" default-value="false"/>
-            <parameter name="fromPartyId"/>
-            <parameter name="toPartyId"/>
-            <parameter name="orderId"/>
-            <parameter name="orderItemSeqId"/>
-            <parameter name="reasonEnumId"/>
-        </in-parameters>
-        <out-parameters>
-            <parameter name="preBalance" type="BigDecimal"/>
-            <parameter name="postBalance" type="BigDecimal"/>
+            <parameter name="finAccountId"/>
             <parameter name="finAccountTransId"/>
-        </out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <service verb="withdrawFrom" noun="FinancialAccount">
-        <in-parameters>
-            <parameter name="finAccountId" required="true"/>
             <parameter name="finAccountAuthId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="currencyUomId"/>
+            <parameter name="actualBalance" type="BigDecimal"/>
+            <parameter name="authBalance" type="BigDecimal"/>
+            <parameter name="availableBalance" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <if condition="!finAccountId &amp;&amp; finAccountTransId">
+                <entity-find-one entity-name="mantle.account.financial.FinancialAccountTrans" value-field="fat"/>
+                <set field="finAccountId" from="fat?.finAccountId"/>
+            </if>
+            <if condition="!finAccountId &amp;&amp; finAccountAuthId">
+                <entity-find-one entity-name="mantle.account.financial.FinancialAccountAuth" value-field="faa"/>
+                <set field="finAccountId" from="faa?.finAccountId"/>
+            </if>
+            <if condition="!finAccountId"><return error="true" message="Cannot calculate Financial Account totals, no finAccountId passed"/></if>
+
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+            <set field="currencyUomId" from="financialAccount.currencyUomId"/>
+
+            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                <econdition field-name="finAccountId"/></entity-find>
+            <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+
+            <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
+                <econdition field-name="finAccountId"/>
+                <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
+            </entity-find>
+            <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+
+            <set field="availableBalance" from="actualBalance - authBalance"/>
+
+            <set field="financialAccount.actualBalance" from="actualBalance"/>
+            <set field="financialAccount.availableBalance" from="availableBalance"/>
+            <entity-update value-field="financialAccount"/>
+        </actions>
+    </service>
+
+    <service verb="adjust" noun="FinancialAccount">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccountTrans" include="nonpk">
+                <exclude field-name="statusId"/><exclude field-name="finAccountTransTypeEnumId"/>
+                <exclude field-name="finAccountAuthId"/>
+            </auto-parameters>
+            <parameter name="finAccountId" required="true"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
-            <parameter name="amountUomId"/>
-            <parameter name="isRefund" type="Boolean" default-value="false"/>
-            <parameter name="fromPartyId"/>
-            <parameter name="toPartyId"/>
-            <parameter name="orderId"/>
-            <parameter name="orderItemSeqId"/>
-            <parameter name="reasonEnumId"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- maybe support in the future with currency conversion: <parameter name="amountUomId"/> -->
+            <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
             <parameter name="preBalance" type="BigDecimal"/>
@@ -58,7 +85,51 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
-    <service verb="authorizeAgainst" noun="FinancialAccount">
+    <service verb="deposit" noun="FinancialAccount">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccountTrans" include="nonpk">
+                <exclude field-name="statusId"/><exclude field-name="finAccountTransTypeEnumId"/>
+                <exclude field-name="finAccountAuthId"/>
+            </auto-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- maybe support in the future with currency conversion: <parameter name="amountUomId"/> -->
+            <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="preBalance" type="BigDecimal"/>
+            <parameter name="postBalance" type="BigDecimal"/>
+            <parameter name="finAccountTransId"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+    <service verb="withdraw" noun="FinancialAccount">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccountTrans" include="nonpk">
+                <exclude field-name="statusId"/><exclude field-name="finAccountTransTypeEnumId"/>
+            </auto-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- maybe support in the future with currency conversion: <parameter name="amountUomId"/> -->
+            <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="preBalance" type="BigDecimal"/>
+            <parameter name="postBalance" type="BigDecimal"/>
+            <parameter name="finAccountTransId"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+
+    <service verb="authorize" noun="FinancialAccount">
         <in-parameters>
             <parameter name="finAccountId" required="true"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
