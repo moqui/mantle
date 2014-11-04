@@ -122,10 +122,12 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
-            <set field="preBalance" from="financialAccount.actualBalance"/>
+            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
             <set field="finAccountTransTypeEnumId" value="FattAdjustment"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
@@ -133,7 +135,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
             <set field="postBalance" from="postFinancialAccount.actualBalance"/>
 
-            <set field="differAmount" from="preBalance - postBalance"/>
+            <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
                 <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
@@ -159,10 +161,12 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
-            <set field="preBalance" from="financialAccount.actualBalance"/>
+            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
             <set field="finAccountTransTypeEnumId" value="FattDeposit"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
@@ -170,7 +174,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
             <set field="postBalance" from="postFinancialAccount.actualBalance"/>
 
-            <set field="differAmount" from="preBalance - postBalance"/>
+            <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
                 <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
@@ -194,10 +198,15 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
+            <!-- this is a withdrawal, so subtract the amount -->
+            <set field="amount" from="-amount"/>
+
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
-            <set field="preBalance" from="financialAccount.actualBalance"/>
+            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
             <set field="finAccountTransTypeEnumId" value="FattWithdraw"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
@@ -211,7 +220,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
             <set field="postBalance" from="postFinancialAccount.actualBalance"/>
 
-            <set field="differAmount" from="preBalance - postBalance"/>
+            <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
                 <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
