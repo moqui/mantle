@@ -70,7 +70,8 @@ if (contactOwnerPartyId) {
 
 if (orderByField) {
     if (orderByField.contains("combinedName")) {
-        ef.orderBy("organizationName,firstName,lastName")
+        if (orderByField.contains("-")) ef.orderBy("-^organizationName,-^firstName,-^lastName")
+        else ef.orderBy("^organizationName,^firstName,^lastName")
     } else {
         ef.orderBy(orderByField)
     }
