@@ -334,7 +334,11 @@ h2. General Order Placement and eCommerce Usage
                 <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
                 <if condition="product == null"><return error="true" message="Product [${productId}] not found."/></if>
             </if>
+            <if condition="product?.amountRequire == 'Y' &amp;&amp; !selectedAmount">
+                <return error="true" message="Product [${productId}] requires a selected amount"/></if>
             <if condition="!itemDescription"><set field="itemDescription" from="product?.productName"/></if>
+            <if condition="!quantityUomId"><set field="quantityUomId" from="product?.amountUomId"/></if>
+            <if condition="product?.amountFixed"><set field="selectedAmount" from="product?.amountFixed"/></if>
             <service-call name="create#mantle.order.OrderItem" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -354,8 +358,8 @@ h2. General Order Placement and eCommerce Usage
 
                 <service-call name="mantle.product.PriceServices.get#ProductPrice" out-map="priceMap"
                         in-map="[productId:productId, quantity:quantity, priceUomId:orderHeader.currencyUomId,
-                        productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
-                        vendorPartyId:orderPart.vendorPartyId]"/>
+                            productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
+                            vendorPartyId:orderPart.vendorPartyId]"/>
 
                 <set field="unitAmount" from="priceMap.price"/>
                 <set field="unitListPrice" from="priceMap.listPrice"/>
