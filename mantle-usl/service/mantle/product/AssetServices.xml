@@ -63,10 +63,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <set field="productStore" from="orderHeader.'mantle.product.store.ProductStore'"/>
-            <!-- if no store return now -->
-            <if condition="productStore == null"><return/></if>
             <!-- if store setup for no reservation return now -->
-            <if condition="productStore.reservationOrderEnumId == 'AsResOrdNoRes'"><return/></if>
+            <if condition="productStore?.reservationOrderEnumId == 'AsResOrdNoRes'"><return/></if>
             
             <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
                 <econdition field-name="orderId"/>
@@ -88,6 +86,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <!-- first check the OrderItem, make sure we have a productId otherwise don't reserve -->
             <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+
             <set field="productId" from="orderItem.productId"/>
             <if condition="!productId"><return/></if>
             <set field="quantityRemaining" from="orderItem.quantity"/>
@@ -98,9 +97,11 @@ This Work includes contributions authored by David E. Jones, not as a
                         to-value-field="productStore" cache="true"/>
             </if>
             <!-- if store setup for no reservation return now -->
-            <if condition="productStore.reservationOrderEnumId == 'AsResOrdNoRes'"><return/></if>
+            <if condition="productStore?.reservationOrderEnumId == 'AsResOrdNoRes'"><return/></if>
             <!-- otherwise set assetOrderBy field based on reservationOrderEnumId -->
-            <set field="resOrderEnum" from="productStore.'AssetReservationOrder#moqui.basic.Enumeration'"/>
+            <set field="reservationOrderEnumId" from="productStore?.reservationOrderEnumId ?: 'AsResOrdFifoRec'"/>
+            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="resOrderEnum">
+                <field-map field-name="enumId" from="reservationOrderEnumId"/></entity-find-one>
             <set field="assetOrderBy" from="resOrderEnum?.enumCode ?: 'receivedDate'"/><!-- default: FIFO by received date -->
 
             <!-- if there are any existing reservations, deduct their quantity -->
@@ -110,18 +111,22 @@ This Work includes contributions authored by David E. Jones, not as a
             <iterate list="existingResList" entry="existingRes">
                 <set field="quantityRemaining" from="quantityRemaining - existingRes.quantity"/>
             </iterate>
-            <!-- do anything if too much is reserved? (best an issue for another point in the process...) -->
+            <!-- TODO: handle if too much is reserved -->
             <!-- if nothing left to reserve return now -->
             <if condition="quantityRemaining &lt;= 0"><return/></if>
 
             <!-- do the reservation... -->
+            <entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/>
+            <set field="inventoryFacilityId" from="productStore?.inventoryFacilityId ?: orderPart?.facilityId"/>
+            <set field="organizationPartyId" from="productStore?.organizationPartyId ?: orderPart?.vendorPartyId"/>
+
             <set field="baseMap" from="[orderId:orderId, orderItemSeqId:orderItemSeqId, productId:productId]"/>
 
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
                 <!-- TODO: filter out old and no longer used Asset records somehow so this won't be a huge list for high volume operations with a long history -->
                 <econdition field-name="productId"/><econdition field-name="statusId" value="AstAvailable"/>
-                <econdition field-name="facilityId" from="productStore.inventoryFacilityId" ignore-if-empty="true"/>
-                <econdition field-name="ownerPartyId" from="productStore.organizationPartyId" ignore-if-empty="true"/>
+                <econdition field-name="facilityId" from="inventoryFacilityId" ignore-if-empty="true"/>
+                <econdition field-name="ownerPartyId" from="organizationPartyId" ignore-if-empty="true"/>
                 <order-by field-name="${assetOrderBy}"/>
             </entity-find>
             <!-- if assetId specified add it to the list -->
@@ -140,7 +145,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
                                 [assetId:asset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityToReserve,
                                 quantityNotAvailable:0, quantityNotIssued:quantityToReserve, priority:orderItem.priority,
-                                sequenceNum:asset_index, reservationOrderEnumId:productStore.reservationOrderEnumId]"/>
+                                sequenceNum:asset_index, reservationOrderEnumId:reservationOrderEnumId]"/>
                         <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap +
                                 [assetId:asset.assetId, effectiveDate:ec.user.nowTimestamp,
                                 availableToPromiseDiff:-quantityToReserve, assetReservationId:resOut.assetReservationId]"/>
@@ -154,7 +159,7 @@ This Work includes contributions authored by David E. Jones, not as a
                             [assetId:lastAsset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityRemaining,
                             quantityNotAvailable:quantityNotAvailable, quantityNotIssued:quantityRemaining,
                             priority:orderItem.priority, sequenceNum:asset_index,
-                            reservationOrderEnumId:productStore.reservationOrderEnumId]"/>
+                            reservationOrderEnumId:reservationOrderEnumId]"/>
                     <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap +
                             [assetId:lastAsset.assetId, effectiveDate:ec.user.nowTimestamp,
                             availableToPromiseDiff:-quantityRemaining, assetReservationId:resOut.assetReservationId]"/>
@@ -164,14 +169,14 @@ This Work includes contributions authored by David E. Jones, not as a
                     <!-- no asset... create a shell one to record the issuance and detail against -->
                     <service-call name="create#mantle.product.asset.Asset" out-map="assetOut"
                             in-map="[assetTypeEnumId:'AstTpInventory', hasQuantity:'Y', statusId:'AstAvailable',
-                                productId:productId, facilityId:productStore.inventoryFacilityId,
-                                ownerPartyId:productStore.organizationPartyId, receivedDate:ec.user.nowTimestamp,
+                                productId:productId, facilityId:inventoryFacilityId,
+                                ownerPartyId:organizationPartyId, receivedDate:ec.user.nowTimestamp,
                                 availableToPromiseTotal:0, quantityOnHandTotal: 0]"/>
                     <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
                             [assetId:assetOut.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityRemaining,
                             quantityNotAvailable:quantityRemaining, quantityNotIssued:quantityRemaining,
                             priority:orderItem.priority, sequenceNum:0,
-                            reservationOrderEnumId:productStore.reservationOrderEnumId]"/>
+                            reservationOrderEnumId:reservationOrderEnumId]"/>
                     <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap +
                             [assetId:assetOut.assetId, effectiveDate:ec.user.nowTimestamp,
                             availableToPromiseDiff:-quantityRemaining, assetReservationId:resOut.assetReservationId]"/>
