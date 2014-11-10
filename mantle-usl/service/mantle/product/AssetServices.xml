@@ -139,8 +139,10 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="baseMap" from="[orderId:orderId, orderItemSeqId:orderItemSeqId, productId:productId]"/>
 
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
-                <!-- TODO: filter out old and no longer used Asset records somehow so this won't be a huge list for high volume operations with a long history -->
                 <econdition field-name="productId"/><econdition field-name="statusId" value="AstAvailable"/>
+                <!-- exclude old, unused Asset records; is not-equals instead of greater so that negative ATP records
+                    for not-available reservations will be included and reused -->
+                <econdition field-name="availableToPromiseTotal" operator="not-equals" from="0"/>
                 <econdition field-name="facilityId" from="inventoryFacilityId" ignore-if-empty="true"/>
                 <econdition field-name="ownerPartyId" from="organizationPartyId" ignore-if-empty="true"/>
                 <order-by field-name="${assetOrderBy}"/>
