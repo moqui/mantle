@@ -86,9 +86,10 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="assetId"><description>Optional assetId, reserves against this first if specified.</description></parameter>
         </in-parameters>
         <actions>
-            <!-- first check the OrderItem, make sure we have a productId otherwise don't reserve -->
-            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <!-- do a FOR UPDATE query on OrderItem as a semaphore -->
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem" for-update="true"/>
 
+            <!-- first check the OrderItem, make sure we have a productId otherwise don't reserve -->
             <set field="productId" from="orderItem.productId"/>
             <if condition="!productId"><return/></if>
 
@@ -104,14 +105,52 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- if there are any existing reservations, deduct their quantity -->
             <entity-find entity-name="mantle.product.issuance.AssetReservation" list="existingResList">
                 <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
+                <order-by field-name="-reservedDate"/><!-- get most recent first for reducing reservation quantities -->
             </entity-find>
             <iterate list="existingResList" entry="existingRes">
                 <set field="quantityRemaining" from="quantityRemaining - existingRes.quantity"/>
             </iterate>
-            <!-- TODO: handle if too much is reserved -->
-            <!-- if nothing left to reserve return now -->
-            <if condition="quantityRemaining &lt;= 0"><return/></if>
+            <!-- if nothing to reserve or un-reserve return now -->
+            <if condition="quantityRemaining == 0"><return/></if>
 
+            <!-- handle too much reserved -->
+            <if condition="quantityRemaining &lt; 0">
+                <set field="quantityToDeduct" from="-quantityRemaining"/>
+                <iterate list="existingResList" entry="existingRes">
+                    <if condition="quantityToDeduct >= existingRes.quantity &amp;&amp; existingRes.quantity == existingRes.quantityNotIssued">
+                        <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
+                                effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:existingRes.quantity,
+                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId]"/>
+
+                        <set field="quantityToDeduct" from="quantityToDeduct - existingRes.quantity"/>
+                        <entity-delete value-field="existingRes"/>
+
+                        <else>
+                            <set field="curQuantityToDeduct" from="existingRes.quantityNotIssued &gt; quantityToDeduct ?
+                                    quantityToDeduct : existingRes.quantityNotIssued"/>
+                            <!-- add to ATP on Asset through a detail record -->
+                            <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
+                                effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:curQuantityToDeduct,
+                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId]"/>
+                            <!-- reduce quantities on AssetReservation -->
+                            <set field="existingRes.quantity" from="existingRes.quantity - curQuantityToDeduct"/>
+                            <set field="existingRes.quantityNotAvailable"
+                                    from="existingRes.quantityNotAvailable &gt; curQuantityToDeduct ?
+                                        existingRes.quantityNotAvailable - curQuantityToDeduct : 0"/>
+                            <set field="existingRes.quantityNotIssued" from="existingRes.quantityNotIssued - curQuantityToDeduct"/>
+                            <entity-update value-field="existingRes"/>
+
+                            <set field="quantityToDeduct" from="quantityToDeduct - curQuantityToDeduct"/>
+                        </else>
+                    </if>
+                    <if condition="quantityToDeduct == 0"><script>break</script></if>
+                </iterate>
+
+                <if condition="quantityToDeduct != 0">
+                    <return error="true" message="Unable to remove reservations for ${quantityToDeduct} out of ${-quantityRemaining} attempted, not enough quantity reserved and not issued"/>
+                    <else><return/></else>
+                </if>
+            </if>
 
             <if condition="productStore == null">
                 <entity-find-related-one value-field="orderHeader" relationship-name="mantle.product.store.ProductStore"
@@ -209,6 +248,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="orderItemSeqId" required="true"/>
         </in-parameters>
         <actions>
+            <!-- do a FOR UPDATE query on OrderItem as a semaphore -->
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem" for-update="true"/>
+
             <entity-find entity-name="mantle.product.issuance.AssetReservation" list="existingResList" for-update="true">
                 <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/></entity-find>
             <iterate list="existingResList" entry="existingRes">
