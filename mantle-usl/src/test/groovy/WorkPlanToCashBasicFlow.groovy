@@ -116,7 +116,7 @@ class WorkPlanToCashBasicFlow extends Specification {
                 contactMechId="${vendorCiResult.emailContactMechId}" contactMechPurposeId="EmailPayment" fromDate="${effectiveTime}"/>
 
             <mantle.ledger.transaction.GlJournal glJournalId="${vendorResult.partyId}Error"
-                glJournalName="Error Journal for ${vendorResult.partyId}" organizationPartyId="${vendorResult.partyId}"/>
+                glJournalName="Error Journal for Test Vendor" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.config.PartyAcctgPreference organizationPartyId="${vendorResult.partyId}"
                 taxFormEnumId="TxfUsIrs1120" cogsMethodEnumId="CogsActualCost" baseCurrencyUomId="USD"
                 invoiceSequenceEnumId="InvSqStandard" orderSequenceEnumId="OrdSqStandard"
