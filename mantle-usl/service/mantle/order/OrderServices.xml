@@ -334,7 +334,12 @@ h2. General Order Placement and eCommerce Usage
                 <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
                 <if condition="product == null"><return error="true" message="Product [${productId}] not found."/></if>
             </if>
+            <if condition="product?.amountRequire == 'Y' &amp;&amp; !selectedAmount">
+                <return error="true" message="Product [${productId}] requires a selected amount"/></if>
             <if condition="!itemDescription"><set field="itemDescription" from="product?.productName"/></if>
+            <if condition="!quantityUomId"><set field="quantityUomId" from="product?.amountUomId"/></if>
+            <if condition="product?.amountFixed"><set field="selectedAmount" from="product?.amountFixed"/></if>
+
             <service-call name="create#mantle.order.OrderItem" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -343,13 +348,36 @@ h2. General Order Placement and eCommerce Usage
             <auto-parameters include="pk" required="true"/>
             <auto-parameters include="nonpk"/>
         </in-parameters>
-        <actions><service-call name="update#mantle.order.OrderItem" in-map="context"/></actions>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <set field="productId" from="productId ?: orderItem.productId"/>
+
+            <!-- calculate the price based on quantity, etc, -->
+            <if condition="!unitAmount &amp;&amp; productId">
+                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                <entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/>
+
+                <service-call name="mantle.product.PriceServices.get#ProductPrice" out-map="priceMap"
+                        in-map="[productId:productId, quantity:quantity, priceUomId:orderHeader.currencyUomId,
+                            productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
+                            vendorPartyId:orderPart.vendorPartyId]"/>
+
+                <set field="unitAmount" from="priceMap.price"/>
+                <set field="unitListPrice" from="priceMap.listPrice"/>
+                <set field="isModifiedPrice" value="N"/>
+
+                <else><set field="isModifiedPrice" value="Y"/></else>
+            </if>
+
+            <service-call name="update#mantle.order.OrderItem" in-map="context"/>
+        </actions>
     </service>
     <service verb="delete" noun="OrderItem">
-        <in-parameters>
-            <auto-parameters include="pk" required="true"/>
-        </in-parameters>
-        <actions><service-call name="delete#mantle.order.OrderItem" in-map="context"/></actions>
+        <in-parameters><auto-parameters include="pk" required="true"/></in-parameters>
+        <actions>
+            <service-call name="mantle.product.AssetServices.remove#OrderItemReservations" in-map="context"/>
+            <service-call name="delete#mantle.order.OrderItem" in-map="context"/>
+        </actions>
     </service>
 
     <!-- OrderProductQuantity aka "Cart" Services -->
@@ -387,7 +415,10 @@ h2. General Order Placement and eCommerce Usage
                 <set field="orderPartSeqId" from="orderPartList?.first?.orderPartSeqId"/>
             </if>
 
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
+
+            <set field="productStoreId" from="productStoreId ?: orderHeader?.productStoreId"/>
             <entity-find-one entity-name="mantle.product.store.ProductStore" value-field="productStore"/>
             <set field="vendorPartyId" from="orderPart?.vendorPartyId ?: productStore?.organizationPartyId"/>
             <set field="currencyUomId" from="currencyUomId ?: productStore?.defaultCurrencyUomId"/>
@@ -400,6 +431,7 @@ h2. General Order Placement and eCommerce Usage
                     <entity-find entity-name="mantle.order.OrderHeaderAndPart" list="existingOrderList">
                         <econdition field-name="statusId" value="OrderOpen"/>
                         <econdition field-name="customerPartyId"/>
+                        <econdition field-name="productStoreId" ignore-if-empty="true"/>
                         <select-field field-name="orderId"/><select-field field-name="orderPartSeqId"/>
                         <order-by field-name="-entryDate"/><!-- get most recent open order -->
                     </entity-find>
@@ -466,20 +498,8 @@ h2. General Order Placement and eCommerce Usage
                 <return/>
             </if>
 
-            <!-- calculate the price based on quantity, etc, -->
-            <!-- TODO: consider making this a separate service to either get a price for an OrderItem or update it in place -->
-            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
-            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
-            <entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/>
-            <service-call name="mantle.product.PriceServices.get#ProductPrice" out-map="priceMap"
-                    in-map="[productId:orderItem.productId, quantity:quantity, priceUomId:orderHeader.currencyUomId,
-                        productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
-                        vendorPartyId:orderPart.vendorPartyId]"/>
-            <set field="orderItem.unitAmount" from="priceMap.price" set-if-empty="false"/>
-            <set field="orderItem.unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
-            <set field="orderItem.isModifiedPrice" value="N"/>
-            <set field="orderItem.quantity" from="quantity"/>
-            <entity-update value-field="orderItem"/>
+            <service-call name="mantle.order.OrderServices.update#OrderItem"
+                    in-map="[orderId:orderId, orderItemSeqId:orderItemSeqId, quantity:quantity]"/>
         </actions>
     </service>
     <service verb="merge" noun="OrderItems">
@@ -690,7 +710,7 @@ h2. General Order Placement and eCommerce Usage
                         </filter-map-list>
                         <if condition="!currentSubscriptionList">
                             <set field="orderPartComplete" from="false"/>
-                            <script>break</script>
+                            <break/>
                         </if>
                     </iterate>
                 </if>
@@ -706,7 +726,7 @@ h2. General Order Placement and eCommerce Usage
                     </iterate>
                     <if condition="currentQuantityTotal &lt; orderItem.quantity">
                         <set field="orderPartComplete" from="false"/>
-                        <script>break</script>
+                        <break/>
                     </if>
                 </if>
             </if></iterate>

@@ -20,14 +20,14 @@ This Work includes contributions authored by David E. Jones, not as a
         </description>
         <in-parameters>
             <parameter name="productId" required="true"/>
-            <parameter name="quantity" type="BigDecimal" default-value="1"/>
+            <parameter name="quantity" type="BigDecimal" default="1"/>
 
             <parameter name="priceUomId" default-value="USD"/>
             <parameter name="pricePurposeEnumId" default-value="PppPurchase"/>
 
             <parameter name="productStoreId"/>
             <parameter name="vendorPartyId"/>
-            <!-- TODO: to support look for records with this first and then with null: <parameter name="customerPartyId"/> -->
+            <parameter name="customerPartyId"/>
 
             <!-- TODO: to support look for records with this first and then with null: <parameter name="agreementId"/> -->
             <!-- TODO: to support look for records with this first and then with null: <parameter name="agreementItemSeqId"/> -->
@@ -38,43 +38,74 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="priceUomId"/>
         </out-parameters>
         <actions>
-            <!-- get current price -->
-            <entity-find entity-name="mantle.product.ProductPrice" list="productPriceList" cache="true">
-                <econdition-object field="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId]"/>
-                <econditions combine="or">
-                    <econdition field-name="productStoreId" ignore-if-empty="true"/>
-                    <econdition field-name="vendorPartyId" ignore-if-empty="true"/>
-                </econditions>
-                <econdition field-name="priceTypeEnumId" value="PptCurrent"/>
-                <econdition field-name="minQuantity" operator="less-equals" from="quantity"/>
-                <!-- ignore for now <econdition field-name="customerPartyId" from="null"/> -->
+            <!-- get PptCurrent price -->
+            <!-- try most constrained, back off from there -->
+            <if condition="productStoreId &amp;&amp; vendorPartyId &amp;&amp; customerPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptCurrent', productStoreId:productStoreId, vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]"/>
+            </if>
+            <!-- try just vendor and customer -->
+            <if condition="!productPrice &amp;&amp; vendorPartyId &amp;&amp; customerPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptCurrent', vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]"/>
+            </if>
+            <!-- try just customer and store -->
+            <if condition="!productPrice &amp;&amp; productStoreId &amp;&amp; customerPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptCurrent', productStoreId:productStoreId, customerPartyId:customerPartyId]"/>
+            </if>
+            <!-- try just store -->
+            <if condition="!productPrice &amp;&amp; productStoreId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptCurrent', productStoreId:productStoreId]"/>
+            </if>
+            <!-- try just vendor -->
+            <if condition="!productPrice &amp;&amp; vendorPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptCurrent', vendorPartyId:vendorPartyId]"/>
+            </if>
+            <set field="price" from="productPrice?.price"/>
 
-                <order-by field-name="-fromDate"/><!-- get most recent price records first -->
-                <order-by field-name="-minQuantity"/><!-- get highest qualifying (<=quantity) minQuantity records first -->
-            </entity-find>
-            <filter-map-list list="productPriceList"><date-filter/></filter-map-list>
-            <set field="productPrice" from="productPriceList?.first"/>
-            <!-- make sure we have a price, at least default of 0 -->
-            <set field="price" from="productPrice?.price ?: 0"/>
+            <!-- get PptList price -->
+            <set field="productPrice" from="null"/>
+            <!-- try most constrained, back off from there -->
+            <if condition="productStoreId &amp;&amp; vendorPartyId &amp;&amp; customerPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptList', productStoreId:productStoreId, vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]"/>
+            </if>
+            <!-- try just vendor and customer -->
+            <if condition="!productPrice &amp;&amp; vendorPartyId &amp;&amp; customerPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptList', vendorPartyId:vendorPartyId, customerPartyId:customerPartyId]"/>
+            </if>
+            <!-- try just customer and store -->
+            <if condition="!productPrice &amp;&amp; productStoreId &amp;&amp; customerPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptList', productStoreId:productStoreId, customerPartyId:customerPartyId]"/>
+            </if>
+            <!-- try just store -->
+            <if condition="!productPrice &amp;&amp; productStoreId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptList', productStoreId:productStoreId]"/>
+            </if>
+            <!-- try just vendor -->
+            <if condition="!productPrice &amp;&amp; vendorPartyId">
+                <service-call name="mantle.product.PriceServices.find#ProductPriceRecord" out-map="context"
+                        in-map="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId, quantity:quantity,
+                            priceTypeEnumId:'PptList', vendorPartyId:vendorPartyId]"/>
+            </if>
+            <set field="listPrice" from="productPrice?.price"/>
 
-            <!-- get list price -->
-            <entity-find entity-name="mantle.product.ProductPrice" list="listProductPriceList" cache="true">
-                <econdition-object field="[productId:productId, priceUomId:priceUomId, pricePurposeEnumId:pricePurposeEnumId]"/>
-                <econditions combine="or">
-                    <econdition field-name="productStoreId" ignore-if-empty="true"/>
-                    <econdition field-name="vendorPartyId" ignore-if-empty="true"/>
-                </econditions>
-
-                <econdition field-name="priceTypeEnumId" value="PptList"/>
-                <econdition field-name="minQuantity" operator="less-equals" from="quantity"/>
-                <!-- <econdition field-name="customerPartyId" from="null"/> -->
-
-                <order-by field-name="-fromDate"/><!-- get most recent price records first -->
-                <order-by field-name="-minQuantity"/><!-- get highest qualifying (<=quantity) minQuantity records first -->
-            </entity-find>
-            <filter-map-list list="listProductPriceList"><date-filter/></filter-map-list>
-            <set field="listProductPrice" from="listProductPriceList?.first"/>
-            <set field="listPrice" from="listProductPrice?.price"/>
+            <set field="price" from="price ?: listPrice ?: 0"/>
 
             <!-- <log level="warn" message="========== BEFORE rules productId=${productId}, price=${price}, listPrice=${listPrice}"/> -->
 
@@ -82,6 +113,38 @@ This Work includes contributions authored by David E. Jones, not as a
             <script>ec.getStatelessKieSession("ProductPriceKS").execute([])</script>
 
             <!-- <log level="warn" message="========== AFTER rules productId=${productId}, price=${price}, listPrice=${listPrice}"/> -->
+        </actions>
+    </service>
+
+    <service verb="find" noun="ProductPriceRecord">
+        <description>This is an internal service called by get#ProductPrice.</description>
+        <in-parameters>
+            <parameter name="productId" required="true"/><parameter name="priceUomId" required="true"/>
+            <parameter name="pricePurposeEnumId" required="true"/><parameter name="priceTypeEnumId" required="true"/>
+            <parameter name="quantity" required="true"/>
+            <parameter name="productStoreId"/>
+            <parameter name="vendorPartyId"/><parameter name="customerPartyId"/>
+        </in-parameters>
+        <out-parameters><parameter name="productPrice" type="EntityValue"/></out-parameters>
+        <actions>
+            <!-- <log level="warn" message="finding price record with context: ${context}"/> -->
+
+            <entity-find entity-name="mantle.product.ProductPrice" list="productPriceList" cache="true">
+                <econdition-object field="[productId:productId, priceUomId:priceUomId,
+                        pricePurposeEnumId:pricePurposeEnumId, priceTypeEnumId:priceTypeEnumId]"/>
+                <econdition field-name="minQuantity" operator="less-equals" from="quantity"/>
+
+                <econdition field-name="productStoreId" ignore-if-empty="true"/>
+                <econdition field-name="vendorPartyId" ignore-if-empty="true"/>
+                <econdition field-name="customerPartyId" ignore-if-empty="true"/>
+
+                <order-by field-name="-fromDate"/><!-- get most recent price records first -->
+                <order-by field-name="-minQuantity"/><!-- get highest qualifying (<=quantity) minQuantity records first -->
+            </entity-find>
+            <!-- <log level="warn" message="CALC productPriceList: ${productPriceList}"/> -->
+
+            <filter-map-list list="productPriceList"><date-filter/></filter-map-list>
+            <set field="productPrice" from="productPriceList?.first"/>
         </actions>
     </service>
 </services>
