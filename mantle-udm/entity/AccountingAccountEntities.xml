@@ -98,7 +98,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="isRefundable" type="text-indicator"/>
-        <field name="balanceUomId" type="id"/>
+        <field name="currencyUomId" type="id"/>
         <field name="actualBalance" type="currency-amount"><description>Calculated as the sum of
             FinancialAccountTrans.amount</description></field>
         <field name="availableBalance" type="currency-amount"><description>Calculated as actualBalance minus sum of
@@ -118,8 +118,8 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="PostTo" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="postToGlAccountId"/>
         </relationship>
-        <relationship type="one" title="Balance" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="balanceUomId"/>
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="currencyUomId"/>
         </relationship>
         <relationship type="one" title="Replenish" related-entity-name="mantle.account.method.PaymentMethod">
             <key-map field-name="replenishPaymentId"/>
@@ -163,11 +163,12 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="mantle.party.Party"/>
         <relationship type="one" related-entity-name="mantle.party.RoleType"/>
     </entity>
-    <entity entity-name="FinancialAccountTrans" package-name="mantle.account.financial">
+    <entity entity-name="FinancialAccountTrans" package-name="mantle.account.financial" create-only="true">
         <field name="finAccountTransId" type="id" is-pk="true"/>
         <field name="finAccountTransTypeEnumId" type="id"/>
         <field name="finAccountId" type="id"/>
-        <field name="statusId" type="id"/>
+        <field name="finAccountAuthId" type="id"><description>Only set for withdrawals based on an auth.</description></field>
+        <!-- don't want status, using create-only approach: <field name="statusId" type="id"/> -->
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
         <field name="glReconciliationId" type="id"/>
@@ -178,14 +179,15 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"><description>To be used along with orderId to point to an OrderItem that
             represents the purchase of a product to add money to the account.</description></field>
-        <field name="performedByPartyId" type="id"/>
+        <field name="performedByUserId" type="id-long"/>
         <field name="reasonEnumId" type="id"/>
         <field name="comments" type="text-medium"/>
         <relationship type="one" title="FinancialAccountTransType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="finAccountTransTypeEnumId"/>
         </relationship>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccount"/>
-        <relationship type="one" title="FinancialAccountTrans" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountAuth"/>
+        <!-- <relationship type="one" title="FinancialAccountTrans" related-entity-name="moqui.basic.StatusItem"/> -->
         <relationship type="one" title="From" related-entity-name="mantle.party.Party">
             <key-map field-name="fromPartyId"/>
         </relationship>
@@ -197,8 +199,8 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="orderId"/>
             <key-map field-name="orderItemSeqId"/>
         </relationship>
-        <relationship type="one" title="PerformedBy" related-entity-name="mantle.party.Party">
-            <key-map field-name="performedByPartyId"/>
+        <relationship type="one" title="PerformedBy" related-entity-name="moqui.security.UserAccount">
+            <key-map field-name="performedByUserId"/>
         </relationship>
         <relationship type="one" title="FinancialAccountTransReason" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="reasonEnumId"/>
@@ -212,6 +214,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Adjustment" enumId="FattAdjustment" enumTypeId="FinancialAccountTransType"/>
 
             <!-- Financial Account Trans Status -->
+            <!-- don't want status, using create-only approach:
             <moqui.basic.StatusType statusTypeId="FinancialAccountTrans" description="Financial Account Trans Status"/>
             <moqui.basic.StatusItem statusId="FatCreated" statusTypeId="FinancialAccountTrans" sequenceNum="1" description="Created"/>
             <moqui.basic.StatusItem statusId="FatApproved" statusTypeId="FinancialAccountTrans" sequenceNum="2" description="Approved"/>
@@ -219,6 +222,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FatCreated" toStatusId="FatApproved" transitionName="Approve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FatCreated" toStatusId="FatCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FatApproved" toStatusId="FatCancelled" transitionName="Cancel"/>
+            -->
 
             <!-- Financial Account Trans Reason -->
             <moqui.basic.EnumerationType description="Financial Account Trans Reason" enumTypeId="FinancialAccountTransReason"/>
@@ -226,6 +230,8 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Initial Deposit" enumId="FatrInitDeposit" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Replenishment" enumId="FatrReplenish" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Refund" enumId="FatrRefund" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Customer Service Credit" enumId="FatrCsCredit" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Error Adjustment" enumId="FatrErrorAdjust" enumTypeId="FinancialAccountTransReason"/>
         </seed-data>
     </entity>
     <entity entity-name="FinancialAccountType" package-name="mantle.account.financial">
@@ -268,25 +274,25 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Replenish-level" enumId="FarmLevel" enumTypeId="FinancialAccountReplenishMethod"/>
 
             <!-- Financial Account Type (NOTE: not an Enumeration because has additional fields) -->
-            <FinancialAccountType description="Gift Certificate" finAccountTypeId="GiftCertificate"
+            <mantle.account.financial.FinancialAccountType description="Gift Certificate" finAccountTypeId="GiftCertificate"
                                   replenishTypeEnumId="FarpManual" isRefundable="N"/>
-            <FinancialAccountType description="Deposit Account" finAccountTypeId="DepositAccount"
+            <mantle.account.financial.FinancialAccountType description="Deposit Account" finAccountTypeId="DepositAccount"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y"/>
-            <FinancialAccountType description="Bank Account" finAccountTypeId="BankAccount"
+            <mantle.account.financial.FinancialAccountType description="Bank Account" finAccountTypeId="BankAccount"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="DepositAccount"/>
-            <FinancialAccountType description="Store Credit Account" finAccountTypeId="StoreCredit"
+            <mantle.account.financial.FinancialAccountType description="Store Credit Account" finAccountTypeId="StoreCredit"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="DepositAccount"/>
-            <FinancialAccountType description="Investment Account" finAccountTypeId="Investment"
+            <mantle.account.financial.FinancialAccountType description="Investment Account" finAccountTypeId="Investment"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="DepositAccount"/>
-            <FinancialAccountType description="Replenish Account" finAccountTypeId="Replenish"
+            <mantle.account.financial.FinancialAccountType description="Replenish Account" finAccountTypeId="Replenish"
                                   replenishTypeEnumId="FarpAutomatic" isRefundable="Y" parentTypeId="DepositAccount"/>
-            <FinancialAccountType description="Service Credit Account" finAccountTypeId="ServiceCredit"
+            <mantle.account.financial.FinancialAccountType description="Service Credit Account" finAccountTypeId="ServiceCredit"
                                   replenishTypeEnumId="FarpManual" isRefundable="N"/>
-            <FinancialAccountType description="Loan Account" finAccountTypeId="LoanAccount"
+            <mantle.account.financial.FinancialAccountType description="Loan Account" finAccountTypeId="LoanAccount"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y"/>
-            <FinancialAccountType description="Credit Card Account" finAccountTypeId="CreditCard"
+            <mantle.account.financial.FinancialAccountType description="Credit Card Account" finAccountTypeId="CreditCard"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="LoanAccount"/>
-            <FinancialAccountType description="Equity Line Account" finAccountTypeId="EquityLine"
+            <mantle.account.financial.FinancialAccountType description="Equity Line Account" finAccountTypeId="EquityLine"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="LoanAccount"/>
         </seed-data>
     </entity>

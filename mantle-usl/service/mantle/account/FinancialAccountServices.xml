@@ -14,57 +14,225 @@ This Work includes contributions authored by David E. Jones, not as a
 
 <!-- STATUS: EXPERIMENTAL -->
 
-    <service verb="depositTo" noun="FinancialAccount">
+    <service verb="create" noun="FinancialAccount">
         <in-parameters>
-            <parameter name="finAccountId" required="true"/>
-            <parameter name="amount" type="BigDecimal" required="true"/>
-            <parameter name="amountUomId"/>
-            <parameter name="isRefund" type="Boolean" default-value="false"/>
-            <parameter name="fromPartyId"/>
-            <parameter name="toPartyId"/>
-            <parameter name="orderId"/>
-            <parameter name="orderItemSeqId"/>
-            <parameter name="reasonEnumId"/>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccount" include="nonpk">
+                <exclude field-name="actualBalance"/><exclude field-name="availableBalance"/>
+            </auto-parameters>
+            <parameter name="finAccountTypeId" required="true"/>
+            <parameter name="finAccountName" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="ownerPartyId" required="true"/>
+            <parameter name="statusId" default-value="FaActive"/>
+            <parameter name="isRefundable"><description>Defaults to FinancialAccountType.isRefundable</description></parameter>
+            <parameter name="currencyUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for organizationPartyId.</description></parameter>
         </in-parameters>
-        <out-parameters>
-            <parameter name="preBalance" type="BigDecimal"/>
-            <parameter name="postBalance" type="BigDecimal"/>
-            <parameter name="finAccountTransId"/>
-        </out-parameters>
+        <out-parameters><parameter name="finAccountId"/></out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <if condition="!isRefundable">
+                <entity-find-one entity-name="mantle.account.financial.FinancialAccountType" value-field="financialAccountType"/>
+                <set field="isRefundable" from="financialAccountType?.isRefundable"/>
+            </if>
+            <if condition="!currencyUomId">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                        in-map="[organizationPartyId:organizationPartyId]"/>
+                <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+            </if>
+            <if condition="!currencyUomId"><set field="currencyUomId" value="USD"/></if>
+
+            <service-call name="create#mantle.account.financial.FinancialAccount" in-map="context" out-map="context"/>
         </actions>
     </service>
-    <service verb="withdrawFrom" noun="FinancialAccount">
+    <service verb="update" noun="FinancialAccount">
         <in-parameters>
             <parameter name="finAccountId" required="true"/>
-            <parameter name="finAccountAuthId"/>
-            <parameter name="amount" type="BigDecimal" required="true"/>
-            <parameter name="amountUomId"/>
-            <parameter name="isRefund" type="Boolean" default-value="false"/>
-            <parameter name="fromPartyId"/>
-            <parameter name="toPartyId"/>
-            <parameter name="orderId"/>
-            <parameter name="orderItemSeqId"/>
-            <parameter name="reasonEnumId"/>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccount" include="nonpk">
+                <exclude field-name="actualBalance"/><exclude field-name="availableBalance"/>
+            </auto-parameters>
         </in-parameters>
-        <out-parameters>
-            <parameter name="preBalance" type="BigDecimal"/>
-            <parameter name="postBalance" type="BigDecimal"/>
-            <parameter name="finAccountTransId"/>
-        </out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <service-call name="update#mantle.account.financial.FinancialAccount" in-map="context" out-map="context"/>
         </actions>
     </service>
 
-    <service verb="authorizeAgainst" noun="FinancialAccount">
+    <service verb="calculate" noun="FinancialAccountTotals">
+        <description>Calculates totals from FinancialAccountTrans and FinancialAccountAuth records, records them
+            on the FinancialAccount record and returns them.</description>
+        <in-parameters>
+            <parameter name="finAccountId"/>
+            <parameter name="finAccountTransId"/>
+            <parameter name="finAccountAuthId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="currencyUomId"/>
+            <parameter name="actualBalance" type="BigDecimal"/>
+            <parameter name="authBalance" type="BigDecimal"/>
+            <parameter name="availableBalance" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <if condition="!finAccountId &amp;&amp; finAccountTransId">
+                <entity-find-one entity-name="mantle.account.financial.FinancialAccountTrans" value-field="fat"/>
+                <set field="finAccountId" from="fat?.finAccountId"/>
+            </if>
+            <if condition="!finAccountId &amp;&amp; finAccountAuthId">
+                <entity-find-one entity-name="mantle.account.financial.FinancialAccountAuth" value-field="faa"/>
+                <set field="finAccountId" from="faa?.finAccountId"/>
+            </if>
+            <if condition="!finAccountId"><return error="true" message="Cannot calculate Financial Account totals, no finAccountId passed"/></if>
+
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+            <set field="currencyUomId" from="financialAccount.currencyUomId"/>
+
+            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                <econdition field-name="finAccountId"/></entity-find>
+            <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+
+            <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
+                <econdition field-name="finAccountId"/>
+                <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
+            </entity-find>
+            <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+
+            <set field="availableBalance" from="actualBalance - authBalance"/>
+
+            <set field="financialAccount.actualBalance" from="actualBalance"/>
+            <set field="financialAccount.availableBalance" from="availableBalance"/>
+            <entity-update value-field="financialAccount"/>
+        </actions>
+    </service>
+
+    <service verb="adjust" noun="FinancialAccount">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccountTrans" include="nonpk">
+                <exclude field-name="finAccountTransTypeEnumId"/>
+                <exclude field-name="finAccountAuthId"/>
+            </auto-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- maybe support in the future with currency conversion: <parameter name="amountUomId"/> -->
+            <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="preBalance" type="BigDecimal"/>
+            <parameter name="postBalance" type="BigDecimal"/>
+            <parameter name="finAccountTransId"/>
+        </out-parameters>
+        <actions>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
+            <!-- do a for-update query to lock the FinancialAccount record -->
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
+
+            <set field="finAccountTransTypeEnumId" value="FattAdjustment"/>
+            <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
+
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
+            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
+
+            <set field="differAmount" from="postBalance - preBalance"/>
+            <if condition="differAmount != amount">
+                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="deposit" noun="FinancialAccount">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccountTrans" include="nonpk">
+                <exclude field-name="finAccountTransTypeEnumId"/>
+                <exclude field-name="finAccountAuthId"/>
+            </auto-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- maybe support in the future with currency conversion: <parameter name="amountUomId"/> -->
+            <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="preBalance" type="BigDecimal"/>
+            <parameter name="postBalance" type="BigDecimal"/>
+            <parameter name="finAccountTransId"/>
+        </out-parameters>
+        <actions>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
+            <!-- do a for-update query to lock the FinancialAccount record -->
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
+
+            <set field="finAccountTransTypeEnumId" value="FattDeposit"/>
+            <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
+
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
+            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
+
+            <set field="differAmount" from="postBalance - preBalance"/>
+            <if condition="differAmount != amount">
+                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="withdraw" noun="FinancialAccount">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.financial.FinancialAccountTrans" include="nonpk">
+                <exclude field-name="finAccountTransTypeEnumId"/>
+            </auto-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- maybe support in the future with currency conversion: <parameter name="amountUomId"/> -->
+            <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
+        </in-parameters>
+        <out-parameters>
+            <parameter name="preBalance" type="BigDecimal"/>
+            <parameter name="postBalance" type="BigDecimal"/>
+            <parameter name="finAccountTransId"/>
+        </out-parameters>
+        <actions>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
+            <!-- this is a withdrawal, so subtract the amount -->
+            <set field="amount" from="-amount"/>
+
+            <!-- do a for-update query to lock the FinancialAccount record -->
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
+
+            <set field="finAccountTransTypeEnumId" value="FattWithdraw"/>
+            <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
+
+            <if condition="finAccountAuthId">
+                <!-- if there is an auth, expire it -->
+                <service-call name="update#mantle.account.financial.FinancialAccountAuth"
+                        in-map="[finAccountAuthId:finAccountAuthId, expireDate:ec.user.nowTimestamp]"/>
+            </if>
+
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
+            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
+
+            <set field="differAmount" from="postBalance - preBalance"/>
+            <if condition="differAmount != amount">
+                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="authorize" noun="FinancialAccount">
         <in-parameters>
             <parameter name="finAccountId" required="true"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
-            <parameter name="amountUomId"/>
             <parameter name="authorizationDate" type="Timestamp" default-value="ec.user.nowTimestamp"/>
-            <parameter name="expireDate" type="Timestamp"/>
+            <parameter name="expireDate" type="Timestamp" required="true"/><!-- TODO: default this based on some sort of setting? -->
         </in-parameters>
         <out-parameters>
             <parameter name="preAvailableBalance" type="BigDecimal"/>
@@ -72,16 +240,28 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="finAccountAuthId"/>
         </out-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+            <set field="preAvailableBalance" from="financialAccount.availableBalance"/>
+
+            <service-call name="create#mantle.account.financial.FinancialAccountAuth" in-map="context" out-map="context"/>
+
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
+            <set field="postAvailableBalance" from="postFinancialAccount.actualBalance"/>
+
+            <set field="differAmount" from="preAvailableBalance - postAvailableBalance"/>
+            <if condition="differAmount != amount">
+                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preAvailableBalance} and post balance ${postAvailableBalance} differ by [${differAmount}] and not by transaction amount ${amount}"/>
+            </if>
         </actions>
     </service>
     <service verb="expire" noun="FinancialAccountAuth">
         <in-parameters>
             <parameter name="finAccountAuthId" required="true"/>
-            <parameter name="expireDate" type="Timestamp"/>
+            <parameter name="expireDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <actions>
-            <!-- TODO: implement this... -->
+            <service-call name="update#mantle.account.financial.FinancialAccountAuth" in-map="context"/>
         </actions>
     </service>
 
