@@ -496,22 +496,8 @@ h2. General Order Placement and eCommerce Usage
                 <return/>
             </if>
 
-            <!-- calculate the price based on quantity, etc, -->
-            <!-- TODO: consider making this a separate service to either get a price for an OrderItem or update it in place -->
-            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
-            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
-            <entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/>
-
-            <service-call name="mantle.product.PriceServices.get#ProductPrice" out-map="priceMap"
-                    in-map="[productId:orderItem.productId, quantity:quantity, priceUomId:orderHeader.currencyUomId,
-                        productStoreId:orderHeader.productStoreId, customerPartyId:orderPart.customerPartyId,
-                        vendorPartyId:orderPart.vendorPartyId]"/>
-            <set field="orderItem.unitAmount" from="priceMap.price" set-if-empty="false"/>
-            <set field="orderItem.unitListPrice" from="priceMap.listPrice" set-if-empty="false"/>
-            <set field="orderItem.isModifiedPrice" value="N"/>
-            <set field="orderItem.quantity" from="quantity"/>
-
-            <entity-update value-field="orderItem"/>
+            <service-call name="mantle.order.OrderServices.update#OrderItem"
+                    in-map="[orderId:orderId, orderItemSeqId:orderItemSeqId, quantity:quantity]"/>
         </actions>
     </service>
     <service verb="merge" noun="OrderItems">
