@@ -274,7 +274,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
-    <service verb="reserve" noun="NewlyAvailableAsset">
+    <service verb="reserve" noun="IncreasedAsset">
         <in-parameters><parameter name="assetId" required="true"/></in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
@@ -360,6 +360,50 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="change" noun="AssetQuantity">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.product.asset.AssetDetail" include="nonpk"/>
+            <parameter name="assetId" required="true"/>
+            <parameter name="quantityDiff" type="BigDecimal" required="true"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <actions>
+            <!-- TODO (future): also use on physical inventory decrease -->
+
+            <service-call name="create#mantle.product.asset.AssetDetail" in-map="context +
+                    [quantityOnHandDiff:quantityDiff, availableToPromiseDiff:quantityDiff]"/>
+
+            <if condition="quantityDiff &gt; 0">
+                <!-- reserve the newly available Asset, if needed -->
+                <service-call name="mantle.product.AssetServices.reserve#IncreasedAsset" in-map="[assetId:assetId]"/>
+            </if>
+            <if condition="quantityDiff &lt; 0">
+                <!-- on decrease adjust reservations down (increase quantityNotAvailable); -->
+                <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+                <if condition="asset.availableToPromiseTotal &lt; 0">
+                    <set field="negativeAvailable" from="-asset.availableToPromiseTotal"/>
+                    <set field="reduceQuantityRemaining" from="-quantityDiff"/>
+                    <if condition="reduceQuantityRemaining &gt; negativeAvailable"><set field="reduceQuantityRemaining" from="negativeAvailable"/></if>
+
+                    <entity-find entity-name="mantle.product.issuance.AssetReservation" list="existingResList">
+                        <econdition field-name="assetId"/>
+                        <order-by field-name="-reservedDate"/><!-- get most recent first for reducing reservation quantities -->
+                    </entity-find>
+                    <iterate list="existingResList" entry="res">
+                        <set field="quantityAvailable" from="res.quantity - res.quantityNotAvailable"/>
+                        <set field="quantityToReduce" from="quantityAvailable &gt; reduceQuantityRemaining ? reduceQuantityRemaining : quantityAvailable"/>
+
+                        <set field="res.quantityNotAvailable" from="res.quantityNotAvailable + quantityToReduce"/>
+                        <entity-update value-field="res"/>
+
+                        <set field="reduceQuantityRemaining" from="reduceQuantityRemaining - quantityToReduce"/>
+                        <if condition="reduceQuantityRemaining == 0"><break/></if>
+                    </iterate>
+                </if>
+            </if>
+        </actions>
+    </service>
+
     <service verb="issue" noun="AssetReservation">
         <description>Issue an Asset based on a reservation (AssetReservation).</description>
         <in-parameters>
@@ -429,18 +473,16 @@ This Work includes contributions authored by David E. Jones, not as a
                         <set field="quantityRemaining" from="quantityRemaining - quantityToIssue"/>
                         <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="issueOut" in-map="baseMap +
                                 [assetId:asset.assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantityToIssue]"/>
-                        <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap + [assetId:asset.assetId,
-                                effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantityToIssue,
-                                availableToPromiseDiff:-quantityToIssue, assetIssuanceId:issueOut.assetIssuanceId]"/>
+                        <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="baseMap + [assetId:asset.assetId,
+                                quantityDiff:-quantityToIssue, assetIssuanceId:issueOut.assetIssuanceId]"/>
                     </if>
                 </iterate>
                 <!-- not all issued? issue to last (most recent) Asset -->
                 <if condition="quantityRemaining &gt; 0">
                     <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="issueOut" in-map="baseMap +
                             [assetId:lastAsset.assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantityRemaining]"/>
-                    <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap + [assetId:lastAsset.assetId,
-                            effectiveDate:ec.user.nowTimestamp, quantityOnHandDiff:-quantityRemaining,
-                            availableToPromiseDiff:-quantityRemaining, assetIssuanceId:issueOut.assetIssuanceId]"/>
+                    <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="baseMap + [assetId:lastAsset.assetId,
+                            quantityDiff:-quantityRemaining, assetIssuanceId:issueOut.assetIssuanceId]"/>
                 </if>
 
                 <else>
@@ -547,7 +589,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <!-- call through AssetDetail create? NO, would get called from the move#AssetReservation record recursively -->
             <!-- reserve the newly available Asset, if needed -->
-            <service-call name="mantle.product.AssetServices.reserve#NewlyAvailableAsset" in-map="[assetId:assetId]"/>
+            <service-call name="mantle.product.AssetServices.reserve#IncreasedAsset" in-map="[assetId:assetId]"/>
         </actions>
     </service>
 
@@ -603,18 +645,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="update#mantle.product.asset.Asset" in-map="context" out-map="context"/>
 
             <if condition="quantityDiff != 0">
-                <set field="availableToPromiseDiff" from="quantityDiff"/>
-                <set field="quantityOnHandDiff" from="quantityDiff"/>
-                <service-call name="create#mantle.product.asset.AssetDetail" in-map="context" out-map="context"/>
-            </if>
-
-            <if condition="quantityDiff &gt; 0">
-                <!-- reserve the newly available Asset, if needed -->
-                <service-call name="mantle.product.AssetServices.reserve#NewlyAvailableAsset" in-map="[assetId:assetId]"/>
-            </if>
-            <if condition="quantityDiff &lt; 0">
-                <!-- TODO: on decrease adjust reservations down (increase quantityNotAvailable);
-                    do in separate service will also be used on physical inventory decrease AND TODO in issue without reservation? -->
+                <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="context"/>
             </if>
         </actions>
     </service>
