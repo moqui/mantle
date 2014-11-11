@@ -134,7 +134,8 @@ This Work includes contributions authored by David E. Jones, not as a
                             <!-- add to ATP on Asset through a detail record -->
                             <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
                                 effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:curQuantityToDeduct,
-                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId]"/>
+                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId,
+                                orderId:existingRes.orderId, orderItemSeqId:existingRes.orderItemSeqId]"/>
                             <!-- reduce quantities on AssetReservation -->
                             <set field="existingRes.quantity" from="existingRes.quantity - curQuantityToDeduct"/>
                             <set field="existingRes.quantityNotAvailable"
@@ -155,6 +156,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </if>
             </if>
 
+            <!-- no store passed? find it from OrderHeader -->
             <if condition="productStore == null">
                 <entity-find-related-one value-field="orderHeader" relationship-name="mantle.product.store.ProductStore"
                         to-value-field="productStore" cache="true"/>
@@ -266,9 +268,95 @@ This Work includes contributions authored by David E. Jones, not as a
     </service>
 
     <service verb="reReserve" noun="ProductAssets">
-        <in-parameters><parameter name="productId"/></in-parameters>
+        <in-parameters><parameter name="productId" required="true"/></in-parameters>
         <actions>
             <!-- TODO: implement this (and populate priority on order/item and on reservation) -->
+        </actions>
+    </service>
+
+    <service verb="reserve" noun="NewlyAvailableAsset">
+        <in-parameters><parameter name="assetId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
+            <if condition="asset.availableToPromiseTotal &lt;= 0"><return/></if>
+            <if condition="!asset.productId"><return/></if>
+
+            <set field="availableRemaining" from="asset.availableToPromiseTotal"/>
+            <entity-find entity-name="mantle.product.issuance.AssetReservation" list="resList">
+                <econdition field-name="productId" from="asset.productId"/>
+                <econdition field-name="quantityNotAvailable" operator="greater" from="0"/>
+                <order-by field-name="priority"/><order-by field-name="reservedDate"/>
+            </entity-find>
+            <iterate list="resList" entry="res">
+                <set field="quantityToMove" from="availableRemaining &lt; res.quantityNotAvailable ?
+                        availableRemaining : res.quantityNotAvailable"/>
+                <!-- quantityNotAvailable > 0 from query so if 0 means nothing left -->
+                <if condition="quantityToMove == 0"><break/></if>
+
+                <service-call name="mantle.product.AssetServices.move#AssetReservation"
+                        in-map="[assetId:assetId, assetReservationId:res.assetReservationId, quantity:quantityToMove]"/>
+
+                <set field="availableRemaining" from="availableRemaining - quantityToMove"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="move" noun="AssetReservation">
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="assetReservationId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
+            <entity-find-one entity-name="mantle.product.issuance.AssetReservation" value-field="assetReservation" for-update="true"/>
+            <set field="quantityToMove" from="asset.availableToPromiseTotal &lt; quantity ? asset.availableToPromiseTotal : quantity"/>
+
+            <if condition="quantityToMove == assetReservation.quantity">
+                <!-- move over the whole reservation -->
+
+                <!-- increment old Asset ATP -->
+                <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:assetReservation.assetId,
+                        effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:quantityToMove,
+                        assetReservationId:assetReservationId, productId:assetReservation.productId,
+                        orderId:assetReservation.orderId, orderItemSeqId:assetReservation.orderItemSeqId]"/>
+                <!-- decrement new Asset ATP -->
+                <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:assetId,
+                        effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:-quantityToMove,
+                        assetReservationId:assetReservationId, productId:assetReservation.productId,
+                        orderId:assetReservation.orderId, orderItemSeqId:assetReservation.orderItemSeqId]"/>
+
+                <!-- set the new assetId and decrease quantityNotAvailable (should be to 0!) -->
+                <set field="assetReservation.assetId" from="assetId"/>
+                <set field="assetReservation.quantityNotAvailable"
+                        from="assetReservation.quantityNotAvailable &gt; quantityToMove ?
+                                        assetReservation.quantityNotAvailable - quantityToMove : 0"/>
+                <entity-update value-field="assetReservation"/>
+
+                <else>
+                    <!-- create a new reservation, split the quantity -->
+                    <service-call name="create#mantle.product.issuance.AssetReservation" out-map="newResOut"
+                            in-map="new HashMap(assetReservation) + [assetReservationId:null, assetId:assetId,
+                                quantity:quantityToMove, quantityNotAvailable:0, quantityNotIssued:quantityToMove]"/>
+                    <!-- decrement old reservation quantities -->
+                    <set field="assetReservation.quantity" from="assetReservation.quantity - quantityToMove"/>
+                    <set field="assetReservation.quantityNotAvailable"
+                            from="assetReservation.quantityNotAvailable &gt; quantityToMove ?
+                                        assetReservation.quantityNotAvailable - quantityToMove : 0"/>
+                    <set field="assetReservation.quantityNotIssued" from="assetReservation.quantityNotIssued - quantityToMove"/>
+                    <entity-update value-field="assetReservation"/>
+
+                    <!-- increment old Asset ATP -->
+                    <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:assetReservation.assetId,
+                        effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:quantityToMove,
+                        assetReservationId:assetReservationId, productId:assetReservation.productId,
+                        orderId:assetReservation.orderId, orderItemSeqId:assetReservation.orderItemSeqId]"/>
+                    <!-- decrement new Asset ATP -->
+                    <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:assetId,
+                        effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:-quantityToMove,
+                        assetReservationId:newResOut.assetReservationId, productId:assetReservation.productId,
+                        orderId:assetReservation.orderId, orderItemSeqId:assetReservation.orderItemSeqId]"/>
+                </else>
+            </if>
         </actions>
     </service>
 
@@ -457,6 +545,8 @@ This Work includes contributions authored by David E. Jones, not as a
                         shipmentId:shipmentId, productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
                         assetReceiptId:assetReceiptId]"/>
 
+            <!-- reserve the newly available Asset, if needed -->
+            <service-call name="mantle.product.AssetServices.reserve#NewlyAvailableAsset" in-map="[assetId:assetId]"/>
         </actions>
     </service>
 
