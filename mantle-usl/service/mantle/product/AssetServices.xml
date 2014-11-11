@@ -545,6 +545,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         shipmentId:shipmentId, productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
                         assetReceiptId:assetReceiptId]"/>
 
+            <!-- call through AssetDetail create? NO, would get called from the move#AssetReservation record recursively -->
             <!-- reserve the newly available Asset, if needed -->
             <service-call name="mantle.product.AssetServices.reserve#NewlyAvailableAsset" in-map="[assetId:assetId]"/>
         </actions>
@@ -605,6 +606,15 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="availableToPromiseDiff" from="quantityDiff"/>
                 <set field="quantityOnHandDiff" from="quantityDiff"/>
                 <service-call name="create#mantle.product.asset.AssetDetail" in-map="context" out-map="context"/>
+            </if>
+
+            <if condition="quantityDiff &gt; 0">
+                <!-- reserve the newly available Asset, if needed -->
+                <service-call name="mantle.product.AssetServices.reserve#NewlyAvailableAsset" in-map="[assetId:assetId]"/>
+            </if>
+            <if condition="quantityDiff &lt; 0">
+                <!-- TODO: on decrease adjust reservations down (increase quantityNotAvailable);
+                    do in separate service will also be used on physical inventory decrease AND TODO in issue without reservation? -->
             </if>
         </actions>
     </service>
