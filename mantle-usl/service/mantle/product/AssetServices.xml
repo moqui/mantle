@@ -674,4 +674,83 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
+
+    <service verb="record" noun="PhysicalInventoryQuantity">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="facilityId" required="true"/>
+            <parameter name="locationSeqId"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="partyId" default="ec.user.userAccount.partyId"/>
+            <parameter name="physicalInventoryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="comments"/>
+            <parameter name="varianceReasonEnumId"/>
+        </in-parameters>
+        <out-parameters><parameter name="physicalInventoryId"/></out-parameters>
+        <actions>
+            <set field="currentQoh" from="0"/>
+            <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
+                <econdition field-name="productId"/><econdition field-name="facilityId"/>
+                <econdition field-name="quantityOnHandTotal" operator="not-equals" from="0"/>
+                <econdition field-name="locationSeqId" ignore-if-empty="true"/>
+            </entity-find>
+            <iterate list="assetList" entry="asset"><set field="currentQoh" from="currentQoh + asset.quantityOnHandTotal"/></iterate>
+
+            <set field="quantityChange" from="quantity - currentQoh"/>
+            <service-call name="mantle.product.AssetServices.record#PhysicalInventoryChange" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="record" noun="PhysicalInventoryChange">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="facilityId" required="true"/>
+            <parameter name="locationSeqId"/>
+            <parameter name="quantityChange" type="BigDecimal" required="true"/>
+            <parameter name="partyId" default="ec.user.userAccount.partyId"/>
+            <parameter name="physicalInventoryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="comments"/>
+            <parameter name="varianceReasonEnumId"/>
+            <parameter name="assetList" type="EntityList"><description>Optional, meant to be used when called by other physical inventory services.</description></parameter>
+        </in-parameters>
+        <out-parameters><parameter name="physicalInventoryId"/></out-parameters>
+        <actions>
+            <!-- set the date to be used on AssetDetail records -->
+            <set field="effectiveDate" from="physicalInventoryDate"/>
+            <!-- create the PhysicalInventory inventory record -->
+            <service-call name="create#mantle.product.asset.PhysicalInventory" in-map="context" out-map="context"/>
+
+            <if condition="!assetList">
+                <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
+                    <econdition field-name="productId"/><econdition field-name="facilityId"/>
+                    <econdition field-name="quantityOnHandTotal" operator="not-equals" from="0"/>
+                    <econdition field-name="locationSeqId" ignore-if-empty="true"/>
+                </entity-find>
+            </if>
+            <if condition="quantityChange &gt; 0">
+                <!-- if adding inventory order assetList by -receivedDate to add to most recent first, otherwise by receivedDate to subtract from oldest first -->
+                <order-map-list list="assetList"><order-by field-name="-receivedDate"/></order-map-list>
+                <set field="quantityRemaining" from="quantityChange"/>
+                <iterate list="assetList" entry="asset">
+                    <set field="quantityDiff" from="quantityRemaining &gt; asset.quantityOnHandTotal ? asset.quantityOnHandTotal : quantityRemaining"/>
+                    <if condition="quantityDiff != 0">
+                        <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="context + [assetId:asset.assetId]"/></if>
+                    <set field="quantityRemaining" from="quantityRemaining - curChange"/>
+                    <if condition="quantityRemaining == 0"><break/></if>
+                </iterate>
+
+                <else-if condition="quantityChange &lt; 0">
+                    <order-map-list list="assetList"><order-by field-name="receivedDate"/></order-map-list>
+                    <set field="quantityRemaining" from="-quantityChange"/>
+                    <iterate list="assetList" entry="asset">
+                        <set field="quantityDiff" from="quantityRemaining &gt; asset.quantityOnHandTotal ? asset.quantityOnHandTotal : quantityRemaining"/>
+                        <if condition="quantityDiff != 0">
+                            <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="context +
+                                    [assetId:asset.assetId, quantityDiff:-quantityDiff]"/></if>
+                        <set field="quantityRemaining" from="quantityRemaining - curChange"/>
+                        <if condition="quantityRemaining == 0"><break/></if>
+                    </iterate>
+                </else-if>
+            </if>
+        </actions>
+    </service>
 </services>
