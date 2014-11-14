@@ -87,6 +87,8 @@ This Work includes contributions authored by David E. Jones, not as a
                 If there is no OrderHeader.productStoreId defaults to reservationOrderEnumId=AsResOrdFifoRec and gets
                 inventoryFacilityId from OrderPart.facilityId and organizationPartyId from OrderPart.vendorPartyId.</description></parameter>
             <parameter name="assetId"><description>Optional assetId, reserves against this first if specified.</description></parameter>
+            <parameter name="assetIdList" type="List"><description>Optional List of assetId values, reserves against these first (in order) if specified.</description></parameter>
+            <parameter name="resetReservations" type="Boolean" default="false"><description>If true remove existing reservations before reserving.</description></parameter>
         </in-parameters>
         <actions>
             <!-- do a FOR UPDATE query on OrderItem as a semaphore -->
@@ -102,6 +104,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- check OrderHeader and OrderPart status, return immediately if not OrderPlaced, OrderProcessing, OrderApproved, OrderSent, or OrderHold -->
             <set field="resStatusList" from="['OrderPlaced', 'OrderProcessing', 'OrderApproved', 'OrderSent', 'OrderHold']"/>
             <if condition="!(orderHeader.statusId in resStatusList) || !(orderPart.statusId in resStatusList)"><return/></if>
+
+            <!-- before finding remaining quantity and getting existing reservations, resetReservations if specified -->
+            <if condition="resetReservations">
+                <service-call name="mantle.product.AssetServices.remove#OrderItemReservations" in-map="context"/>
+            </if>
 
             <set field="quantityRemaining" from="orderItem.quantity"/>
 
@@ -182,6 +189,10 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- do the reservation... -->
             <set field="baseMap" from="[orderId:orderId, orderItemSeqId:orderItemSeqId, productId:productId]"/>
 
+            <set field="explicitAssetIdList" from="[]"/>
+            <if condition="assetId"><script>explicitAssetIdList.add(assetId)</script></if>
+            <if condition="assetIdList"><script>explicitAssetIdList.addAll(assetIdList)</script></if>
+
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
                 <econdition field-name="productId"/><econdition field-name="statusId" value="AstAvailable"/>
                 <!-- exclude old, unused Asset records; is not-equals instead of greater so that negative ATP records
@@ -189,12 +200,27 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="availableToPromiseTotal" operator="not-equals" from="0"/>
                 <econdition field-name="facilityId" from="inventoryFacilityId" ignore-if-empty="true"/>
                 <econdition field-name="ownerPartyId" from="organizationPartyId" ignore-if-empty="true"/>
+                <econdition field-name="assetId" operator="not-in" from="explicitAssetIdList" ignore-if-empty="true"/>
                 <order-by field-name="${assetOrderBy}"/>
             </entity-find>
-            <!-- if assetId specified add it to the list -->
-            <if condition="assetId">
-                <entity-find-one entity-name="mantle.product.asset.Asset" value-field="passedAsset"/>
-                <script>assetList.add(0, passedAsset)</script>
+            <!-- if explicitAssetIdList specified add to beginning of the list -->
+            <if condition="explicitAssetIdList">
+                <entity-find entity-name="mantle.product.asset.Asset" list="explicitAssetList">
+                    <econdition field-name="assetId" operator="in" from="explicitAssetIdList"/>
+                </entity-find>
+                <!-- add in order of the original list, won't come from DB in this order (reverse the order since we add to the beginning of the list) -->
+                <script>Collections.reverse(explicitAssetIdList)</script>
+                <iterate list="explicitAssetIdList" entry="explicitAssetId">
+                    <set field="passedAsset" from="null"/>
+                    <iterate list="explicitAssetList" entry="explicitAsset">
+                        <if condition="explicitAsset.assetId == explicitAssetId">
+                            <set field="passedAsset" from="explicitAsset"/>
+                            <break/>
+                        </if>
+                    </iterate>
+                    <!-- unless an invalid assetId is passed in passedAsset shouldn't be null, but just in case: -->
+                    <script>if (passedAsset) assetList.add(0, passedAsset)</script>
+                </iterate>
             </if>
 
             <if condition="assetList">
@@ -260,7 +286,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/></entity-find>
             <iterate list="existingResList" entry="existingRes">
                 <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
-                        effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:-existingRes.quantity,
+                        effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:existingRes.quantity,
                         assetReservationId:existingRes.assetReservationId, productId:existingRes.productId]"/>
                 <entity-delete value-field="existingRes"/>
             </iterate>
