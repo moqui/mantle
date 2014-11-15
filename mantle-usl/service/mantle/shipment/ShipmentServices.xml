@@ -330,19 +330,21 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="quantityRemaining" from="quantityRemaining > shipmentItemSource.quantityNotHandled ?
                         quantityRemaining - shipmentItemSource.quantityNotHandled : 0"/>
                 <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"
-                        in-map="[shipmentItemSource:shipmentItemSource, shipmentPackageSeqId:shipmentPackageSeqId,
-                            quantity:quantityToPack]"/>
+                        in-map="[shipmentItemSourceId:shipmentItemSource.shipmentItemSourceId,
+                            shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantityToPack]"/>
             </iterate>
         </actions>
     </service>
     <service verb="pack" noun="ShipmentItemSource">
         <description>This is the lowest-level packing service and operates on a single ShipmentItemSource record.</description>
         <in-parameters>
-            <parameter name="shipmentItemSource" type="EntityValue" required="true"/>
+            <parameter name="shipmentItemSourceId" required="true"/>
             <parameter name="shipmentPackageSeqId" required="true"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.shipment.ShipmentItemSource" value-field="shipmentItemSource"/>
+
             <!-- create ShipmentPackageContent or update if already exists -->
             <entity-find-one entity-name="mantle.shipment.ShipmentPackageContent" value-field="shipmentPackageContent">
                 <field-map field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
