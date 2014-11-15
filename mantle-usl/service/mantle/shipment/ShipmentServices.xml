@@ -307,7 +307,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="productId" required="true"/>
             <parameter name="shipmentId" required="true"/>
-            <parameter name="shipmentPackageSeqId" required="true"/>
+            <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
@@ -339,11 +339,22 @@ This Work includes contributions authored by David E. Jones, not as a
         <description>This is the lowest-level packing service and operates on a single ShipmentItemSource record.</description>
         <in-parameters>
             <parameter name="shipmentItemSourceId" required="true"/>
-            <parameter name="shipmentPackageSeqId" required="true"/>
+            <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.ShipmentItemSource" value-field="shipmentItemSource"/>
+
+            <if condition="!shipmentPackageSeqId">
+                <entity-find entity-name="mantle.shipment.ShipmentPackage" list="shipmentPackageList">
+                    <econdition field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
+                    <order-by field-name="shipmentPackageSeqId"/></entity-find>
+                <set field="shipmentPackageSeqId" from="shipmentPackageList?.first?.shipmentPackageSeqId"/>
+                <if condition="!shipmentPackageSeqId">
+                    <service-call name="create#mantle.shipment.ShipmentPackage" out-map="context"
+                            in-map="[shipmentId:shipmentItemSource.shipmentId]"/>
+                </if>
+            </if>
 
             <!-- create ShipmentPackageContent or update if already exists -->
             <entity-find-one entity-name="mantle.shipment.ShipmentPackageContent" value-field="shipmentPackageContent">
