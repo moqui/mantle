@@ -205,9 +205,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- set Shipment Packed -->
             <service-call name="mantle.shipment.ShipmentServices.pack#Shipment" in-map="[shipmentId:shipmentId]"/>
 
-            <!-- on Shipment Packed mark Order as Completed (IF all order part items are completed) -->
-            <service-call name="mantle.order.OrderServices.checkComplete#OrderPart"
-                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/>
+            <!-- NOTE: check order completed is done as items are packed, so by this point will be completed -->
 
             <!-- set Shipment Shipped -->
             <service-call name="mantle.shipment.ShipmentServices.ship#Shipment" in-map="[shipmentId:shipmentId]"/>
@@ -419,6 +417,16 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="shipmentItemSource.statusId" value="SisPacked"/>
             </if>
             <entity-update value-field="shipmentItemSource"/>
+
+            <!-- on Shipment Packed mark Order as Completed (IF all order part items are completed) -->
+            <if condition="shipmentItemSource.orderId &amp;&amp; shipmentItemSource.orderItemSeqId">
+                <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem">
+                    <field-map field-name="orderId" from="shipmentItemSource.orderId"/>
+                    <field-map field-name="orderItemSeqId" from="shipmentItemSource.orderItemSeqId"/>
+                </entity-find-one>
+                <service-call name="mantle.order.OrderServices.checkComplete#OrderPart"
+                        in-map="[orderId:orderItem.orderId, orderPartSeqId:orderItem.orderPartSeqId]"/>
+            </if>
         </actions>
     </service>
 
