@@ -205,9 +205,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- set Shipment Packed -->
             <service-call name="mantle.shipment.ShipmentServices.pack#Shipment" in-map="[shipmentId:shipmentId]"/>
 
-            <!-- on Shipment Packed mark Order as Completed (IF all order part items are completed) -->
-            <service-call name="mantle.order.OrderServices.checkComplete#OrderPart"
-                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId]"/>
+            <!-- NOTE: check order completed is done as items are packed, so by this point will be completed -->
 
             <!-- set Shipment Shipped -->
             <service-call name="mantle.shipment.ShipmentServices.ship#Shipment" in-map="[shipmentId:shipmentId]"/>
@@ -307,7 +305,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="productId" required="true"/>
             <parameter name="shipmentId" required="true"/>
-            <parameter name="shipmentPackageSeqId" required="true"/>
+            <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
@@ -330,35 +328,20 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="quantityRemaining" from="quantityRemaining > shipmentItemSource.quantityNotHandled ?
                         quantityRemaining - shipmentItemSource.quantityNotHandled : 0"/>
                 <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"
-                        in-map="[shipmentItemSource:shipmentItemSource, shipmentPackageSeqId:shipmentPackageSeqId,
-                            quantity:quantityToPack]"/>
+                        in-map="[shipmentItemSourceId:shipmentItemSource.shipmentItemSourceId,
+                            shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantityToPack]"/>
             </iterate>
         </actions>
     </service>
     <service verb="pack" noun="ShipmentItemSource">
         <description>This is the lowest-level packing service and operates on a single ShipmentItemSource record.</description>
         <in-parameters>
-            <parameter name="shipmentItemSource" type="EntityValue" required="true"/>
-            <parameter name="shipmentPackageSeqId" required="true"/>
+            <parameter name="shipmentItemSourceId" required="true"/>
+            <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
         </in-parameters>
         <actions>
-            <!-- create ShipmentPackageContent or update if already exists -->
-            <entity-find-one entity-name="mantle.shipment.ShipmentPackageContent" value-field="shipmentPackageContent">
-                <field-map field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
-                <field-map field-name="productId" from="shipmentItemSource.productId"/>
-                <field-map field-name="shipmentPackageSeqId"/>
-            </entity-find-one>
-            <if condition="shipmentPackageContent">
-                <set field="shipmentPackageContent.quantity" from="shipmentPackageContent.quantity + quantity"/>
-                <entity-update value-field="shipmentPackageContent"/>
-
-                <else>
-                    <service-call name="create#mantle.shipment.ShipmentPackageContent"
-                            in-map="[shipmentId:shipmentItemSource.shipmentId, productId:shipmentItemSource.productId,
-                                shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantity]"/>
-                </else>
-            </if>
+            <entity-find-one entity-name="mantle.shipment.ShipmentItemSource" value-field="shipmentItemSource"/>
 
             <!-- create AssetIssuance records based on AssetReservation records -->
             <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetReservationList">
@@ -377,6 +360,17 @@ This Work includes contributions authored by David E. Jones, not as a
                     <service-call name="mantle.product.AssetServices.issue#AssetReservation"
                             in-map="[assetReservation:assetReservation, shipmentId:shipmentItemSource.shipmentId,
                                 quantity:quantityToIssue]"/>
+
+                    <!-- if the asset has a shipmentBoxTypeId it is already packaged, so create a package just for it -->
+                    <!-- TODO: do something similar if Product is set as already packaged -->
+                    <!-- TODO: calculate weight of asset package, or even set on asset record? -->
+                    <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset">
+                        <field-map field-name="assetId" from="assetReservation.assetId"/></entity-find-one>
+                    <if condition="asset.shipmentBoxTypeId">
+                        <service-call name="create#mantle.shipment.ShipmentPackage" out-map="context"
+                                in-map="[shipmentId:shipmentItemSource.shipmentId,
+                                    shipmentBoxTypeId:asset.shipmentBoxTypeId]"/>
+                    </if>
                 </iterate>
 
                 <else>
@@ -387,12 +381,52 @@ This Work includes contributions authored by David E. Jones, not as a
                 </else>
             </if>
 
+            <!-- if no shipmentPackageSeqId find the first package -->
+            <if condition="!shipmentPackageSeqId">
+                <entity-find entity-name="mantle.shipment.ShipmentPackage" list="shipmentPackageList">
+                    <econdition field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
+                    <order-by field-name="shipmentPackageSeqId"/></entity-find>
+                <set field="shipmentPackageSeqId" from="shipmentPackageList?.first?.shipmentPackageSeqId"/>
+                <!-- if there is no package don't create one yet, might be using an asset already in a package -->
+            </if>
+            <!-- if still no shipmentPackageSeqId at this point, create a ShipmentPackage -->
+            <if condition="!shipmentPackageSeqId">
+                <service-call name="create#mantle.shipment.ShipmentPackage" out-map="context"
+                        in-map="[shipmentId:shipmentItemSource.shipmentId]"/>
+            </if>
+            <!-- create ShipmentPackageContent or update if already exists -->
+            <entity-find-one entity-name="mantle.shipment.ShipmentPackageContent" value-field="shipmentPackageContent">
+                <field-map field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
+                <field-map field-name="productId" from="shipmentItemSource.productId"/>
+                <field-map field-name="shipmentPackageSeqId"/>
+            </entity-find-one>
+            <if condition="shipmentPackageContent">
+                <set field="shipmentPackageContent.quantity" from="shipmentPackageContent.quantity + quantity"/>
+                <entity-update value-field="shipmentPackageContent"/>
+
+                <else>
+                    <service-call name="create#mantle.shipment.ShipmentPackageContent"
+                            in-map="[shipmentId:shipmentItemSource.shipmentId, productId:shipmentItemSource.productId,
+                                shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantity]"/>
+                </else>
+            </if>
+
             <!-- update quantityNotHandled to get ready for the next pack call -->
             <set field="shipmentItemSource.quantityNotHandled" from="shipmentItemSource.quantityNotHandled - quantity"/>
             <if condition="shipmentItemSource.quantityNotHandled &lt;= 0">
                 <set field="shipmentItemSource.statusId" value="SisPacked"/>
             </if>
             <entity-update value-field="shipmentItemSource"/>
+
+            <!-- on Shipment Packed mark Order as Completed (IF all order part items are completed) -->
+            <if condition="shipmentItemSource.orderId &amp;&amp; shipmentItemSource.orderItemSeqId">
+                <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem">
+                    <field-map field-name="orderId" from="shipmentItemSource.orderId"/>
+                    <field-map field-name="orderItemSeqId" from="shipmentItemSource.orderItemSeqId"/>
+                </entity-find-one>
+                <service-call name="mantle.order.OrderServices.checkComplete#OrderPart"
+                        in-map="[orderId:orderItem.orderId, orderPartSeqId:orderItem.orderPartSeqId]"/>
+            </if>
         </actions>
     </service>
 
