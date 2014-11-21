@@ -216,7 +216,7 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
-            <parameter name="createPackage" type="Boolean" default="true"/>
+            <parameter name="createPackage" type="Boolean" default="false"/>
             <parameter name="createRouteSegment" type="Boolean" default="true"/>
             <parameter name="originFacilityId"/>
             <parameter name="destinationFacilityId"/>
@@ -296,6 +296,26 @@ This Work includes contributions authored by David E. Jones, not as a
                         <!-- if quantityNotBilled > 0 do anything here? we don't have another Invoice/Item with quantity to match... -->
                     </if>
                 </if>
+            </iterate>
+
+        </actions>
+    </service>
+
+    <service verb="create" noun="ShipmentPackage">
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentPackage" include="nonpk"/>
+        </in-parameters>
+        <out-parameters><parameter name="shipmentPackageSeqId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.shipment.ShipmentPackage" in-map="context" out-map="context"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentPackageRouteSeg" list="sprsList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <iterate list="sprsList" entry="sprs">
+                <service-call name="create#mantle.shipment.ShipmentPackageRouteSeg"
+                        in-map="[shipmentId:shipmentId, shipmentPackageSeqId:shipmentPackageSeqId,
+                                shipmentRouteSegmentSeqId:sprs.shipmentRouteSegmentSeqId]"/>
             </iterate>
 
         </actions>
@@ -391,7 +411,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
             <!-- if still no shipmentPackageSeqId at this point, create a ShipmentPackage -->
             <if condition="!shipmentPackageSeqId">
-                <service-call name="create#mantle.shipment.ShipmentPackage" out-map="context"
+                <service-call name="mantle.shipment.ShipmentServices.create#ShipmentPackage" out-map="context"
                         in-map="[shipmentId:shipmentItemSource.shipmentId]"/>
             </if>
             <!-- create ShipmentPackageContent or update if already exists -->
