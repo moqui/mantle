@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="create" noun="ShipmentLoadShip">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
+            <parameter name="workEffortTypeEnumId" default-value="WetEvent"/>
+            <parameter name="purposeEnumId" default-value="WepShipmentShip"/>
+            <parameter name="statusId" default-value="WeInPlanning"/>
+            <parameter name="timeUomId" default-value="TF_hr"/>
+
+            <parameter name="facilityId" required="true"/>
+            <parameter name="estimatedStartDate" type="Timestamp" required="true"/>
+
+            <parameter name="assetIdList" type="List"/>
+            <parameter name="assetStatusId" default-value="WeaaAssigned"/>
+            <parameter name="assetFromDate" default="ec.user.nowTimestamp"/>
+            <parameter name="shipmentIdList" type="List"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.work.effort.WorkEffort" in-map="context" out-map="context"/>
+
+            <iterate list="assetIdList" entry="assetId">
+                <service-call name="create#mantle.work.effort.WorkEffortAssetAssign"
+                        in-map="[workEffortId:workEffortId, assetId:assetId, statusId:assetStatusId, fromDate:assetFromDate]"/>
+            </iterate>
+            <iterate list="shipmentIdList" entry="shipmentId">
+                <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:shipmentId, shipWorkEffortId:workEffortId]"/>
+            </iterate>
+        </actions>
+    </service>
+</services>
