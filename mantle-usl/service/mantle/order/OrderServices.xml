@@ -386,18 +386,36 @@ h2. General Order Placement and eCommerce Usage
                                     quantity:(shipmentItemSource.quantity + quantityIncrease),
                                     quantityNotHandled:(shipmentItemSource.quantityNotHandled + quantityIncrease)]"/>
 
+                        <!-- also update ShipmentItem.quantity -->
+                        <entity-find-one entity-name="mantle.shipment.ShipmentItem" value-field="shipmentItem">
+                            <field-map field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
+                            <field-map field-name="productId" from="orderItem.productId"/></entity-find-one>
+                        <service-call name="update#mantle.shipment.ShipmentItem"
+                                in-map="[shipmentId:shipmentItem.shipmentId, productId:shipmentItem.productId,
+                                    quantity:(shipmentItem.quantity + quantityIncrease)]"/>
+
                         <else>
                             <!-- a little more fun, deduct as available from each item in the list until all handled -->
                             <set field="quantityReduceRemaining" from="sourceQuantityTotal - quantity"/>
                             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
-                                <set field="quantityReduce" from="quantityReduceRemaining &gt; itemShipmentItemSource.quantityNotHandled ?
-                                        itemShipmentItemSource.quantityNotHandled : quantityReduceRemaining"/>
+                                <set field="quantityReduce" from="quantityReduceRemaining &gt; shipmentItemSource.quantityNotHandled ?
+                                        shipmentItemSource.quantityNotHandled : quantityReduceRemaining"/>
                                 <if condition="quantityReduce == 0"><break/></if>
                                 <service-call name="update#mantle.shipment.ShipmentItemSource"
                                         in-map="[shipmentItemSourceId:shipmentItemSource.shipmentItemSourceId,
                                             quantity:(shipmentItemSource.quantity - quantityReduce),
                                             quantityNotHandled:(shipmentItemSource.quantityNotHandled - quantityReduce)]"/>
                                 <set field="quantityReduceRemaining" from="quantityReduceRemaining - quantityReduce"/>
+
+                                <!-- also update ShipmentItem.quantity -->
+                                <entity-find-one entity-name="mantle.shipment.ShipmentItem" value-field="shipmentItem">
+                                    <field-map field-name="shipmentId" from="shipmentItemSource.shipmentId"/>
+                                    <field-map field-name="productId" from="orderItem.productId"/></entity-find-one>
+                                <set field="newItemQuantity" from="shipmentItem.quantity &gt; quantityReduce ?
+                                        shipmentItem.quantity - quantityReduce : 0"/>
+                                <service-call name="update#mantle.shipment.ShipmentItem"
+                                        in-map="[shipmentId:shipmentItem.shipmentId, productId:shipmentItem.productId,
+                                            quantity:newItemQuantity]"/>
                             </iterate>
                         </else>
                     </if>
