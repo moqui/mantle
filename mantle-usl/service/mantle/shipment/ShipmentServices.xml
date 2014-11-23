@@ -128,21 +128,70 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-update value-field="shipmentItem"/>
 
             <if condition="shipmentItemSourceId">
+                <!-- if shipmentItemSourceId passed in, update that one -->
                 <entity-find-one entity-name="mantle.shipment.ShipmentItemSource" value-field="sis"/>
-                <else>
-                    <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
-                        <econdition field-name="shipmentId"/><econdition field-name="productId"/></entity-find>
-                    <set field="sis" from="sisList?.first"/>
-                </else>
-            </if>
-            <if condition="sis">
+                <entity-set value-field="sis"/>
                 <set field="sis.quantity" from="(sis.quantity ?: 0) + quantityChange"/>
                 <set field="sis.quantityNotHandled" from="(sis.quantityNotHandled ?: 0) + quantityChange"/>
                 <entity-update value-field="sis"/>
 
                 <else>
-                    <service-call name="create#mantle.shipment.ShipmentItemSource"
-                            in-map="context + [quantity:quantity, quantityNotHandled:quantityChange, statusId:'SisPending']"/>
+                    <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
+                        <econdition field-name="shipmentId"/><econdition field-name="productId"/></entity-find>
+                    <set field="sisQuantity" from="0"/>
+                    <iterate list="sisList" entry="sis"><set field="sisQuantity" from="sisQuantity + sis.quantity"/></iterate>
+
+                    <!-- use a different quantityChange for SIS based on current ShipmentItem.quantity so they match -->
+                    <set field="quantityChange" from="quantity - sisQuantity"/>
+
+                    <if condition="quantityChange &gt; 0">
+                        <!-- quantity increase, find SIS with no orderId and update that one, if none create on -->
+                        <filter-map-list list="sisList" to-list="noOrderSisList"><field-map field-name="orderId" from="null"/></filter-map-list>
+                        <if condition="noOrderSisList">
+                            <set field="sis" from="noOrderSisList[0]"/>
+                            <set field="sis.quantity" from="(sis.quantity ?: 0) + quantityChange"/>
+                            <set field="sis.quantityNotHandled" from="(sis.quantityNotHandled ?: 0) + quantityChange"/>
+                            <entity-update value-field="sis"/>
+
+                            <else>
+                                <service-call name="create#mantle.shipment.ShipmentItemSource"
+                                        in-map="context + [quantity:quantityChange, quantityNotHandled:quantityChange, statusId:'SisPending']"/>
+                            </else>
+                        </if>
+                    </if>
+                    <if condition="quantityChange &lt; 0">
+                        <!-- quantity reduce, find SIS records with no orderId and update those first, if any left pull from those from orders -->
+                        <filter-map-list list="sisList" to-list="noOrderSisList"><field-map field-name="orderId" from="null"/></filter-map-list>
+                        <set field="orderSisList" from="[]"/>
+                        <iterate list="sisList" entry="sis"><script>if (sis.orderId) orderSisList.add(sis)</script></iterate>
+
+                        <set field="reduceRemaining" from="-quantityChange"/>
+                        <iterate list="noOrderSisList" entry="sis">
+                            <set field="currentChange" from="reduceRemaining &gt; (sis.quantityNotHandled?:0) ?
+                                    (sis.quantityNotHandled?:0) : reduceRemaining"/>
+                            <if condition="currentChange">
+                                <set field="sis.quantity" from="(sis.quantity ?: 0) - currentChange"/>
+                                <set field="sis.quantityNotHandled" from="(sis.quantityNotHandled ?: 0) - currentChange"/>
+                                <if condition="sis.quantity == 0 &amp;&amp; !sis.orderId">
+                                    <entity-delete value-field="sis"/>
+                                    <else><entity-update value-field="sis"/></else>
+                                </if>
+                                <set field="reduceRemaining" from="reduceRemaining - currentChange"/>
+                                <if condition="reduceRemaining == 0"><break/></if>
+                            </if>
+                        </iterate>
+                        <iterate list="orderSisList" entry="sis">
+                            <set field="currentChange" from="reduceRemaining &gt; (sis.quantityNotHandled?:0) ?
+                                    (sis.quantityNotHandled?:0) : reduceRemaining"/>
+                            <if condition="currentChange">
+                                <set field="sis.quantity" from="(sis.quantity ?: 0) - currentChange"/>
+                                <set field="sis.quantityNotHandled" from="(sis.quantityNotHandled ?: 0) - currentChange"/>
+                                <entity-update value-field="sis"/>
+                                <set field="reduceRemaining" from="reduceRemaining - currentChange"/>
+                                <if condition="reduceRemaining == 0"><break/></if>
+                            </if>
+                        </iterate>
+                    </if>
                 </else>
             </if>
         </actions>
