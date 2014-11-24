@@ -170,7 +170,6 @@ class OrderProcureToPayBasicFlow extends Specification {
             <!-- Shipment created -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipInput" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.shipment.ShipmentPackage shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"/>
 
             <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="150"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
@@ -187,17 +186,18 @@ class OrderProcureToPayBasicFlow extends Specification {
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="1"
                 quantityNotHandled="1" invoiceId="" invoiceItemSeqId=""/>
 
-            <!-- no SPC when not outgoing packed, can be added by something else though:
+            <mantle.shipment.ShipmentRouteSegment shipmentId="${shipResult.shipmentId}" shipmentRouteSegmentSeqId="01"
+                destPostalContactMechId="ORG_ZIZI_RTL_SA" destTelecomContactMechId="ORG_ZIZI_RTL_PT"/>
+
+            <!-- no package when not outgoing packed, can be added by something else though:
+            <mantle.shipment.ShipmentPackage shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"/>
             <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 productId="DEMO_1_1" quantity="150"/>
             <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 productId="DEMO_3_1" quantity="100"/>
-            -->
-
-            <mantle.shipment.ShipmentRouteSegment shipmentId="${shipResult.shipmentId}" shipmentRouteSegmentSeqId="01"
-                destPostalContactMechId="ORG_ZIZI_RTL_SA" destTelecomContactMechId="ORG_ZIZI_RTL_PT"/>
             <mantle.shipment.ShipmentPackageRouteSeg shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 shipmentRouteSegmentSeqId="01"/>
+            -->
         </entity-facade-xml>""").check()
         logger.info("receive Purchase Order data check results: " + dataCheckErrors)
 
