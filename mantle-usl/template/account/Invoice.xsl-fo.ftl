@@ -58,7 +58,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     </fo:table-cell>
                     <fo:table-cell padding="3pt">
                         <fo:block>Attention: <#if toBillingRep?has_content>${(toBillingRep.organizationName)!""} ${(toBillingRep.firstName)!""} ${(toBillingRep.lastName)!""}<#else>Accounts Payable</#if></fo:block>
-                        <fo:block>${(toParty.organizationName)!""} ${(toParty.firstName)!""} ${(toParty.lastName)!""}</fo:block>
+                        <fo:block>${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(toParty.organizationName!"", true))!""} ${(toParty.firstName)!""} ${(toParty.lastName)!""}</fo:block>
                         <#if toContactInfo.postalAddress?has_content>
                             <fo:block font-size="8pt">${(toContactInfo.postalAddress.address1)!""}<#if toContactInfo.postalAddress.unitNumber?has_content> #${toContactInfo.postalAddress.unitNumber}</#if></fo:block>
                             <#if toContactInfo.postalAddress.address2?has_content><fo:block font-size="8pt">${toContactInfo.postalAddress.address2}</fo:block></#if>
