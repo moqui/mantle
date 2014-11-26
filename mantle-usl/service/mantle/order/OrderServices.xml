@@ -148,6 +148,14 @@ h2. General Order Placement and eCommerce Usage
                 EntityValue postalAddress = orderPart.'mantle.party.contact.PostalAddress'
                 EntityValue postalAddressStateGeo = postalAddress?."StateProvince#moqui.basic.Geo"
                 EntityValue facility = orderPart.'mantle.facility.Facility'
+                Map facilityContactInfo = null
+                if (facility) {
+                    Map facShipOut = ec.service.sync().name("mantle.facility.ContactServices.get#FacilityDefaultShipDest")
+                            .parameter("facilityId", orderPart.facilityId).call()
+                    facilityContactInfo = ec.service.sync().name("mantle.facility.ContactServices.get#FacilityContactInfo")
+                            .parameters([facilityId:orderPart.facilityId, postalContactMechId:facShipOut.postalContactMechId,
+                                         telecomContactMechId:facShipOut.telecomContactMechId]).call()
+                }
                 EntityValue customerDetail = ec.entity.find("mantle.party.PartyDetail").condition("partyId", orderPart.customerPartyId).one()
                 EntityValue vendorDetail = ec.entity.find("mantle.party.PartyDetail").condition("partyId", orderPart.vendorPartyId).one()
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
@@ -156,7 +164,7 @@ h2. General Order Placement and eCommerce Usage
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
                         paymentsTotal:paymentsTotal, partTotalUnpaid:partTotalUnpaid,
                         postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
-                        telecomNumber:orderPart.TelecomNumber, facility:facility,
+                        telecomNumber:orderPart.TelecomNumber, facility:facility, facilityContactInfo:facilityContactInfo,
                         customerDetail:customerDetail, vendorDetail:vendorDetail])
             }
             </script>
