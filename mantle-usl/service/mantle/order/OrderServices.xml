@@ -145,6 +145,15 @@ h2. General Order Placement and eCommerce Usage
                 }
 
                 BigDecimal partTotalUnpaid = (orderPart.partTotal ?: 0) - (paymentsTotal ?: 0)
+
+                List orderItemSeqIdList = partOrderItemList.orderItemSeqId
+                List partShipmentItemSourceList = []
+                Set partShipmentIdSet = new TreeSet()
+                for (EntityValue sis in shipmentItemSourceList) if (sis.orderItemSeqId in orderItemSeqIdList) {
+                    partShipmentItemSourceList.add(sis)
+                    partShipmentIdSet.add(sis.shipmentId)
+                }
+
                 EntityValue postalAddress = orderPart.'mantle.party.contact.PostalAddress'
                 EntityValue postalAddressStateGeo = postalAddress?."StateProvince#moqui.basic.Geo"
                 EntityValue facility = orderPart.'mantle.facility.Facility'
@@ -165,7 +174,8 @@ h2. General Order Placement and eCommerce Usage
                         paymentsTotal:paymentsTotal, partTotalUnpaid:partTotalUnpaid,
                         postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
                         telecomNumber:orderPart.TelecomNumber, facility:facility, facilityContactInfo:facilityContactInfo,
-                        customerDetail:customerDetail, vendorDetail:vendorDetail])
+                        customerDetail:customerDetail, vendorDetail:vendorDetail,
+                        partShipmentItemSourceList:partShipmentItemSourceList, partShipmentIdSet:partShipmentIdSet])
             }
             </script>
             <!-- <log level="warn" message="======== OrderDisplayInfo orderPartInfoList: ${orderPartInfoList}"/> -->
