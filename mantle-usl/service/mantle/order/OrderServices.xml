@@ -316,21 +316,28 @@ h2. General Order Placement and eCommerce Usage
     <service verb="get" noun="OrderItemTotal">
         <in-parameters>
             <parameter name="orderItem" type="EntityValue"/>
+            <parameter name="getChildrenTotals" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters>
             <parameter name="itemTotal" type="BigDecimal"/>
+            <parameter name="childrenTotal" type="BigDecimal"/>
+            <parameter name="itemPlusChildrenTotal" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <set field="itemTotal" from="0.0" type="BigDecimal"/>
             <set field="itemTotal" from="itemTotal + ((orderItem.unitAmount ?: 0) * orderItem.quantity)"/>
 
-            <!-- recursively get total of child OrderItems -->
-            <entity-find-related value-field="orderItem" relationship-name="Child#OrderItem" list="childOrderItemList"/>
-            <iterate list="childOrderItemList" entry="childOrderItem">
-                <service-call name="mantle.order.OrderServices.get#OrderItemTotal" out-map="getOitResult"
-                        in-map="[orderItem:childOrderItem]"/>
-                <set field="itemTotal" from="itemTotal + getOitResult.itemTotal"/>
-            </iterate>
+            <if condition="getChildrenTotals">
+                <!-- recursively get total of child OrderItems -->
+                <entity-find-related value-field="orderItem" relationship-name="Child#OrderItem" list="childOrderItemList"/>
+                <set field="childrenTotal" from="0"/>
+                <iterate list="childOrderItemList" entry="childOrderItem">
+                    <service-call name="mantle.order.OrderServices.get#OrderItemTotal" out-map="getOitResult"
+                            in-map="[orderItem:childOrderItem, getChildrenTotals:true]"/>
+                    <set field="childrenTotal" from="childrenTotal + getOitResult.itemPlusChildrenTotal"/>
+                </iterate>
+                <set field="itemPlusChildrenTotal" from="itemTotal + childrenTotal"/>
+            </if>
         </actions>
     </service>
 
