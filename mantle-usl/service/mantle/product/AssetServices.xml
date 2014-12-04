@@ -529,6 +529,30 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="issue" noun="AssetToWorkEffort">
+        <description>Issue an Asset to a WorkEffort (production run, etc).</description>
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="quantity" type="BigDecimal"><description>If not specified entire quantity of given Asset record will be used.</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+            <if condition="!asset"><return error="true" message="Asset not found with ID ${assetId}"/></if>
+
+            <!-- reserve by availableToPromiseTotal (no reservation here, but respect others) -->
+            <if condition="quantity &gt; asset.availableToPromiseTotal">
+                <return error="true" message="Quantity specified (${quantity}) is greater than the quantity available (${asset.availableToPromiseTotal})"/>
+            </if>
+
+            <set field="baseMap" from="[workEffortId:workEffortId, productId:asset.productId]"/>
+            <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="issueOut" in-map="baseMap +
+                    [assetId:asset.assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantity]"/>
+            <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="baseMap + [assetId:asset.assetId,
+                    quantityDiff:-quantity, assetIssuanceId:issueOut.assetIssuanceId]"/>
+        </actions>
+    </service>
+
     <service verb="receive" noun="Asset">
         <description>Receive an Asset</description>
         <in-parameters>
