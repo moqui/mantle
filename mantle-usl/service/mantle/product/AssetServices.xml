@@ -529,11 +529,37 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="issue" noun="AssetToWorkEffort">
+        <description>Issue an Asset to a WorkEffort (production run, etc).</description>
+        <in-parameters>
+            <parameter name="assetId" required="true" default="defaultAssetId"/>
+            <parameter name="defaultAssetId"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="quantity" type="BigDecimal"><description>If not specified entire quantity of given Asset record will be used.</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+            <if condition="!asset"><return error="true" message="Asset not found with ID ${assetId}"/></if>
+
+            <!-- reserve by availableToPromiseTotal (no reservation here, but respect others) -->
+            <if condition="quantity &gt; asset.availableToPromiseTotal">
+                <return error="true" message="Quantity specified (${quantity}) is greater than the quantity available (${asset.availableToPromiseTotal})"/>
+            </if>
+
+            <set field="baseMap" from="[workEffortId:workEffortId, productId:asset.productId]"/>
+            <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="issueOut" in-map="baseMap +
+                    [assetId:asset.assetId, issuedDateTime:ec.user.nowTimestamp, quantity:quantity]"/>
+            <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="baseMap + [assetId:asset.assetId,
+                    quantityDiff:-quantity, assetIssuanceId:issueOut.assetIssuanceId]"/>
+        </actions>
+    </service>
+
     <service verb="receive" noun="Asset">
         <description>Receive an Asset</description>
         <in-parameters>
-            <parameter name="assetId"><description>If specified receives to this Asset otherwise creates a new one.</description></parameter>
-            <parameter name="productId" required="true"/>
+            <parameter name="assetId"><description>If specified receives to that Asset (uncommon) otherwise creates a new one.</description></parameter>
+            <parameter name="productId" required="true" default="defaultProductId"/>
+            <parameter name="defaultProductId"><description>Field for special forms, if passed can be used as a default for the productId parameter.</description></parameter>
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
             <parameter name="assetTypeEnumId" default-value="AstTpInventory"/>
             <parameter name="classEnumId"/>
@@ -552,6 +578,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="orderItemSeqId"/>
             <parameter name="returnId"/>
             <parameter name="returnItemSeqId"/>
+            <parameter name="workEffortId"/>
 
             <parameter name="quantityRejected" type="BigDecimal"/>
             <parameter name="rejectionReasonEnumId"/>
@@ -578,17 +605,19 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="receivedDate" from="ec.user.nowTimestamp"/>
 
             <if condition="!assetId">
+                <!-- TODO: if this has a workEffortId and not an orderId get acquireCost from WorkEffort somehow? -->
                 <service-call name="create#mantle.product.asset.Asset" out-map="context" 
                         in-map="context + [quantityOnHandTotal:0, availableToPromiseTotal:0,
                             acquiredDate:(orderHeader?.placedDate ?: ec.user.nowTimestamp),
                             acquireOrderId:orderId, acquireOrderItemSeqId:orderItemSeqId, acquireCost:orderItem?.unitAmount,
-                            acquireCostUomId:orderHeader?.currencyUomId]"/>
+                            acquireCostUomId:orderHeader?.currencyUomId, acquireWorkEffortId:workEffortId]"/>
             </if>
 
             <!-- create AssetReceipt -->
             <service-call name="create#mantle.product.receipt.AssetReceipt" out-map="context"
                     in-map="[assetId:assetId, productId:productId, orderId:orderId, orderItemSeqId:orderItemSeqId,
                         returnId:returnId, returnItemSeqId:returnItemSeqId, shipmentId:shipmentId,
+                        workEffortId:workEffortId,
                         shipmentPackageSeqId:shipmentPackageSeqId, receivedByUserId:ec.user.userId,
                         receivedDate:receivedDate, quantityAccepted:quantity, quantityRejected:quantityRejected,
                         rejectionReasonEnumId:rejectionReasonEnumId]"/>
@@ -611,7 +640,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     in-map="[assetId:assetId, effectiveDate:receivedDate, quantityOnHandDiff:quantity,
                         availableToPromiseDiff:availableToPromiseDiff, unitCost:orderItem?.unitAmount,
                         shipmentId:shipmentId, productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
-                        assetReceiptId:assetReceiptId]"/>
+                        workEffortId:workEffortId, assetReceiptId:assetReceiptId]"/>
 
             <!-- call through AssetDetail create? NO, would get called from the move#AssetReservation record recursively -->
             <!-- reserve the newly available Asset, if needed -->

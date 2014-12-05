@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="create" noun="ProductionRun">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
+            <parameter name="workEffortTypeEnumId" default-value="WetEvent"/>
+            <parameter name="purposeEnumId" default-value="WepProductionRun"/>
+            <parameter name="statusId" default-value="WeInPlanning"/>
+            <parameter name="timeUomId" default-value="TF_hr"/>
+
+            <parameter name="facilityId" required="true"><description>The Production Line Facility to use, or the Warehouse where done.</description></parameter>
+
+            <parameter name="consumeProductId"/>
+            <parameter name="consumeEstimatedQuantity" type="BigDecimal"/>
+            <parameter name="produceProductId"/>
+            <parameter name="produceEstimatedQuantity" type="BigDecimal"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.work.effort.WorkEffort" in-map="context" out-map="context"/>
+
+            <if condition="consumeProductId">
+                <service-call name="create#mantle.work.effort.WorkEffortProduct"
+                        in-map="[workEffortId:workEffortId, productId:consumeProductId, typeEnumId:'WeptConsume',
+                            fromDate:ec.user.nowTimestamp, estimatedQuantity:consumeEstimatedQuantity]"/>
+            </if>
+            <if condition="produceProductId">
+                <service-call name="create#mantle.work.effort.WorkEffortProduct"
+                        in-map="[workEffortId:workEffortId, productId:produceProductId, typeEnumId:'WeptProduce',
+                            fromDate:ec.user.nowTimestamp, estimatedQuantity:produceEstimatedQuantity]"/>
+            </if>
+        </actions>
+    </service>
+</services>
