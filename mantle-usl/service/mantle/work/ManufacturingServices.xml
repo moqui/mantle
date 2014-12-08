@@ -60,16 +60,18 @@ This Work includes contributions authored by David E. Jones, not as a
                 <date-filter/><econdition field-name="workEffortId"/><order-by field-name="productName"/></entity-find>
             <filter-map-list list="allProdList" to-list="consumeList"><field-map field-name="typeEnumId" value="WeptConsume"/></filter-map-list>
             <filter-map-list list="allProdList" to-list="produceList"><field-map field-name="typeEnumId" value="WeptProduce"/></filter-map-list>
-            <set field="consumeProductIdList" from="consumeList.productId"/>
-            <set field="produceProductIdList" from="produceList.productId"/>
+            <set field="consumeProductIdList" from="consumeList?.productId ?: []"/>
+            <set field="produceProductIdList" from="produceList?.productId ?: []"/>
             <set field="combinedProductIdList" from="consumeProductIdList + produceProductIdList"/>
 
-            <entity-find entity-name="mantle.product.asset.AssetSummaryView" list="assetSummaryList">
-                <econdition field-name="productId" operator="in" from="combinedProductIdList"/>
-                <econdition field-name="facilityId" from="inventoryFacilityId"/>
-                <select-field field-name="productId"/>
-                <select-field field-name="availableToPromiseTotal"/><select-field field-name="quantityOnHandTotal"/>
-            </entity-find>
+            <if condition="combinedProductIdList">
+                <entity-find entity-name="mantle.product.asset.AssetSummaryView" list="assetSummaryList">
+                    <econdition field-name="productId" operator="in" from="combinedProductIdList"/>
+                    <econdition field-name="facilityId" from="inventoryFacilityId"/>
+                    <select-field field-name="productId"/>
+                    <select-field field-name="availableToPromiseTotal"/><select-field field-name="quantityOnHandTotal"/>
+                </entity-find>
+            </if>
 
             <!-- Equipment -->
             <entity-find entity-name="mantle.work.effort.WorkEffortAssetAndAssign" list="equipmentList">
