@@ -318,11 +318,13 @@ This Work includes contributions authored by David E. Jones, not as a
                         availableRemaining : res.quantityNotAvailable"/>
                 <!-- quantityNotAvailable > 0 from query so if 0 means nothing left -->
                 <if condition="quantityToMove == 0"><break/></if>
-
-                <service-call name="mantle.product.AssetServices.move#AssetReservation" out-map="moveArOut"
-                        in-map="[assetId:assetId, assetReservationId:res.assetReservationId, quantity:quantityToMove]"/>
-
-                <set field="availableRemaining" from="availableRemaining - moveArOut.quantityMoved"/>
+                <!-- make sure quantityToMove is less than res.quantityNotIssued, don't move issued quantities! -->
+                <if condition="quantityToMove &gt; res.quantityNotIssued"><set field="quantityToMove" from="res.quantityNotIssued"/></if>
+                <if condition="quantityToMove &gt; 0">
+                    <service-call name="mantle.product.AssetServices.move#AssetReservation" out-map="moveArOut"
+                            in-map="[assetId:assetId, assetReservationId:res.assetReservationId, quantity:quantityToMove]"/>
+                    <set field="availableRemaining" from="availableRemaining - moveArOut.quantityMoved"/>
+                </if>
             </iterate>
         </actions>
     </service>
@@ -338,6 +340,10 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
             <entity-find-one entity-name="mantle.product.issuance.AssetReservation" value-field="assetReservation" for-update="true"/>
+
+            <if condition="quantity &gt; assetReservation.quantityNotIssued">
+                <return error="true" message="Quantity to move (${quantity}) is greater than reservation [${assetReservationId}] quantity not yet issued (${assetReservation.quantityNotIssued}), not moving reservation"/></if>
+
             <if condition="forceFullQuantity">
                 <set field="quantityToMove" from="quantity"/>
                 <else>
@@ -367,7 +373,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="assetReservation.assetId" from="assetId"/>
                 <set field="assetReservation.quantityNotAvailable"
                         from="assetReservation.quantityNotAvailable &gt; quantityToMove ?
-                                        assetReservation.quantityNotAvailable - quantityToMove : 0"/>
+                            assetReservation.quantityNotAvailable - quantityToMove : 0"/>
                 <entity-update value-field="assetReservation"/>
 
                 <else>
@@ -379,7 +385,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="assetReservation.quantity" from="assetReservation.quantity - quantityToMove"/>
                     <set field="assetReservation.quantityNotAvailable"
                             from="assetReservation.quantityNotAvailable &gt; quantityToMove ?
-                                        assetReservation.quantityNotAvailable - quantityToMove : 0"/>
+                                assetReservation.quantityNotAvailable - quantityToMove : 0"/>
                     <set field="assetReservation.quantityNotIssued" from="assetReservation.quantityNotIssued - quantityToMove"/>
                     <entity-update value-field="assetReservation"/>
 
