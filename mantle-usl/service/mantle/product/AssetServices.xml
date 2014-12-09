@@ -319,10 +319,10 @@ This Work includes contributions authored by David E. Jones, not as a
                 <!-- quantityNotAvailable > 0 from query so if 0 means nothing left -->
                 <if condition="quantityToMove == 0"><break/></if>
 
-                <service-call name="mantle.product.AssetServices.move#AssetReservation"
+                <service-call name="mantle.product.AssetServices.move#AssetReservation" out-map="moveArOut"
                         in-map="[assetId:assetId, assetReservationId:res.assetReservationId, quantity:quantityToMove]"/>
 
-                <set field="availableRemaining" from="availableRemaining - quantityToMove"/>
+                <set field="availableRemaining" from="availableRemaining - moveArOut.quantityMoved"/>
             </iterate>
         </actions>
     </service>
@@ -331,11 +331,23 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="assetId" required="true"/>
             <parameter name="assetReservationId" required="true"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="forceFullQuantity" type="Boolean" default-value="false"><description>If true ignore
+                available to promise on asset and moves the quantity to it anyway.</description></parameter>
         </in-parameters>
+        <out-parameters><parameter name="quantityMoved"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
             <entity-find-one entity-name="mantle.product.issuance.AssetReservation" value-field="assetReservation" for-update="true"/>
-            <set field="quantityToMove" from="asset.availableToPromiseTotal &lt; quantity ? asset.availableToPromiseTotal : quantity"/>
+            <if condition="forceFullQuantity">
+                <set field="quantityToMove" from="quantity"/>
+                <else>
+                    <set field="quantityToMove" from="asset.availableToPromiseTotal &lt; quantity ? asset.availableToPromiseTotal : quantity"/>
+                    <if condition="quantityToMove &lt; 0"><set field="quantityToMove" from="0"/></if>
+                </else>
+            </if>
+
+            <set field="quantityMoved" from="quantityToMove"/>
+            <if condition="quantityToMove == 0"><return/></if>
 
             <if condition="quantityToMove == assetReservation.quantity">
                 <!-- move over the whole reservation -->
