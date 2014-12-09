@@ -536,15 +536,58 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="defaultAssetId"/>
             <parameter name="workEffortId" required="true"/>
             <parameter name="quantity" type="BigDecimal"><description>If not specified entire quantity of given Asset record will be used.</description></parameter>
+            <parameter name="noConsumeProduct" default-value="error"><description>If the asset has a productId that is
+                not one of the WorkEffort consume products, "add" it or return an "error"?</description></parameter>
+            <parameter name="noOriginFacility" default-value="error"><description>If the asset has a originFacilityId that is
+                not one of the WorkEffort origin facilities, "add" it or return an "error"?</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
             <if condition="!asset"><return error="true" message="Asset not found with ID ${assetId}"/></if>
+            <set field="quantity" from="quantity ?: asset.availableToPromiseTotal"/>
 
             <!-- reserve by availableToPromiseTotal (no reservation here, but respect others) -->
             <if condition="quantity &gt; asset.availableToPromiseTotal">
-                <return error="true" message="Quantity specified (${quantity}) is greater than the quantity available (${asset.availableToPromiseTotal})"/>
+                <message error="true">Quantity specified (${quantity}) is greater than the quantity available (${asset.availableToPromiseTotal})</message>
             </if>
+
+            <!-- check consume product -->
+            <entity-find entity-name="mantle.work.effort.WorkEffortProduct" list="consumeProductList">
+                <econdition field-name="workEffortId"/><econdition field-name="productId" from="asset.productId"/>
+                <econdition field-name="typeEnumId" value="WeptConsume"/>
+            </entity-find>
+            <if condition="!consumeProductList">
+                <if condition="noConsumeProduct == 'add'">
+                    <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,
+                            productId:asset.productId, typeEnumId:'WeptConsume', estimatedQuantity:quantity]"/>
+                    <else>
+                        <entity-find-one entity-name="mantle.product.Product" value-field="product">
+                            <field-map field-name="productId" from="asset.productId"/></entity-find-one>
+                        <message error="true">Not issuing Asset [${assetId}], Product ${product.productName} [${product.pseudoId}] is not a product to consume</message>
+                    </else>
+                </if>
+            </if>
+
+            <!-- check origin facility -->
+            <if condition="asset.originFacilityId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortFacility" list="originFacilityList">
+                    <econdition field-name="workEffortId"/><econdition field-name="facilityId" from="asset.originFacilityId"/>
+                    <econdition field-name="typeEnumId" value="WeftOrigin"/>
+                </entity-find>
+                <if condition="!originFacilityList">
+                    <if condition="noOriginFacility == 'add'">
+                        <service-call name="create#mantle.work.effort.WorkEffortFacility" in-map="[workEffortId:workEffortId,
+                            facilityId:asset.originFacilityId, typeEnumId:'WeftOrigin']"/>
+                        <else>
+                            <entity-find-one entity-name="mantle.facility.Facility" value-field="facility">
+                                <field-map field-name="facilityId" from="asset.originFacilityId"/></entity-find-one>
+                            <message error="true">Not issuing Asset [${assetId}], Origin Facility ${facility.facilityName} [${facility.facilityId}] is not an origin facility</message>
+                        </else>
+                    </if>
+                </if>
+            </if>
+
+            <check-errors/>
 
             <set field="baseMap" from="[workEffortId:workEffortId, productId:asset.productId]"/>
             <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="issueOut" in-map="baseMap +
