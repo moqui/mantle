@@ -496,50 +496,10 @@ This Work includes contributions authored by David E. Jones, not as a
                     <return error="true" message="Quantity specified (${quantity}) is greater than asset [${assetId}] quantity on hand (${asset.quantityOnHandTotal}), not packing"/></if>
 
                 <!-- handle reservations, moving other reservations as needed to handle current quantity assumed to be physically present -->
-                <!-- get quantity already reserved on this asset -->
-                <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetAllResList">
-                    <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
-                    <econdition field-name="assetId"/>
-                    <order-by field-name="-reservedDate"/><!-- so that newest reservations are moved first -->
-                </entity-find>
-                <filter-map-list list="assetAllResList" to-list="assetReservationList">
-                    <field-map field-name="orderId" from="shipmentItemSource.orderId"/>
-                    <field-map field-name="orderItemSeqId" from="shipmentItemSource.orderItemSeqId"/>
-                </filter-map-list>
-                <set field="assetOtherResList" from="assetAllResList - assetReservationList"/>
-
-                <set field="assetQuantityReserved" from="0"/>
-                <iterate list="assetReservationList" entry="assetReservation">
-                    <set field="assetQuantityReserved" from="assetQuantityReserved + assetReservation.quantityNotIssued"/></iterate>
-
-                <set field="resQuantityToMove" from="quantity - assetQuantityReserved"/>
-
-                <!-- move from the most recent, but remove res and re-reserve oldest first -->
-                <set field="resQuantityRemaining" from="resQuantityToMove"/>
-                <set field="resToMoveList" from="[]"/>
-                <iterate list="assetOtherResList" entry="assetOtherRes">
-                    <if condition="resQuantityRemaining == 0"><break/></if>
-                    <set field="curMoveQuantity" from="resQuantityRemaining &gt; assetOtherRes.quantityNotIssued ? assetOtherRes.quantityNotIssued : resQuantityRemaining"/>
-                    <script>resToMoveList.add(assetOtherRes)</script>
-                    <set field="resQuantityRemaining" from="resQuantityRemaining - curMoveQuantity"/>
-                </iterate>
-
-                <!-- now reverse resToMoveList and move 'em -->
-                <script>Collections.reverse(resToMoveList)</script>
-                <!-- remove the reservation and re-reserve to any asset available -->
-                <set field="resQuantityRemaining" from="resQuantityToMove"/>
-                <iterate list="resToMoveList" entry="resToMove">
-                    <if condition="resQuantityRemaining == 0"><break/></if>
-                    <set field="curMoveQuantity" from="resQuantityRemaining &gt; resToMove.quantityNotIssued ? resToMove.quantityNotIssued : resQuantityRemaining"/>
-
-                    <service-call name="mantle.product.AssetServices.reduce#AssetReservation" out-map="reduceArOut"
-                            in-map="[assetReservationId:resToMove.assetReservationId, quantityToDeduct:curMoveQuantity]"/>
-
-                    <service-call name="mantle.product.AssetServices.reserve#AssetForOrderItem"
-                            in-map="[orderId:resToMove.orderId, orderItemSeqId:resToMove.orderItemSeqId]"/>
-
-                    <set field="resQuantityRemaining" from="resQuantityRemaining - reduceArOut.quantityDeducted"/>
-                </iterate>
+                <!-- call displace#AssetReservations -->
+                <service-call name="mantle.product.AssetServices.displace#AssetReservations"
+                        in-map="[assetId:assetId, orderId:shipmentItemSource.orderId,
+                                orderItemSeqId:shipmentItemSource.orderItemSeqId, quantity:quantity]"/>
             </if>
 
             <!-- create AssetIssuance records based on AssetReservation records if available -->

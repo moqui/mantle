@@ -417,6 +417,64 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="displace" noun="AssetReservations">
+        <description>When forcing the use of a certain Asset for an OrderItem, move other reservations as needed to
+            handle quantity that the given OrderItem will be using (note that this doesn't do an additional reservation,
+            just removes reservations from other OrderItems).</description>
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderItemSeqId" required="true"/>
+        </in-parameters>
+        <actions>
+            <!-- get quantity already reserved on this asset -->
+            <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetAllResList">
+                <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
+                <econdition field-name="assetId"/>
+                <order-by field-name="-reservedDate"/><!-- so that newest reservations are moved first -->
+            </entity-find>
+            <filter-map-list list="assetAllResList" to-list="assetReservationList">
+                <field-map field-name="orderId"/><field-map field-name="orderItemSeqId"/></filter-map-list>
+            <set field="assetOtherResList" from="assetAllResList - assetReservationList"/>
+
+            <set field="assetQuantityReserved" from="0"/>
+            <iterate list="assetReservationList" entry="assetReservation">
+                <set field="assetQuantityReserved" from="assetQuantityReserved + assetReservation.quantityNotIssued"/></iterate>
+
+            <set field="resQuantityToMove" from="quantity - assetQuantityReserved"/>
+
+            <!-- move from the most recent, but remove res and re-reserve oldest first -->
+            <set field="resQuantityRemaining" from="resQuantityToMove"/>
+            <set field="resToMoveList" from="[]"/>
+            <iterate list="assetOtherResList" entry="assetOtherRes">
+                <if condition="resQuantityRemaining == 0"><break/></if>
+                <set field="curMoveQuantity" from="resQuantityRemaining &gt; assetOtherRes.quantityNotIssued ? assetOtherRes.quantityNotIssued : resQuantityRemaining"/>
+                <script>resToMoveList.add(assetOtherRes)</script>
+                <set field="resQuantityRemaining" from="resQuantityRemaining - curMoveQuantity"/>
+            </iterate>
+
+            <!-- now reverse resToMoveList and move 'em -->
+            <script>Collections.reverse(resToMoveList)</script>
+            <!-- remove the reservation and re-reserve to any asset available -->
+            <set field="resQuantityRemaining" from="resQuantityToMove"/>
+            <iterate list="resToMoveList" entry="resToMove">
+                <if condition="resQuantityRemaining == 0"><break/></if>
+                <set field="curMoveQuantity" from="resQuantityRemaining &gt; resToMove.quantityNotIssued ? resToMove.quantityNotIssued : resQuantityRemaining"/>
+
+                <service-call name="mantle.product.AssetServices.reduce#AssetReservation" out-map="reduceArOut"
+                        in-map="[assetReservationId:resToMove.assetReservationId, quantityToDeduct:curMoveQuantity]"/>
+
+                <service-call name="mantle.product.AssetServices.reserve#AssetForOrderItem"
+                        in-map="[orderId:resToMove.orderId, orderItemSeqId:resToMove.orderItemSeqId]"/>
+
+                <set field="resQuantityRemaining" from="resQuantityRemaining - reduceArOut.quantityDeducted"/>
+            </iterate>
+
+            <!-- TODO: also clear out other reservations for this OrderItem -->
+        </actions>
+    </service>
+
     <service verb="change" noun="AssetQuantity">
         <in-parameters>
             <auto-parameters entity-name="mantle.product.asset.AssetDetail" include="nonpk"/>
