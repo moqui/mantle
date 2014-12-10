@@ -471,7 +471,19 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="resQuantityRemaining" from="resQuantityRemaining - reduceArOut.quantityDeducted"/>
             </iterate>
 
-            <!-- TODO: also clear out other reservations for this OrderItem -->
+            <!-- also clear out other reservations for this OrderItem -->
+            <entity-find entity-name="mantle.product.issuance.AssetReservation" list="oiOtherResList">
+                <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
+                <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
+            </entity-find>
+            <set field="resQuantityRemaining" from="resQuantityToMove"/>
+            <iterate list="oiOtherResList" entry="oiOtherRes">
+                <if condition="resQuantityRemaining == 0"><break/></if>
+                <set field="curReduceQuantity" from="resQuantityRemaining &gt; oiOtherRes.quantityNotIssued ? oiOtherRes.quantityNotIssued : resQuantityRemaining"/>
+                <service-call name="mantle.product.AssetServices.reduce#AssetReservation" out-map="reduceArOut"
+                        in-map="[assetReservationId:oiOtherRes.assetReservationId, quantityToDeduct:curReduceQuantity]"/>
+                <set field="resQuantityRemaining" from="resQuantityRemaining - reduceArOut.quantityDeducted"/>
+            </iterate>
         </actions>
     </service>
 
