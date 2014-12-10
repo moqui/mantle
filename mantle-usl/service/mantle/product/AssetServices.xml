@@ -506,10 +506,32 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="productId" from="orderItem.productId"/>
             <set field="baseMap" from="[orderId:orderId, orderItemSeqId:orderItemSeqId, shipmentId:shipmentId, productId:productId]"/>
 
+            <set field="facilityId" from="productStore?.inventoryFacilityId"/>
+            <!-- no ProductStore inventoryFacilityId? look at OrderPart -->
+            <if condition="!facilityId">
+                <entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/>
+                <set field="facilityId" from="orderPart.facilityId"/>
+                <!-- no OrderPart facilityId? look at ShipmentRouteSegment.originFacilityId -->
+                <if condition="!facilityId">
+                    <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                        <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+                    <if condition="srsList"><set field="facilityId" from="srsList.getAt(0).originFacilityId"/></if>
+                </if>
+            </if>
+            <if condition="!facilityId"><return error="true" message="Could not find inventory facility for shipment [${shipmentId}] and order item [${orderId}:${orderItemSeqId}]"/></if>
+
+            <set field="ownerPartyId" from="productStore?.organizationPartyId"/>
+            <!-- no ProductStore organizationPartyId? try OrderPart.vendorPartyId (for sales orders should be an internal org) -->
+            <if condition="!ownerPartyId">
+                <if condition="!orderPart"><entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/></if>
+                <set field="ownerPartyId" from="orderPart.vendorPartyId"/>
+                <!-- if still not found, ignore -->
+            </if>
+
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
                 <econdition field-name="productId"/>
-                <econdition field-name="facilityId" from="productStore.inventoryFacilityId" ignore-if-empty="true"/>
-                <econdition field-name="ownerPartyId" from="productStore.organizationPartyId" ignore-if-empty="true"/>
+                <econdition field-name="facilityId"/>
+                <econdition field-name="ownerPartyId" ignore-if-empty="true"/>
                 <!-- reserve from oldest first (ascending receivedDate) -->
                 <!-- TODO: this may be configurable in the future -->
                 <order-by field-name="receivedDate"/>
