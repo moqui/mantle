@@ -127,33 +127,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="quantityRemaining &lt; 0">
                 <set field="quantityToDeduct" from="-quantityRemaining"/>
                 <iterate list="existingResList" entry="existingRes">
-                    <if condition="quantityToDeduct >= existingRes.quantity &amp;&amp; existingRes.quantity == existingRes.quantityNotIssued">
-                        <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
-                                effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:existingRes.quantity,
-                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId]"/>
-
-                        <set field="quantityToDeduct" from="quantityToDeduct - existingRes.quantity"/>
-                        <entity-delete value-field="existingRes"/>
-
-                        <else>
-                            <set field="curQuantityToDeduct" from="existingRes.quantityNotIssued &gt; quantityToDeduct ?
-                                    quantityToDeduct : existingRes.quantityNotIssued"/>
-                            <!-- add to ATP on Asset through a detail record -->
-                            <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
-                                effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:curQuantityToDeduct,
-                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId,
-                                orderId:existingRes.orderId, orderItemSeqId:existingRes.orderItemSeqId]"/>
-                            <!-- reduce quantities on AssetReservation -->
-                            <set field="existingRes.quantity" from="existingRes.quantity - curQuantityToDeduct"/>
-                            <set field="existingRes.quantityNotAvailable"
-                                    from="existingRes.quantityNotAvailable &gt; curQuantityToDeduct ?
-                                        existingRes.quantityNotAvailable - curQuantityToDeduct : 0"/>
-                            <set field="existingRes.quantityNotIssued" from="existingRes.quantityNotIssued - curQuantityToDeduct"/>
-                            <entity-update value-field="existingRes"/>
-
-                            <set field="quantityToDeduct" from="quantityToDeduct - curQuantityToDeduct"/>
-                        </else>
-                    </if>
+                    <service-call name="mantle.product.AssetServices.reduce#AssetReservation" out-map="reduceArOut"
+                            in-map="[assetReservationId:existingRes.assetReservationId, quantityToDeduct:quantityToDeduct]"/>
+                    <set field="quantityToDeduct" from="quantityToDeduct - reduceArOut.quantityDeducted"/>
                     <if condition="quantityToDeduct == 0"><break/></if>
                 </iterate>
 
@@ -285,11 +261,48 @@ This Work includes contributions authored by David E. Jones, not as a
             <entity-find entity-name="mantle.product.issuance.AssetReservation" list="existingResList" for-update="true">
                 <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/></entity-find>
             <iterate list="existingResList" entry="existingRes">
-                <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
-                        effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:existingRes.quantity,
-                        assetReservationId:existingRes.assetReservationId, productId:existingRes.productId]"/>
-                <entity-delete value-field="existingRes"/>
+                <service-call name="mantle.product.AssetServices.reduce#AssetReservation"
+                        in-map="[assetReservationId:existingRes.assetReservationId]"/>
             </iterate>
+        </actions>
+    </service>
+    <service verb="reduce" noun="AssetReservation">
+        <description>Reduce quantity on AssetReservation, if reduced to zero delete.</description>
+        <in-parameters>
+            <parameter name="assetReservationId" required="true"/>
+            <parameter name="quantityToDeduct" type="BigDecimal"><description>Defaults to entire quantityNotIssued</description></parameter>
+        </in-parameters>
+        <out-parameters><parameter name="quantityDeducted" type="BigDecimal"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.issuance.AssetReservation" value-field="existingRes"/>
+            <if condition="!quantityToDeduct"><set field="quantityToDeduct" from="existingRes.quantityNotIssued"/></if>
+            <if condition="quantityToDeduct >= existingRes.quantity &amp;&amp; existingRes.quantity == existingRes.quantityNotIssued">
+                <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
+                                effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:existingRes.quantity,
+                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId]"/>
+
+                <set field="quantityDeducted" from="existingRes.quantity"/>
+                <entity-delete value-field="existingRes"/>
+
+                <else>
+                    <set field="curQuantityToDeduct" from="existingRes.quantityNotIssued &gt; quantityToDeduct ?
+                                    quantityToDeduct : existingRes.quantityNotIssued"/>
+                    <!-- add to ATP on Asset through a detail record -->
+                    <service-call name="create#mantle.product.asset.AssetDetail" in-map="[assetId:existingRes.assetId,
+                                effectiveDate:ec.user.nowTimestamp, availableToPromiseDiff:curQuantityToDeduct,
+                                assetReservationId:existingRes.assetReservationId, productId:existingRes.productId,
+                                orderId:existingRes.orderId, orderItemSeqId:existingRes.orderItemSeqId]"/>
+                    <!-- reduce quantities on AssetReservation -->
+                    <set field="existingRes.quantity" from="existingRes.quantity - curQuantityToDeduct"/>
+                    <set field="existingRes.quantityNotAvailable"
+                            from="existingRes.quantityNotAvailable &gt; curQuantityToDeduct ?
+                                        existingRes.quantityNotAvailable - curQuantityToDeduct : 0"/>
+                    <set field="existingRes.quantityNotIssued" from="existingRes.quantityNotIssued - curQuantityToDeduct"/>
+                    <entity-update value-field="existingRes"/>
+
+                    <set field="quantityDeducted" from="curQuantityToDeduct"/>
+                </else>
+            </if>
         </actions>
     </service>
 
@@ -318,11 +331,13 @@ This Work includes contributions authored by David E. Jones, not as a
                         availableRemaining : res.quantityNotAvailable"/>
                 <!-- quantityNotAvailable > 0 from query so if 0 means nothing left -->
                 <if condition="quantityToMove == 0"><break/></if>
-
-                <service-call name="mantle.product.AssetServices.move#AssetReservation"
-                        in-map="[assetId:assetId, assetReservationId:res.assetReservationId, quantity:quantityToMove]"/>
-
-                <set field="availableRemaining" from="availableRemaining - quantityToMove"/>
+                <!-- make sure quantityToMove is less than res.quantityNotIssued, don't move issued quantities! -->
+                <if condition="quantityToMove &gt; res.quantityNotIssued"><set field="quantityToMove" from="res.quantityNotIssued"/></if>
+                <if condition="quantityToMove &gt; 0">
+                    <service-call name="mantle.product.AssetServices.move#AssetReservation" out-map="moveArOut"
+                            in-map="[assetId:assetId, assetReservationId:res.assetReservationId, quantity:quantityToMove]"/>
+                    <set field="availableRemaining" from="availableRemaining - moveArOut.quantityMoved"/>
+                </if>
             </iterate>
         </actions>
     </service>
@@ -331,11 +346,27 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="assetId" required="true"/>
             <parameter name="assetReservationId" required="true"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="forceFullQuantity" type="Boolean" default-value="false"><description>If true ignore
+                available to promise on asset and moves the quantity to it anyway.</description></parameter>
         </in-parameters>
+        <out-parameters><parameter name="quantityMoved"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
             <entity-find-one entity-name="mantle.product.issuance.AssetReservation" value-field="assetReservation" for-update="true"/>
-            <set field="quantityToMove" from="asset.availableToPromiseTotal &lt; quantity ? asset.availableToPromiseTotal : quantity"/>
+
+            <if condition="quantity &gt; assetReservation.quantityNotIssued">
+                <return error="true" message="Quantity to move (${quantity}) is greater than reservation [${assetReservationId}] quantity not yet issued (${assetReservation.quantityNotIssued}), not moving reservation"/></if>
+
+            <if condition="forceFullQuantity">
+                <set field="quantityToMove" from="quantity"/>
+                <else>
+                    <set field="quantityToMove" from="asset.availableToPromiseTotal &lt; quantity ? asset.availableToPromiseTotal : quantity"/>
+                    <if condition="quantityToMove &lt; 0"><set field="quantityToMove" from="0"/></if>
+                </else>
+            </if>
+
+            <set field="quantityMoved" from="quantityToMove"/>
+            <if condition="quantityToMove == 0"><return/></if>
 
             <if condition="quantityToMove == assetReservation.quantity">
                 <!-- move over the whole reservation -->
@@ -355,7 +386,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="assetReservation.assetId" from="assetId"/>
                 <set field="assetReservation.quantityNotAvailable"
                         from="assetReservation.quantityNotAvailable &gt; quantityToMove ?
-                                        assetReservation.quantityNotAvailable - quantityToMove : 0"/>
+                            assetReservation.quantityNotAvailable - quantityToMove : 0"/>
                 <entity-update value-field="assetReservation"/>
 
                 <else>
@@ -367,7 +398,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="assetReservation.quantity" from="assetReservation.quantity - quantityToMove"/>
                     <set field="assetReservation.quantityNotAvailable"
                             from="assetReservation.quantityNotAvailable &gt; quantityToMove ?
-                                        assetReservation.quantityNotAvailable - quantityToMove : 0"/>
+                                assetReservation.quantityNotAvailable - quantityToMove : 0"/>
                     <set field="assetReservation.quantityNotIssued" from="assetReservation.quantityNotIssued - quantityToMove"/>
                     <entity-update value-field="assetReservation"/>
 
@@ -383,6 +414,76 @@ This Work includes contributions authored by David E. Jones, not as a
                         orderId:assetReservation.orderId, orderItemSeqId:assetReservation.orderItemSeqId]"/>
                 </else>
             </if>
+        </actions>
+    </service>
+
+    <service verb="displace" noun="AssetReservations">
+        <description>When forcing the use of a certain Asset for an OrderItem, move other reservations as needed to
+            handle quantity that the given OrderItem will be using (note that this doesn't do an additional reservation,
+            just removes reservations from other OrderItems).</description>
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderItemSeqId" required="true"/>
+        </in-parameters>
+        <actions>
+            <!-- get quantity already reserved on this asset -->
+            <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetAllResList">
+                <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
+                <econdition field-name="assetId"/>
+                <order-by field-name="-reservedDate"/><!-- so that newest reservations are moved first -->
+            </entity-find>
+            <filter-map-list list="assetAllResList" to-list="assetReservationList">
+                <field-map field-name="orderId"/><field-map field-name="orderItemSeqId"/></filter-map-list>
+            <set field="assetOtherResList" from="assetAllResList - assetReservationList"/>
+
+            <set field="assetQuantityReserved" from="0"/>
+            <iterate list="assetReservationList" entry="assetReservation">
+                <set field="assetQuantityReserved" from="assetQuantityReserved + assetReservation.quantityNotIssued"/></iterate>
+
+            <set field="resQuantityToMove" from="quantity - assetQuantityReserved"/>
+
+            <!-- move from the most recent, but remove res and re-reserve oldest first -->
+            <set field="resQuantityRemaining" from="resQuantityToMove"/>
+            <set field="resToMoveList" from="[]"/>
+            <iterate list="assetOtherResList" entry="assetOtherRes">
+                <if condition="resQuantityRemaining == 0"><break/></if>
+                <set field="curMoveQuantity" from="resQuantityRemaining &gt; assetOtherRes.quantityNotIssued ? assetOtherRes.quantityNotIssued : resQuantityRemaining"/>
+                <script>resToMoveList.add(assetOtherRes)</script>
+                <set field="resQuantityRemaining" from="resQuantityRemaining - curMoveQuantity"/>
+            </iterate>
+
+            <!-- now reverse resToMoveList and move 'em -->
+            <script>Collections.reverse(resToMoveList)</script>
+            <!-- remove the reservation and re-reserve to any asset available -->
+            <set field="resQuantityRemaining" from="resQuantityToMove"/>
+            <iterate list="resToMoveList" entry="resToMove">
+                <if condition="resQuantityRemaining == 0"><break/></if>
+                <set field="curMoveQuantity" from="resQuantityRemaining &gt; resToMove.quantityNotIssued ? resToMove.quantityNotIssued : resQuantityRemaining"/>
+
+                <service-call name="mantle.product.AssetServices.reduce#AssetReservation" out-map="reduceArOut"
+                        in-map="[assetReservationId:resToMove.assetReservationId, quantityToDeduct:curMoveQuantity]"/>
+
+                <service-call name="mantle.product.AssetServices.reserve#AssetForOrderItem"
+                        in-map="[orderId:resToMove.orderId, orderItemSeqId:resToMove.orderItemSeqId]"/>
+
+                <set field="resQuantityRemaining" from="resQuantityRemaining - reduceArOut.quantityDeducted"/>
+            </iterate>
+
+            <!-- also clear out other reservations for this OrderItem -->
+            <entity-find entity-name="mantle.product.issuance.AssetReservation" list="oiOtherResList">
+                <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
+                <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
+            </entity-find>
+            <set field="resQuantityRemaining" from="resQuantityToMove"/>
+            <iterate list="oiOtherResList" entry="oiOtherRes">
+                <if condition="resQuantityRemaining == 0"><break/></if>
+                <set field="curReduceQuantity" from="resQuantityRemaining &gt; oiOtherRes.quantityNotIssued ? oiOtherRes.quantityNotIssued : resQuantityRemaining"/>
+                <service-call name="mantle.product.AssetServices.reduce#AssetReservation" out-map="reduceArOut"
+                        in-map="[assetReservationId:oiOtherRes.assetReservationId, quantityToDeduct:curReduceQuantity]"/>
+                <set field="resQuantityRemaining" from="resQuantityRemaining - reduceArOut.quantityDeducted"/>
+            </iterate>
         </actions>
     </service>
 
@@ -475,10 +576,32 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="productId" from="orderItem.productId"/>
             <set field="baseMap" from="[orderId:orderId, orderItemSeqId:orderItemSeqId, shipmentId:shipmentId, productId:productId]"/>
 
+            <set field="facilityId" from="productStore?.inventoryFacilityId"/>
+            <!-- no ProductStore inventoryFacilityId? look at OrderPart -->
+            <if condition="!facilityId">
+                <entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/>
+                <set field="facilityId" from="orderPart.facilityId"/>
+                <!-- no OrderPart facilityId? look at ShipmentRouteSegment.originFacilityId -->
+                <if condition="!facilityId">
+                    <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                        <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+                    <if condition="srsList"><set field="facilityId" from="srsList.getAt(0).originFacilityId"/></if>
+                </if>
+            </if>
+            <if condition="!facilityId"><return error="true" message="Could not find inventory facility for shipment [${shipmentId}] and order item [${orderId}:${orderItemSeqId}]"/></if>
+
+            <set field="ownerPartyId" from="productStore?.organizationPartyId"/>
+            <!-- no ProductStore organizationPartyId? try OrderPart.vendorPartyId (for sales orders should be an internal org) -->
+            <if condition="!ownerPartyId">
+                <if condition="!orderPart"><entity-find-related-one value-field="orderItem" relationship-name="mantle.order.OrderPart" to-value-field="orderPart"/></if>
+                <set field="ownerPartyId" from="orderPart.vendorPartyId"/>
+                <!-- if still not found, ignore -->
+            </if>
+
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
                 <econdition field-name="productId"/>
-                <econdition field-name="facilityId" from="productStore.inventoryFacilityId" ignore-if-empty="true"/>
-                <econdition field-name="ownerPartyId" from="productStore.organizationPartyId" ignore-if-empty="true"/>
+                <econdition field-name="facilityId"/>
+                <econdition field-name="ownerPartyId" ignore-if-empty="true"/>
                 <!-- reserve from oldest first (ascending receivedDate) -->
                 <!-- TODO: this may be configurable in the future -->
                 <order-by field-name="receivedDate"/>
@@ -536,15 +659,58 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="defaultAssetId"/>
             <parameter name="workEffortId" required="true"/>
             <parameter name="quantity" type="BigDecimal"><description>If not specified entire quantity of given Asset record will be used.</description></parameter>
+            <parameter name="noConsumeProduct" default-value="error"><description>If the asset has a productId that is
+                not one of the WorkEffort consume products, "add" it or return an "error"?</description></parameter>
+            <parameter name="noOriginFacility" default-value="error"><description>If the asset has a originFacilityId that is
+                not one of the WorkEffort origin facilities, "add" it or return an "error"?</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
             <if condition="!asset"><return error="true" message="Asset not found with ID ${assetId}"/></if>
+            <set field="quantity" from="quantity ?: asset.availableToPromiseTotal"/>
 
             <!-- reserve by availableToPromiseTotal (no reservation here, but respect others) -->
             <if condition="quantity &gt; asset.availableToPromiseTotal">
-                <return error="true" message="Quantity specified (${quantity}) is greater than the quantity available (${asset.availableToPromiseTotal})"/>
+                <message error="true">Quantity specified (${quantity}) is greater than the quantity available (${asset.availableToPromiseTotal})</message>
             </if>
+
+            <!-- check consume product -->
+            <entity-find entity-name="mantle.work.effort.WorkEffortProduct" list="consumeProductList">
+                <econdition field-name="workEffortId"/><econdition field-name="productId" from="asset.productId"/>
+                <econdition field-name="typeEnumId" value="WeptConsume"/>
+            </entity-find>
+            <if condition="!consumeProductList">
+                <if condition="noConsumeProduct == 'add'">
+                    <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,
+                            productId:asset.productId, typeEnumId:'WeptConsume', estimatedQuantity:quantity]"/>
+                    <else>
+                        <entity-find-one entity-name="mantle.product.Product" value-field="product">
+                            <field-map field-name="productId" from="asset.productId"/></entity-find-one>
+                        <message error="true">Not issuing Asset [${assetId}], Product ${product.productName} [${product.pseudoId}] is not a product to consume</message>
+                    </else>
+                </if>
+            </if>
+
+            <!-- check origin facility -->
+            <if condition="asset.originFacilityId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortFacility" list="originFacilityList">
+                    <econdition field-name="workEffortId"/><econdition field-name="facilityId" from="asset.originFacilityId"/>
+                    <econdition field-name="typeEnumId" value="WeftOrigin"/>
+                </entity-find>
+                <if condition="!originFacilityList">
+                    <if condition="noOriginFacility == 'add'">
+                        <service-call name="create#mantle.work.effort.WorkEffortFacility" in-map="[workEffortId:workEffortId,
+                            facilityId:asset.originFacilityId, typeEnumId:'WeftOrigin']"/>
+                        <else>
+                            <entity-find-one entity-name="mantle.facility.Facility" value-field="facility">
+                                <field-map field-name="facilityId" from="asset.originFacilityId"/></entity-find-one>
+                            <message error="true">Not issuing Asset [${assetId}], Origin Facility ${facility.facilityName} [${facility.facilityId}] is not an origin facility</message>
+                        </else>
+                    </if>
+                </if>
+            </if>
+
+            <check-errors/>
 
             <set field="baseMap" from="[workEffortId:workEffortId, productId:asset.productId]"/>
             <service-call name="create#mantle.product.issuance.AssetIssuance" out-map="issueOut" in-map="baseMap +
