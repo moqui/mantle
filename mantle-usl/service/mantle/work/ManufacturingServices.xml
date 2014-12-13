@@ -14,6 +14,87 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="ProductionRunDisplayInfo">
+        <in-parameters><parameter name="workEffortId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="workEffort" type="EntityValue"/>
+            <parameter name="statusHistoryList" type="EntityList"/>
+
+            <parameter name="lineFacility" type="EntityValue"/>
+            <parameter name="warehouseFacility" type="EntityValue"/>
+            <parameter name="currentFacilityIdList" type="List"/>
+            <parameter name="inventoryFacilityId"/>
+            <parameter name="inventoryFacility" type="EntityValue"/>
+
+            <parameter name="consumeList" type="EntityList"/><parameter name="consumeProductIdList" type="List"/>
+            <parameter name="produceList" type="EntityList"/><parameter name="produceProductIdList" type="List"/>
+            <parameter name="combinedProductIdList" type="List"/>
+            <parameter name="assetSummaryList" type="EntityList"><description>List of AssetSummaryView records for all
+                products consumed and produced, to be filtered and used as needed.</description></parameter>
+
+            <parameter name="issuanceSummaryList" type="EntityList"><description>Summary of quantities of assets issued
+                (consumed) by productId.</description></parameter>
+            <parameter name="receiptSummaryList" type="EntityList"><description>Summary of quantities of assets received
+                (produced) by productId.</description></parameter>
+
+            <parameter name="equipmentList" type="EntityList"/>
+            <parameter name="weapdList" type="EntityList"><description>List of WorkEffortAndPartyDetail values.</description></parameter>
+        </out-parameters>
+        <actions>
+            <!-- The Production Run WorkEffort -->
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.work.effort.WorkEffort"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="workEffortId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+
+            <!-- Line and Warehouse Facilities -->
+            <entity-find-related-one value-field="workEffort" relationship-name="mantle.facility.Facility" to-value-field="lineFacility"/>
+            <entity-find-related-one value-field="lineFacility" relationship-name="Parent#mantle.facility.Facility" to-value-field="warehouseFacility"/>
+            <set field="currentFacilityIdList" from="[lineFacility.facilityId]"/>
+            <script>if (warehouseFacility) currentFacilityIdList.add(warehouseFacility.facilityId)</script>
+            <!-- use the warehouse for inventory unless there is no warehouse, then use the line (the direct facility on the run) -->
+            <set field="inventoryFacilityId" from="warehouseFacility.facilityId ?: lineFacility.facilityId"/>
+            <set field="inventoryFacility" from="warehouseFacility ?: lineFacility"/>
+
+            <!-- Products to consume and produce -->
+            <entity-find entity-name="mantle.work.effort.WorkEffortProductDetail" list="allProdList">
+                <date-filter/><econdition field-name="workEffortId"/><order-by field-name="productName"/></entity-find>
+            <filter-map-list list="allProdList" to-list="consumeList"><field-map field-name="typeEnumId" value="WeptConsume"/></filter-map-list>
+            <filter-map-list list="allProdList" to-list="produceList"><field-map field-name="typeEnumId" value="WeptProduce"/></filter-map-list>
+            <set field="consumeProductIdList" from="consumeList?.productId ?: []"/>
+            <set field="produceProductIdList" from="produceList?.productId ?: []"/>
+            <set field="combinedProductIdList" from="consumeProductIdList + produceProductIdList"/>
+
+            <if condition="combinedProductIdList">
+                <entity-find entity-name="mantle.product.asset.AssetSummaryView" list="assetSummaryList">
+                    <econdition field-name="productId" operator="in" from="combinedProductIdList"/>
+                    <econdition field-name="facilityId" from="inventoryFacilityId"/>
+                    <select-field field-name="productId"/>
+                    <select-field field-name="availableToPromiseTotal"/><select-field field-name="quantityOnHandTotal"/>
+                </entity-find>
+            </if>
+
+            <entity-find entity-name="mantle.product.issuance.AssetIssuanceSummary" list="issuanceSummaryList">
+                <econdition field-name="workEffortId"/><select-field field-name="productId"/>
+                <select-field field-name="quantity"/></entity-find>
+            <entity-find entity-name="mantle.product.receipt.AssetReceiptSummary" list="receiptSummaryList">
+                <econdition field-name="workEffortId"/><select-field field-name="productId"/>
+                <select-field field-name="quantityAccepted"/></entity-find>
+
+            <!-- Equipment -->
+            <entity-find entity-name="mantle.work.effort.WorkEffortAssetAndAssign" list="equipmentList">
+                <date-filter/><econdition field-name="workEffortId"/><order-by field-name="assetName"/></entity-find>
+
+            <!-- Party Assignments -->
+            <entity-find entity-name="mantle.work.effort.WorkEffortAndPartyDetail" list="weapdList">
+                <date-filter/><econdition field-name="workEffortId"/><order-by field-name="firstName,organizationName"/></entity-find>
+        </actions>
+    </service>
+
     <service verb="create" noun="ProductionRun">
         <in-parameters>
             <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>

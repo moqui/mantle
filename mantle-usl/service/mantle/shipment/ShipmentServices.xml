@@ -432,6 +432,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="shipmentId" required="true"/>
             <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="assetId"><description>Specify to pack a certain asset, may or may not be reserved.</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true"/>
@@ -454,7 +455,7 @@ This Work includes contributions authored by David E. Jones, not as a
                         quantityRemaining - shipmentItemSource.quantityNotHandled : 0"/>
                 <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"
                         in-map="[shipmentItemSourceId:shipmentItemSource.shipmentItemSourceId,
-                            shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantityToPack]"/>
+                            shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantityToPack, assetId:assetId]"/>
             </iterate>
         </actions>
     </service>
@@ -464,19 +465,60 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="shipmentItemSourceId" required="true"/>
             <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="assetReservationId"><description>Specify to pack for a single reservation. If specified assetId is ignored.</description></parameter>
+            <parameter name="assetId"><description>Specify to pack a certain asset, may or may not be reserved. Packing
+                a specific quantity of an asset assumes physical presence of the asset so other reservations are moved
+                as needed.</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.ShipmentItemSource" value-field="shipmentItemSource"/>
 
-            <!-- create AssetIssuance records based on AssetReservation records -->
-            <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetReservationList">
-                <econdition field-name="orderId" from="shipmentItemSource.orderId"/>
-                <econdition field-name="orderItemSeqId" from="shipmentItemSource.orderItemSeqId"/>
-                <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
-            </entity-find>
+            <!-- if an assetReservationId is passed make sure it is for the same order item, etc -->
+            <if condition="assetReservationId">
+                <entity-find-one entity-name="mantle.product.issuance.AssetReservation" value-field="assetReservation"/>
+                <if condition="!assetReservation"><return error="true" message="Reservation [${assetReservationId}] not found, not packing"/></if>
+                <if condition="shipmentItemSource.orderId != assetReservation.orderId || shipmentItemSource.orderItemSeqId != assetReservation.orderItemSeqId">
+                    <return error="true" message="Reservation order item [${assetReservation.orderId}:${assetReservation.orderItemSeqId}] does not match shipment item source order item [${shipmentItemSource.orderId}:${shipmentItemSource.orderItemSeqId}], not packing"/></if>
+                <if condition="quantity &gt; assetReservation.quantityNotIssued">
+                    <return error="true" message="Quantity specified (${quantity}) is greater than quantity not issued (${assetReservation.quantityNotIssued}) on reservation [${assetReservationId}], not packing"/></if>
+
+                <!-- clear out assetId to make sure it is ignored -->
+                <set field="assetId" from="null"/>
+            </if>
+
+            <!-- if an assetId is passed make sure it is for the same product, etc -->
+            <if condition="assetId">
+                <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+                <if condition="!asset"><return error="true" message="Asset [${assetId}] not found, not packing"/></if>
+                <if condition="shipmentItemSource.productId != asset.productId">
+                    <return error="true" message="Asset product [${asset.productId}] is not the same as shipment item product [${shipmentItemSource.productId}], not packing"/></if>
+                <if condition="quantity &gt; asset.quantityOnHandTotal">
+                    <return error="true" message="Quantity specified (${quantity}) is greater than asset [${assetId}] quantity on hand (${asset.quantityOnHandTotal}), not packing"/></if>
+
+                <!-- handle reservations, moving other reservations as needed to handle current quantity assumed to be physically present -->
+                <!-- call displace#AssetReservations -->
+                <service-call name="mantle.product.AssetServices.displace#AssetReservations"
+                        in-map="[assetId:assetId, orderId:shipmentItemSource.orderId,
+                                orderItemSeqId:shipmentItemSource.orderItemSeqId, quantity:quantity]"/>
+            </if>
+
+            <!-- create AssetIssuance records based on AssetReservation records if available -->
+            <if condition="assetReservation">
+                <set field="assetReservationList" from="[assetReservation]"/>
+
+                <else-if condition="!assetReservationList">
+                    <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetReservationList">
+                        <econdition field-name="orderId" from="shipmentItemSource.orderId"/>
+                        <econdition field-name="orderItemSeqId" from="shipmentItemSource.orderItemSeqId"/>
+                        <econdition field-name="quantityNotIssued" operator="greater" from="0"/>
+                        <econdition field-name="assetId" ignore-if-empty="true"/>
+                    </entity-find>
+                </else-if>
+            </if>
+
+            <set field="quantityRemaining" from="quantity"/>
             <if condition="assetReservationList">
                 <!-- issue based on reservations -->
-                <set field="quantityRemaining" from="quantity"/>
                 <iterate list="assetReservationList" entry="assetReservation">
                     <set field="quantityToIssue" from="assetReservation.quantityNotIssued > quantityRemaining ?
                         quantityRemaining : assetReservation.quantityNotIssued"/>
@@ -497,13 +539,13 @@ This Work includes contributions authored by David E. Jones, not as a
                                     shipmentBoxTypeId:asset.shipmentBoxTypeId]"/>
                     </if>
                 </iterate>
+            </if>
 
-                <else>
-                    <!-- do a non-reservation asset issuance -->
-                    <service-call name="mantle.product.AssetServices.issue#Asset"
-                            in-map="[shipmentId:shipmentItemSource.shipmentId, quantity:quantity,
+            <if condition="quantityRemaining">
+                <!-- do a non-reservation asset issuance -->
+                <service-call name="mantle.product.AssetServices.issue#Asset"
+                        in-map="[shipmentId:shipmentItemSource.shipmentId, quantity:quantityRemaining, assetId:assetId,
                                 orderId:shipmentItemSource.orderId, orderItemSeqId:shipmentItemSource.orderItemSeqId]"/>
-                </else>
             </if>
 
             <!-- if no shipmentPackageSeqId find the first package -->

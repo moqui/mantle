@@ -14,6 +14,104 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="clone" noun="WorkEffort">
+        <in-parameters>
+            <parameter name="baseWorkEffortId" required="true"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
+            <parameter name="deepClone" type="Boolean" default="false"><description>If true recursively clone all children.</description></parameter>
+            <parameter name="clearDates" type="Boolean" default="false"/>
+            <parameter name="copyAssetAssign" type="Boolean" default="false"/>
+            <parameter name="copyAssetNeeded" type="Boolean" default="true"/>
+            <parameter name="copyAssoc" type="Boolean" default="false"/>
+            <parameter name="copyCommEvent" type="Boolean" default="false"/>
+            <parameter name="copyContactMech" type="Boolean" default="true"/>
+            <parameter name="copyContent" type="Boolean" default="true"/>
+            <parameter name="copyNote" type="Boolean" default="true"/>
+            <parameter name="copyParty" type="Boolean" default="false"/>
+            <parameter name="copyProduct" type="Boolean" default="true"/>
+            <parameter name="copySkillStandard" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort">
+                <field-map field-name="workEffortId" from="baseWorkEffortId"/></entity-find-one>
+
+            <entity-set value-field="workEffort" include="nonpk"/>
+            <if condition="clearDates">
+                <!-- set the fields even if null, don't do this for other fields -->
+                <set field="workEffort.estimatedStartDate" from="estimatedStartDate"/>
+                <set field="workEffort.estimatedCompletionDate" from="estimatedCompletionDate"/>
+                <set field="workEffort.actualStartDate" from="actualStartDate"/>
+                <set field="workEffort.actualCompletionDate" from="actualCompletionDate"/>
+            </if>
+
+            <set field="workEffort.workEffortId" from="null"/>
+            <entity-sequenced-id-primary value-field="workEffort"/>
+            <entity-create value-field="workEffort"/>
+            <set field="workEffortId" from="workEffort.workEffortId"/>
+
+            <if condition="copyAssetAssign">
+                <entity-find entity-name="mantle.work.effort.WorkEffortAssetAssign" list="valueList">
+                    <date-filter/><econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyAssetNeeded">
+                <entity-find entity-name="mantle.work.effort.WorkEffortAssetNeeded" list="valueList">
+                    <econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyAssoc">
+                <entity-find entity-name="mantle.work.effort.WorkEffortAssoc" list="valueList">
+                    <date-filter/><econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyCommEvent">
+                <entity-find entity-name="mantle.work.effort.WorkEffortCommEvent" list="valueList">
+                    <econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyContactMech">
+                <entity-find entity-name="mantle.work.effort.WorkEffortContactMech" list="valueList">
+                    <date-filter/><econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyContent">
+                <entity-find entity-name="mantle.work.effort.WorkEffortContent" list="valueList">
+                    <date-filter/><econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyNote">
+                <entity-find entity-name="mantle.work.effort.WorkEffortNote" list="valueList">
+                    <econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyParty">
+                <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="valueList">
+                    <date-filter/><econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyProduct">
+                <entity-find entity-name="mantle.work.effort.WorkEffortProduct" list="valueList">
+                    <date-filter/><econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copySkillStandard">
+                <entity-find entity-name="mantle.work.effort.WorkEffortSkillStandard" list="valueList">
+                    <econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+            </if>
+
+            <if condition="deepClone">
+                <entity-find entity-name="mantle.work.effort.WorkEffort" list="childList">
+                    <econdition field-name="parentWorkEffortId" from="baseWorkEffortId"/></entity-find>
+                <iterate list="childList" entry="child">
+                    <service-call name="mantle.work.WorkEffortServices.clone#WorkEffort"
+                            in-map="context + [baseWorkEffortId:child.workEffortId, parentWorkEffortId:workEffortId]"/>
+                </iterate>
+            </if>
+        </actions>
+    </service>
+
     <service verb="replace" noun="WorkEffortParty">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
