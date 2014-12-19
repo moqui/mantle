@@ -138,4 +138,27 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
         </actions>
     </service>
+
+    <service verb="add" noun="WorkEffortProduct">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="productId" required="true"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffortProduct" include="nonpk"/>
+            <parameter name="typeEnumId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="fromDate" type="Timestamp"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.work.effort.WorkEffortProduct" list="existingWepList">
+                <date-filter/><econdition field-name="workEffortId"/><econdition field-name="productId"/>
+                <econdition field-name="typeEnumId"/></entity-find>
+            <if condition="existingWepList">
+                <set field="existingWep" from="existingWepList[0]"/>
+                <set field="estimatedQuantity" from="(estimatedQuantity ?: 0) + (existingWep.estimatedQuantity ?: 0)"/>
+                <entity-set value-field="existingWep" include="nonpk"/>
+                <entity-update value-field="existingWep"/>
+
+                <else><service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="context" out-map="context"/></else>
+            </if>
+        </actions>
+    </service>
 </services>
