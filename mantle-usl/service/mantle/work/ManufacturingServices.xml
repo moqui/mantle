@@ -113,12 +113,19 @@ This Work includes contributions authored by David E. Jones, not as a
                     <parameter name="quantityRemaining" type="BigDecimal"/>
                 </parameter></parameter>
             </parameter></parameter>
+            <parameter name="consumeQuantityRemainingMap" type="Map"/>
         </out-parameters>
         <actions>
             <entity-find entity-name="mantle.work.effort.WorkEffortProductDetail" list="allProdList">
                 <date-filter/><econdition field-name="workEffortId"/><order-by field-name="productName"/></entity-find>
             <filter-map-list list="allProdList" to-list="consumeList"><field-map field-name="typeEnumId" value="WeptConsume"/></filter-map-list>
             <filter-map-list list="allProdList" to-list="produceList"><field-map field-name="typeEnumId" value="WeptProduce"/></filter-map-list>
+
+            <!-- get a total by productId for the consume products, reduce that quantity for each produce product record to get total count -->
+            <set field="consumeQuantityRemainingMap" from="[:]"/>
+            <iterate list="consumeList" entry="consumeMap">
+                <script>StupidUtilities.addToBigDecimalInMap(consumeMap.productId, consumeMap.estimatedQuantity, consumeQuantityRemainingMap)</script></iterate>
+
 
             <set field="produceBomDetailList" from="[]"/>
             <iterate list="produceList" entry="produceWepd">
@@ -128,11 +135,27 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="allQuantitiesMatch" from="true"/>
                 <iterate list="bomDetOut.bomDetailList" entry="bomDetailMap">
                     <set field="estConsumeQuantity" from="0"/>
-                    <iterate list="consumeList" entry="consumeMap">
-                        <script>if (consumeMap.productId in bomDetailMap.productIdSet) estConsumeQuantity += consumeMap.estimatedQuantity</script>
-                    </iterate>
-                    <set field="bomDetailMap.estConsumeQuantity" from="estConsumeQuantity"/>
+                    <iterate list="bomDetailMap.productIdSet" entry="bomProductId">
+                        <script>estConsumeQuantity += (consumeQuantityRemainingMap[bomProductId] ?: 0)</script></iterate>
+
                     <set field="bomDetailMap.quantityNeeded" from="bomDetailMap.bomQuantity * produceWepd.estimatedQuantity"/>
+
+                    <!-- <log level="warn" message="========= Produce ${produceWepd.productId}: quantityNeeded=${bomDetailMap.quantityNeeded}, estConsumeQuantity=${estConsumeQuantity}, consume(s) ${bomDetailMap.productIdSet}"/> -->
+
+                    <!-- only use up to quantityNeeded from quantity consumed for product(s) -->
+                    <if condition="bomDetailMap.quantityNeeded &lt; estConsumeQuantity">
+                        <set field="estConsumeQuantity" from="bomDetailMap.quantityNeeded"/></if>
+
+                    <!-- reduce consumeQuantityRemainingMap entry(ies) by estConsumeQuantity -->
+                    <set field="consumeReduceRemaining" from="estConsumeQuantity"/>
+                    <iterate list="bomDetailMap.productIdSet" entry="bomProductId">
+                        <set field="curReduce" from="(consumeQuantityRemainingMap[bomProductId] ?: 0) &gt; consumeReduceRemaining ? consumeReduceRemaining : (consumeQuantityRemainingMap[bomProductId] ?: 0)"/>
+                        <set field="consumeReduceRemaining" from="consumeReduceRemaining - curReduce"/>
+                        <script>StupidUtilities.addToBigDecimalInMap(bomProductId, -curReduce, consumeQuantityRemainingMap)</script>
+                        <if condition="consumeReduceRemaining == 0"><break/></if>
+                    </iterate>
+
+                    <set field="bomDetailMap.estConsumeQuantity" from="estConsumeQuantity"/>
                     <set field="bomDetailMap.quantityRemaining" from="bomDetailMap.quantityNeeded - estConsumeQuantity"/>
                     <if condition="bomDetailMap.quantityRemaining != 0"><set field="allQuantitiesMatch" from="false"/></if>
                 </iterate>
@@ -143,6 +166,10 @@ This Work includes contributions authored by David E. Jones, not as a
                                                   estimatedQuantity:produceWepd.estimatedQuantity,
                                                   bomDetailList:bomDetOut.bomDetailList])</script>
             </iterate>
+
+            <!-- clean out consumeQuantityRemainingMap -->
+            <iterate list="new ArrayList(consumeQuantityRemainingMap.keySet())" entry="curProductId">
+                <script>if (consumeQuantityRemainingMap[curProductId] == 0) consumeQuantityRemainingMap.remove(curProductId)</script></iterate>
         </actions>
     </service>
     
