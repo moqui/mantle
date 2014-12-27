@@ -21,9 +21,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="facilityIdList"/>
             <parameter name="partyId"/>
             <parameter name="partyIdList"/>
-            <parameter name="start" type="java.sql.Date" format="yyyy-MM-dd" required="true"/>
-            <parameter name="end" type="java.sql.Date" format="yyyy-MM-dd" required="true"/>
-            <parameter name="titleGString" default-value="${workEffort.workEffortName}"/>
+            <parameter name="start" required="true"/>
+            <parameter name="end" required="true"/>
+            <parameter name="titleGString" default-value="\${workEffort.workEffortName ?: 'Event ' + workEffort.workEffortId}"/>
             <parameter name="urlGString"/>
         </in-parameters>
         <out-parameters>
@@ -40,8 +40,15 @@ This Work includes contributions authored by David E. Jones, not as a
             </parameter>
         </out-parameters>
         <actions>
-            <set field="startTs" from="new Timestamp(start.time)"/>
+            <!--
+            <set field="startTs" from="ec.l10n.parseTimestamp(start.toString() + ' 00:00:00.000', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
             <set field="endTs" from="ec.l10n.parseTimestamp(end.toString() + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
+            -->
+            <!-- start/end are coming in as seconds since epoch -->
+            <set field="startTs" from="ec.l10n.parseTimestamp(start + '000', null)"/>
+            <set field="endTs" from="ec.l10n.parseTimestamp(end + '000', null)"/>
+
+            <log level="warn" message="=========== FullCalendarData start ${start} - ${startTs} end ${end} - ${endTs}"/>
 
             <set field="facilityIdSet" from="new HashSet()"/>
             <if condition="facilityId"><script>facilityIdSet.add(facilityId)</script></if>
@@ -64,18 +71,19 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
 
             <set field="eventList" from="[]"/>
-            <iterate list="workEffortList" entry="workEffort">
+            <iterate list="workEffortList" entry="workEffortDef">
+                <set field="workEffort" from="workEffortDef"/><!-- put it in the context -->
                 <set field="title" from="ec.resource.evaluateStringExpand(titleGString, '')"/>
-                <set field="start" from="ec.l10.format(workEffort.estimatedStartDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
+                <set field="start" from="ec.l10n.format(workEffort.estimatedStartDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
                 <if condition="workEffort.estimatedCompletionDate">
-                    <set field="end" from="ec.l10.format(workEffort.estimatedCompletionDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
+                    <set field="end" from="ec.l10n.format(workEffort.estimatedCompletionDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
                     <else>
                         <set field="estMinutes" from="((workEffort.estimatedWorkTime ?: 1) * 60) as int"/>
                         <script>
                             Calendar endCal = ec.user.getCalendarSafe()
                             endCal.setTimeInMillis(workEffort.estimatedStartDate.time)
                             endCal.add(Calendar.MINUTE, estMinutes)
-                            end = new Timestamp(endCal.getTimeInMillis())
+                            end = ec.l10n.format(new Timestamp(endCal.getTimeInMillis()), 'yyyy-MM-dd\'T\'HH:mm:ss')
                         </script>
                     </else>
                 </if>
@@ -85,6 +93,8 @@ This Work includes contributions authored by David E. Jones, not as a
                 </if>
                 <set field="eventMap" from="[id:workEffort.workEffortId, title:title, start:start, end:end, url:url]"/>
                 <script>eventList.add(eventMap)</script>
+
+                <log level="warn" message="========= eventMap: ${eventMap}"/>
             </iterate>
         </actions>
     </service>
