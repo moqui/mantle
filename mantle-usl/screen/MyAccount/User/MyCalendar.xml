@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
+        default-menu-title="Calendar" default-menu-index="4">
+
+    <transition name="eventDetail"><default-response url="."/></transition>
+
+    <transition name="getCalendarEvents">
+        <actions>
+            <set field="eventDetailUrl" from="sri.buildUrl('eventDetail').url"/>
+            <set field="urlGString" value="${eventDetailUrl}?workEffortId=\${workEffort.workEffortId}"/>
+            <service-call name="mantle.work.WorkEffortServices.get#FullCalendarData" out-map="calOut"
+                    in-map="context + [urlGString:urlGString]"/>
+            <script>ec.web.sendJsonResponse(calOut.eventList)</script>
+        </actions>
+        <default-response type="none"/>
+    </transition>
+
+    <pre-actions>
+        <set field="partyId" from="ec.user.userAccount.partyId"/>
+        <script>footer_scripts.add("/assets/lib/moment/moment.min.js")</script>
+        <script>footer_scripts.add("/assets/lib/fullcalendar-1.6.2/fullcalendar/fullcalendar.min.js")</script>
+        <script>html_stylesheets.add("/assets/lib/fullcalendar-1.6.2/fullcalendar/fullcalendar.css")</script>
+    </pre-actions>
+    <actions>
+        <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party"/>
+    </actions>
+    <widgets>
+        <label text="Calendar for ${party.firstName?:''} ${party.lastName?:''}${party.organizationName?:''}" type="h3"/>
+        <render-mode>
+            <text type="html"><![CDATA[
+                <div id="calendar"></div>
+                <script>
+$(document).ready(function() {
+    $('#calendar').fullCalendar({ timezone: false, defaultView: 'agendaWeek',
+        header: { left: 'prev,next today', center: 'title', right: 'month,agendaWeek,agendaDay' },
+        eventSources: [ { url: "${sri.buildUrl('getCalendarEvents').url}", type: 'POST', data: { partyId: '${partyId}' } } ]
+    })
+});
+                </script>
+            ]]></text>
+        </render-mode>
+    </widgets>
+</screen>
