@@ -54,6 +54,9 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="toPartyId" from="partyId"/>
             </econditions>
             <econdition field-name="communicationEventTypeId" operator="in" value="Email,Message,Comment"/>
+            <select-field field-name="communicationEventId"/><select-field field-name="entryDate"/>
+            <select-field field-name="statusId"/><select-field field-name="fromPartyId"/><select-field field-name="toPartyId"/>
+            <select-field field-name="subject"/><select-field field-name="communicationEventTypeId"/>
         </entity-find>
     </actions>
     <widgets>
@@ -76,6 +79,10 @@ This Work includes contributions authored by David E. Jones, not as a
         </container-dialog>
 
         <form-list name="MessageList" list="commEventList" skip-form="true">
+            <row-actions>
+                <entity-find entity-name="mantle.party.communication.CommunicationEventPurpose" list="cepList">
+                    <econdition field-name="communicationEventId"/><order-by field-name="purposeEnumId"/></entity-find>
+            </row-actions>
             <field name="entryDate"><header-field show-order-by="true"/>
                 <default-field title="Date"><display format="yyyy-MM-dd HH:mm"/></default-field>
             </field>
@@ -123,7 +130,15 @@ This Work includes contributions authored by David E. Jones, not as a
                     <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
                         <set field="enumTypeId" value="CommunicationPurpose"/><set field="allowEmpty" value="true"/></widget-template-include>
                 </header-field>
-                <default-field><display-entity entity-name="moqui.basic.Enumeration"/></default-field>
+                <default-field>
+                    <section-iterate name="PurposeListSection" list="cepList" entry="cep">
+                        <actions>
+                            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="purpEnum">
+                                <field-map field-name="enumId" from="cep.purposeEnumId"/></entity-find-one>
+                        </actions>
+                        <widgets><label text="${purpEnum.description}" type="p"/></widgets>
+                    </section-iterate>
+                </default-field>
             </field>
 
             <field name="submitButton">
