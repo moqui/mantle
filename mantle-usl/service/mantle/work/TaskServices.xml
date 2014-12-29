@@ -15,13 +15,13 @@ This Work includes contributions authored by David E. Jones, not as a
     <!-- STATUS: EXPERIMENTAL -->
 
     <service verb="create" noun="Task">
+        <description>Create a Task in a Project.</description>
         <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
             <parameter name="rootWorkEffortId" required="true"><description>The ID of the Project</description></parameter>
-            <parameter name="parentWorkEffortId"/>
             <parameter name="milestoneWorkEffortId"/>
             <parameter name="workEffortId"/>
             <parameter name="workEffortName" required="true"/>
-            <parameter name="description"/>
             <parameter name="statusId" default-value="WeInPlanning"/>
             <parameter name="resolutionEnumId" default-value="WerUnresolved"/>
             <parameter name="priority" default-value="5" type="Long"/>
@@ -31,6 +31,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="estimatedWorkTime" type="BigDecimal"/>
             <parameter name="remainingWorkTime" type="BigDecimal" default-value="${estimatedWorkTime}"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
+
             <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
             <parameter name="requestId"/>
         </in-parameters>
@@ -40,17 +41,42 @@ This Work includes contributions authored by David E. Jones, not as a
         <actions>
             <set field="seqName" value="Project_${rootWorkEffortId}"/>
             <if condition="!workEffortId">
-                <set field="workEffortId" value="${rootWorkEffortId}-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/>
-            </if>
+                <set field="workEffortId" value="${rootWorkEffortId}-${ec.entity.sequencedIdPrimary(seqName, null, null)}"/></if>
             <service-call name="create#mantle.work.effort.WorkEffort" out-map="context" in-map="context + [workEffortTypeEnumId:'WetTask']"/>
             <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
                         roleTypeId:'Worker', fromDate:ec.user.nowTimestamp, statusId:'WeptAssigned']"/>
             <if condition="milestoneWorkEffortId">
-                <service-call name="mantle.work.TaskServices.set#TaskMilestone" in-map="context"/>
-            </if>
+                <service-call name="mantle.work.TaskServices.set#TaskMilestone" in-map="context"/></if>
             <if condition="requestId">
-                <service-call name="create#mantle.request.RequestWorkEffort" in-map="[workEffortId:workEffortId, requestId:requestId]"/>
-            </if>
+                <service-call name="create#mantle.request.RequestWorkEffort" in-map="[workEffortId:workEffortId, requestId:requestId]"/></if>
+        </actions>
+    </service>
+    <service verb="create" noun="SimpleTask">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
+            <parameter name="workEffortName" required="true"/>
+            <parameter name="statusId" default-value="WeInPlanning"/>
+            <parameter name="resolutionEnumId" default-value="WerUnresolved"/>
+            <parameter name="priority" default-value="5" type="Long"/>
+            <parameter name="purposeEnumId" default-value="WepTask"/>
+            <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
+            <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
+            <parameter name="estimatedWorkTime" type="BigDecimal"/>
+            <parameter name="remainingWorkTime" type="BigDecimal" default-value="${estimatedWorkTime}"/>
+            <parameter name="timeUomId" default-value="TF_hr"/>
+
+            <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
+            <parameter name="requestId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="workEffortId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="create#mantle.work.effort.WorkEffort" out-map="context" in-map="context + [workEffortTypeEnumId:'WetTask']"/>
+            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
+                        roleTypeId:'Worker', fromDate:ec.user.nowTimestamp, statusId:'WeptAssigned']"/>
+            <if condition="requestId">
+                <service-call name="create#mantle.request.RequestWorkEffort" in-map="[workEffortId:workEffortId, requestId:requestId]"/></if>
         </actions>
     </service>
     <service verb="update" noun="Task">
