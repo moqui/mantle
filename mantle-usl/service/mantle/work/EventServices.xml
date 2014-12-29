@@ -14,6 +14,95 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <!-- STATUS: EXPERIMENTAL -->
 
+    <service verb="get" noun="FullCalendarData">
+        <description>Get data to display WorkEffort events with the FullCalender JS library (see http://fullcalendar.io/)</description>
+        <in-parameters>
+            <parameter name="facilityId"/>
+            <parameter name="facilityIdList"/>
+            <parameter name="partyId"/>
+            <parameter name="partyIdList"/>
+            <parameter name="assetId"/>
+            <parameter name="assetIdList"/>
+            <parameter name="start" required="true"/>
+            <parameter name="end" required="true"/>
+            <parameter name="titleGString" default-value="\${(workEffort.workEffortName ?: (workEffort.purposeEnumId ? workEffort.'WorkEffortPurpose#moqui.basic.Enumeration'.description : 'Event')) + ' [' + workEffort.workEffortId + ']'}"/>
+            <parameter name="urlGString"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="eventList" type="List">
+                <parameter name="eventMap" type="Map">
+                    <parameter name="id"/>
+                    <parameter name="title"/>
+                    <parameter name="start"><description>estimatedStartDate as ISO8601 formatted String</description></parameter>
+                    <parameter name="end"><description>estimatedCompletionDate (or if null estimatedStartDate +
+                        estimatedWorkTime) as a ISO8601 (yyyy-MM-dd'T'HH:mm:ss) formatted String</description></parameter>
+                    <!-- NOTE: consider supporting allDay, color, etc in the future with WorkEffort fields -->
+                    <parameter name="url"><description>Only returned if urlGString is specified</description></parameter>
+                </parameter>
+            </parameter>
+        </out-parameters>
+        <actions>
+            <!--
+            <set field="startTs" from="ec.l10n.parseTimestamp(start.toString() + ' 00:00:00.000', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
+            <set field="endTs" from="ec.l10n.parseTimestamp(end.toString() + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
+            -->
+            <!-- start/end are coming in as seconds since epoch -->
+            <set field="startTs" from="ec.l10n.parseTimestamp(start + '000', null)"/>
+            <set field="endTs" from="ec.l10n.parseTimestamp(end + '000', null)"/>
+
+            <!-- <log level="warn" message="=========== FullCalendarData start ${start} - ${startTs} end ${end} - ${endTs}"/> -->
+
+            <set field="facilityIdSet" from="new HashSet()"/>
+            <if condition="facilityId"><script>facilityIdSet.add(facilityId)</script></if>
+            <if condition="facilityIdList"><script>facilityIdSet.addAll(facilityIdList)</script></if>
+            <set field="partyIdSet" from="new HashSet()"/>
+            <if condition="partyId"><script>partyIdSet.add(partyId)</script></if>
+            <if condition="partyIdList"><script>partyIdSet.addAll(partyIdList)</script></if>
+            <set field="assetIdSet" from="new HashSet()"/>
+            <if condition="assetId"><script>assetIdSet.add(assetId)</script></if>
+            <if condition="assetIdList"><script>assetIdSet.addAll(assetIdList)</script></if>
+
+            <entity-find entity-name="mantle.work.effort.WorkEffortPartyAsset" list="workEffortList">
+                <econdition field-name="workEffortTypeEnumId" value="WetEvent"/>
+                <econdition field-name="facilityId" operator="in" from="facilityIdSet" ignore-if-empty="true"/>
+                <econdition field-name="partyId" operator="in" from="partyIdSet" ignore-if-empty="true"/>
+                <econdition field-name="assetId" operator="in" from="assetIdSet" ignore-if-empty="true"/>
+                <econdition field-name="estimatedStartDate" operator="greater-equals" from="startTs"/>
+                <econdition field-name="estimatedStartDate" operator="less-equals" from="endTs"/>
+                <select-field field-name="workEffortId"/><select-field field-name="purposeEnumId"/>
+                <select-field field-name="workEffortName"/>
+                <select-field field-name="description"/><select-field field-name="location"/>
+                <select-field field-name="estimatedStartDate"/><select-field field-name="estimatedCompletionDate"/>
+                <select-field field-name="estimatedWorkTime"/>
+            </entity-find>
+
+            <set field="eventList" from="[]"/>
+            <iterate list="workEffortList" entry="workEffortDef">
+                <set field="workEffort" from="workEffortDef"/><!-- put it in the context -->
+                <set field="title" from="ec.resource.evaluateStringExpand(titleGString, '')"/>
+                <set field="start" from="ec.l10n.format(workEffort.estimatedStartDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
+                <if condition="workEffort.estimatedCompletionDate">
+                    <set field="end" from="ec.l10n.format(workEffort.estimatedCompletionDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
+                    <else>
+                        <set field="estMinutes" from="((workEffort.estimatedWorkTime ?: 1) * 60) as int"/>
+                        <script>
+                            Calendar endCal = ec.user.getCalendarSafe()
+                            endCal.setTimeInMillis(workEffort.estimatedStartDate.time)
+                            endCal.add(Calendar.MINUTE, estMinutes)
+                            end = ec.l10n.format(new Timestamp(endCal.getTimeInMillis()), 'yyyy-MM-dd\'T\'HH:mm:ss')
+                        </script>
+                    </else>
+                </if>
+                <if condition="urlGString">
+                    <set field="url" from="ec.resource.evaluateStringExpand(urlGString, '')"/>
+                    <else><set field="url" value=""/></else>
+                </if>
+                <set field="eventMap" from="[id:workEffort.workEffortId, title:title, start:start, end:end, url:url, allDay:false]"/>
+                <script>eventList.add(eventMap)</script>
+            </iterate>
+        </actions>
+    </service>
+
     <service verb="create" noun="Event">
         <in-parameters>
             <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
