@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- STATUS: EXPERIMENTAL -->
+
+    <service verb="create" noun="Event">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
+            <parameter name="workEffortTypeEnumId" default-value="WetEvent"/>
+            <parameter name="workEffortName" required="true"/>
+            <parameter name="description"/>
+            <parameter name="statusId" default-value="WeInPlanning"/>
+            <parameter name="resolutionEnumId" default-value="WerUnresolved"/>
+            <parameter name="priority" default-value="5" type="Long"/>
+            <parameter name="timeUomId" default-value="TF_hr"/>
+            <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
+            <parameter name="requestId"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <set field="seqName" value="Project_${rootWorkEffortId}"/>
+            <service-call name="create#mantle.work.effort.WorkEffort" out-map="context" in-map="context"/>
+            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
+                        roleTypeId:'_NA_', fromDate:ec.user.nowTimestamp, statusId:'WeptAssigned']"/>
+            <if condition="requestId">
+                <service-call name="create#mantle.request.RequestWorkEffort" in-map="[workEffortId:workEffortId, requestId:requestId]"/></if>
+        </actions>
+    </service>
+</services>
