@@ -26,11 +26,23 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="120" resourceTypeEnumId="STRT_HEADER_NAVBAR_ITEM">
         <resourceValue><![CDATA[
-        <#assign messageCount = ec.entity.find("mantle.party.communication.CommunicationEventAndPurpose").condition("toPartyId", ec.user.userAccount.partyId!).condition("statusId", "CeReceived").condition("communicationEventTypeId", "in", "Email,Message,Comment").disableAuthz().count()>
-        <a href="/apps/my/User/Messages/FindMessage?statusId=CeReceived&toPartyId=${ec.user.userAccount.partyId!}" data-toggle="tooltip" data-original-title="Messages" data-placement="bottom" class="btn btn-default btn-sm navbar-btn navbar-right">
-            <i class="glyphicon glyphicon-envelope"></i>
-            <span class="label label-warning">${messageCount!"0"}</span>
-        </a>
+<div class="btn-group navbar-right">
+    <#assign messageCount = ec.entity.find("mantle.party.communication.CommunicationEventAndPurpose").condition("toPartyId", ec.user.userAccount.partyId!).condition("statusId", "CeReceived").condition("communicationEventTypeId", "in", "Email,Message,Comment").disableAuthz().count()>
+    <#assign eventCount = ec.entity.find("mantle.work.effort.WorkEffortAndParty").condition("partyId", ec.user.userAccount.partyId!).condition("estimatedStartDate", "greater-equals", ec.user.getPeriodRange("week", "")[0]).condition("estimatedStartDate", "less-equals", ec.user.getPeriodRange("week", "")[1]).condition("workEffortTypeEnumId", "WetEvent").disableAuthz().count()>
+    <#assign taskCount = ec.entity.find("mantle.work.effort.WorkEffortAndParty").condition("partyId", ec.user.userAccount.partyId!).condition("statusId", "not-in", "WeClosed,WeCancelled").condition("workEffortTypeEnumId", "WetTask").disableAuthz().count()>
+    <a href="/apps/my/User/Messages/FindMessage?statusId=CeReceived&toPartyId=${ec.user.userAccount.partyId!}" data-toggle="tooltip" data-original-title="Messages" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
+        <i class="glyphicon glyphicon-envelope"></i>
+        <span class="label label-warning">${messageCount!"0"}</span>
+    </a>
+    <a href="/apps/my/User/Calendar/MyCalendar" data-toggle="tooltip" data-original-title="Events This Week" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
+        <i class="glyphicon glyphicon-calendar"></i>
+        <span class="label label-primary">${eventCount!"0"}</span>
+    </a>
+    <a href="/apps/my/User/Task/MyTasks" data-toggle="tooltip" data-original-title="Open Tasks" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
+        <i class="glyphicon glyphicon-check"></i>
+        <span class="label label-success">${taskCount!"0"}</span>
+    </a>
+</div>
         ]]></resourceValue>
     </moqui.screen.ScreenThemeResource>
 </entity-facade-xml>
