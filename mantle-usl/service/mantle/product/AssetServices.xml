@@ -19,6 +19,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters>
             <parameter name="asset" type="EntityValue"/>
             <parameter name="statusItem" type="EntityValue"/>
+            <parameter name="statusId"/>
+            <parameter name="statusHistoryList" type="EntityList"/>
             <parameter name="product" type="EntityValue"/>
             <parameter name="facility" type="EntityValue"/>
             <parameter name="facilityLocation" type="EntityValue"/>
@@ -28,11 +30,21 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+
             <set field="statusItem" from="asset.'Asset#moqui.basic.StatusItem'"/>
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.product.asset.Asset"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="assetId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+            <set field="statusId" from="asset.statusId"/>
+
             <set field="facility" from="asset.'mantle.facility.Facility'"/>
             <set field="facilityLocation" from="asset.'mantle.facility.FacilityLocation'"/>
             <set field="product" from="asset.'mantle.product.Product'"/>
             <set field="originFacility" from="asset.'Origin#mantle.facility.Facility'"/>
+
             <entity-find entity-name="mantle.product.asset.AssetDetail" list="assetDetailList">
                 <econdition field-name="assetId"/><order-by field-name="effectiveDate"/></entity-find>
             <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetReservationList">
