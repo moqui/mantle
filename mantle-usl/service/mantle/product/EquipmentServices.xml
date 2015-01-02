@@ -25,4 +25,60 @@ This Work includes contributions authored by David E. Jones, not as a
             <service-call name="create#mantle.product.asset.Asset" in-map="context" out-map="context"/>
         </actions>
     </service>
+
+    <!-- ========== AssetMaintenanceContent Services ========== -->
+    <service verb="create" noun="AssetMaintenanceContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.product.maintenance.AssetMaintenanceContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="assetMaintenanceId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentDate" type="Timestamp"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.product.maintenance.AssetMaintenanceContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.product.EquipmentServices.save#AssetMaintenanceContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="AssetMaintenanceContent">
+        <in-parameters>
+            <parameter name="assetMaintenanceId" required="true"/>
+            <parameter name="contentDate" type="Timestamp" required="true"/>
+            <auto-parameters entity-name="mantle.product.maintenance.AssetMaintenanceContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.product.EquipmentServices.save#AssetMaintenanceContentFile" out-map="context"
+                        in-map="context + [saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.product.maintenance.AssetMaintenanceContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="AssetMaintenanceContentFile">
+        <in-parameters>
+            <parameter name="assetMaintenanceId" required="true"/>
+            <parameter name="contentDate" type="Timestamp" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.maintenance.AssetMaintenance" value-field="assetMaintenance"/>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/asset/${assetMaintenance.assetId?:'_NA_'}/maintenance/${assetMaintenanceId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.product.maintenance.AssetMaintenanceContent"
+                    in-map="[assetMaintenanceId:assetMaintenanceId, contentDate:contentDate, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
 </services>
