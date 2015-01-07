@@ -95,6 +95,138 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="get" noun="ProductionRunProduceConsumeDetail">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="excludeWithMatchingConsume" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="produceBomDetailList" type="List"><parameter name="produceBomDetailMap" type="Map">
+                <parameter name="productId"/>
+                <parameter name="workEffortProductDetail" type="EntityValue"/>
+                <parameter name="estimatedQuantity" type="BigDecimal"/>
+                <parameter name="bomDetailList" type="List"><parameter name="bomDetailMap" type="Map">
+                    <parameter name="bomQuantity" type="BigDecimal"/>
+                    <parameter name="productIdSet" type="Set"/>
+                    <parameter name="estConsumeQuantity" type="BigDecimal"/>
+                    <parameter name="quantityNeeded" type="BigDecimal"/>
+                    <parameter name="quantityRemaining" type="BigDecimal"/>
+                </parameter></parameter>
+            </parameter></parameter>
+            <parameter name="consumeQuantityRemainingMap" type="Map"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.work.effort.WorkEffortProductDetail" list="allProdList">
+                <date-filter/><econdition field-name="workEffortId"/><order-by field-name="productName"/></entity-find>
+            <filter-map-list list="allProdList" to-list="consumeList"><field-map field-name="typeEnumId" value="WeptConsume"/></filter-map-list>
+            <filter-map-list list="allProdList" to-list="produceList"><field-map field-name="typeEnumId" value="WeptProduce"/></filter-map-list>
+
+            <!-- get a total by productId for the consume products, reduce that quantity for each produce product record to get total count -->
+            <set field="consumeQuantityRemainingMap" from="[:]"/>
+            <iterate list="consumeList" entry="consumeMap">
+                <script>StupidUtilities.addToBigDecimalInMap(consumeMap.productId, consumeMap.estimatedQuantity, consumeQuantityRemainingMap)</script></iterate>
+
+
+            <set field="produceBomDetailList" from="[]"/>
+            <iterate list="produceList" entry="produceWepd">
+                <service-call name="mantle.work.ManufacturingServices.get#ProductBomDetail"
+                        in-map="[productId:produceWepd.productId]" out-map="bomDetOut"/>
+
+                <set field="allQuantitiesMatch" from="true"/>
+                <iterate list="bomDetOut.bomDetailList" entry="bomDetailMap">
+                    <set field="estConsumeQuantity" from="0"/>
+                    <iterate list="bomDetailMap.productIdSet" entry="bomProductId">
+                        <script>estConsumeQuantity += (consumeQuantityRemainingMap[bomProductId] ?: 0)</script></iterate>
+
+                    <set field="bomDetailMap.quantityNeeded" from="bomDetailMap.bomQuantity * produceWepd.estimatedQuantity"/>
+
+                    <!-- <log level="warn" message="========= Produce ${produceWepd.productId}: quantityNeeded=${bomDetailMap.quantityNeeded}, estConsumeQuantity=${estConsumeQuantity}, consume(s) ${bomDetailMap.productIdSet}"/> -->
+
+                    <!-- only use up to quantityNeeded from quantity consumed for product(s) -->
+                    <if condition="bomDetailMap.quantityNeeded &lt; estConsumeQuantity">
+                        <set field="estConsumeQuantity" from="bomDetailMap.quantityNeeded"/></if>
+
+                    <!-- reduce consumeQuantityRemainingMap entry(ies) by estConsumeQuantity -->
+                    <set field="consumeReduceRemaining" from="estConsumeQuantity"/>
+                    <iterate list="bomDetailMap.productIdSet" entry="bomProductId">
+                        <set field="curReduce" from="(consumeQuantityRemainingMap[bomProductId] ?: 0) &gt; consumeReduceRemaining ? consumeReduceRemaining : (consumeQuantityRemainingMap[bomProductId] ?: 0)"/>
+                        <set field="consumeReduceRemaining" from="consumeReduceRemaining - curReduce"/>
+                        <script>StupidUtilities.addToBigDecimalInMap(bomProductId, -curReduce, consumeQuantityRemainingMap)</script>
+                        <if condition="consumeReduceRemaining == 0"><break/></if>
+                    </iterate>
+
+                    <set field="bomDetailMap.estConsumeQuantity" from="estConsumeQuantity"/>
+                    <set field="bomDetailMap.quantityRemaining" from="bomDetailMap.quantityNeeded - estConsumeQuantity"/>
+                    <if condition="bomDetailMap.quantityRemaining != 0"><set field="allQuantitiesMatch" from="false"/></if>
+                </iterate>
+
+                <script>if (allQuantitiesMatch &amp;&amp; excludeWithMatchingConsume) continue</script>
+
+                <script>produceBomDetailList.add([productId:produceWepd.productId, workEffortProductDetail:produceWepd,
+                                                  estimatedQuantity:produceWepd.estimatedQuantity,
+                                                  bomDetailList:bomDetOut.bomDetailList])</script>
+            </iterate>
+
+            <!-- clean out consumeQuantityRemainingMap -->
+            <iterate list="new ArrayList(consumeQuantityRemainingMap.keySet())" entry="curProductId">
+                <script>if (consumeQuantityRemainingMap[curProductId] == 0) consumeQuantityRemainingMap.remove(curProductId)</script></iterate>
+        </actions>
+    </service>
+    
+    <service verb="get" noun="ProductBomDetail">
+        <description>Given a Product to Produce in a Production Run find the BOM associated products (PatMfgBom) and if
+            an associated product is a variant of another include the virtual for it too (ie allow either the virtual or
+            variant to be consumed in the run). If a Product to Produce is a variant of a virtual Product and it has no
+            BOM associated products, allow the product it is a variant of to take place of the BOM associations as a
+            production run may involve sorting inventory into its various variants.</description>
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="bomDetailList" type="List"><parameter name="bomDetailMap" type="Map">
+                <parameter name="bomQuantity" type="BigDecimal"/>
+                <parameter name="productIdSet" type="Set"/>
+            </parameter></parameter>
+        </out-parameters>
+        <actions>
+            <!-- BOM assoc is from Product to Produce and to its various Products to Consume -->
+            <entity-find entity-name="mantle.product.ProductAssoc" list="bomAssocList" cache="true">
+                <econdition field-name="productId"/>
+                <econdition field-name="productAssocTypeEnumId" value="PatMfgBom"/>
+                <order-by field-name="sequenceNum,toProductId"/>
+            </entity-find>
+            <set field="bomDetailList" from="[]"/>
+            <iterate list="bomAssocList" entry="bomAssoc">
+                <set field="productIdSet" from="new HashSet([bomAssoc.toProductId])"/>
+
+                <!-- see if the associated product is a variant of anything, if so include that too -->
+                <!-- Variant assoc is from virtual to variant, so search by to product -->
+                <entity-find entity-name="mantle.product.ProductAssoc" list="variantAssocList" cache="true">
+                    <econdition field-name="toProductId" from="bomAssoc.toProductId"/>
+                    <econdition field-name="productAssocTypeEnumId" value="PatVariant"/>
+                    <order-by field-name="sequenceNum,productId"/>
+                </entity-find>
+                <iterate list="variantAssocList" entry="variantAssoc"><script>productIdSet.add(variantAssoc.productId)</script></iterate>
+
+                <script>bomDetailList.add([bomQuantity:(bomAssoc.quantity ?: 1), productIdSet:productIdSet])</script>
+            </iterate>
+
+            <if condition="!bomDetailList">
+                <entity-find entity-name="mantle.product.ProductAssoc" list="varAssocList" cache="true">
+                    <econdition field-name="toProductId" from="productId"/>
+                    <econdition field-name="productAssocTypeEnumId" value="PatVariant"/>
+                    <order-by field-name="sequenceNum,productId"/>
+                </entity-find>
+                <set field="bomDetailList" from="[]"/>
+                <!-- should generally be just one, but iterate just in case -->
+                <iterate list="varAssocList" entry="varAssoc">
+                    <set field="productIdSet" from="new HashSet([varAssoc.toProductId])"/>
+                    <script>bomDetailList.add([bomQuantity:1, productIdSet:productIdSet])</script>
+                </iterate>
+            </if>
+        </actions>
+    </service>
+
     <service verb="create" noun="ProductionRun">
         <in-parameters>
             <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>

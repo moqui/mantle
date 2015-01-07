@@ -914,6 +914,182 @@ h2. General Order Placement and eCommerce Usage
         </actions>
     </service>
 
+    <service verb="clone" noun="Order">
+        <description>Clone an order. Always copies the OrderHeader, OrderPart, and OrderItem records.</description>
+        <in-parameters>
+            <parameter name="baseOrderId" required="true"/>
+            <auto-parameters entity-name="mantle.order.OrderHeader" include="nonpk"/>
+            <auto-parameters entity-name="mantle.order.OrderPart" include="nonpk"/>
+            <parameter name="requiredByDate" type="Timestamp"/>
+            <parameter name="statusId" default-value="OrderOpen"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="visitId" default="ec.user.visitId"/>
+
+            <parameter name="clearDates" type="Boolean" default="true"/>
+            <parameter name="copyContactMech" type="Boolean" default="true"/>
+            <parameter name="copyContent" type="Boolean" default="true"/>
+            <parameter name="copyNote" type="Boolean" default="true"/>
+            <parameter name="copyPartParty" type="Boolean" default="true"/>
+            <parameter name="copyTerm" type="Boolean" default="true"/>
+            <parameter name="copyItemWorkEffort" type="Boolean" default="true"/>
+            <parameter name="copyPayment" type="Boolean" default="true"/>
+            <parameter name="paymentStatusId" default-value="PmntPromised"/>
+        </in-parameters>
+        <out-parameters><parameter name="orderId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="order">
+                <field-map field-name="orderId" from="baseOrderId"/></entity-find-one>
+
+            <entity-set value-field="order" include="nonpk"/>
+            <if condition="clearDates">
+                <!-- set the fields even if null, don't do this for other fields -->
+                <set field="order.entryDate" from="entryDate"/>
+                <set field="order.placedDate" from="placedDate"/>
+                <set field="order.lastOrderedDate" from="lastOrderedDate"/>
+            </if>
+
+            <set field="order.orderId" from="null"/>
+            <entity-sequenced-id-primary value-field="order"/>
+            <entity-create value-field="order"/>
+            <set field="orderId" from="order.orderId"/>
+
+            <entity-find entity-name="mantle.order.OrderPart" list="valueList">
+                <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+            <iterate list="valueList" entry="value">
+                <set field="value.orderId" from="orderId"/>
+                <entity-set value-field="value" include="nonpk"/>
+                <if condition="clearDates">
+                    <!-- set the fields even if null, don't do this for other fields -->
+                    <set field="value.shipAfterDate" from="shipAfterDate"/>
+                    <set field="value.shipBeforeDate" from="shipBeforeDate"/>
+                    <set field="value.estimatedShipDate" from="estimatedShipDate"/>
+                    <set field="value.estimatedDeliveryDate" from="estimatedDeliveryDate"/>
+                    <set field="value.validFromDate" from="validFromDate"/>
+                    <set field="value.validThruDate" from="validThruDate"/>
+                    <set field="value.autoCancelDate" from="autoCancelDate"/>
+                    <set field="value.dontCancelSetDate" from="dontCancelSetDate"/>
+                </if>
+                <entity-create value-field="value"/>
+            </iterate>
+
+            <entity-find entity-name="mantle.order.OrderItem" list="valueList">
+                <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+            <iterate list="valueList" entry="value">
+                <set field="value.orderId" from="orderId"/>
+                <if condition="clearDates"><set field="value.requiredByDate" from="requiredByDate"/></if>
+                <entity-create value-field="value"/>
+            </iterate>
+
+            <if condition="copyContactMech">
+                <entity-find entity-name="mantle.order.OrderContactMech" list="valueList">
+                    <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.orderId" from="orderId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyContent">
+                <entity-find entity-name="mantle.order.OrderContent" list="valueList">
+                    <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+                <iterate list="valueList" entry="value">
+                    <set field="value.orderId" from="orderId"/>
+                    <set field="value.orderContentId" from="null"/>
+                    <entity-sequenced-id-primary value-field="value"/>
+                    <entity-create value-field="value"/>
+                </iterate>
+            </if>
+            <if condition="copyNote">
+                <entity-find entity-name="mantle.order.OrderNote" list="valueList">
+                    <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.orderId" from="orderId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyPartParty">
+                <entity-find entity-name="mantle.order.OrderPartParty" list="valueList">
+                    <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.orderId" from="orderId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyTerm">
+                <entity-find entity-name="mantle.order.OrderTerm" list="valueList">
+                    <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.orderId" from="orderId"/><entity-create value-field="value"/></iterate>
+            </if>
+            <if condition="copyItemWorkEffort">
+                <entity-find entity-name="mantle.order.OrderItemWorkEffort" list="valueList">
+                    <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+                <iterate list="valueList" entry="value"><set field="value.orderId" from="orderId"/><entity-create value-field="value"/></iterate>
+            </if>
+
+            <if condition="copyPayment">
+                <entity-find entity-name="mantle.account.payment.Payment" list="valueList">
+                    <econdition field-name="orderId" from="baseOrderId"/></entity-find>
+                <iterate list="valueList" entry="value">
+                    <set field="value.orderId" from="orderId"/>
+                    <set field="value.statusId" from="paymentStatusId"/>
+                    <set field="value.paymentAuthCode" from="null"/><set field="value.paymentRefNum" from="null"/>
+                    <set field="value.presentFlag" from="null"/><set field="value.swipedFlag" from="null"/>
+                    <set field="value.processAttempt" from="null"/><set field="value.needsNsfRetry" from="null"/>
+                    <set field="value.visitId" from="visitId"/>
+                    <if condition="clearDates"><set field="value.effectiveDate" from="null"/></if>
+                    <set field="value.paymentId" from="null"/>
+                    <entity-sequenced-id-primary value-field="value"/>
+                    <entity-create value-field="value"/>
+                </iterate>
+            </if>
+        </actions>
+    </service>
+
+    <!-- ========== OrderContent Services ========== -->
+    <service verb="create" noun="OrderContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.order.OrderContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="orderContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.order.OrderContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.order.OrderServices.save#OrderContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="OrderContent">
+        <in-parameters>
+            <parameter name="orderContentId" required="true"/>
+            <auto-parameters entity-name="mantle.order.OrderContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.order.OrderContent" value-field="orderContent"/>
+                <service-call name="mantle.order.OrderServices.save#OrderContentFile" out-map="context"
+                        in-map="context + [orderId:orderContent.orderId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.order.OrderContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="OrderContentFile">
+        <in-parameters>
+            <parameter name="orderContentId" required="true"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/order/${orderId}/content_${orderContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.order.OrderContent"
+                    in-map="[orderContentId:orderContentId, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
+
     <!-- ========== Order-Request Services ========== -->
     <service verb="create" noun="PurchaseRequestOrder">
         <in-parameters>
