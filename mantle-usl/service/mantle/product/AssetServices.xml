@@ -19,6 +19,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters>
             <parameter name="asset" type="EntityValue"/>
             <parameter name="statusItem" type="EntityValue"/>
+            <parameter name="statusId"/>
+            <parameter name="statusHistoryList" type="EntityList"/>
             <parameter name="product" type="EntityValue"/>
             <parameter name="facility" type="EntityValue"/>
             <parameter name="facilityLocation" type="EntityValue"/>
@@ -28,11 +30,21 @@ This Work includes contributions authored by David E. Jones, not as a
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+
             <set field="statusItem" from="asset.'Asset#moqui.basic.StatusItem'"/>
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.product.asset.Asset"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="assetId"/>
+                <order-by field-name="changedDate"/>
+            </entity-find>
+            <set field="statusId" from="asset.statusId"/>
+
             <set field="facility" from="asset.'mantle.facility.Facility'"/>
             <set field="facilityLocation" from="asset.'mantle.facility.FacilityLocation'"/>
             <set field="product" from="asset.'mantle.product.Product'"/>
             <set field="originFacility" from="asset.'Origin#mantle.facility.Facility'"/>
+
             <entity-find entity-name="mantle.product.asset.AssetDetail" list="assetDetailList">
                 <econdition field-name="assetId"/><order-by field-name="effectiveDate"/></entity-find>
             <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetReservationList">
@@ -745,6 +757,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="returnId"/>
             <parameter name="returnItemSeqId"/>
             <parameter name="workEffortId"/>
+            <parameter name="noProduceProduct" default-value="add"><description>If the asset has a productId that is
+                not one of the WorkEffort produce products, "add" it or return an "error"?</description></parameter>
 
             <parameter name="quantityRejected" type="BigDecimal"/>
             <parameter name="rejectionReasonEnumId"/>
@@ -807,6 +821,24 @@ This Work includes contributions authored by David E. Jones, not as a
                         availableToPromiseDiff:availableToPromiseDiff, unitCost:orderItem?.unitAmount,
                         shipmentId:shipmentId, productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
                         workEffortId:workEffortId, assetReceiptId:assetReceiptId]"/>
+
+            <!-- if this is for a WorkEffort (production run, etc)  -->
+            <if condition="workEffortId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortProduct" list="produceProductList">
+                    <econdition field-name="workEffortId"/><econdition field-name="productId"/>
+                    <econdition field-name="typeEnumId" value="WeptProduce"/>
+                </entity-find>
+                <if condition="!produceProductList">
+                    <if condition="noProduceProduct == 'error'">
+                        <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
+                        <message error="true">Not issuing Asset [${assetId}], Product ${product.productName} [${product.pseudoId}] is not a product to produce</message>
+                        <else>
+                            <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,
+                                productId:productId, typeEnumId:'WeptProduce', estimatedQuantity:quantity]"/>
+                        </else>
+                    </if>
+                </if>
+            </if>
 
             <!-- call through AssetDetail create? NO, would get called from the move#AssetReservation record recursively -->
             <!-- reserve the newly available Asset, if needed -->
