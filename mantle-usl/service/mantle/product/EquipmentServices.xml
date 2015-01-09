@@ -29,10 +29,18 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="create" noun="AssetMaintenance">
         <description>If productMaintenanceId is specified populates maintenanceTypeEnumId, intervalUomId, and
             intervalProductMeterId from the ProductMaintenance record. If intervalProductMeterId is available and there
-            is no intervalUomId, looks it up from the ProductMeter.meterUomId field.</description>
+            is no intervalUomId, looks it up from the ProductMeter.meterUomId field.
+
+            Also creates an AssetMeter reading if an intervalQuantity specified (using intervalProductMeterId).
+        </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.product.maintenance.AssetMaintenance" include="nonpk"/>
+            <parameter name="maintenanceDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
+        <out-parameters>
+            <parameter name="assetMaintenanceId"/>
+            <parameter name="assetMeterId"/>
+        </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.maintenance.ProductMaintenance" value-field="productMaintenance"/>
             <if condition="productMaintenance">
@@ -46,6 +54,12 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="intervalUomId" from="productMeter.meterUomId"/>
             </if>
             <service-call name="create#mantle.product.maintenance.AssetMaintenance" in-map="context" out-map="context"/>
+
+            <if condition="intervalQuantity">
+                <service-call name="create#mantle.product.maintenance.AssetMeter" out-map="context"
+                        in-map="[assetId:assetId, readingDate:maintenanceDate, productMeterId:intervalProductMeterId,
+                            meterValue:intervalQuantity, assetMaintenanceId:assetMaintenanceId]"/>
+            </if>
         </actions>
     </service>
 
