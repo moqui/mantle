@@ -26,6 +26,29 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="create" noun="AssetMaintenance">
+        <description>If productMaintenanceId is specified populates maintenanceTypeEnumId, intervalUomId, and
+            intervalProductMeterId from the ProductMaintenance record. If intervalProductMeterId is available and there
+            is no intervalUomId, looks it up from the ProductMeter.meterUomId field.</description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.product.maintenance.AssetMaintenance" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.maintenance.ProductMaintenance" value-field="productMaintenance"/>
+            <if condition="productMaintenance">
+                <set field="maintenanceTypeEnumId" from="maintenanceTypeEnumId ?: productMaintenance.maintenanceTypeEnumId"/>
+                <set field="intervalUomId" from="intervalUomId ?: productMaintenance.intervalUomId"/>
+                <set field="intervalProductMeterId" from="intervalProductMeterId ?: productMaintenance.intervalProductMeterId"/>
+            </if>
+            <if condition="!intervalUomId &amp;&amp; intervalProductMeterId">
+                <entity-find-one entity-name="mantle.product.maintenance.ProductMeter" value-field="productMeter">
+                    <field-map field-name="productMeterId" from="intervalProductMeterId"/></entity-find-one>
+                <set field="intervalUomId" from="productMeter.meterUomId"/>
+            </if>
+            <service-call name="create#mantle.product.maintenance.AssetMaintenance" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
     <!-- ========== AssetMaintenanceContent Services ========== -->
     <service verb="create" noun="AssetMaintenanceContent">
         <in-parameters>
