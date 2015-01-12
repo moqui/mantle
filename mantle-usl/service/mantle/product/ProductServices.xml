@@ -69,6 +69,9 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <!-- ============================= -->
+    <!-- Services for Product Features -->
+
     <service verb="find" noun="ProductFeatures">
         <description>Finds all product features (optionally limited by appl type) for a product and any feature groups
             associated with a category that the product is a member of. The result is a List of entity values for
@@ -134,6 +137,57 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <!-- =================================== -->
+    <!-- Services for Products with Variants -->
+
+    <service verb="find" noun="VariantProduct">
+        <in-parameters>
+            <parameter name="baseProductId" required="true"/>
+            <parameter name="productFeatureIdSet" type="Set" required="true"/>
+            <parameter name="productTypeEnumId"/>
+            <parameter name="createIfMissing" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters><parameter name="productId"/></out-parameters>
+        <actions>
+            <if condition="productFeatureIdSet.size() == 0"><return/></if>
+            <set field="productFeatureIdList" from="new ArrayList(productFeatureIdSet)"/>
+
+            <!-- find variants with first feature, filter from there -->
+            <set field="firstProductFeatureId" from="productFeatureIdList[0]"/>
+            <script>productFeatureIdList.remove(0)</script>
+            <entity-find entity-name="ProductAssocAndToFeatureAppl" list="paatafaList">
+                <date-filter/><econdition field-name="productId" from="baseProductId"/>
+                <econdition field-name="productAssocTypeEnumId" value="PatVariant"/>
+                <econdition field-name="applTypeEnumId" operator="in" value="PfatDistinguishing,PfatStandard"/>
+                <econdition field-name="productFeatureId" from="firstProductFeatureId"/>
+            </entity-find>
+
+            <set field="productId" from="null"/>
+            <iterate list="paatafaList" entry="paatafa">
+                <set field="hasAllFeatures" from="true"/>
+                <iterate list="productFeatureIdList" entry="productFeatureId">
+                    <entity-find-count entity-name="mantle.product.feature.ProductFeatureAppl" count-field="pfaCount">
+                        <date-filter/><econdition field-name="productId" from="paatafa.toProductId"/>
+                        <econdition field-name="applTypeEnumId" operator="in" value="PfatDistinguishing,PfatStandard"/>
+                        <econdition field-name="productFeatureId"/>
+                    </entity-find-count>
+                    <if condition="pfaCount == 0"><set field="hasAllFeatures" from="false"/><break/></if>
+                </iterate>
+                <if condition="hasAllFeatures"><set field="productId" from="paatafa.toProductId"/><break/></if>
+            </iterate>
+
+            <!-- no productId and createIfMissing=true? create one... -->
+            <if condition="!productId &amp;&amp; createIfMissing">
+                <entity-find-one entity-name="mantle.product.Product" value-field="product">
+                    <field-map field-name="productId" from="baseProductId"/></entity-find-one>
+                <entity-find entity-name="mantle.product.feature.ProductFeature" list="featureList">
+                    <econdition field-name="productFeatureId" operator="in" from="productFeatureIdSet"/></entity-find>
+                <service-call name="mantle.product.ProductServices.create#VariantProduct" out-map="context"
+                        in-map="[product:product, productTypeEnumId:productTypeEnumId, featureList:featureList]"/>
+            </if>
+        </actions>
+    </service>
+
     <service verb="create" noun="VariantProducts">
         <in-parameters>
             <parameter name="productId"/>
@@ -172,52 +226,9 @@ This Work includes contributions authored by David E. Jones, not as a
                         featureList[level] = featureListList.get(level).get(i)
                         if (level == featureListList.size() - 1) {
                             // at the bottom, create the variant
-
-                            String productId = product.productId
-                            String productName = product.productName
-                            for (EntityValue feature in featureList) {
-                                EntityValue typeEnum = ec.entity.find("moqui.basic.Enumeration")
-                                        .condition("enumId", feature.productFeatureTypeEnumId).useCache(true).one()
-                                productId = productId + "_" + feature.productFeatureId
-                                productName = productName + " " + typeEnum.description + " " + feature.description
-                            }
-
-                            // see if product exists (by ID) before creating
-                            EntityValue existingProduct = ec.entity.find("mantle.product.Product")
-                                    .condition("productId", productId).one()
-                            if (existingProduct) continue
-
-                            // see if variant with the same features exists
-                            EntityList allVariants = ec.entity.find("mantle.product.ProductAssoc")
-                                    .condition([productId: product.productId, productAssocTypeEnumId: "PatVariant"])
-                                    .conditionDate(null, null, null).list()
-                            Set checkProductIds = new HashSet((Collection) allVariants.toProductId)
-                            for (EntityValue feature in featureList) {
-                                if (!checkProductIds) break
-                                EntityList remainingWithFeature = ec.entity.find("mantle.product.feature.ProductFeatureAppl")
-                                        .condition("productId", EntityCondition.IN, checkProductIds)
-                                        .condition("productFeatureId", feature.productFeatureId).list()
-                                checkProductIds = new HashSet((Collection) remainingWithFeature.productId)
-                            }
-                            if (checkProductIds) continue
-
-                            EntityValue newProduct = product.cloneValue()
-                            newProduct.productName = productName; newProduct.productId = productId
-                            if (productTypeEnumId) newProduct.productTypeEnumId = productTypeEnumId
-                            newProduct.pseudoId = null
-                            newProduct.create()
-
-                            ec.service.sync().name("create", "mantle.product.ProductAssoc")
-                                    .parameters([productId:product.productId, toProductId:newProduct.productId,
-                                                 productAssocTypeEnumId:"PatVariant", fromDate:ec.user.nowTimestamp]).call()
-
-                            for (EntityValue feature in featureList) {
-                                ec.service.sync().name("create", "mantle.product.feature.ProductFeatureAppl")
-                                        .parameters([productId:newProduct.productId, productFeatureId:feature.productFeatureId,
-                                                     fromDate:ec.user.nowTimestamp, applTypeEnumId:"PfatDistinguishing"]).call()
-                            }
-
-                            ec.logger.info("Created variant of ${product.productId}: ${newProduct.productId}:${newProduct.productName}")
+                            ec.service.sync().name("mantle.product.ProductServices.create#VariantProduct")
+                                    .parameters([product:product, productTypeEnumId:productTypeEnumId, featureList:featureList])
+                                    .call()
                         } else {
                             recursiveCreate(ec, product, featureListList, featureList, level + 1)
                         }
@@ -225,7 +236,70 @@ This Work includes contributions authored by David E. Jones, not as a
                 }
 
                 recursiveCreate(ec, product, featureListList, new ArrayList(featureListList.size()), 0)
-                ]]></script>
+            ]]></script>
+        </actions>
+    </service>
+    <service verb="create" noun="VariantProduct">
+        <in-parameters>
+            <parameter name="product" type="EntityValue" required="true"/>
+            <parameter name="productTypeEnumId"/>
+            <parameter name="featureList" type="List"/>
+        </in-parameters>
+        <out-parameters><parameter name="productId"/></out-parameters>
+        <actions>
+            <script><![CDATA[
+                import org.moqui.entity.EntityCondition
+
+                productId = product.productId
+                String productName = product.productName
+                for (EntityValue feature in featureList) {
+                    EntityValue typeEnum = ec.entity.find("moqui.basic.Enumeration")
+                            .condition("enumId", feature.productFeatureTypeEnumId).useCache(true).one()
+                    productId = productId + "_" + feature.productFeatureId
+                    productName = productName + " " + typeEnum.description + " " + feature.description
+                }
+
+                // see if product exists (by ID) before creating
+                EntityValue existingProduct = ec.entity.find("mantle.product.Product")
+                        .condition("productId", productId).one()
+                if (existingProduct) return
+
+                // see if variant with the same features exists
+                EntityList allVariants = ec.entity.find("mantle.product.ProductAssoc")
+                        .condition([productId: product.productId, productAssocTypeEnumId: "PatVariant"])
+                        .conditionDate(null, null, null).list()
+                Set checkProductIds = new HashSet((Collection) allVariants.toProductId)
+                for (EntityValue feature in featureList) {
+                    if (!checkProductIds) break
+                    EntityList remainingWithFeature = ec.entity.find("mantle.product.feature.ProductFeatureAppl")
+                            .condition("productId", EntityCondition.IN, checkProductIds)
+                            .condition("productFeatureId", feature.productFeatureId).list()
+                    checkProductIds = new HashSet((Collection) remainingWithFeature.productId)
+                }
+                if (checkProductIds) {
+                    productId = checkProductIds.iterator().next()
+                    return
+                }
+
+                EntityValue newProduct = product.cloneValue()
+                newProduct.productName = productName; newProduct.productId = productId
+                if (productTypeEnumId) newProduct.productTypeEnumId = productTypeEnumId
+                newProduct.pseudoId = null
+                newProduct.create()
+
+                ec.service.sync().name("create", "mantle.product.ProductAssoc")
+                        .parameters([productId:product.productId, toProductId:newProduct.productId,
+                                     productAssocTypeEnumId:"PatVariant", fromDate:ec.user.nowTimestamp]).call()
+
+                for (EntityValue feature in featureList) {
+                    ec.service.sync().name("create", "mantle.product.feature.ProductFeatureAppl")
+                            .parameters([productId:newProduct.productId, productFeatureId:feature.productFeatureId,
+                                         fromDate:ec.user.nowTimestamp, applTypeEnumId:"PfatDistinguishing"]).call()
+                }
+
+                ec.logger.info("Created variant of ${product.productId}: ${newProduct.productId}:${newProduct.productName}")
+
+            ]]></script>
         </actions>
     </service>
 </services>
