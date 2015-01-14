@@ -672,9 +672,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="workEffortId" required="true"/>
             <parameter name="quantity" type="BigDecimal"><description>If not specified entire quantity of given Asset record will be used.</description></parameter>
             <parameter name="noConsumeProduct" default-value="error"><description>If the asset has a productId that is
-                not one of the WorkEffort consume products, "add" it or return an "error"?</description></parameter>
+                not one of the WorkEffort consume products, "add" it, "ignore" it, or return an "error"?</description></parameter>
             <parameter name="noOriginFacility" default-value="error"><description>If the asset has a originFacilityId that is
-                not one of the WorkEffort origin facilities, "add" it or return an "error"?</description></parameter>
+                not one of the WorkEffort origin facilities, "add" it, "ignore" it, or return an "error"?</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
@@ -695,11 +695,11 @@ This Work includes contributions authored by David E. Jones, not as a
                 <if condition="noConsumeProduct == 'add'">
                     <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,
                             productId:asset.productId, typeEnumId:'WeptConsume', estimatedQuantity:quantity]"/>
-                    <else>
+                    <else-if condition="noConsumeProduct != 'ignore'">
                         <entity-find-one entity-name="mantle.product.Product" value-field="product">
                             <field-map field-name="productId" from="asset.productId"/></entity-find-one>
                         <message error="true">Not issuing Asset [${assetId}], Product ${product.productName} [${product.pseudoId}] is not a product to consume</message>
-                    </else>
+                    </else-if>
                 </if>
             </if>
 
@@ -713,11 +713,11 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="noOriginFacility == 'add'">
                         <service-call name="create#mantle.work.effort.WorkEffortFacility" in-map="[workEffortId:workEffortId,
                             facilityId:asset.originFacilityId, typeEnumId:'WeftOrigin']"/>
-                        <else>
+                        <else-if condition="noOriginFacility != 'ignore'">
                             <entity-find-one entity-name="mantle.facility.Facility" value-field="facility">
                                 <field-map field-name="facilityId" from="asset.originFacilityId"/></entity-find-one>
                             <message error="true">Not issuing Asset [${assetId}], Origin Facility ${facility.facilityName} [${facility.facilityId}] is not an origin facility</message>
-                        </else>
+                        </else-if>
                     </if>
                 </if>
             </if>
@@ -758,7 +758,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="returnItemSeqId"/>
             <parameter name="workEffortId"/>
             <parameter name="noProduceProduct" default-value="add"><description>If the asset has a productId that is
-                not one of the WorkEffort produce products, "add" it or return an "error"?</description></parameter>
+                not one of the WorkEffort produce products, "add" it, "ignore" it, or return an "error"?</description></parameter>
 
             <parameter name="containerId"><description>Put the new Asset in this Container, set its Facility and Location if not set.</description></parameter>
             <parameter name="containerTypeEnumId"><description>If specified and there is no containerId create a
@@ -861,10 +861,10 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="noProduceProduct == 'error'">
                         <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
                         <message error="true">Not issuing Asset [${assetId}], Product ${product.productName} [${product.pseudoId}] is not a product to produce</message>
-                        <else>
+                        <else-if condition="noProduceProduct != 'ignore'">
                             <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,
                                 productId:productId, typeEnumId:'WeptProduce', estimatedQuantity:quantity]"/>
-                        </else>
+                        </else-if>
                     </if>
                 </if>
             </if>
