@@ -743,6 +743,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="classEnumId"/>
             <parameter name="statusId"><description>If assetTypeEnumId == AstTpInventory then defaults to AstAvailable,
                 otherwise defaults to AstInStorage.</description></parameter>
+            <parameter name="receivedDate"><description>If statusId == AstIncoming then defaults to null, otherwise defaults to now.</description></parameter>
 
             <auto-parameters entity-name="mantle.product.asset.Asset" include="nonpk"/>
             <parameter name="assetName"><description>Defaults to OrderItem.itemDescription if available.</description></parameter>
@@ -785,10 +786,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="!ownerPartyId"><set field="ownerPartyId" from="facility?.ownerPartyId"/></if>
 
             <if condition="!statusId"><set field="statusId" from="assetTypeEnumId == 'AstTpInventory' ? 'AstAvailable' : 'AstInStorage'"/></if>
+            <if condition="!receivedDate &amp;&amp; statusId != 'AstIncoming'"><set field="receivedDate" from="ec.user.nowTimestamp"/></if>
             <set field="hasQuantity" from="!serialNumber &amp;&amp; quantity > 1 ? 'Y' : 'N'"/>
             <set field="assetName" from="assetName ?: orderItem?.itemDescription"/>
-
-            <set field="receivedDate" from="ec.user.nowTimestamp"/>
 
             <!-- create a Container if needed -->
             <if condition="!containerId &amp;&amp; (containerTypeEnumId || containerSerialNumber)">
@@ -889,6 +889,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <exclude field-name="availableToPromiseTotal"/>
                 <exclude field-name="quantityOnHandTotal"/>
             </auto-parameters>
+            <parameter name="receivedDate"><description>If statusId == AstIncoming then no default, otherwise defaults to now.</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="assetDetailId"/></out-parameters>
         <actions>
@@ -923,6 +924,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- TODO: if quantityAccepted is updated and GL entry exists adjust the GL! -->
             <service-call name="update#mantle.product.receipt.AssetReceipt" in-map="context" out-map="context"/>
 
+            <if condition="!receivedDate &amp;&amp; statusId &amp;&amp; statusId != 'AstIncoming'">
+                <set field="receivedDate" from="ec.user.nowTimestamp"/></if>
             <!-- TODO: if acquireCost is updated adjust the GL, if set from null do GL posting! -->
             <service-call name="update#mantle.product.asset.Asset" in-map="context" out-map="context"/>
 
