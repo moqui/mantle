@@ -672,9 +672,9 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="workEffortId" required="true"/>
             <parameter name="quantity" type="BigDecimal"><description>If not specified entire quantity of given Asset record will be used.</description></parameter>
             <parameter name="noConsumeProduct" default-value="error"><description>If the asset has a productId that is
-                not one of the WorkEffort consume products, "add" it or return an "error"?</description></parameter>
+                not one of the WorkEffort consume products, "add" it, "ignore" it, or return an "error"?</description></parameter>
             <parameter name="noOriginFacility" default-value="error"><description>If the asset has a originFacilityId that is
-                not one of the WorkEffort origin facilities, "add" it or return an "error"?</description></parameter>
+                not one of the WorkEffort origin facilities, "add" it, "ignore" it, or return an "error"?</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
@@ -695,11 +695,11 @@ This Work includes contributions authored by David E. Jones, not as a
                 <if condition="noConsumeProduct == 'add'">
                     <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,
                             productId:asset.productId, typeEnumId:'WeptConsume', estimatedQuantity:quantity]"/>
-                    <else>
+                    <else-if condition="noConsumeProduct != 'ignore'">
                         <entity-find-one entity-name="mantle.product.Product" value-field="product">
                             <field-map field-name="productId" from="asset.productId"/></entity-find-one>
                         <message error="true">Not issuing Asset [${assetId}], Product ${product.productName} [${product.pseudoId}] is not a product to consume</message>
-                    </else>
+                    </else-if>
                 </if>
             </if>
 
@@ -713,11 +713,11 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="noOriginFacility == 'add'">
                         <service-call name="create#mantle.work.effort.WorkEffortFacility" in-map="[workEffortId:workEffortId,
                             facilityId:asset.originFacilityId, typeEnumId:'WeftOrigin']"/>
-                        <else>
+                        <else-if condition="noOriginFacility != 'ignore'">
                             <entity-find-one entity-name="mantle.facility.Facility" value-field="facility">
                                 <field-map field-name="facilityId" from="asset.originFacilityId"/></entity-find-one>
                             <message error="true">Not issuing Asset [${assetId}], Origin Facility ${facility.facilityName} [${facility.facilityId}] is not an origin facility</message>
-                        </else>
+                        </else-if>
                     </if>
                 </if>
             </if>
@@ -743,6 +743,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="classEnumId"/>
             <parameter name="statusId"><description>If assetTypeEnumId == AstTpInventory then defaults to AstAvailable,
                 otherwise defaults to AstInStorage.</description></parameter>
+            <parameter name="receivedDate"><description>If statusId == AstIncoming then defaults to null, otherwise defaults to now.</description></parameter>
 
             <auto-parameters entity-name="mantle.product.asset.Asset" include="nonpk"/>
             <parameter name="assetName"><description>Defaults to OrderItem.itemDescription if available.</description></parameter>
@@ -758,7 +759,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="returnItemSeqId"/>
             <parameter name="workEffortId"/>
             <parameter name="noProduceProduct" default-value="add"><description>If the asset has a productId that is
-                not one of the WorkEffort produce products, "add" it or return an "error"?</description></parameter>
+                not one of the WorkEffort produce products, "add" it, "ignore" it, or return an "error"?</description></parameter>
+
+            <parameter name="containerId"><description>Put the new Asset in this Container, set its Facility and Location if not set.</description></parameter>
+            <parameter name="containerTypeEnumId"><description>If specified and there is no containerId create a
+                Container of this type (with Facility and Location) and put Asset in it (set Asset.containerId).</description></parameter>
+            <parameter name="containerSerialNumber"><description>Lookup Container with this ID as an alternative to the
+                containerId (if not specified), if none found create a Container with this serialNumber.</description></parameter>
 
             <parameter name="quantityRejected" type="BigDecimal"/>
             <parameter name="rejectionReasonEnumId"/>
@@ -779,18 +786,39 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="!ownerPartyId"><set field="ownerPartyId" from="facility?.ownerPartyId"/></if>
 
             <if condition="!statusId"><set field="statusId" from="assetTypeEnumId == 'AstTpInventory' ? 'AstAvailable' : 'AstInStorage'"/></if>
+            <if condition="!receivedDate &amp;&amp; statusId != 'AstIncoming'"><set field="receivedDate" from="ec.user.nowTimestamp"/></if>
             <set field="hasQuantity" from="!serialNumber &amp;&amp; quantity > 1 ? 'Y' : 'N'"/>
             <set field="assetName" from="assetName ?: orderItem?.itemDescription"/>
 
-            <set field="receivedDate" from="ec.user.nowTimestamp"/>
+            <!-- create a Container if needed -->
+            <if condition="!containerId &amp;&amp; (containerTypeEnumId || containerSerialNumber)">
+                <!-- will put containerId for the new record in the context -->
+                <service-call name="create#mantle.product.asset.Container" out-map="context"
+                        in-map="[containerTypeEnumId:containerTypeEnumId, serialNumber:containerSerialNumber,
+                            facilityId:facilityId, locationSeqId:locationSeqId, geoPointId:geoPointId]"/>
+            </if>
 
+            <!-- create or update the Asset record -->
             <if condition="!assetId">
                 <!-- TODO: if this has a workEffortId and not an orderId get acquireCost from WorkEffort somehow? -->
                 <service-call name="create#mantle.product.asset.Asset" out-map="context" 
                         in-map="context + [quantityOnHandTotal:0, availableToPromiseTotal:0,
                             acquiredDate:(orderHeader?.placedDate ?: ec.user.nowTimestamp),
                             acquireOrderId:orderId, acquireOrderItemSeqId:orderItemSeqId, acquireCost:orderItem?.unitAmount,
-                            acquireCostUomId:orderHeader?.currencyUomId, acquireWorkEffortId:workEffortId]"/>
+                            acquireCostUomId:orderHeader?.currencyUomId, acquireWorkEffortId:workEffortId,
+                            containerId:containerId]"/>
+
+                <else>
+                    <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+                    <set field="asset.containerId" from="asset.containerId ?: containerId"/>
+                    <set field="asset.geoPointId" from="asset.geoPointId ?: geoPointId"/>
+                    <set field="asset.acquireWorkEffortId" from="asset.acquireWorkEffortId ?: workEffortId"/>
+                    <set field="asset.acquireOrderId" from="asset.acquireOrderId ?: orderId"/>
+                    <set field="asset.acquireOrderItemSeqId" from="asset.acquireOrderItemSeqId ?: orderItemSeqId"/>
+                    <set field="asset.acquireCost" from="asset.acquireCost ?: orderItem?.unitAmount"/>
+                    <set field="asset.acquireCostUomId" from="asset.acquireCostUomId ?: orderHeader?.currencyUomId"/>
+                    <entity-update value-field="asset"/>
+                </else>
             </if>
 
             <!-- create AssetReceipt -->
@@ -825,6 +853,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- if this is for a WorkEffort (production run, etc)  -->
             <if condition="workEffortId">
                 <entity-find entity-name="mantle.work.effort.WorkEffortProduct" list="produceProductList">
+                    <date-filter/>
                     <econdition field-name="workEffortId"/><econdition field-name="productId"/>
                     <econdition field-name="typeEnumId" value="WeptProduce"/>
                 </entity-find>
@@ -832,10 +861,10 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="noProduceProduct == 'error'">
                         <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
                         <message error="true">Not issuing Asset [${assetId}], Product ${product.productName} [${product.pseudoId}] is not a product to produce</message>
-                        <else>
+                        <else-if condition="noProduceProduct != 'ignore'">
                             <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,
                                 productId:productId, typeEnumId:'WeptProduce', estimatedQuantity:quantity]"/>
-                        </else>
+                        </else-if>
                     </if>
                 </if>
             </if>
@@ -860,6 +889,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <exclude field-name="availableToPromiseTotal"/>
                 <exclude field-name="quantityOnHandTotal"/>
             </auto-parameters>
+            <parameter name="receivedDate"><description>If statusId == AstIncoming then no default, otherwise defaults to now.</description></parameter>
         </in-parameters>
         <out-parameters><parameter name="assetDetailId"/></out-parameters>
         <actions>
@@ -894,6 +924,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- TODO: if quantityAccepted is updated and GL entry exists adjust the GL! -->
             <service-call name="update#mantle.product.receipt.AssetReceipt" in-map="context" out-map="context"/>
 
+            <if condition="!receivedDate &amp;&amp; statusId &amp;&amp; statusId != 'AstIncoming'">
+                <set field="receivedDate" from="ec.user.nowTimestamp"/></if>
             <!-- TODO: if acquireCost is updated adjust the GL, if set from null do GL posting! -->
             <service-call name="update#mantle.product.asset.Asset" in-map="context" out-map="context"/>
 

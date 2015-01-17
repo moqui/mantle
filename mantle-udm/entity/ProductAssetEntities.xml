@@ -71,6 +71,7 @@ and those parts may be licensed under the Apache License 2.0.
             locationSeqId should come from the container and not from this record.</description></field>
         <field name="shipmentBoxTypeId" type="id"/>
         <field name="lotId" type="id"/>
+        <field name="geoPointId" type="id" enable-audit-log="true"/>
 
         <field name="acquireOrderId" type="id"/>
         <field name="acquireOrderItemSeqId" type="id"/>
@@ -100,6 +101,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="mantle.product.asset.Container"/>
         <relationship type="one" related-entity-name="mantle.shipment.ShipmentBoxType"/>
         <relationship type="one" related-entity-name="mantle.product.asset.Lot"/>
+        <relationship type="one" related-entity-name="moqui.basic.GeoPoint"/>
 
         <relationship type="one-nofk" title="Acquire" related-entity-name="mantle.order.OrderHeader">
             <key-map field-name="acquireOrderId"/></relationship>
@@ -271,14 +273,6 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration enumId="InVrMisShipShipped" description="Mis-shipped Item Shipped (-)" enumTypeId="InventoryVarianceReason"/>
         </seed-data>
     </entity>
-    <entity entity-name="AssetGeoPoint" package-name="mantle.product.asset">
-        <field name="assetId" type="id" is-pk="true"/>
-        <field name="geoPointId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
-        <relationship type="one" related-entity-name="moqui.basic.GeoPoint"/>
-    </entity>
     <entity entity-name="AssetIdentification" package-name="mantle.product.asset">
         <field name="assetId" type="id" is-pk="true"/>
         <field name="identificationTypeEnumId" type="id" is-pk="true"/>
@@ -350,7 +344,9 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="Container" package-name="mantle.product.asset">
         <field name="containerId" type="id" is-pk="true"/>
         <field name="containerTypeEnumId" type="id"/>
+        <field name="createdDate" type="date-time" default="ec.user.nowTimestamp"/>
         <field name="externalId" type="id"><description>An identifier for the container in an external system (source, origin, etc).</description></field>
+        <field name="serialNumber" type="id"><description>Serial number or license plate for the container.</description></field>
         <field name="facilityId" type="id" enable-audit-log="true"/>
         <field name="locationSeqId" type="id" enable-audit-log="true"/>
         <field name="geoPointId" type="id" enable-audit-log="true"/>
@@ -358,7 +354,22 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" title="ContainerType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="containerTypeEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.facility.Facility"/>
-        <relationship type="one-nofk" related-entity-name="FacilityLocation"/>
+        <relationship type="one-nofk" related-entity-name="mantle.facility.FacilityLocation"/>
+        <seed-data>
+            <!-- Container Type -->
+            <moqui.basic.EnumerationType description="Container Type" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet US 40x48in" enumId="CtPalletUs4048" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet US 40x40in" enumId="CtPalletUs4040" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet US 42x42in" enumId="CtPalletUs4242" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet US 48x40in" enumId="CtPalletUs4840" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet US 48x48in" enumId="CtPalletUs4848" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet ISO1/EUR1 0.8x1.2m" enumId="CtPalletIso1" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet ISO2/EUR2 1.2x1.0m" enumId="CtPalletIso2" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet ISO0/EUR6 0.8x0.6m" enumId="CtPalletIso0" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Pallet EUR3 1.0x1.2m" enumId="CtPalletEur3" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Container ISO 40ft" enumId="CtContainerIso40" enumTypeId="ContainerType"/>
+            <moqui.basic.Enumeration description="Container ISO 20ft" enumId="CtContainerIso20" enumTypeId="ContainerType"/>
+        </seed-data>
     </entity>
     <entity entity-name="Lot" package-name="mantle.product.asset">
         <field name="lotId" type="id" is-pk="true"/>
@@ -449,15 +460,11 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="taskWorkEffortId" type="id"/>
         <field name="intervalQuantity" type="number-decimal"/>
         <field name="intervalUomId" type="id">
-            <description>UOM for intervalQuantity; if used intervalMeterTypeId is generally not used (ie one or the
-                other); if a meter reading is done as well that is not tied to the interval it should be tracked in a
-                AssetMaintMeter record</description>
-        </field>
-        <field name="intervalMeterTypeId" type="id">
-            <description>Meter Type for intervalQuantity; if used intervalUomId is generally not used (ie one or the
-                other)</description>
-        </field>
+            <description>UOM for intervalQuantity; ignored if intervalProductMeterId is used</description></field>
+        <!-- <field name="intervalMeterTypeId" type="id"><description>Meter Type for intervalQuantity; if used intervalUomId is generally not used (ie one or the other)</description></field> -->
+        <field name="intervalProductMeterId" type="id"/>
         <field name="purchaseOrderId" type="id"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
         <relationship type="one" title="AssetMaintenance" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="MaintenanceType" related-entity-name="moqui.basic.Enumeration">
@@ -467,11 +474,13 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="taskWorkEffortId"/></relationship>
         <relationship type="one" title="Interval" related-entity-name="moqui.basic.Uom">
             <key-map field-name="intervalUomId"/></relationship>
-        <relationship type="one" title="Interval" related-entity-name="ProductMeterType">
-            <key-map field-name="intervalMeterTypeId"/></relationship>
+        <!-- <relationship type="one" title="Interval" related-entity-name="ProductMeterType">
+            <key-map field-name="intervalMeterTypeId"/></relationship> -->
+        <relationship type="one" title="Interval" related-entity-name="mantle.product.maintenance.ProductMeter">
+            <key-map field-name="intervalProductMeterId"/></relationship>
         <relationship type="one" title="Purchase" related-entity-name="mantle.order.OrderHeader">
             <key-map field-name="purchaseOrderId"/></relationship>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
         <seed-data>
             <!-- Asset Maintenance Status -->
             <moqui.basic.StatusType description="Asset Maintenance Status" statusTypeId="AssetMaintenance"/>
@@ -498,6 +507,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Battery Check" enumId="MntTpBatteryCheck" parentEnumId="MntTpVehicle" enumTypeId="MaintenanceType"/>
             <moqui.basic.Enumeration description="Lubricate Chassis" enumId="MntTpLubeChassis" parentEnumId="MntTpVehicle" enumTypeId="MaintenanceType"/>
             <moqui.basic.Enumeration description="Tires Rotate" enumId="MntTpTiresRotate" parentEnumId="MntTpVehicle" enumTypeId="MaintenanceType"/>
+            <moqui.basic.Enumeration description="Tire Replacement" enumId="MntTpTireReplacement" parentEnumId="MntTpVehicle" enumTypeId="MaintenanceType"/>
             <moqui.basic.Enumeration description="HVAC Maintenance" enumId="MntTpHvac" enumTypeId="MaintenanceType"/>
             <moqui.basic.Enumeration description="Air Filter Replace" enumId="MntTpAirFilterRepl" parentEnumId="MntTpHvac" enumTypeId="MaintenanceType"/>
             <moqui.basic.Enumeration description="Refrigerant Check/Recharge" enumId="MntTpRefrChkChrg" parentEnumId="MntTpHvac" enumTypeId="MaintenanceType"/>
@@ -529,15 +539,18 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="AssetMeter" package-name="mantle.product.maintenance">
         <field name="assetId" type="id" is-pk="true"/>
-        <field name="productMeterTypeId" type="id" is-pk="true"/>
         <field name="readingDate" type="date-time" is-pk="true"/>
-        <field name="meterValue" type="number-decimal"/>
+        <field name="productMeterTypeId" type="id"/>
+        <field name="productMeterId" type="id"/>
+        <field name="meterValue" type="number-decimal" enable-audit-log="update"/>
         <field name="readingReasonEnumId" type="id"/>
         <field name="assetMaintenanceId" type="id"/>
         <field name="workEffortId" type="id"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
         <relationship type="one" related-entity-name="mantle.product.maintenance.AssetMaintenance"/>
-        <relationship type="one" related-entity-name="ProductMeterType"/>
+        <relationship type="one" related-entity-name="mantle.product.maintenance.ProductMeterType"/>
+        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
     </entity>
     <entity entity-name="AssetRegistration" package-name="mantle.product.maintenance">
         <field name="assetId" type="id" is-pk="true"/>
@@ -554,12 +567,13 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
 
     <entity entity-name="ProductMeter" package-name="mantle.product.maintenance">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="productMeterTypeId" type="id" is-pk="true"/>
+        <field name="productMeterId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="productMeterTypeId" type="id"/>
         <field name="meterUomId" type="id"/>
         <field name="meterName" type="text-medium"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="ProductMeterType"/>
+        <relationship type="one" related-entity-name="mantle.product.maintenance.ProductMeterType"/>
         <relationship type="one" title="Meter" related-entity-name="moqui.basic.Uom">
             <key-map field-name="meterUomId"/></relationship>
     </entity>
@@ -585,6 +599,7 @@ and those parts may be licensed under the Apache License 2.0.
             <mantle.product.maintenance.ProductMeterType description="Event Data Recorder" productMeterTypeId="PdMtrEventDataRec"/>
             <mantle.product.maintenance.ProductMeterType description="Pedometer" productMeterTypeId="PdMtrPedometer"/>
             <mantle.product.maintenance.ProductMeterType description="Odometer" productMeterTypeId="PdMtrOdometer"/>
+            <mantle.product.maintenance.ProductMeterType description="Thermometer" productMeterTypeId="PdMtrThermometer"/>
         </seed-data>
     </entity>
     <entity entity-name="ProductMaintenance" package-name="mantle.product.maintenance">
@@ -593,19 +608,20 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="productId" type="id"/>
         <field name="maintenanceTypeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
+        <field name="comments" type="text-long"/>
         <field name="templateWorkEffortId" type="id">
             <description>Template of Maintenance Plan. WorkEffort may have WorkEffortAssoc records for tasks/breakdown
-                details.</description>
-        </field>
+                details.</description></field>
         <field name="intervalQuantity" type="number-decimal"/>
+        <field name="intervalProductMeterId" type="id"/>
         <field name="intervalUomId" type="id">
-            <description>UOM for intervalQuantity; if used intervalMeterTypeId is generally not used (ie one or the
-                other)</description>
-        </field>
+            <description>UOM for intervalQuantity; ignored if intervalProductMeterId is used</description></field>
+        <!-- this isn't really needed with intervalProductMeterId, but leaving commented in case there is a scenario for it:
         <field name="intervalMeterTypeId" type="id">
             <description>Meter Type for intervalQuantity; if used intervalUomId is generally not used (ie one or the
                 other)</description>
         </field>
+        -->
         <field name="repeatCount" type="number-integer">
             <description>If 0 or null means no limit to repeat count; can be used with multiple ProductMaintenance
                 records for a single MaintenanceType in cases where maintenance intervals are not evenly distributed,
@@ -618,14 +634,10 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="templateWorkEffortId"/></relationship>
         <relationship type="one" title="Interval" related-entity-name="moqui.basic.Uom">
             <key-map field-name="intervalUomId"/></relationship>
-        <relationship type="one" title="Interval" related-entity-name="ProductMeterType">
-            <key-map field-name="intervalMeterTypeId"/></relationship>
-        <relationship type="one-nofk" title="Interval" related-entity-name="ProductMeter">
-            <description>This can't have a foreign key because the intervalMeterTypeId field is optional, but the
-                productId field is not.</description>
-            <key-map field-name="productId"/>
-            <key-map field-name="intervalMeterTypeId" related-field-name="productMeterTypeId"/>
-        </relationship>
+        <!-- <relationship type="one" title="Interval" related-entity-name="mantle.product.maintenance.ProductMeterType">
+            <key-map field-name="intervalMeterTypeId"/></relationship> -->
+        <relationship type="one" title="Interval" related-entity-name="mantle.product.maintenance.ProductMeter">
+            <key-map field-name="intervalProductMeterId"/></relationship>
     </entity>
 
     <!-- ========================================================= -->
