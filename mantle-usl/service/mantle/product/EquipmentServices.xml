@@ -26,6 +26,93 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="get" noun="AssetMaintenanceNeeded">
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="productMaintenanceId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="lastAssetMeter" type="EntityValue"/>
+            <parameter name="lastReadingDate" type="Timestamp"/>
+            <parameter name="lastMeterValue" type="BigDecimal"/>
+
+            <parameter name="lastAssetMaintenance" type="EntityValue"/>
+            <parameter name="lastMaintenanceDate" type="Timestamp"/>
+            <parameter name="lastMaintenanceInterval" type="BigDecimal"/>
+
+            <parameter name="nextMaintenanceInterval" type="BigDecimal"/>
+            <parameter name="remainingInterval" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.maintenance.ProductMaintenance" value-field="productMaintenance"/>
+
+            <!-- most recent meter (highest meterValue), IFF productMaintenance.intervalProductMeterId -->
+            <if condition="productMaintenance.intervalProductMeterId">
+                <entity-find entity-name="mantle.product.maintenance.AssetMeter" list="assetMeterList">
+                    <econdition field-name="assetId"/>
+                    <econdition field-name="productMeterId" from="productMaintenance.intervalProductMeterId"/>
+                    <order-by field-name="-meterValue"/>
+                </entity-find>
+                <set field="lastAssetMeter" from="assetMeterList?.getAt(0)"/>
+                <if condition="lastAssetMeter">
+                    <set field="lastReadingDate" from="lastAssetMeter.readingDate"/>
+                    <set field="lastMeterValue" from="lastAssetMeter.meterValue"/>
+                </if>
+            </if>
+
+            <!-- most recent maintenance -->
+            <entity-find entity-name="mantle.product.maintenance.AssetMaintenance" list="assetMaintenanceList">
+                <econdition field-name="assetId"/><econdition field-name="productMaintenanceId"/>
+                <order-by field-name="-maintenanceDate"/>
+            </entity-find>
+            <set field="lastAssetMaintenance" from="assetMaintenanceList?.getAt(0)"/>
+            <if condition="lastAssetMaintenance">
+                <set field="lastMaintenanceDate" from="lastAssetMaintenance.maintenanceDate"/>
+                <set field="lastMaintenanceInterval" from="lastAssetMaintenance.intervalQuantity"/>
+            </if>
+
+            <set field="nextMaintenanceInterval" from="(lastMaintenanceInterval ?: 0) + productMaintenance.intervalQuantity"/>
+            <set field="remainingInterval" from="nextMaintenanceInterval - (lastMeterValue ?: 0)"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="AssetMaintenance">
+        <description>If productMaintenanceId is specified populates maintenanceTypeEnumId, intervalUomId, and
+            intervalProductMeterId from the ProductMaintenance record. If intervalProductMeterId is available and there
+            is no intervalUomId, looks it up from the ProductMeter.meterUomId field.
+
+            Also creates an AssetMeter reading if an intervalQuantity specified (using intervalProductMeterId).
+        </description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.product.maintenance.AssetMaintenance" include="nonpk"/>
+            <parameter name="maintenanceDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="assetMaintenanceId"/>
+            <parameter name="assetMeterId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.maintenance.ProductMaintenance" value-field="productMaintenance"/>
+            <if condition="productMaintenance">
+                <set field="maintenanceTypeEnumId" from="maintenanceTypeEnumId ?: productMaintenance.maintenanceTypeEnumId"/>
+                <set field="intervalUomId" from="intervalUomId ?: productMaintenance.intervalUomId"/>
+                <set field="intervalProductMeterId" from="intervalProductMeterId ?: productMaintenance.intervalProductMeterId"/>
+            </if>
+            <if condition="!intervalUomId &amp;&amp; intervalProductMeterId">
+                <entity-find-one entity-name="mantle.product.maintenance.ProductMeter" value-field="productMeter">
+                    <field-map field-name="productMeterId" from="intervalProductMeterId"/></entity-find-one>
+                <set field="intervalUomId" from="productMeter.meterUomId"/>
+            </if>
+            <service-call name="create#mantle.product.maintenance.AssetMaintenance" in-map="context" out-map="context"/>
+
+            <if condition="intervalQuantity">
+                <service-call name="create#mantle.product.maintenance.AssetMeter" out-map="context"
+                        in-map="[assetId:assetId, readingDate:maintenanceDate, productMeterId:intervalProductMeterId,
+                            meterValue:intervalQuantity, assetMaintenanceId:assetMaintenanceId]"/>
+            </if>
+        </actions>
+    </service>
+
     <!-- ========== AssetMaintenanceContent Services ========== -->
     <service verb="create" noun="AssetMaintenanceContent">
         <in-parameters>
