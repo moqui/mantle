@@ -244,15 +244,23 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="product" type="EntityValue" required="true"/>
             <parameter name="productTypeEnumId"/>
             <parameter name="featureList" type="List"/>
+            <parameter name="copyStandardFeatures" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters><parameter name="productId"/></out-parameters>
         <actions>
+            <set field="productId" from="product.productId"/>
+            <if condition="copyStandardFeatures">
+                <entity-find entity-name="mantle.product.feature.ProductFeatureAppl" list="standardFeatureList">
+                    <date-filter/><econdition field-name="productId"/>
+                    <econdition field-name="applTypeEnumId" value="PfatStandard"/></entity-find>
+            </if>
+
             <script><![CDATA[
                 import org.moqui.entity.EntityCondition
 
-                productId = product.productId
                 String productName = product.productName
                 for (EntityValue feature in featureList) {
+                    // get the feature type Enumeration record for the description
                     EntityValue typeEnum = ec.entity.find("moqui.basic.Enumeration")
                             .condition("enumId", feature.productFeatureTypeEnumId).useCache(true).one()
                     productId = productId + "_" + feature.productFeatureId
@@ -295,6 +303,12 @@ This Work includes contributions authored by David E. Jones, not as a
                     ec.service.sync().name("create", "mantle.product.feature.ProductFeatureAppl")
                             .parameters([productId:newProduct.productId, productFeatureId:feature.productFeatureId,
                                          fromDate:ec.user.nowTimestamp, applTypeEnumId:"PfatDistinguishing"]).call()
+                }
+
+                for (EntityValue feature in standardFeatureList) {
+                    ec.service.sync().name("create", "mantle.product.feature.ProductFeatureAppl")
+                            .parameters([productId:newProduct.productId, productFeatureId:feature.productFeatureId,
+                                         fromDate:ec.user.nowTimestamp, applTypeEnumId:"PfatStandard"]).call()
                 }
 
                 ec.logger.info("Created variant of ${product.productId}: ${newProduct.productId}:${newProduct.productName}")
