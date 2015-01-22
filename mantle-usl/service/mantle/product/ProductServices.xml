@@ -248,22 +248,22 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters><parameter name="productId"/></out-parameters>
         <actions>
-            <set field="productId" from="product.productId"/>
             <if condition="copyStandardFeatures">
                 <entity-find entity-name="mantle.product.feature.ProductFeatureAppl" list="standardFeatureList">
-                    <date-filter/><econdition field-name="productId"/>
+                    <date-filter/><econdition field-name="productId" from="product.productId"/>
                     <econdition field-name="applTypeEnumId" value="PfatStandard"/></entity-find>
             </if>
 
             <script><![CDATA[
                 import org.moqui.entity.EntityCondition
 
+                productId = product.pseudoId ?: product.productId
                 String productName = product.productName
                 for (EntityValue feature in featureList) {
                     // get the feature type Enumeration record for the description
                     EntityValue typeEnum = ec.entity.find("moqui.basic.Enumeration")
                             .condition("enumId", feature.productFeatureTypeEnumId).useCache(true).one()
-                    productId = productId + "_" + feature.productFeatureId
+                    productId = productId + "_" + (feature.abbrev ?: feature.productFeatureId)
                     productName = productName + " " + typeEnum.description + " " + feature.description
                 }
 
