@@ -845,7 +845,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- create AssetDetail -->
             <set field="availableToPromiseDiff" from="statusId == 'AstAvailable' ? quantity : 0"/>
             <service-call name="create#mantle.product.asset.AssetDetail" out-map="context"
-                    in-map="[assetId:assetId, effectiveDate:receivedDate, quantityOnHandDiff:quantity,
+                    in-map="[assetId:assetId, effectiveDate:(receivedDate ?: ec.user.nowTimestamp), quantityOnHandDiff:quantity,
                         availableToPromiseDiff:availableToPromiseDiff, unitCost:orderItem?.unitAmount,
                         shipmentId:shipmentId, productId:productId, returnId:returnId, returnItemSeqId:returnItemSeqId,
                         workEffortId:workEffortId, assetReceiptId:assetReceiptId]"/>
@@ -893,6 +893,11 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters><parameter name="assetDetailId"/></out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+            <set field="oldStatusId" from="asset.statusId"/>
+            <set field="oldAtp" from="asset.availableToPromiseTotal"/>
+            <set field="oldQoh" from="asset.quantityOnHandTotal"/>
+
             <!-- update the AssetReceipt -->
             <if condition="!assetReceiptId">
                 <entity-find entity-name="mantle.product.receipt.AssetReceipt" list="assetReceiptList">
@@ -928,6 +933,17 @@ This Work includes contributions authored by David E. Jones, not as a
                 <set field="receivedDate" from="ec.user.nowTimestamp"/></if>
             <!-- TODO: if acquireCost is updated adjust the GL, if set from null do GL posting! -->
             <service-call name="update#mantle.product.asset.Asset" in-map="context" out-map="context"/>
+
+            <!-- before adjusting new quantity see if we just changed status to Available and if so set ATP to QOH -->
+            <if condition="oldAtp &lt;= 0 &amp;&amp; statusId == 'AstAvailable' &amp;&amp; oldStatusId != 'AstAvailable'">
+                <service-call name="create#mantle.product.asset.AssetDetail" out-map="context"
+                        in-map="[assetId:assetId, effectiveDate:receivedDate, quantityOnHandDiff:0,
+                        availableToPromiseDiff:oldQoh, shipmentId:shipmentId, productId:asset.productId,
+                        assetReceiptId:assetReceiptId]"/>
+
+                <!-- reserve the newly available Asset, if needed -->
+                <service-call name="mantle.product.AssetServices.reserve#IncreasedAsset" in-map="[assetId:assetId]"/>
+            </if>
 
             <if condition="quantityDiff != 0">
                 <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="context"/>
