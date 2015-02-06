@@ -224,19 +224,22 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <if condition="!currencyUomId">
-                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                        in-map="[organizationPartyId:customerPartyId]"/>
+                <if condition="customerPartyId">
+                    <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                            in-map="[organizationPartyId:customerPartyId]"/>
+                </if>
                 <if condition="partyAcctgPreference">
                     <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
-                    <else>
+                    <else-if condition="vendorPartyId">
                         <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
                                 in-map="[organizationPartyId:vendorPartyId]"/>
                         <if condition="partyAcctgPreference">
                             <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
                         </if>
-                    </else>
+                    </else-if>
                 </if>
             </if>
+            <!-- TODO: get this from configuration somewhere, perhaps Tenant.defaultCurrencyUomId? -->
             <if condition="!currencyUomId"><set field="currencyUomId" value="USD"/></if>
 
             <service-call name="create#mantle.order.OrderHeader" in-map="context" out-map="context"/>
