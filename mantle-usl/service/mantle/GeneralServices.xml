@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This Work is in the public domain and is provided on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
+including, without limitation, any warranties or conditions of TITLE,
+NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
+You are solely responsible for determining the appropriateness of using
+this Work and assume any risks associated with your use of this Work.
+
+This Work includes contributions authored by David E. Jones, not as a
+"work for hire", who hereby disclaims any copyright to the same.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+    <service verb="lookup" noun="ById">
+        <in-parameters><parameter name="lookupId"/></in-parameters>
+        <out-parameters>
+            <parameter name="asset" type="EntityValue"/>
+            <parameter name="container" type="EntityValue"/>
+            <parameter name="facility" type="EntityValue"/>
+            <parameter name="invoice" type="EntityValue"/>
+            <parameter name="orderHeader" type="EntityValue"/>
+            <parameter name="party" type="EntityValue"/>
+            <parameter name="payment" type="EntityValue"/>
+            <parameter name="product" type="EntityValue"/>
+            <parameter name="shipment" type="EntityValue"/>
+            <parameter name="workEffort" type="EntityValue"/>
+
+            <parameter name="assetId"/>
+            <parameter name="containerId"/>
+            <parameter name="facilityId"/>
+            <parameter name="invoiceId"/>
+            <parameter name="orderHeaderId"/>
+            <parameter name="partyId"/>
+            <parameter name="paymentId"/>
+            <parameter name="productId"/>
+            <parameter name="shipmentId"/>
+            <parameter name="workEffortId"/>
+        </out-parameters>
+        <actions>
+            <if condition="!lookupId"><return/></if>
+
+            <set field="assetId" from="lookupId"/><set field="containerId" from="lookupId"/>
+            <set field="facilityId" from="lookupId"/><set field="invoiceId" from="lookupId"/><set field="orderId" from="lookupId"/>
+            <set field="partyId" from="lookupId"/><set field="paymentId" from="lookupId"/>
+            <set field="productId" from="lookupId"/><set field="shipmentId" from="lookupId"/><set field="workEffortId" from="lookupId"/>
+
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+            <entity-find-one entity-name="mantle.product.asset.Container" value-field="container"/>
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="facility"/>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party"/>
+            <if condition="!party">
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party">
+                    <field-map field-name="pseudoId" from="lookupId"/></entity-find-one>
+                <set field="partyId" from="party?.partyId"/>
+            </if>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
+            <if condition="!product">
+                <entity-find-one entity-name="mantle.product.Product" value-field="product">
+                    <field-map field-name="pseudoId" from="lookupId"/></entity-find-one>
+                <set field="productId" from="product?.productId"/>
+            </if>
+
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+        </actions>
+    </service>
+</services>
