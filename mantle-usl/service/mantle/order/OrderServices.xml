@@ -224,19 +224,22 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <if condition="!currencyUomId">
-                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                        in-map="[organizationPartyId:customerPartyId]"/>
+                <if condition="customerPartyId">
+                    <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                            in-map="[organizationPartyId:customerPartyId]"/>
+                </if>
                 <if condition="partyAcctgPreference">
                     <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
-                    <else>
+                    <else-if condition="vendorPartyId">
                         <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
                                 in-map="[organizationPartyId:vendorPartyId]"/>
                         <if condition="partyAcctgPreference">
                             <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
                         </if>
-                    </else>
+                    </else-if>
                 </if>
             </if>
+            <!-- TODO: get this from configuration somewhere, perhaps Tenant.defaultCurrencyUomId? -->
             <if condition="!currencyUomId"><set field="currencyUomId" value="USD"/></if>
 
             <service-call name="create#mantle.order.OrderHeader" in-map="context" out-map="context"/>
@@ -363,7 +366,8 @@ h2. General Order Placement and eCommerce Usage
                 <return error="true" message="Product [${productId}] requires a selected amount"/></if>
             <if condition="!itemDescription"><set field="itemDescription" from="product?.productName"/></if>
             <if condition="!quantityUomId"><set field="quantityUomId" from="product?.amountUomId"/></if>
-            <if condition="product?.amountFixed"><set field="selectedAmount" from="product?.amountFixed"/></if>
+            <!-- Do NOT do this: Product.amountFixed means inherent amount of item included in quantity, not a selected amount!
+                <if condition="product?.amountFixed"><set field="selectedAmount" from="product?.amountFixed"/></if> -->
 
             <service-call name="create#mantle.order.OrderItem" in-map="context" out-map="context"/>
         </actions>
