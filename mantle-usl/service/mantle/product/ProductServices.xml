@@ -99,7 +99,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
                     <date-filter/><econdition field-name="productCategoryId" from="pcm.productCategoryId"/>
                     <econdition field-name="productFeatureGroupId" operator="in" from="productFeatureGroupIdSet" ignore-if-empty="true"/>
-                    <econdition field-name="applTypeEnumId" from="applTypeEnumId" ignore-if-empty="true"/>
+                    <econdition field-name="applTypeEnumId" ignore-if-empty="true"/>
                 </entity-find>
                 <iterate list="pcfgaList" entry="pcfga">
                     <entity-find entity-name="mantle.product.feature.ProductFeatureAndGroupAppl" list="pfagaList">
@@ -134,6 +134,51 @@ This Work includes contributions authored by David E. Jones, not as a
                     <script>productFeatureGroupList.add(pfg)</script>
                 </iterate>
             </iterate>
+        </actions>
+    </service>
+    <service verb="find" noun="ProductCategoryFeatures">
+        <in-parameters>
+            <parameter name="productCategoryId" required="true"/>
+            <parameter name="applTypeEnumId"/>
+            <parameter name="productFeatureTypeEnumId"/>
+            <parameter name="productFeatureGroupIdSet" type="Set"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="productFeatureList" type="List"/>
+        </out-parameters>
+        <actions>
+            <set field="productFeatureList" from="[]"/>
+            <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
+                <date-filter/><econdition field-name="productCategoryId"/>
+                <econdition field-name="productFeatureGroupId" operator="in" from="productFeatureGroupIdSet" ignore-if-empty="true"/>
+                <econdition field-name="applTypeEnumId" ignore-if-empty="true"/>
+            </entity-find>
+            <iterate list="pcfgaList" entry="pcfga">
+                <entity-find entity-name="mantle.product.feature.ProductFeatureAndGroupAppl" list="pfagaList">
+                    <date-filter/><econdition field-name="productFeatureGroupId" from="pcfga.productFeatureGroupId"/>
+                    <econdition field-name="productFeatureTypeEnumId" ignore-if-empty="true"/>
+                </entity-find>
+                <script>productFeatureList.addAll(pfagaList)</script>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="get" noun="ProductCategoryFeatureList">
+        <in-parameters>
+            <parameter name="productCategoryId" required="true"/>
+            <parameter name="applTypeEnumId"/>
+            <parameter name="productFeatureTypeEnumId"/>
+            <parameter name="productFeatureGroupIdSet" type="Set"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="resultList" type="List"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.product.ProductServices.find#ProductCategoryFeatures" out-map="context" in-map="context"/>
+            <script>
+                resultList = []
+                for (def productFeature in productFeatureList)
+                    resultList.add([productFeatureId:productFeature.productFeatureId, label:"${productFeature.description} [${productFeature.abbrev ?: productFeature.productFeatureId}]".toString()])
+            </script>
         </actions>
     </service>
 
