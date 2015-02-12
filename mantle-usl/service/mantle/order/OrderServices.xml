@@ -318,7 +318,8 @@ h2. General Order Placement and eCommerce Usage
     </service>
     <service verb="get" noun="OrderItemTotal">
         <in-parameters>
-            <parameter name="orderItem" type="EntityValue"/>
+            <parameter name="orderItem" type="EntityValue"><description>Can be a view-entity with OrderItem and at least
+                the fields orderId, orderItemSeqId, unitAmount, quantity, selectedAmount.</description></parameter>
             <parameter name="getChildrenTotals" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters>
@@ -328,12 +329,17 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <set field="itemTotal" from="0.0" type="BigDecimal"/>
-            <set field="itemTotal" from="itemTotal + ((orderItem.unitAmount ?: 0) * orderItem.quantity)"/>
+            <set field="itemTotal" from="itemTotal + ((orderItem.unitAmount ?: 0) * (orderItem.selectedAmount ?: 1) * orderItem.quantity)"/>
 
             <if condition="getChildrenTotals">
                 <!-- recursively get total of child OrderItems -->
-                <entity-find-related value-field="orderItem" relationship-name="Child#OrderItem" list="childOrderItemList"/>
-                <set field="childrenTotal" from="0"/>
+                <!-- don't use relationship, allow view-entities, etc <entity-find-related value-field="orderItem" relationship-name="Child#OrderItem" list="childOrderItemList"/> -->
+                <entity-find entity-name="mantle.order.OrderItem" list="childOrderItemList">
+                    <econdition field-name="orderId" from="orderItem.orderId"/>
+                    <econdition field-name="parentItemSeqId" from="orderItem.orderItemSeqId"/>
+                </entity-find>
+                <set field="childrenTotal" from="0.0" type="BigDecimal"/>
+
                 <iterate list="childOrderItemList" entry="childOrderItem">
                     <service-call name="mantle.order.OrderServices.get#OrderItemTotal" out-map="getOitResult"
                             in-map="[orderItem:childOrderItem, getChildrenTotals:true]"/>
