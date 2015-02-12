@@ -238,6 +238,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="productId"/>
             <parameter name="productTypeEnumId"/>
             <parameter name="productFeatureGroupIdSet" type="Set"/>
+            <parameter name="copyCategoryMembers" type="Boolean" default="false"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
@@ -272,7 +273,8 @@ This Work includes contributions authored by David E. Jones, not as a
                         if (level == featureListList.size() - 1) {
                             // at the bottom, create the variant
                             ec.service.sync().name("mantle.product.ProductServices.create#VariantProduct")
-                                    .parameters([product:product, productTypeEnumId:productTypeEnumId, featureList:featureList])
+                                    .parameters([product:product, productTypeEnumId:productTypeEnumId,
+                                                 featureList:featureList, copyCategoryMembers:copyCategoryMembers])
                                     .call()
                         } else {
                             recursiveCreate(ec, product, featureListList, featureList, level + 1)
@@ -290,6 +292,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="productTypeEnumId"/>
             <parameter name="featureList" type="List"/>
             <parameter name="copyStandardFeatures" type="Boolean" default="true"/>
+            <parameter name="copyCategoryMembers" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters><parameter name="productId"/></out-parameters>
         <actions>
@@ -297,6 +300,10 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find entity-name="mantle.product.feature.ProductFeatureAppl" list="standardFeatureList">
                     <date-filter/><econdition field-name="productId" from="product.productId"/>
                     <econdition field-name="applTypeEnumId" value="PfatStandard"/></entity-find>
+            </if>
+            <if condition="copyCategoryMembers">
+                <entity-find entity-name="mantle.product.category.ProductCategoryMember" list="pcmList">
+                    <date-filter/><econdition field-name="productId" from="product.productId"/></entity-find>
             </if>
 
             <script><![CDATA[
@@ -354,6 +361,12 @@ This Work includes contributions authored by David E. Jones, not as a
                     ec.service.sync().name("create", "mantle.product.feature.ProductFeatureAppl")
                             .parameters([productId:newProduct.productId, productFeatureId:feature.productFeatureId,
                                          fromDate:ec.user.nowTimestamp, applTypeEnumId:"PfatStandard"]).call()
+                }
+
+                for (EntityValue pcm in pcmList) {
+                    ec.service.sync().name("create", "mantle.product.category.ProductCategoryMember")
+                            .parameters([productId:newProduct.productId, productCategoryId:pcm.productCategoryId,
+                                         fromDate:ec.user.nowTimestamp]).call()
                 }
 
                 ec.logger.info("Created variant of ${product.productId}: ${newProduct.productId}:${newProduct.productName}")
