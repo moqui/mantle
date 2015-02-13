@@ -1029,12 +1029,14 @@ This Work includes contributions authored by David E. Jones, not as a
                     <econdition field-name="locationSeqId" ignore-if-empty="true"/>
                 </entity-find>
             </if>
+            <!-- <log level="warn" message="======= Changing product [${productId}] in facility [${facilityId}:${locationSeqId}] by ${quantityChange}; assetList: ${assetList}"/> -->
             <if condition="quantityChange &gt; 0">
                 <!-- if adding inventory order assetList by -receivedDate to add to most recent first, otherwise by receivedDate to subtract from oldest first -->
                 <order-map-list list="assetList"><order-by field-name="-receivedDate"/></order-map-list>
                 <set field="quantityRemaining" from="quantityChange"/>
                 <iterate list="assetList" entry="asset">
-                    <set field="quantityDiff" from="quantityRemaining &gt; asset.quantityOnHandTotal ? asset.quantityOnHandTotal : quantityRemaining"/>
+                    <!-- NOTE: no real reason for iterating here, will always add it all to the first Asset record; leaving it for now to make more complex logic easier in the future -->
+                    <set field="quantityDiff" from="quantityRemaining &gt; asset.quantityOnHandTotal ? quantityRemaining : asset.quantityOnHandTotal"/>
                     <if condition="quantityDiff != 0">
                         <service-call name="mantle.product.AssetServices.change#AssetQuantity" in-map="context + [assetId:asset.assetId]"/></if>
                     <set field="quantityRemaining" from="quantityRemaining - quantityDiff"/>
