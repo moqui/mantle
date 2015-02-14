@@ -99,7 +99,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
                     <date-filter/><econdition field-name="productCategoryId" from="pcm.productCategoryId"/>
                     <econdition field-name="productFeatureGroupId" operator="in" from="productFeatureGroupIdSet" ignore-if-empty="true"/>
-                    <econdition field-name="applTypeEnumId" from="applTypeEnumId" ignore-if-empty="true"/>
+                    <econdition field-name="applTypeEnumId" ignore-if-empty="true"/>
                 </entity-find>
                 <iterate list="pcfgaList" entry="pcfga">
                     <entity-find entity-name="mantle.product.feature.ProductFeatureAndGroupAppl" list="pfagaList">
@@ -134,6 +134,88 @@ This Work includes contributions authored by David E. Jones, not as a
                     <script>productFeatureGroupList.add(pfg)</script>
                 </iterate>
             </iterate>
+        </actions>
+    </service>
+    <service verb="find" noun="ProductCategoryFeatures">
+        <in-parameters>
+            <parameter name="productCategoryId" required="true"/>
+            <parameter name="applTypeEnumId"/>
+            <parameter name="productFeatureTypeEnumId"/>
+            <parameter name="productFeatureGroupIdSet" type="Set"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="productFeatureList" type="List"/>
+        </out-parameters>
+        <actions>
+            <set field="productFeatureList" from="[]"/>
+            <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
+                <date-filter/><econdition field-name="productCategoryId"/>
+                <econdition field-name="productFeatureGroupId" operator="in" from="productFeatureGroupIdSet" ignore-if-empty="true"/>
+                <econdition field-name="applTypeEnumId" ignore-if-empty="true"/>
+            </entity-find>
+            <iterate list="pcfgaList" entry="pcfga">
+                <entity-find entity-name="mantle.product.feature.ProductFeatureAndGroupAppl" list="pfagaList">
+                    <date-filter/><econdition field-name="productFeatureGroupId" from="pcfga.productFeatureGroupId"/>
+                    <econdition field-name="productFeatureTypeEnumId" ignore-if-empty="true"/>
+                </entity-find>
+                <script>productFeatureList.addAll(pfagaList)</script>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="get" noun="ProductCategoryFeatureList">
+        <in-parameters>
+            <parameter name="productCategoryId" required="true"/>
+            <parameter name="applTypeEnumId"/>
+            <parameter name="productFeatureTypeEnumId"/>
+            <parameter name="productFeatureGroupIdSet" type="Set"/>
+        </in-parameters>
+        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <actions>
+            <service-call name="mantle.product.ProductServices.find#ProductCategoryFeatures" out-map="context" in-map="context"/>
+            <script>
+                resultList = []
+                for (def productFeature in productFeatureList)
+                    resultList.add([productFeatureId:productFeature.productFeatureId, label:"${productFeature.description} [${productFeature.abbrev ?: productFeature.productFeatureId}]".toString()])
+            </script>
+        </actions>
+    </service>
+    <service verb="get" noun="FeatureByIactnOrAll">
+        <description>Look for related features by ProductFeatureIactn and if none found get all of the given feature type.</description>
+        <in-parameters>
+            <parameter name="productFeatureId" required="true"/>
+            <parameter name="findByTo" type="Boolean" default="false"/>
+            <parameter name="productFeatureTypeEnumId" required="true"/>
+            <parameter name="iactnTypeEnumId" default-value="PfitCompatible"/>
+        </in-parameters>
+        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.product.feature.ProductFeatureIactn" list="iactnList">
+                <econdition field-name="productFeatureId" ignore="findByTo"/>
+                <econdition field-name="toProductFeatureId" from="productFeatureId" ignore="!findByTo"/>
+                <econdition field-name="iactnTypeEnumId"/>
+            </entity-find>
+            <set field="resultList" from="[]"/>
+            <iterate list="iactnList" entry="iactn">
+                <if condition="findByTo">
+                    <entity-find-one entity-name="mantle.product.feature.ProductFeature" value-field="feature" cache="true">
+                        <field-map field-name="productFeatureId" from="iactn.productFeatureId"/></entity-find-one>
+                    <else>
+                        <entity-find-one entity-name="mantle.product.feature.ProductFeature" value-field="feature" cache="true">
+                            <field-map field-name="productFeatureId" from="iactn.toProductFeatureId"/></entity-find-one>
+                    </else>
+                </if>
+                <if condition="feature.productFeatureTypeEnumId == productFeatureTypeEnumId">
+                    <script>resultList.add([productFeatureId:feature.productFeatureId, label:"${feature.description} [${feature.abbrev ?: feature.productFeatureId}]".toString()])</script>
+                </if>
+            </iterate>
+            <if condition="!resultList">
+                <entity-find entity-name="mantle.product.feature.ProductFeature" list="featureList">
+                    <econdition field-name="productFeatureTypeEnumId"/></entity-find>
+                <iterate list="featureList" entry="feature">
+                    <script>resultList.add([productFeatureId:feature.productFeatureId, label:"${feature.description} [${feature.abbrev ?: feature.productFeatureId}]".toString()])</script>
+                </iterate>
+            </if>
+            <order-map-list list="resultList"><order-by field-name="label"/></order-map-list>
         </actions>
     </service>
 
@@ -193,6 +275,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="productId"/>
             <parameter name="productTypeEnumId"/>
             <parameter name="productFeatureGroupIdSet" type="Set"/>
+            <parameter name="copyCategoryMembers" type="Boolean" default="false"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
@@ -227,7 +310,8 @@ This Work includes contributions authored by David E. Jones, not as a
                         if (level == featureListList.size() - 1) {
                             // at the bottom, create the variant
                             ec.service.sync().name("mantle.product.ProductServices.create#VariantProduct")
-                                    .parameters([product:product, productTypeEnumId:productTypeEnumId, featureList:featureList])
+                                    .parameters([product:product, productTypeEnumId:productTypeEnumId,
+                                                 featureList:featureList, copyCategoryMembers:copyCategoryMembers])
                                     .call()
                         } else {
                             recursiveCreate(ec, product, featureListList, featureList, level + 1)
@@ -245,6 +329,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="productTypeEnumId"/>
             <parameter name="featureList" type="List"/>
             <parameter name="copyStandardFeatures" type="Boolean" default="true"/>
+            <parameter name="copyCategoryMembers" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters><parameter name="productId"/></out-parameters>
         <actions>
@@ -252,6 +337,10 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find entity-name="mantle.product.feature.ProductFeatureAppl" list="standardFeatureList">
                     <date-filter/><econdition field-name="productId" from="product.productId"/>
                     <econdition field-name="applTypeEnumId" value="PfatStandard"/></entity-find>
+            </if>
+            <if condition="copyCategoryMembers">
+                <entity-find entity-name="mantle.product.category.ProductCategoryMember" list="pcmList">
+                    <date-filter/><econdition field-name="productId" from="product.productId"/></entity-find>
             </if>
 
             <script><![CDATA[
@@ -309,6 +398,12 @@ This Work includes contributions authored by David E. Jones, not as a
                     ec.service.sync().name("create", "mantle.product.feature.ProductFeatureAppl")
                             .parameters([productId:newProduct.productId, productFeatureId:feature.productFeatureId,
                                          fromDate:ec.user.nowTimestamp, applTypeEnumId:"PfatStandard"]).call()
+                }
+
+                for (EntityValue pcm in pcmList) {
+                    ec.service.sync().name("create", "mantle.product.category.ProductCategoryMember")
+                            .parameters([productId:newProduct.productId, productCategoryId:pcm.productCategoryId,
+                                         fromDate:ec.user.nowTimestamp]).call()
                 }
 
                 ec.logger.info("Created variant of ${product.productId}: ${newProduct.productId}:${newProduct.productName}")

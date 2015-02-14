@@ -67,6 +67,20 @@ and those parts may be licensed under the Apache License 2.0.
         <alias-all entity-alias="AST"/>
         <alias-all entity-alias="FCL"><exclude field="geoPointId"/></alias-all>
     </view-entity>
+    <view-entity entity-name="AssetLocationOriginDetail" package-name="mantle.product.asset">
+        <member-entity entity-alias="AST" entity-name="mantle.product.asset.Asset"/>
+        <member-entity entity-alias="FCL" entity-name="mantle.facility.FacilityLocation" join-from-alias="AST" join-optional="true">
+            <key-map field-name="facilityId"/><key-map field-name="locationSeqId"/></member-entity>
+        <member-entity entity-alias="ORFAC" entity-name="mantle.facility.Facility" join-from-alias="AST" join-optional="true">
+            <key-map field-name="originFacilityId" related-field-name="facilityId"/></member-entity>
+        <member-entity entity-alias="OOPTY" entity-name="mantle.party.Party" join-from-alias="ORFAC" join-optional="true">
+            <key-map field-name="ownerPartyId" related-field-name="partyId"/></member-entity>
+        <alias-all entity-alias="AST"/>
+        <alias-all entity-alias="FCL"><exclude field="geoPointId"/></alias-all>
+        <alias entity-alias="ORFAC" name="originFacilityName" field="facilityName"/>
+        <alias entity-alias="ORFAC" name="originOwnerPartyId" field="ownerPartyId"/>
+        <alias entity-alias="OOPTY" name="originOwnerPseudoId" field="pseudoId"/>
+    </view-entity>
     <view-entity entity-name="AssetSummaryView" package-name="mantle.product.asset">
         <member-entity entity-alias="AST" entity-name="mantle.product.asset.Asset"/>
         <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="AST">
@@ -82,6 +96,34 @@ and those parts may be licensed under the Apache License 2.0.
         <alias entity-alias="PROD" name="productName"/>
         <alias entity-alias="PROD" name="amountUomId"/>
         <alias entity-alias="PROD" name="productTypeEnumId"/>
+    </view-entity>
+    <view-entity entity-name="AssetSummaryCategoryFeatureView" package-name="mantle.product.asset">
+        <member-entity entity-alias="AST" entity-name="mantle.product.asset.Asset"/>
+        <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="AST">
+            <key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="PCM" entity-name="mantle.product.category.ProductCategoryMember" join-from-alias="AST">
+            <key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="PFA1" entity-name="mantle.product.feature.ProductFeatureAppl" join-from-alias="AST">
+            <key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="PFA2" entity-name="mantle.product.feature.ProductFeatureAppl" join-from-alias="AST">
+            <key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="PFA3" entity-name="mantle.product.feature.ProductFeatureAppl" join-from-alias="AST">
+            <key-map field-name="productId"/></member-entity>
+        <alias-all entity-alias="AST"><exclude field="quantityOnHandTotal"/><exclude field="availableToPromiseTotal"/>
+            <exclude field="receivedDate"/><exclude field="manufacturedDate"/><exclude field="expectedEndOfLife"/></alias-all>
+        <alias name="quantityOnHandTotal" entity-alias="AST" function="sum"/>
+        <alias name="availableToPromiseTotal" entity-alias="AST" function="sum"/>
+        <alias name="receivedDate" entity-alias="AST" function="min"/>
+        <alias name="manufacturedDate" entity-alias="AST" function="min"/>
+        <alias name="expectedEndOfLife" entity-alias="AST" function="min"/>
+        <alias entity-alias="PROD" name="pseudoId"/>
+        <alias entity-alias="PROD" name="productName"/>
+        <alias entity-alias="PROD" name="amountUomId"/>
+        <alias entity-alias="PROD" name="productTypeEnumId"/>
+        <alias entity-alias="PCM" name="productCategoryId"/>
+        <alias entity-alias="PFA1" name="productFeatureId1" field="productFeatureId"/>
+        <alias entity-alias="PFA2" name="productFeatureId2" field="productFeatureId"/>
+        <alias entity-alias="PFA3" name="productFeatureId3" field="productFeatureId"/>
     </view-entity>
     <view-entity entity-name="ContainerAndAsset" package-name="mantle.product.asset">
         <member-entity entity-alias="CNTR" entity-name="mantle.product.asset.Container"/>
