@@ -295,6 +295,7 @@ h2. General Order Placement and eCommerce Usage
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
+            <parameter name="originalValue" type="Map"/>
         </in-parameters>
         <actions>
             <set field="totalSum" from="0.0" type="BigDecimal"/>
@@ -311,6 +312,13 @@ h2. General Order Placement and eCommerce Usage
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <set field="orderPart.partTotal" from="totalSum"/>
             <entity-update value-field="orderPart"/>
+
+            <!-- if this was triggered by an EECA and there is an originalValue with a different (old) orderPartSeqId,
+                 then update that partTotal too -->
+            <if condition="originalValue &amp;&amp; orderPartSeqId != originalValue.orderPartSeqId">
+                <service-call name="mantle.order.OrderServices.update#OrderPartTotal"
+                        in-map="[orderId:orderId, orderPartSeqId:originalValue.orderPartSeqId]"/>
+            </if>
 
             <!-- now update the OrderHeader.grandTotal -->
             <service-call name="mantle.order.OrderServices.update#OrderHeaderTotal" in-map="[orderId:orderId]"/>
