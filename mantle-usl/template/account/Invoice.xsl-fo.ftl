@@ -23,7 +23,7 @@ This Work includes contributions authored by David E. Jones, not as a
         </fo:simple-page-master>
     </fo:layout-master-set>
 
-    <fo:page-sequence master-reference="letter-portrait">
+    <fo:page-sequence master-reference="letter-portrait" id="mainSequence">
         <fo:static-content flow-name="xsl-region-before">
             <fo:block font-size="14pt" text-align="center" border-bottom="thin solid black">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromParty.organizationName!"", true))!""}${(fromParty.firstName)!""} ${(fromParty.lastName)!""}</fo:block>
             <fo:block text-align="right">
@@ -58,14 +58,14 @@ This Work includes contributions authored by David E. Jones, not as a
                     -- ${fromContactInfo.emailAddress}
                 </#if>
                 </fo:block>
-                <fo:block text-align="center">Invoice #${invoiceId} -- ${ec.l10n.format(invoice.invoiceDate, "dd MMM yyyy")} -- Page <fo:page-number/></fo:block>
+                <fo:block text-align="center">Invoice #${invoiceId} -- ${ec.l10n.format(invoice.invoiceDate, "dd MMM yyyy")} -- Page <fo:page-number/> of <fo:page-number-citation-last ref-id="mainSequence"/></fo:block>
             </fo:block>
         </fo:static-content>
 
         <fo:flow flow-name="xsl-region-body">
             <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">INVOICE</fo:block>
 
-            <fo:table margin-bottom="0.1in">
+            <fo:table table-layout="fixed" margin-bottom="0.1in">
                 <fo:table-body><fo:table-row>
                     <fo:table-cell padding="3pt">
                         <fo:block>Invoice #${invoiceId}</fo:block>
@@ -93,7 +93,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </fo:table-row></fo:table-body>
             </fo:table>
 
-            <fo:table width="100%">
+            <fo:table table-layout="fixed" width="100%">
                 <fo:table-header font-size="9pt" border-bottom="solid black">
                     <fo:table-cell width="0.3in" padding="${cellPadding}"><fo:block text-align="center">Item</fo:block></fo:table-cell>
                     <fo:table-cell width="1in" padding="${cellPadding}"><fo:block>Type</fo:block></fo:table-cell>
@@ -140,7 +140,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 </fo:table-body>
             </fo:table>
 
-            <fo:table width="100%">
+            <fo:table table-layout="fixed" width="100%">
                 <fo:table-header font-size="9pt" border-bottom="solid black">
                     <fo:table-cell width="1.5in" padding="${cellPadding}"><fo:block>Type</fo:block></fo:table-cell>
                     <fo:table-cell width="0.8in" padding="${cellPadding}"><fo:block text-align="center">Qty</fo:block></fo:table-cell>
