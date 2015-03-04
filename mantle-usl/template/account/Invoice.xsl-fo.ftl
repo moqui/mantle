@@ -26,6 +26,24 @@ This Work includes contributions authored by David E. Jones, not as a
     <fo:page-sequence master-reference="letter-portrait">
         <fo:static-content flow-name="xsl-region-before">
             <fo:block font-size="14pt" text-align="center" border-bottom="thin solid black">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromParty.organizationName!"", true))!""}${(fromParty.firstName)!""} ${(fromParty.lastName)!""}</fo:block>
+            <fo:block text-align="right">
+                <fo:instream-foreign-object>
+                    <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns"
+                                     message="${invoiceId}">
+                        <barcode:code128>
+                            <barcode:height>0.4in</barcode:height>
+                            <barcode:module-width>0.3mm</barcode:module-width>
+                        </barcode:code128>
+                        <barcode:human-readable>
+                            <barcode:placement>bottom</barcode:placement>
+                            <barcode:font-name>Helvetica</barcode:font-name>
+                            <barcode:font-size>12pt</barcode:font-size>
+                            <barcode:display-start-stop>false</barcode:display-start-stop>
+                            <barcode:display-checksum>false</barcode:display-checksum>
+                        </barcode:human-readable>
+                    </barcode:barcode>
+                </fo:instream-foreign-object>
+            </fo:block>
         </fo:static-content>
         <fo:static-content flow-name="xsl-region-after" font-size="8pt">
             <fo:block border-top="thin solid black">
