@@ -182,18 +182,20 @@ This Work includes contributions authored by David E. Jones, not as a
     <service verb="get" noun="FeatureByIactnOrAll">
         <description>Look for related features by ProductFeatureIactn and if none found get all of the given feature type.</description>
         <in-parameters>
-            <parameter name="productFeatureId" required="true"/>
+            <parameter name="productFeatureId"/>
             <parameter name="findByTo" type="Boolean" default="false"/>
             <parameter name="productFeatureTypeEnumId" required="true"/>
             <parameter name="iactnTypeEnumId" default-value="PfitCompatible"/>
         </in-parameters>
         <out-parameters><parameter name="resultList" type="List"/></out-parameters>
         <actions>
-            <entity-find entity-name="mantle.product.feature.ProductFeatureIactn" list="iactnList">
-                <econdition field-name="productFeatureId" ignore="findByTo"/>
-                <econdition field-name="toProductFeatureId" from="productFeatureId" ignore="!findByTo"/>
-                <econdition field-name="iactnTypeEnumId"/>
-            </entity-find>
+            <if condition="productFeatureId">
+                <entity-find entity-name="mantle.product.feature.ProductFeatureIactn" list="iactnList">
+                    <econdition field-name="productFeatureId" ignore="findByTo"/>
+                    <econdition field-name="toProductFeatureId" from="productFeatureId" ignore="!findByTo"/>
+                    <econdition field-name="iactnTypeEnumId"/>
+                </entity-find>
+            </if>
             <set field="resultList" from="[]"/>
             <iterate list="iactnList" entry="iactn">
                 <if condition="findByTo">
