@@ -17,9 +17,15 @@ This Work includes contributions authored by David E. Jones, not as a
         All documents have a facilityId to filter by and a productId to use as a term for buckets.
 
         Quantity fields across the documents include: availableToPromiseTotal, quantityOnHandTotal, orderQuantity,
-            consumeQuantity, produceQuantity, and prodEstQuantity
+            estimatedConsumeQuantity, consumeQuantity, estimatedProduceQuantity, produceQuantity, and prodEstQuantity
 
         There are various dates available for buckets by date for more detailed results for things like graphs.
+
+        For current inventory:
+         - statusId (from MantleInventoryAsset) = AstAvailable
+         - partStatusId (from MantleInventoryOrderItem) NOT IN OrderCompleted,OrderRejected,OrderCancelled
+         - statusId  (from MantleInventoryRunConsume,MantleInventoryRunProduce) NOT IN WeComplete,WeClosed,WeCancelled
+         - readyDate >= now (or beginning of current day)
     -->
 
     <!-- Inventory Asset -->
@@ -110,6 +116,8 @@ This Work includes contributions authored by David E. Jones, not as a
             fieldPath="mantle.product.issuance.AssetIssuance:quantity" fieldNameAlias="consumeQuantity"/>
 
     <moqui.entity.document.DataDocumentField dataDocumentId="MantleInventoryRunConsume"
+            fieldPath="mantle.work.effort.WorkEffort:statusId"/>
+    <moqui.entity.document.DataDocumentField dataDocumentId="MantleInventoryRunConsume"
             fieldPath="mantle.work.effort.WorkEffort:facilityId" fieldNameAlias="lineFacilityId"/>
     <!-- the line's parent facility, the warehouse, is the main Facility we would filter/etc by -->
     <moqui.entity.document.DataDocumentField dataDocumentId="MantleInventoryRunConsume"
@@ -146,6 +154,8 @@ This Work includes contributions authored by David E. Jones, not as a
     <moqui.entity.document.DataDocumentField dataDocumentId="MantleInventoryRunProduce"
             fieldPath="mantle.product.receipt.AssetReceipt:quantityAccepted" fieldNameAlias="produceQuantity"/>
 
+    <moqui.entity.document.DataDocumentField dataDocumentId="MantleInventoryRunProduce"
+            fieldPath="mantle.work.effort.WorkEffort:statusId"/>
     <moqui.entity.document.DataDocumentField dataDocumentId="MantleInventoryRunProduce"
             fieldPath="mantle.work.effort.WorkEffort:facilityId" fieldNameAlias="lineFacilityId"/>
     <!-- the line's parent facility, the warehouse, is the main Facility we would filter/etc by -->
