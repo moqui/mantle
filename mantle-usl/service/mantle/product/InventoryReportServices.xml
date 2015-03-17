@@ -16,6 +16,9 @@ This Work includes contributions authored by David E. Jones, not as a
         <in-parameters>
             <parameter name="productIdList" type="List" required="true"/>
             <parameter name="facilityId"/>
+            <parameter name="estThruDate" type="Timestamp"><description>Limits order item by requiredByDate, run
+                consume/produce by estimatedStartDate, production estimate by readyDate. Allows requiredByDate
+                and estimatedStartDate to be null (missing).</description></parameter>
             <parameter name="indexName" default-value="mantle_inventory"/>
             <parameter name="getAssetData" type="Boolean" default="true"/>
             <parameter name="assetDocumentName" default-value="MantleInventoryAsset"/>
@@ -40,6 +43,8 @@ This Work includes contributions authored by David E. Jones, not as a
             </description></parameter>
         </out-parameters>
         <actions>
+            <set field="estThruDateStr" from="estThruDate ? (estThruDate.getTime() as String) : null"/>
+
             <!-- this could work in theory, but ElasticSearch only searches on the first document in the list, doesn't
                 seem to like the different document structures or something, so we end up doing the multiples searches below
             <script>
@@ -69,10 +74,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <log level="warn" message="========== globalOut.responseString: ${globalOut.searchResponse.toString()}"/>
             -->
 
-            <if condition="getAssetData">
+            <if condition="getOrderItemData">
                 <script>
                     andList = [[terms:[productId:productIdList]], [not:[terms:[partStatusId:['OrderCompleted','OrderRejected','OrderCancelled']]]]]
                     if (facilityId) andList.add([term:[facilityId:facilityId]])
+                    if (estThruDateStr) andList.add([or: [[missing:[field:'requiredByDate']], [range:[requiredByDate:[lte:estThruDateStr]]]]])
                     searchSourceMap = [
                             query: [filtered: [filter: [and: andList] ]],
                             aggregations: [
@@ -93,9 +99,9 @@ This Work includes contributions authored by David E. Jones, not as a
                 <!-- <log level="warn" message="========== orderItemOut.responseString: ${orderItemOut.searchResponse.toString()}"/> -->
             </if>
 
-            <if condition="getOrderItemData">
+            <if condition="getProdEstimateData">
                 <script>
-                    andList = [[terms:[productId:productIdList]], [range:[readyDate:[gte:'now-1d/d']]]]
+                    andList = [[terms:[productId:productIdList]], [range:[readyDate:[gte:'now-1d/d', lte:estThruDateStr]]]]
                     if (facilityId) andList.add([term:[facilityId:facilityId]])
                     searchSourceMap = [
                             query: [filtered: [filter: [and: andList] ]],
@@ -137,7 +143,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="getRunConsumeData">
                 <script>
                     andList = [[terms:[productId:productIdList]], [not:[terms:[statusId:['WeComplete','WeClosed','WeCancelled']]]]]
-                    if (facilityId) andList.add([term:[facilityId:facilityId]])
+                    if (facilityId) andList.add([term: [facilityId:facilityId]])
+                    if (estThruDateStr) andList.add([or: [[missing:[field:'estimatedStartDate']], [range:[estimatedStartDate:[lte:estThruDateStr]]]]])
                     searchSourceMap = [
                             query: [filtered: [filter: [and: andList] ]],
                             aggregations: [
@@ -160,6 +167,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <script>
                     andList = [[terms:[productId:productIdList]], [not:[terms:[statusId:['WeComplete','WeClosed','WeCancelled']]]]]
                     if (facilityId) andList.add([term:[facilityId:facilityId]])
+                    if (estThruDateStr) andList.add([or: [[missing:[field:'estimatedStartDate']], [range:[estimatedStartDate:[lte:estThruDateStr]]]]])
                     searchSourceMap = [
                             query: [filtered: [filter: [and: andList] ]],
                             aggregations: [
