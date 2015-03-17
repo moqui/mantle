@@ -30,9 +30,10 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <out-parameters>
             <parameter name="infoByProductId" type="Map"><description>A Map where the key is a productId and the value
-                is a Map with: orderQuantitySum, prodEstQuantitySum, availableToPromiseTotalSum, quantityOnHandTotalSum,
+                is a Map with: orderQuantitySum, quantityReservedSum, quantityNotAvailableSum, quantityNotIssuedSum,
+                orderNotReserved, prodEstQuantitySum, availableToPromiseTotalSum, quantityOnHandTotalSum,
                 estimatedConsumeQuantitySum, consumeQuantitySum, estimatedProduceQuantitySum, produceQuantitySum,
-                orderNotReserved, estRunConsumeRemaining, estRunProduceRemaining, and totalProjected.
+                estRunConsumeRemaining, estRunProduceRemaining, and totalProjected.
 
                 The totalProjected value = availableToPromiseTotalSum - orderNotReserved -
                     estRunConsumeRemaining + estRunProduceRemaining + prodEstQuantitySum
@@ -77,7 +78,12 @@ This Work includes contributions authored by David E. Jones, not as a
                             aggregations: [
                                     products: [
                                             terms: [field: 'productId'],
-                                            aggregations: [ orderQuantitySum: [sum: [field:'orderQuantity']] ]
+                                            aggregations: [
+                                                    orderQuantitySum: [sum: [field:'orderQuantity']],
+                                                    quantityReservedSum: [sum: [field:'quantityReserved']],
+                                                    quantityNotAvailableSum: [sum: [field:'quantityNotAvailable']],
+                                                    quantityNotIssuedSum: [sum: [field:'quantityNotIssued']]
+                                            ]
                                     ]
                             ]
                     ]
@@ -177,8 +183,12 @@ This Work includes contributions authored by David E. Jones, not as a
                 infoByProductId = [:]
 
                 if (orderItemOut) {
-                    for (def bucket in orderItemOut.searchResponse.getAggregations().get('products').getBuckets())
+                    for (def bucket in orderItemOut.searchResponse.getAggregations().get('products').getBuckets()) {
                         StupidUtilities.addToMapInMap(bucket.getKey(), 'orderQuantitySum', bucket.getAggregations().get('orderQuantitySum').getValue(), infoByProductId)
+                        StupidUtilities.addToMapInMap(bucket.getKey(), 'quantityReservedSum', bucket.getAggregations().get('quantityReservedSum').getValue(), infoByProductId)
+                        StupidUtilities.addToMapInMap(bucket.getKey(), 'quantityNotAvailableSum', bucket.getAggregations().get('quantityNotAvailableSum').getValue(), infoByProductId)
+                        StupidUtilities.addToMapInMap(bucket.getKey(), 'quantityNotIssuedSum', bucket.getAggregations().get('quantityNotIssuedSum').getValue(), infoByProductId)
+                    }
                 }
 
                 if (prodEstimateOut) {
@@ -213,6 +223,10 @@ This Work includes contributions authored by David E. Jones, not as a
 
                     // default all values to 0
                     infoMap.orderQuantitySum = infoMap.orderQuantitySum ?: 0
+                    infoMap.quantityReservedSum = infoMap.quantityReservedSum ?: 0
+                    infoMap.quantityNotAvailableSum = infoMap.quantityNotAvailableSum ?: 0
+                    infoMap.quantityNotIssuedSum = infoMap.quantityNotIssuedSum ?: 0
+
                     infoMap.prodEstQuantitySum = infoMap.prodEstQuantitySum ?: 0
                     infoMap.availableToPromiseTotalSum = infoMap.availableToPromiseTotalSum ?: 0
                     infoMap.quantityOnHandTotalSum = infoMap.quantityOnHandTotalSum ?: 0
@@ -222,8 +236,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     infoMap.estimatedProduceQuantitySum = infoMap.estimatedProduceQuantitySum ?: 0
                     infoMap.produceQuantitySum = infoMap.produceQuantitySum ?: 0
 
-                    // TODO: this won't always be correct, maybe add reservations to order doc?
-                    infoMap.orderNotReserved = infoMap.orderQuantitySum - (infoMap.quantityOnHandTotalSum - infoMap.availableToPromiseTotalSum)
+                    infoMap.orderNotReserved = infoMap.orderQuantitySum - infoMap.quantityReservedSum
                     infoMap.estRunConsumeRemaining = infoMap.estimatedConsumeQuantitySum - infoMap.consumeQuantitySum
                     if (infoMap.estRunConsumeRemaining < 0) infoMap.estRunConsumeRemaining = 0
                     infoMap.estRunProduceRemaining = infoMap.estimatedProduceQuantitySum - infoMap.produceQuantitySum
