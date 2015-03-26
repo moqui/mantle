@@ -258,9 +258,10 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "complete Purchase Order"() {
         when:
+        // NOTE: this is no longer necessary, done through checkComplete#OrderPart called by receive#ShipmentProduct
         // after Shipment Delivered mark Order as Completed
-        ec.service.sync().name("mantle.order.OrderServices.complete#OrderPart")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
+        // ec.service.sync().name("mantle.order.OrderServices.complete#OrderPart")
+        //        .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- OrderHeader status to Completed -->
