@@ -585,7 +585,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
             <entity-update value-field="shipmentItemSource"/>
 
-            <!-- on Shipment Packed mark Order as Completed (IF all order part items are completed) -->
+            <!-- on Shipment Item Packed mark Order as Completed (IF all order part items are completed) -->
             <if condition="shipmentItemSource.orderId &amp;&amp; shipmentItemSource.orderItemSeqId">
                 <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem">
                     <field-map field-name="orderId" from="shipmentItemSource.orderId"/>
@@ -673,6 +673,16 @@ This Work includes contributions authored by David E. Jones, not as a
                     <set field="shipmentItemSource.statusId" value="SisReceived"/>
                 </if>
                 <entity-update value-field="shipmentItemSource"/>
+
+                <!-- on Shipment Item Received mark Order as Completed (IF all order part items are completed) -->
+                <if condition="shipmentItemSource.orderId &amp;&amp; shipmentItemSource.orderItemSeqId">
+                    <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem">
+                        <field-map field-name="orderId" from="shipmentItemSource.orderId"/>
+                        <field-map field-name="orderItemSeqId" from="shipmentItemSource.orderItemSeqId"/>
+                    </entity-find-one>
+                    <service-call name="mantle.order.OrderServices.checkComplete#OrderPart"
+                            in-map="[orderId:orderItem.orderId, orderPartSeqId:orderItem.orderPartSeqId]"/>
+                </if>
             </iterate>
 
             <if condition="quantityAcceptedRemaining > 0 || quantityRejectedRemaining > 0">

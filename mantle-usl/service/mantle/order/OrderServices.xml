@@ -774,13 +774,15 @@ h2. General Order Placement and eCommerce Usage
 
     <service verb="checkComplete" noun="OrderPart">
         <description>Checks to see if all items in the order part have been shipped and/or digitally (including
-            subscription) fulfilled, and if so complete the order part.</description>
+            subscription) fulfilled, and if so complete the order part. Also checks for receipt of purchase order items.</description>
         <in-parameters><parameter name="orderId" required="true"/><parameter name="orderPartSeqId" required="true"/></in-parameters>
         <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
             <entity-find entity-name="mantle.product.subscription.Subscription" list="existingSubscriptionList">
                 <econdition field-name="orderId"/></entity-find>
             <entity-find entity-name="mantle.product.issuance.AssetIssuance" list="existingAssetIssuanceList">
+                <econdition field-name="orderId"/></entity-find>
+            <entity-find entity-name="mantle.product.receipt.AssetReceipt" list="existingAssetReceiptList">
                 <econdition field-name="orderId"/></entity-find>
 
             <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
@@ -815,12 +817,16 @@ h2. General Order Placement and eCommerce Usage
                 <!-- all physical product types, including PtDigPhysGood, have this parentEnumId -->
                 <if condition="productTypeEnum.parentEnumId == 'PtPhysical'">
                     <filter-map-list list="existingAssetIssuanceList" to-list="currentAssetIssuanceList">
-                        <field-map field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/>
-                    </filter-map-list>
+                        <field-map field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/></filter-map-list>
+                    <filter-map-list list="existingAssetReceiptList" to-list="currentAssetReceiptList">
+                        <field-map field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/></filter-map-list>
                     <!-- add up quantity in currentAssetIssuanceList, compare to orderItem.quantity -->
                     <set field="currentQuantityTotal" from="0" type="BigDecimal"/>
                     <iterate list="currentAssetIssuanceList" entry="currentAssetIssuance">
                         <set field="currentQuantityTotal" from="currentQuantityTotal + currentAssetIssuance.quantity"/>
+                    </iterate>
+                    <iterate list="currentAssetReceiptList" entry="currentAssetReceipt">
+                        <set field="currentQuantityTotal" from="currentQuantityTotal + currentAssetReceipt.quantityAccepted"/>
                     </iterate>
                     <if condition="currentQuantityTotal &lt; orderItem.quantity">
                         <set field="orderPartComplete" from="false"/>
