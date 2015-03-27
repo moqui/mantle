@@ -733,6 +733,34 @@ This Work includes contributions authored by David E. Jones, not as a
         </actions>
     </service>
 
+    <service verb="issue" noun="AnyAssetToWorkEffort">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="facilityId" required="true"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="quantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="assetIdList" type="List"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
+                <econdition field-name="productId"/><econdition field-name="facilityId"/>
+                <econdition field-name="availableToPromiseTotal" operator="greater" from="0"/>
+                <econdition field-name="statusId" value="AstAvailable"/>
+            </entity-find>
+            <set field="assetIdList" from="[]"/>
+            <set field="remainingQuantity" from="quantity"/>
+            <iterate list="assetList" entry="asset">
+                <set field="curQuantity" from="asset.availableToPromiseTotal &gt; remainingQuantity ? remainingQuantity : asset.availableToPromiseTotal"/>
+                <if condition="curQuantity">
+                    <service-call name="mantle.product.AssetServices.issue#AssetToWorkEffort"
+                            in-map="[workEffortId:workEffortId, assetId:asset.assetId, quantity:curQuantity]"/>
+                    <set field="remainingQuantity" from="remainingQuantity - curQuantity"/>
+                    <if condition="remainingQuantity == 0"><break/></if>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
     <service verb="receive" noun="Asset">
         <!-- NOTE: tested with transaction="cache" and works fine, but only a small performance improvement (this is a fairly small service) -->
         <description>Receive an Asset</description>
