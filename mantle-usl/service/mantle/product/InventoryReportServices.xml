@@ -278,11 +278,14 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="fromDateStr" from="fromDate ? (fromDate.getTime() as String) : null"/>
             <set field="thruDateStr" from="thruDate.getTime() as String"/>
 
+            <!-- NOTE: there is a good reference for Elasticsearch scripting here:
+                http://www.elastic.co/guide/en/elasticsearch/reference/1.4/modules-scripting.html -->
             <script>
                 andList = [[terms:[productId:productIdList]], [not:[terms:[partStatusId:['OrderCompleted','OrderRejected','OrderCancelled']]]]]
                 if (facilityId) andList.add([term:[facilityId:facilityId]])
-                if (fromDateStr) andList.add([or: [[missing:[field:'placedDate']], [range:[placedDate:[lt:fromDateStr]]]]])
-                andList.add([or: [[missing:[field:'placedDate']], [range:[placedDate:[gte:thruDateStr]]]]])
+                // if (fromDateStr) andList.add([or: [[missing:[field:'OrderHeader.placedDate']], [range:['OrderHeader.placedDate':[gte:fromDateStr]]]]])
+                if (fromDateStr) andList.add([range:['OrderHeader.placedDate':[gte:fromDateStr]]])
+                andList.add([range:['OrderHeader.placedDate':[lte:thruDateStr]]])
                 searchSourceMap = [
                     size: maxResults, query: [filtered: [filter: [and: andList] ]],
                     aggregations: [
