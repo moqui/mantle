@@ -259,4 +259,67 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- <log level="warn" message="================== infoByProductId: ${infoByProductId}"/> -->
         </actions>
     </service>
+
+    <service verb="get" noun="PriceHistoryInfo">
+        <in-parameters>
+            <parameter name="productIdList" type="List" required="true"/>
+            <parameter name="facilityId"/>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="maxResults" type="Integer" default="1000"/>
+            <parameter name="indexName" default-value="mantle_inventory"/>
+            <parameter name="orderItemDocumentName" default-value="MantleInventoryOrderItem"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="infoByProductId" type="Map"><description>A Map where the key is a productId and the value
+                is a Map with: orderQuantitySum, unitAmountMin, unitAmountMax, weightedAmountSum, and weightedAmountAvg.</description></parameter>
+        </out-parameters>
+        <actions>
+            <set field="fromDateStr" from="fromDate ? (fromDate.getTime() as String) : null"/>
+            <set field="thruDateStr" from="thruDate.getTime() as String"/>
+
+            <!-- NOTE: there is a good reference for Elasticsearch scripting here:
+                http://www.elastic.co/guide/en/elasticsearch/reference/1.4/modules-scripting.html -->
+            <script>
+                andList = [[terms:[productId:productIdList]], [not:[terms:[partStatusId:['OrderRejected','OrderCancelled']]]]]
+                if (facilityId) andList.add([term:[facilityId:facilityId]])
+                // if (fromDateStr) andList.add([or: [[missing:[field:'OrderHeader.placedDate']], [range:['OrderHeader.placedDate':[gte:fromDateStr]]]]])
+                if (fromDateStr) andList.add([range:['OrderHeader.placedDate':[gte:fromDateStr]]])
+                andList.add([range:['OrderHeader.placedDate':[lte:thruDateStr]]])
+                searchSourceMap = [
+                    size: maxResults, query: [filtered: [filter: [and: andList] ]],
+                    aggregations: [
+                        products: [
+                            terms: [field: 'productId', size: maxResults],
+                            aggregations: [
+                                orderQuantitySum: [sum: [field:'orderQuantity']],
+                                unitAmountMin: [min: [field:'unitAmount']],
+                                unitAmountMax: [max: [field:'unitAmount']],
+                                weightedAmountSum: [sum: [script:"doc['unitAmount'].value * doc['orderQuantity'].value"]]
+                            ]
+                        ]
+                    ]
+                ]
+            </script>
+            <service-call name="org.moqui.impl.EntityServices.search#CountBySource" out-map="orderItemOut"
+                    in-map="[indexName:indexName, sourceMap:searchSourceMap, documentTypeList:[orderItemDocumentName]]"/>
+            <!-- <log level="warn" message="========== searchSourceMap: ${searchSourceMap}\n orderItemOut.responseString: ${orderItemOut.searchResponse.toString()}"/> -->
+            <script>
+                // consolidate the results into a single Map by productId
+                infoByProductId = [:]
+
+                for (def bucket in orderItemOut.searchResponse.getAggregations().get('products').getBuckets()) {
+                    String productId = bucket.getKey()
+                    BigDecimal orderQuantitySum = bucket.getAggregations().get('orderQuantitySum').getValue()
+                    BigDecimal weightedAmountSum = bucket.getAggregations().get('weightedAmountSum').getValue()
+                    BigDecimal weightedAmountAvg = (weightedAmountSum / orderQuantitySum).setScale(2, BigDecimal.ROUND_HALF_UP)
+                    StupidUtilities.addToMapInMap(productId, 'orderQuantitySum', orderQuantitySum, infoByProductId)
+                    StupidUtilities.addToMapInMap(productId, 'unitAmountMin', bucket.getAggregations().get('unitAmountMin').getValue(), infoByProductId)
+                    StupidUtilities.addToMapInMap(productId, 'unitAmountMax', bucket.getAggregations().get('unitAmountMax').getValue(), infoByProductId)
+                    StupidUtilities.addToMapInMap(productId, 'weightedAmountSum', weightedAmountSum, infoByProductId)
+                    StupidUtilities.addToMapInMap(productId, 'weightedAmountAvg', weightedAmountAvg, infoByProductId)
+                }
+            </script>
+        </actions>
+    </service>
 </services>
