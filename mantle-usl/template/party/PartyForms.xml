@@ -20,23 +20,41 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <!-- A reusable transition to find parties for autocomplete text-line -->
     <transition name="getPartyList">
+        <parameter name="term"/>
+        <parameter name="roleTypeId"/>
         <actions>
-            <entity-find entity-name="mantle.party.PartyDetail" list="partyList" limit="20">
-                <econditions combine="or">
-                    <econdition field-name="partyId" operator="like" value="%${term}%" ignore-case="true"/>
-                    <econdition field-name="pseudoId" operator="like" value="%${term}%" ignore-case="true"/>
-                    <econdition field-name="firstName" operator="like" value="%${term}%" ignore-case="true"/>
-                    <econdition field-name="lastName" operator="like" value="%${term}%" ignore-case="true"/>
-                    <econdition field-name="organizationName" operator="like" value="%${term}%" ignore-case="true"/>
-                </econditions>
-                <order-by field-name="^firstName"/><order-by field-name="^lastName"/><order-by field-name="^organizationName"/>
-            </entity-find>
-            <script>
-                def outList = []
-                for (def party in partyList)
-                outList.add([value:party.partyId, label:"${party.organizationName?:''}${party.firstName?:''} ${party.lastName?:''} [${party.pseudoId}]".toString()])
-                ec.web.sendJsonResponse(outList)
-            </script>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail">
+                <field-map field-name="partyId" from="term"/></entity-find-one>
+            <!-- <log message="====== ${term}:${roleTypeId}, partyDetail: ${partyDetail}"/> -->
+            <if condition="partyDetail">
+                <script>
+                    def outList = [[value:partyDetail.partyId, label:"${partyDetail.organizationName?:''}${partyDetail.firstName?:''} ${partyDetail.lastName?:''} [${partyDetail.pseudoId}]".toString()]]
+                    ec.web.sendJsonResponse(outList)
+                </script>
+
+                <else>
+                    <entity-find entity-name="mantle.party.PartyDetailAndRole" list="partyList" limit="20">
+                        <econdition field-name="roleTypeId" operator="in" ignore-if-empty="true"/>
+                        <econditions combine="or">
+                            <econdition field-name="partyId" operator="like" value="%${term}%" ignore-case="true"/>
+                            <econdition field-name="pseudoId" operator="like" value="%${term}%" ignore-case="true"/>
+                            <econdition field-name="firstName" operator="like" value="%${term}%" ignore-case="true"/>
+                            <econdition field-name="lastName" operator="like" value="%${term}%" ignore-case="true"/>
+                            <econdition field-name="organizationName" operator="like" value="%${term}%" ignore-case="true"/>
+                        </econditions>
+                        <select-field field-name="partyId"/><select-field field-name="pseudoId"/>
+                        <select-field field-name="organizationName"/>
+                        <select-field field-name="firstName"/><select-field field-name="lastName"/>
+                        <order-by field-name="^firstName"/><order-by field-name="^lastName"/><order-by field-name="^organizationName"/>
+                    </entity-find>
+                    <script>
+                        def outList = []
+                        for (def party in partyList)
+                            outList.add([value:party.partyId, label:"${party.organizationName?:''}${party.firstName?:''} ${party.lastName?:''} [${party.pseudoId}]".toString()])
+                        ec.web.sendJsonResponse(outList)
+                    </script>
+                </else>
+            </if>
         </actions>
         <default-response type="none"/>
     </transition>
