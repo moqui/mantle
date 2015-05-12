@@ -154,6 +154,7 @@ h2. General Order Placement and eCommerce Usage
                     partShipmentIdSet.add(sis.shipmentId)
                 }
 
+                EntityValue telecomNumber = orderPart.'mantle.party.contact.TelecomNumber'
                 EntityValue postalAddress = orderPart.'mantle.party.contact.PostalAddress'
                 EntityValue postalAddressStateGeo = postalAddress?."StateProvince#moqui.basic.Geo"
                 EntityValue facility = orderPart.'mantle.facility.Facility'
@@ -165,16 +166,23 @@ h2. General Order Placement and eCommerce Usage
                             .parameters([facilityId:orderPart.facilityId, postalContactMechId:facShipOut.postalContactMechId,
                                          telecomContactMechId:facShipOut.telecomContactMechId]).call()
                 }
+
                 EntityValue customerDetail = ec.entity.find("mantle.party.PartyDetail").condition("partyId", orderPart.customerPartyId).one()
                 EntityValue vendorDetail = ec.entity.find("mantle.party.PartyDetail").condition("partyId", orderPart.vendorPartyId).one()
+                boolean isCustomerInternalOrg = ec.entity.find("mantle.party.PartyRole")
+                        .condition("partyId", orderPart.customerPartyId).condition("roleTypeId", "OrgInternal").one() as boolean
+                boolean isVendorInternalOrg = ec.entity.find("mantle.party.PartyRole")
+                        .condition("partyId", orderPart.vendorPartyId).condition("roleTypeId", "OrgInternal").one() as boolean
+
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
                         partNoParentOrderItemList:partNoParentOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
                         partPaymentList:partPaymentList, partPaymentInfoList:partPaymentInfoList,
                         paymentsTotal:paymentsTotal, partTotalUnpaid:partTotalUnpaid,
                         postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
-                        telecomNumber:orderPart.'mantle.party.contact.TelecomNumber', facility:facility,
+                        telecomNumber:telecomNumber, facility:facility,
                         facilityContactInfo:facilityContactInfo, customerDetail:customerDetail, vendorDetail:vendorDetail,
+                        isCustomerInternalOrg:isCustomerInternalOrg, isVendorInternalOrg:isVendorInternalOrg,
                         partShipmentItemSourceList:partShipmentItemSourceList, partShipmentIdSet:partShipmentIdSet])
             }
             </script>
