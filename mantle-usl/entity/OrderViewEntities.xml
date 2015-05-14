@@ -81,6 +81,38 @@ and those parts may be licensed under the Apache License 2.0.
         <alias-all entity-alias="OITM"/>
         <alias-all entity-alias="OPRT"/>
     </view-entity>
+    <view-entity entity-name="OrderItemIssuanceSummary" package-name="mantle.order">
+        <member-entity entity-alias="ASI" entity-name="mantle.product.issuance.AssetIssuance"/>
+        <member-entity entity-alias="AST" entity-name="mantle.product.asset.Asset" join-from-alias="ASI">
+            <key-map field-name="assetId"/></member-entity>
+        <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="AST">
+            <key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="OITM" entity-name="mantle.order.OrderItem" join-from-alias="ASI">
+            <key-map field-name="orderId"/><key-map field-name="orderItemSeqId"/></member-entity>
+
+        <alias-all entity-alias="ASI"><exclude field="productId"/><exclude field="quantity"/></alias-all>
+        <alias-all entity-alias="AST"><exclude field="quantityOnHandTotal"/><exclude field="availableToPromiseTotal"/>
+            <exclude field="receivedDate"/><exclude field="manufacturedDate"/><exclude field="expectedEndOfLife"/></alias-all>
+        <alias name="quantity" entity-alias="ASI" function="sum"/>
+        <alias name="quantityOnHandTotal" entity-alias="AST" function="sum"/>
+        <alias name="availableToPromiseTotal" entity-alias="AST" function="sum"/>
+        <alias name="receivedDate" entity-alias="AST" function="min"/>
+        <alias name="manufacturedDate" entity-alias="AST" function="min"/>
+        <alias name="expectedEndOfLife" entity-alias="AST" function="min"/>
+        <alias entity-alias="PROD" name="pseudoId"/>
+        <alias entity-alias="PROD" name="productName"/>
+        <alias entity-alias="PROD" name="amountUomId"/>
+        <alias entity-alias="PROD" name="amountFixed"/>
+        <alias entity-alias="PROD" name="productTypeEnumId"/>
+        <alias name="weightedAmount" function="sum">
+            <complex-alias operator="*">
+                <complex-alias-field entity-alias="ASI" field="quantity"/>
+                <complex-alias-field entity-alias="OITM" field="unitAmount"/>
+            </complex-alias>
+        </alias>
+        <alias name="minUnitAmount" entity-alias="OITM" field="unitAmount" function="min"/>
+        <alias name="maxUnitAmount" entity-alias="OITM" field="unitAmount" function="max"/>
+    </view-entity>
 
     <!-- ========================================================= -->
     <!-- mantle.order.return -->
