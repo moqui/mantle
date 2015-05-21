@@ -87,7 +87,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <set field="invoiceTotal" from="0"/>
             <iterate list="invoiceItemList" entry="invoiceItem">
-                <set field="invoiceTotal" from="invoiceTotal + (invoiceItem.quantity * invoiceItem.amount)"/>
+                <set field="invoiceTotal" from="invoiceTotal + ((invoiceItem.quantity ?: 1) * (invoiceItem.amount ?: 0))"/>
             </iterate>
 
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
@@ -95,7 +95,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <set field="appliedPaymentsTotal" from="0"/>
             <iterate list="paymentApplicationList" entry="paymentApplication">
-                <set field="appliedPaymentsTotal" from="appliedPaymentsTotal + paymentApplication.amountApplied"/>
+                <set field="appliedPaymentsTotal" from="appliedPaymentsTotal + (paymentApplication.amountApplied ?: 0)"/>
             </iterate>
 
             <set field="unpaidTotal" from="invoiceTotal - appliedPaymentsTotal"/>
@@ -143,8 +143,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="invoiceItem.itemTypeEnumId == 'ItemTimeEntry'"><set field="itemTypeSummaryMap.amount" from="invoiceItem.amount"/></if>
                     <script>itemTypeSummaryMapMap.put(mapKey, itemTypeSummaryMap)</script>
                 </if>
-                <set field="itemTypeSummaryMap.quantity" from="itemTypeSummaryMap.quantity + (invoiceItem.quantity?:1)"/>
-                <set field="itemTypeSummaryMap.total" from="itemTypeSummaryMap.total + ((invoiceItem.quantity?:1) * invoiceItem.amount)"/>
+                <set field="itemTypeSummaryMap.quantity" from="itemTypeSummaryMap.quantity + (invoiceItem.quantity ?: 1)"/>
+                <set field="itemTypeSummaryMap.total" from="itemTypeSummaryMap.total + ((invoiceItem.quantity ?: 1) * (invoiceItem.amount ?: 0))"/>
             </iterate>
             <set field="itemTypeSummaryMapList" from="itemTypeSummaryMapMap.values()"/>
 
