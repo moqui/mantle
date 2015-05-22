@@ -19,6 +19,8 @@ This Work includes contributions authored by David E. Jones, not as a
         <out-parameters>
             <parameter name="shipment" type="Map"/>
             <parameter name="statusItem" type="Map"/>
+            <parameter name="shipmentTypeEnum" type="Map"/>
+            <parameter name="isIncoming" type="Boolean"/>
             <parameter name="fromPartyDetail" type="Map"/>
             <parameter name="toPartyDetail" type="Map"/>
             <parameter name="statusHistoryList" type="List"/>
@@ -28,10 +30,14 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="shipmentItemSourceList" type="List"/>
             <parameter name="orderIdSet" type="Set"/>
             <parameter name="invoiceIdSet" type="Set"/>
+            <parameter name="contentList" type="List"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
             <set field="statusItem" from="shipment.'Shipment#moqui.basic.StatusItem'"/>
+            <set field="shipmentTypeEnum" from="shipment.'ShipmentType#moqui.basic.Enumeration'"/>
+            <set field="isIncoming" from="shipmentTypeEnum?.enumId == 'ShpTpIncoming' || parentEnumId == 'ShpTpIncoming'"/>
+
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromPartyDetail">
                 <field-map field-name="partyId" from="shipment.fromPartyId"/></entity-find-one>
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toPartyDetail">
@@ -59,6 +65,9 @@ This Work includes contributions authored by David E. Jones, not as a
                 if (shipmentItemSource.orderId) orderIdSet.add(shipmentItemSource.orderId)
                 if (shipmentItemSource.invoiceId) invoiceIdSet.add(shipmentItemSource.invoiceId)
             </script></iterate>
+
+            <entity-find entity-name="mantle.shipment.ShipmentContent" list="contentList">
+                <econdition field-name="shipmentId"/><order-by field-name="-contentDate"/></entity-find>
         </actions>
     </service>
 
