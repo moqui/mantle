@@ -111,6 +111,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="finAccountAuthId"/>
             </auto-parameters>
             <parameter name="finAccountId" required="true"/>
+            <parameter name="reasonEnumId" default-value="FatrErrorAdjust"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -150,6 +151,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="finAccountAuthId"/>
             </auto-parameters>
             <parameter name="finAccountId" required="true"/>
+            <parameter name="reasonEnumId" default-value="FatrReplenish"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -162,11 +164,14 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
-            <set field="performedByUserId" from="ec.user.userId"/>
-
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
+
+            <set field="performedByUserId" from="ec.user.userId"/>
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.ownerPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.organizationPartyId"/></if>
+
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
             <set field="finAccountTransTypeEnumId" value="FattDeposit"/>
@@ -187,6 +192,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="finAccountTransTypeEnumId"/>
             </auto-parameters>
             <parameter name="finAccountId" required="true"/>
+            <parameter name="reasonEnumId" default-value="FatrDisbursement"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -199,14 +205,17 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <!-- do a for-update query to lock the FinancialAccount record -->
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+
             <set field="performedByUserId" from="ec.user.userId"/>
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.organizationPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.ownerPartyId"/></if>
 
             <!-- this is a withdrawal, so subtract the amount -->
             <set field="amount" from="-amount"/>
 
-            <!-- do a for-update query to lock the FinancialAccount record -->
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
-                    for-update="true"/>
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
             <set field="finAccountTransTypeEnumId" value="FattWithdraw"/>
@@ -269,9 +278,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="disburse" noun="FinancialAccount">
         <description>Disburse funds from a FinancialAccount through a Payment which will be in the Promised status
             (will need to be Authorized, then Delivered to post).</description>
+        <implements service="mantle.account.FinancialAccountServices.withdraw#FinancialAccount"/>
         <in-parameters>
-            <parameter name="finAccountId" required="true"/>
-            <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
             <parameter name="paymentMethodId"/>
         </in-parameters>
@@ -283,21 +291,19 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
 
-            <!-- withdraw from FinancialAccount -->
-            <service-call name="mantle.account.FinancialAccountServices.withdraw#FinancialAccount" out-map="context"
-                in-map="[finAccountId:finAccountId, amount:amount]"/>
-
-            <!-- create Payment -->
+            <!-- create Payment first (then update after with finAccountTransId, because FinancialAccountTrans is create-only/immutable) -->
             <service-call name="mantle.account.PaymentServices.create#Payment" out-map="context"
-                    in-map="[paymentTypeEnumId:'PtFinancialAccount', statusId:'PmntPromised',
+                    in-map="[paymentTypeEnumId:'PtFinancialAccount', statusId:'PmntPromised', comments:comments,
                         fromPartyId:financialAccount.organizationPartyId, toPartyId:financialAccount.ownerPartyId,
                         amount:amount, amountUomId:financialAccount.currencyUomId, finAccountId:finAccountId,
-                        finAccountTransId:finAccountTransId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
-                        paymentMethodId:paymentMethodId]"/>
+                        paymentMethodTypeEnumId:paymentMethodTypeEnumId, paymentMethodId:paymentMethodId]"/>
 
-            <!-- update FinancialAccountTrans record, set paymentId -->
-            <service-call name="update#mantle.account.financial.FinancialAccount"
-                    in-map="[finAccountId:finAccountId, paymentId:paymentId]"/>
+            <!-- withdraw from FinancialAccount -->
+            <service-call name="mantle.account.FinancialAccountServices.withdraw#FinancialAccount" out-map="context"
+                    in-map="context"/>
+
+            <!-- update Payment record, set finAccountTransId -->
+            <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, finAccountTransId:finAccountTransId]"/>
         </actions>
     </service>
 
