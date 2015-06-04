@@ -266,6 +266,41 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="disburse" noun="FinancialAccount">
+        <description>Disburse funds from a FinancialAccount through a Payment which will be in the Promised status
+            (will need to be Authorized, then Delivered to post).</description>
+        <in-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentMethodId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="finAccountTransId"/>
+            <parameter name="paymentId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+
+            <!-- withdraw from FinancialAccount -->
+            <service-call name="mantle.account.FinancialAccountServices.withdraw#FinancialAccount" out-map="context"
+                in-map="[finAccountId:finAccountId, amount:amount]"/>
+
+            <!-- create Payment -->
+            <service-call name="mantle.account.PaymentServices.create#Payment" out-map="context"
+                    in-map="[paymentTypeEnumId:'PtFinancialAccount', statusId:'PmntPromised',
+                        fromPartyId:financialAccount.organizationPartyId, toPartyId:financialAccount.ownerPartyId,
+                        amount:amount, amountUomId:financialAccount.currencyUomId, finAccountId:finAccountId,
+                        finAccountTransId:finAccountTransId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
+                        paymentMethodId:paymentMethodId]"/>
+
+            <!-- update FinancialAccountTrans record, set paymentId -->
+            <service-call name="update#mantle.account.financial.FinancialAccount"
+                    in-map="[finAccountId:finAccountId, paymentId:paymentId]"/>
+        </actions>
+    </service>
+
     <!-- Financial Account Payment Processing Services -->
     <service verb="authorize" noun="FinancialAccountPayment">
         <implements service="mantle.account.PaymentServices.authorize#Payment"/>
