@@ -158,6 +158,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
         <field name="glReconciliationId" type="id"/>
+        <field name="reasonEnumId" type="id"><description>Used to determine the balancing GlAccount to the one based
+            on FinancialAccount.finAccountTypeId.</description></field>
         <field name="transactionDate" type="date-time"/>
         <field name="entryDate" type="date-time"/>
         <field name="amount" type="currency-amount"/>
@@ -166,7 +168,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="orderItemSeqId" type="id"><description>To be used along with orderId to point to an OrderItem that
             represents the purchase of a product to add money to the account.</description></field>
         <field name="performedByUserId" type="id-long"/>
-        <field name="reasonEnumId" type="id"/>
         <field name="comments" type="text-medium"/>
         <relationship type="one" title="FinancialAccountTransType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="finAccountTransTypeEnumId"/></relationship>
@@ -209,6 +210,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Initial Deposit" enumId="FatrInitDeposit" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Replenishment" enumId="FatrReplenish" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Refund" enumId="FatrRefund" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Disbursement" enumId="FatrDisbursement" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Customer Service Credit" enumId="FatrCsCredit" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Error Adjustment" enumId="FatrErrorAdjust" enumTypeId="FinancialAccountTransReason"/>
         </seed-data>
@@ -270,6 +272,8 @@ along with this software (see the LICENSE.md file). If not, see
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="LoanAccount"/>
             <mantle.account.financial.FinancialAccountType description="Equity Line Account" finAccountTypeId="EquityLine"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="LoanAccount"/>
+            <mantle.account.financial.FinancialAccountType description="Supplier Deposit Account" finAccountTypeId="SupplierDepositAccount"
+                    replenishTypeEnumId="FarpManual" isRefundable="Y"/>
         </seed-data>
     </entity>
 
@@ -574,7 +578,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Gift Card" enumId="PmtGiftCard" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Gift Certificate" enumId="PmtGiftCerificate" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Cash" enumId="PmtCash" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Electronic Funds Transfer" enumId="PmtEft" enumTypeId="PaymentMethodType"/>
+            <!-- Use ACH instead, more specific: <moqui.basic.Enumeration description="Electronic Funds Transfer" enumId="PmtEft" enumTypeId="PaymentMethodType"/> -->
+            <moqui.basic.Enumeration description="Automated Clearing House" enumId="PmtAch" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Financial Account" enumId="PmtFinancialAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Personal Check" enumId="PmtPersonalCheck" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Company Check" enumId="PmtCompanyCheck" enumTypeId="PaymentMethodType"/>
@@ -583,7 +588,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Company Account" enumId="PmtCompanyAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Billing Account" enumId="PmtBillingAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Cash On Delivery" enumId="PmtCod" enumTypeId="PaymentMethodType"/>
-            <!-- really need this? implied by various others... <moqui.basic.Enumeration description="Offline Payment" enumId="PmtOffline" enumTypeId="PaymentMethodType"/> -->
+            <!-- really need this? implied by various more specific others... <moqui.basic.Enumeration description="Offline Payment" enumId="PmtOffline" enumTypeId="PaymentMethodType"/> -->
         </seed-data>
     </entity>
     <entity entity-name="BitcoinWallet" package-name="mantle.account.method">
@@ -811,7 +816,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="processAttempt" type="number-integer"/>
         <field name="needsNsfRetry" type="text-indicator"/>
 
-        <field name="visitId" type="id"/>
+        <field name="visitId" type="id"><description>Track the Visit so we know the session info, including client IP,
+            for audit and fraud purposes.</description></field>
 
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="paymentTypeEnumId"/></relationship>
@@ -844,6 +850,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Disbursement" enumId="PtDisbursement" enumTypeId="PaymentType"/>
             <moqui.basic.Enumeration description="Refund" enumId="PtRefund" enumTypeId="PaymentType"/>
             <moqui.basic.Enumeration description="Invoice Payment" enumId="PtInvoicePayment" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Financial Account Transaction" enumId="PtFinancialAccount" enumTypeId="PaymentType"/>
 
             <!-- Payment Status -->
             <moqui.basic.StatusType description="Payment Status" statusTypeId="Payment"/>

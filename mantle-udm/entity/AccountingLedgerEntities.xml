@@ -91,6 +91,7 @@ along with this software (see the LICENSE.md file). If not, see
              |     |===> CURRENT_LIABILITY
              |           |===> ACCOUNTS_PAYABLE
              |           |===> ACCRUED_EXPENSES
+             |           |===> THIRD_PARTY_HOLDINGS
              |     |===> LONGTERM_LIABILITY
              |===> EQUITY
              |     |===> OWNERS_EQUITY
@@ -121,10 +122,11 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Other Asset" enumId="OTHER_ASSET" parentEnumId="ASSET" enumTypeId="GlAccountClass"/>
 
             <moqui.basic.Enumeration description="Liability" enumId="LIABILITY" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Current Liability" enumId="CURRENT_LIABILITY" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Accounts Payable" enumId="ACCOUNTS_PAYABLE" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Accrued Expenses" enumId="ACCRUED_EXPENSES" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Long Term Liability" enumId="LONGTERM_LIABILITY" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Current Liability" enumId="CURRENT_LIABILITY_CLASS" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Accounts Payable" enumId="ACCOUNTS_PAYABLE" parentEnumId="CURRENT_LIABILITY_CLASS" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Accrued Expenses" enumId="ACCRUED_EXPENSES" parentEnumId="CURRENT_LIABILITY_CLASS" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Third-Party Holdings" enumId="THIRD_PARTY_HOLDINGS" parentEnumId="CURRENT_LIABILITY_CLASS" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Long Term Liability" enumId="LONG_TERM_LIABILITY_CLASS" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
 
             <moqui.basic.Enumeration description="Equity" enumId="EQUITY" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
             <moqui.basic.Enumeration description="Owners Equity" enumId="OWNERS_EQUITY" parentEnumId="EQUITY" enumTypeId="GlAccountClass"/>
@@ -207,6 +209,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Customer Gift Certificate Balances" enumId="CUSTOMER_GC_DEPOSIT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Uninvoiced Shipment Receipts" enumId="UNINVOICED_SHIP_RCPT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Purchase Price Variance" enumId="PURCHASE_PRICE_VAR" parentEnumId="OTHER_EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Supplier Deposits" enumId="SUPPLIER_DEPOSIT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
 
             <moqui.basic.Enumeration description="Income" enumId="INCOME" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Other Income" enumId="OTHER_INCOME" parentEnumId="INCOME" enumTypeId="GlAccountType"/>
@@ -397,6 +400,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="organizationPartyId" type="id" is-pk="true"/>
         <field name="glAccountId" type="id"/>
         <relationship type="one" related-entity-name="FinancialAccountType"/>
+        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
+            <key-map field-name="organizationPartyId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
+    </entity>
+    <entity entity-name="FinancialAccountReasonGlAccount" package-name="mantle.ledger.config">
+        <field name="reasonEnumId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" title="FinancialAccountTransReason" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="reasonEnumId"/></relationship>
         <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
             <key-map field-name="organizationPartyId"/></relationship>
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
@@ -712,6 +725,10 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="AttSalesInventory" description="Sales Inventory" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttReturnInventory" description="Return Inventory" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttManufacturing" description="Manufacturing" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="AttFinancialDeposit" description="Financial Account Deposit" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttFinancialWithdrawal" description="Financial Account Withdrawal" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttFinancialAdjustment" description="Financial Account Adjustment" enumTypeId="AcctgTransType"/>
 
             <moqui.basic.Enumeration enumId="AttIncomingPayment" description="Incoming Payment (Receipt)" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttOutgoingPayment" description="Outgoing Payment (Disbursement)" enumTypeId="AcctgTransType"/>
