@@ -174,11 +174,16 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                <econdition field-name="finAccountId"/></entity-find>
+            <set field="beforeBalance" from="faaList?.first?.actualBalance ?: 0"/>
+            <set field="postBalance" from="beforeBalance + amount"/>
+
             <set field="finAccountTransTypeEnumId" value="FattDeposit"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
+            <service-call name="update#mantle.account.financial.FinancialAccount"
+                    in-map="[finAccountId:finAccountId, actualBalance:postBalance]"/>
 
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
@@ -218,8 +223,16 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                <econdition field-name="finAccountId"/></entity-find>
+            <set field="beforeBalance" from="faaList?.first?.actualBalance ?: 0"/>
+            <set field="postBalance" from="beforeBalance + amount"/>
+
             <set field="finAccountTransTypeEnumId" value="FattWithdraw"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
+
+            <service-call name="update#mantle.account.financial.FinancialAccount"
+                    in-map="[finAccountId:finAccountId, actualBalance:postBalance]"/>
 
             <if condition="finAccountAuthId">
                 <!-- if there is an auth, expire it -->
