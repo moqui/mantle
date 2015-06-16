@@ -311,6 +311,62 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <log level="warn" message="get#PartyContactInfoList finish context=${context.context}"/> -->
         </actions>
     </service>
+
+    <service verb="get" noun="PartyDefaultBilling">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="postalContactMechId"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="emailContactMechId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="postalContactMechId"/>
+            <parameter name="telecomContactMechId"/>
+            <parameter name="emailContactMechId"/>
+        </out-parameters>
+        <actions>
+            <if condition="!postalContactMechId">
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="pcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" value="PostalBilling"/>
+                </entity-find>
+                <if condition="!pcmList">
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="pcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" value="PostalPrimary"/>
+                    </entity-find>
+                </if>
+                <if condition="pcmList"><set field="postalContactMechId" from="pcmList.first().contactMechId"/></if>
+            </if>
+            <if condition="!telecomContactMechId">
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="pcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" value="PhoneBilling"/>
+                </entity-find>
+                <if condition="!pcmList">
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="pcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" value="PhonePrimary"/>
+                    </entity-find>
+                </if>
+                <if condition="pcmList"><set field="telecomContactMechId" from="pcmList.first().contactMechId"/></if>
+            </if>
+            <if condition="!emailContactMechId">
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="pcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" value="EmailBilling"/>
+                </entity-find>
+                <if condition="!pcmList">
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="pcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" value="EmailPrimary"/>
+                    </entity-find>
+                </if>
+                <if condition="pcmList"><set field="emailContactMechId" from="pcmList.first().contactMechId"/></if>
+            </if>
+        </actions>
+    </service>
+
     <service verb="store" noun="PartyContactInfo">
         <in-parameters>
             <parameter name="partyId" default-value="${ec.user.userAccount.partyId}"/>
