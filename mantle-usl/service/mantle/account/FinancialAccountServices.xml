@@ -13,7 +13,57 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
+    <service verb="get" noun="StatementPrintInfo">
+        <in-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="year"/>
+            <parameter name="month"/>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="financialAccount" type="EntityValue"/>
+            <parameter name="ownerDetail" type="EntityValue"/>
+            <parameter name="organizationDetail" type="EntityValue"/>
+            <parameter name="financialAccountTransList" type="EntityList"/>
+
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="beginningBalance" type="BigDecimal"/>
+            <parameter name="endingBalance" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"/>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="ownerDetail">
+                <field-map field-name="partyId" from="financialAccount.ownerPartyId"/></entity-find-one>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="organizationDetail">
+                <field-map field-name="partyId" from="financialAccount.organizationPartyId"/></entity-find-one>
+
+            <script><![CDATA[
+                if (fromDate == null && thruDate == null && year && month) {
+                    fromCal = ec.l10n.parseDateTime("${year}-${month}-01 00:00:00", "yyyy-MM-dd HH:mm:ss")
+                    thruCal = fromCal.clone()
+                    thruCal.add(Calendar.MONTH, 1)
+                    thruCal.add(Calendar.SECOND, -1)
+
+                    fromDate = new Timestamp(fromCal.getTimeInMillis())
+                    thruDate = new Timestamp(thruCal.getTimeInMillis())
+                }
+            ]]></script>
+
+            <entity-find entity-name="mantle.account.financial.FinancialAccountTrans" list="financialAccountTransList">
+                <econdition field-name="finAccountId"/>
+                <econdition field-name="transactionDate" operator="greater-equals" from="fromDate" ignore-if-empty="true"/>
+                <econdition field-name="transactionDate" operator="less-equals" from="thruDate" ignore-if-empty="true"/>
+                <order-by field-name="transactionDate"/>
+            </entity-find>
+
+            <set field="firstTrans" from="financialAccountTransList ? financialAccountTransList.first() : null"/>
+            <set field="beginningBalance" from="(firstTrans?.get('postBalance') ?: 0) - (firstTrans?.get('amount') ?: 0)"/>
+            <set field="lastTrans" from="financialAccountTransList ? financialAccountTransList.last() : null"/>
+            <set field="endingBalance" from="lastTrans?.get('postBalance') ?: 0"/>
+        </actions>
+    </service>
 
     <service verb="create" noun="FinancialAccount">
         <in-parameters>
