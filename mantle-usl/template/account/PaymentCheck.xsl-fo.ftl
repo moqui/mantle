@@ -38,6 +38,9 @@ along with this software (see the LICENSE.md file). If not, see
 <#assign amountWordsCharacters = 84>
 <#assign dateFormat = dateFormat!"dd MMM yyyy">
 
+<#assign cellPadding = "1pt">
+<#assign tableFontSize = tableFontSize!"9pt">
+
 <#macro checkBody paymentInfo>
     <#-- Check number, if populated -->
     <#if checkNumber && paymentInfo.payment.paymentRefNum?has_content>
@@ -112,7 +115,32 @@ along with this software (see the LICENSE.md file). If not, see
 </#macro>
 <#macro stubBody paymentInfo>
 <fo:block margin="0.3in">
-    Stub
+    <fo:block text-align="left" margin-bottom="0.1in">${paymentInfo.fromPartyDetail.organizationName!}${paymentInfo.fromPartyDetail.firstName!} ${paymentInfo.fromPartyDetail.lastName!} - Payment Ref #${paymentInfo.payment.paymentId}</fo:block>
+
+    <#if paymentInfo.invoiceList?has_content>
+        <fo:table table-layout="fixed" width="7.5in">
+            <fo:table-header font-size="9pt" font-weight="bold" border-bottom="solid black">
+                <fo:table-cell width="1.3in" padding="${cellPadding}"><fo:block text-align="left">Our Ref #</fo:block></fo:table-cell>
+                <fo:table-cell width="1.3in" padding="${cellPadding}"><fo:block text-align="left">Your Ref #</fo:block></fo:table-cell>
+                <fo:table-cell width="1.7in" padding="${cellPadding}"><fo:block text-align="left">Invoice Date</fo:block></fo:table-cell>
+                <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Invoice Amount</fo:block></fo:table-cell>
+                <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Amount Paid</fo:block></fo:table-cell>
+            </fo:table-header>
+            <fo:table-body>
+                <#list paymentInfo.invoiceList as invoice>
+                    <#assign invoiceTotals = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal").parameter("invoiceId", invoice.invoiceId).call()>
+                    <fo:table-row font-size="${tableFontSize}" border-bottom="thin solid black">
+                        <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${invoice.invoiceId}</fo:block></fo:table-cell>
+                        <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${invoice.referenceNumber!""}</fo:block></fo:table-cell>
+                        <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${ec.l10n.format(invoice.invoiceDate, dateFormat)}</fo:block></fo:table-cell>
+                        <fo:table-cell padding="${cellPadding}"><fo:block text-align="right" font-family="Courier, monospace">${ec.l10n.formatCurrency(invoiceTotals.invoiceTotal, invoice.currencyUomId, 2)}</fo:block></fo:table-cell>
+                        <fo:table-cell padding="${cellPadding}"><fo:block text-align="right" font-family="Courier, monospace">${ec.l10n.formatCurrency(invoice.amountApplied, invoice.currencyUomId, 2)}</fo:block></fo:table-cell>
+                    </fo:table-row>
+                </#list>
+            </fo:table-body>
+        </fo:table>
+    </#if>
+
 </fo:block>
 </#macro>
 
