@@ -141,6 +141,25 @@ along with this software (see the LICENSE.md file). If not, see
         </fo:table>
     </#if>
 
+    <#if paymentInfo.financialAccountTrans??>
+        <fo:table table-layout="fixed" width="7in">
+            <fo:table-header font-size="9pt" font-weight="bold" border-bottom="solid black">
+                <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="left">Account #</fo:block></fo:table-cell>
+                <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="left">TX #</fo:block></fo:table-cell>
+                <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="left">TX Date</fo:block></fo:table-cell>
+                <fo:table-cell width="2in" padding="${cellPadding}"><fo:block text-align="right">TX Amount</fo:block></fo:table-cell>
+            </fo:table-header>
+            <fo:table-body>
+                <fo:table-row font-size="${tableFontSize}" border-bottom="thin solid black">
+                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${paymentInfo.financialAccount.finAccountCode!paymentInfo.financialAccount.finAccountId}</fo:block></fo:table-cell>
+                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${paymentInfo.financialAccountTrans.finAccountTransId}</fo:block></fo:table-cell>
+                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${ec.l10n.format(paymentInfo.financialAccountTrans.transactionDate, dateFormat)}</fo:block></fo:table-cell>
+                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="right" font-family="Courier, monospace">${ec.l10n.formatCurrency(paymentInfo.financialAccountTrans.amount, paymentInfo.financialAccount.currencyUomId, 2)}</fo:block></fo:table-cell>
+                </fo:table-row>
+            </fo:table-body>
+        </fo:table>
+    </#if>
+
 </fo:block>
 </#macro>
 
