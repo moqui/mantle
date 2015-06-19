@@ -166,6 +166,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="assetOrderBy" from="resOrderEnum?.enumCode ?: 'receivedDate'"/><!-- default: FIFO by received date -->
 
             <set field="inventoryFacilityId" from="productStore?.inventoryFacilityId ?: orderPart?.facilityId"/>
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="inventoryFacility">
+                <field-map field-name="facilityId" from="inventoryFacilityId"/></entity-find-one>
+            <set field="assetAllowOtherOwner" from="inventoryFacility?.assetAllowOtherOwner"/>
             <set field="organizationPartyId" from="productStore?.organizationPartyId ?: orderPart?.vendorPartyId"/>
 
             <!-- if organizationPartyId is not an internal org this is not a sales order, so don't do inventory res (return) -->
@@ -188,7 +191,7 @@ along with this software (see the LICENSE.md file). If not, see
                     for not-available reservations will be included and reused -->
                 <econdition field-name="availableToPromiseTotal" operator="not-equals" from="0"/>
                 <econdition field-name="facilityId" from="inventoryFacilityId" ignore-if-empty="true"/>
-                <econdition field-name="ownerPartyId" from="organizationPartyId" ignore-if-empty="true"/>
+                <econdition field-name="ownerPartyId" from="organizationPartyId" ignore="!organizationPartyId || assetAllowOtherOwner == 'Y'"/>
                 <econdition field-name="assetId" operator="not-in" from="explicitAssetIdList" ignore-if-empty="true"/>
                 <order-by field-name="${assetOrderBy}"/>
             </entity-find>
