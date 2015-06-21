@@ -169,11 +169,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
             <set field="performedByUserId" from="ec.user.userId"/>
 
             <!-- do a for-update query to lock the FinancialAccount record -->
@@ -181,11 +183,13 @@ along with this software (see the LICENSE.md file). If not, see
                     for-update="true"/>
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                <econdition field-name="finAccountId"/></entity-find>
+            <set field="beforeBalance" from="faaList?.first?.actualBalance ?: 0"/>
+            <set field="postBalance" from="beforeBalance + amount"/>
+
             <set field="finAccountTransTypeEnumId" value="FattAdjustment"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
-
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
 
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
@@ -209,18 +213,21 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
 
-            <set field="performedByUserId" from="ec.user.userId"/>
-            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.ownerPartyId"/></if>
-            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.organizationPartyId"/></if>
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.organizationPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.ownerPartyId"/></if>
 
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
@@ -255,18 +262,21 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
 
-            <set field="performedByUserId" from="ec.user.userId"/>
-            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.organizationPartyId"/></if>
-            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.ownerPartyId"/></if>
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.ownerPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.organizationPartyId"/></if>
 
             <!-- this is a withdrawal, so subtract the amount -->
             <set field="amount" from="-amount"/>
@@ -289,9 +299,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="update#mantle.account.financial.FinancialAccountAuth"
                         in-map="[finAccountAuthId:finAccountAuthId, expireDate:ec.user.nowTimestamp]"/>
             </if>
-
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
 
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
