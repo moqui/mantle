@@ -28,7 +28,13 @@ along with this software (see the LICENSE.md file). If not, see
         </fo:simple-page-master>
     </fo:layout-master-set>
 
-    <fo:page-sequence master-reference="letter-portrait">
+    <fo:page-sequence master-reference="letter-portrait" id="mainSequence">
+        <fo:static-content flow-name="xsl-region-after" font-size="8pt">
+            <fo:block border-top="thin solid black">
+                <fo:block text-align="center">Account ${financialAccount.finAccountCode!financialAccount.finAccountId} -- <#if fromDate?exists>${ec.l10n.format(fromDate, dateFormat)} to <#else>All through </#if><#if thruDate?exists>${ec.l10n.format(thruDate, dateFormat)}<#else>${ec.l10n.format(ec.user.nowTimestamp, dateFormat)}</#if> -- Page <fo:page-number/> of <fo:page-number-citation-last ref-id="mainSequence"/></fo:block>
+            </fo:block>
+        </fo:static-content>
+
         <fo:flow flow-name="xsl-region-body">
 
             <fo:block font-size="14pt" text-align="center" margin-bottom="0">${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(organizationDetail.organizationName!"", false)}</fo:block>
@@ -44,7 +50,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <fo:block text-align="left" font-weight="bold">From</fo:block>
                     <fo:block text-align="left"><#if fromDate?exists>${ec.l10n.format(fromDate, dateFormat)}<#else>N/A</#if></fo:block>
                     <fo:block text-align="left" font-weight="bold">Through</fo:block>
-                    <fo:block text-align="left"><#if thruDate?exists>${ec.l10n.format(thruDate, dateFormat)}<#else>N/A</#if></fo:block>
+                    <fo:block text-align="left"><#if thruDate?exists>${ec.l10n.format(thruDate, dateFormat)}<#else>${ec.l10n.format(ec.user.nowTimestamp, dateFormat)}</#if></fo:block>
                 </fo:table-cell>
                 <fo:table-cell padding="0.05in" width="2in">
                     <fo:block text-align="left" font-weight="bold">Begining Balance</fo:block>
