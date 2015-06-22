@@ -374,7 +374,7 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <iterate entry="timePeriod" list="timePeriodList">
                 <if condition="timePeriod.isClosed == 'Y'">
-                    <message error="true">Not posting transaction [${acctgTransId}], time period closed [${timePeriod.timePeriodId}, ${timePeriod.timePeriodTypeId}].</message>
+                    <message error="true">Not posting transaction [${acctgTransId}], time period closed ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}.</message>
                 </if>
             </iterate>
 
@@ -691,11 +691,11 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod" for-update="true"/>
 
             <if condition="timePeriod.isClosed == 'Y'">
-                <message error="true">Not closing period ${timePeriod.periodName} [${timePeriodId}], already closed.</message>
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, already closed.</message>
             </if>
 
             <if condition="ec.user.nowTimestamp.before(timePeriod.thruDate)">
-                <message error="true">Not closing period ${timePeriod.periodName} [${timePeriodId}], period has not ended (ends on ${timePeriod.thruDate}).</message>
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, period has not ended (ends on ${timePeriod.thruDate}).</message>
             </if>
 
             <!-- if any child periods make sure they are closed -->
@@ -704,7 +704,7 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
             <iterate list="childTimePeriodList" entry="childTimePeriod">
                 <if condition="childTimePeriod.isClosed != 'Y'">
-                    <message error="true">Not closing period ${timePeriod.periodName} [${timePeriodId}], child period ${childTimePeriod.periodName} [${childTimePeriod.timePeriodId}] not closed.</message>
+                    <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, child period ${ec.resource.expand('TimePeriodNameTemplate','',childTimePeriod)} not closed.</message>
                 </if>
             </iterate>
             <check-errors/>
