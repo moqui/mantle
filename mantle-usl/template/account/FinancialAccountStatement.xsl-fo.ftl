@@ -31,7 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
     <fo:page-sequence master-reference="letter-portrait" id="mainSequence">
         <fo:static-content flow-name="xsl-region-after" font-size="8pt">
             <fo:block border-top="thin solid black">
-                <fo:block text-align="center">Account ${financialAccount.finAccountCode!financialAccount.finAccountId} -- <#if fromDate?exists>${ec.l10n.format(fromDate, dateFormat)} to <#else>All through </#if><#if thruDate?exists>${ec.l10n.format(thruDate, dateFormat)}<#else>${ec.l10n.format(ec.user.nowTimestamp, dateFormat)}</#if> -- Page <fo:page-number/> of <fo:page-number-citation-last ref-id="mainSequence"/></fo:block>
+                <fo:block text-align="center">Account ${financialAccount.finAccountCode!financialAccount.finAccountId} -- <#if fromDate?exists>${ec.l10n.format(fromDate, dateFormat)} to <#else>All through </#if><#if thruDate?exists>${ec.l10n.format(thruDate, dateFormat)}<#else>${ec.l10n.format(ec.user.nowTimestamp, dateFormat)}</#if> -- Page <fo:page-number/></fo:block>
             </fo:block>
         </fo:static-content>
 

@@ -35,10 +35,10 @@ along with this software (see the LICENSE.md file). If not, see
     </fo:layout-master-set>
 
     <#list paymentInfoList as paymentInfo>
-        <fo:page-sequence master-reference="letter-portrait" id="mainSequence">
+        <fo:page-sequence master-reference="letter-portrait" initial-page-number="1" force-page-count="no-force">
             <fo:static-content flow-name="xsl-region-after" font-size="8pt">
                 <fo:block border-top="thin solid black">
-                    <fo:block text-align="center"><#if paymentInfo.payment.paymentRefNum?has_content>Check #${paymentInfo.payment.paymentRefNum} -- </#if>Payment #${paymentInfo.payment.paymentId} -- ${ec.l10n.format(paymentInfo.payment.effectiveDate, dateFormat)} -- ${ec.l10n.formatCurrency(paymentInfo.payment.amount, paymentInfo.payment.amountUomId, 2)} -- Page <fo:page-number/> of <fo:page-number-citation-last ref-id="mainSequence"/></fo:block>
+                    <fo:block text-align="center"><#if paymentInfo.payment.paymentRefNum?has_content>Check #${paymentInfo.payment.paymentRefNum} -- </#if>Payment #${paymentInfo.payment.paymentId} -- ${ec.l10n.format(paymentInfo.payment.effectiveDate, dateFormat)} -- ${ec.l10n.formatCurrency(paymentInfo.payment.amount, paymentInfo.payment.amountUomId, 2)} -- Page <fo:page-number ref-id="mainSequence"/></fo:block>
                 </fo:block>
             </fo:static-content>
 
@@ -50,12 +50,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <fo:table table-layout="fixed" width="7.5in"><fo:table-body><fo:table-row font-size="10pt">
                         <fo:table-cell padding="0.05in" width="3.5in">
                             <#assign contactInfo = paymentInfo.toBillingContactInfo>
-                            <#if (contactInfo.postalAddress.toName)?has_content || (contactInfo.postalAddress.attnName)?has_content>
-                                <#if (contactInfo.postalAddress.toName)?has_content><fo:block text-align="left">${contactInfo.postalAddress.toName}</fo:block></#if>
-                                <#if (contactInfo.postalAddress.attnName)?has_content><fo:block text-align="left">Attn: ${contactInfo.postalAddress.attnName}</fo:block></#if>
-                            <#else>
-                                <fo:block text-align="left">${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(paymentInfo.toPartyDetail.organizationName!"", false)}${paymentInfo.toPartyDetail.firstName!} ${paymentInfo.toPartyDetail.lastName!}</fo:block>
-                            </#if>
+                            <fo:block text-align="left">${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(paymentInfo.toPartyDetail.organizationName!"", false)}${paymentInfo.toPartyDetail.firstName!} ${paymentInfo.toPartyDetail.lastName!}</fo:block>
                             <#if (contactInfo.postalAddress.address1)?has_content><fo:block text-align="left">${contactInfo.postalAddress.address1}<#if (contactInfo.postalAddress.unitNumber)?has_content> #${contactInfo.postalAddress.unitNumber}</#if></fo:block></#if>
                             <#if (contactInfo.postalAddress.address2)?has_content><fo:block text-align="left">${contactInfo.postalAddress.address2}</fo:block></#if>
                             <#if (contactInfo.postalAddress)?has_content><fo:block text-align="left">${contactInfo.postalAddress.city!}<#if (contactInfo.postalAddressStateGeo.geoCodeAlpha2)?has_content>, ${contactInfo.postalAddressStateGeo.geoCodeAlpha2} </#if>${contactInfo.postalAddress.postalCode!}<#if (contactInfo.postalAddress.postalCodeExt)?has_content>-${contactInfo.postalAddress.postalCodeExt}</#if><#if (contactInfo.postalAddressCountryGeo.geoCodeAlpha3)?has_content> ${contactInfo.postalAddressCountryGeo.geoCodeAlpha3}</#if></fo:block></#if>
