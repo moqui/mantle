@@ -50,6 +50,7 @@ if (combinedName) {
 if (organizationName) { ef.condition(ec.entity.conditionFactory.makeCondition("organizationName", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + organizationName + "%").ignoreCase()) }
 if (firstName) { ef.condition(ec.entity.conditionFactory.makeCondition("firstName", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + firstName + "%").ignoreCase()) }
 if (lastName) { ef.condition(ec.entity.conditionFactory.makeCondition("lastName", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + lastName + "%").ignoreCase()) }
+if (suffix) { ef.condition(ec.entity.conditionFactory.makeCondition("suffix", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + suffix + "%").ignoreCase()) }
 
 if (address1) { ef.condition(ec.entity.conditionFactory.makeCondition("address1", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + address1 + "%").ignoreCase()) }
 if (address2) { ef.condition(ec.entity.conditionFactory.makeCondition("address2", EntityCondition.LIKE, (leadingWildcard ? "%" : "") + address2 + "%").ignoreCase()) }
