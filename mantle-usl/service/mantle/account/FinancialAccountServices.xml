@@ -13,7 +13,57 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
+    <service verb="get" noun="StatementPrintInfo">
+        <in-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="year"/>
+            <parameter name="month"/>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="financialAccount" type="EntityValue"/>
+            <parameter name="ownerDetail" type="EntityValue"/>
+            <parameter name="organizationDetail" type="EntityValue"/>
+            <parameter name="financialAccountTransList" type="EntityList"/>
+
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="beginningBalance" type="BigDecimal"/>
+            <parameter name="endingBalance" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"/>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="ownerDetail">
+                <field-map field-name="partyId" from="financialAccount.ownerPartyId"/></entity-find-one>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="organizationDetail">
+                <field-map field-name="partyId" from="financialAccount.organizationPartyId"/></entity-find-one>
+
+            <script><![CDATA[
+                if (fromDate == null && thruDate == null && year && month) {
+                    fromCal = ec.l10n.parseDateTime("${year}-${month}-01 00:00:00", "yyyy-MM-dd HH:mm:ss")
+                    thruCal = fromCal.clone()
+                    thruCal.add(Calendar.MONTH, 1)
+                    thruCal.add(Calendar.SECOND, -1)
+
+                    fromDate = new Timestamp(fromCal.getTimeInMillis())
+                    thruDate = new Timestamp(thruCal.getTimeInMillis())
+                }
+            ]]></script>
+
+            <entity-find entity-name="mantle.account.financial.FinancialAccountTrans" list="financialAccountTransList">
+                <econdition field-name="finAccountId"/>
+                <econdition field-name="transactionDate" operator="greater-equals" from="fromDate" ignore-if-empty="true"/>
+                <econdition field-name="transactionDate" operator="less-equals" from="thruDate" ignore-if-empty="true"/>
+                <order-by field-name="transactionDate"/>
+            </entity-find>
+
+            <set field="firstTrans" from="financialAccountTransList ? financialAccountTransList.first() : null"/>
+            <set field="beginningBalance" from="(firstTrans?.get('postBalance') ?: 0) - (firstTrans?.get('amount') ?: 0)"/>
+            <set field="lastTrans" from="financialAccountTransList ? financialAccountTransList.last() : null"/>
+            <set field="endingBalance" from="lastTrans?.get('postBalance') ?: 0"/>
+        </actions>
+    </service>
 
     <service verb="create" noun="FinancialAccount">
         <in-parameters>
@@ -119,11 +169,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
             <set field="performedByUserId" from="ec.user.userId"/>
 
             <!-- do a for-update query to lock the FinancialAccount record -->
@@ -131,15 +183,16 @@ along with this software (see the LICENSE.md file). If not, see
                     for-update="true"/>
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <set field="postBalance" from="preBalance + amount"/>
             <set field="finAccountTransTypeEnumId" value="FattAdjustment"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
-
+            <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
+                    in-map="[finAccountId:finAccountId]" out-map="totalsOut"/>
+            <set field="postBalance" from="totalsOut.actualBalance"/>
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>
@@ -159,30 +212,33 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
-
-            <set field="performedByUserId" from="ec.user.userId"/>
-            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.ownerPartyId"/></if>
-            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.organizationPartyId"/></if>
-
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.organizationPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.ownerPartyId"/></if>
+
+            <set field="postBalance" from="preBalance + amount"/>
             <set field="finAccountTransTypeEnumId" value="FattDeposit"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
-
+            <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
+                    in-map="[finAccountId:finAccountId]" out-map="totalsOut"/>
+            <set field="postBalance" from="totalsOut.actualBalance"/>
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>
@@ -200,26 +256,32 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+            <set field="performedByUserId" from="ec.user.userId"/>
+
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
+            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
-            <set field="performedByUserId" from="ec.user.userId"/>
-            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.organizationPartyId"/></if>
-            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.ownerPartyId"/></if>
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.ownerPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.organizationPartyId"/></if>
 
             <!-- this is a withdrawal, so subtract the amount -->
             <set field="amount" from="-amount"/>
 
-            <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
-
+            <set field="postBalance" from="preBalance + amount"/>
             <set field="finAccountTransTypeEnumId" value="FattWithdraw"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
+
+            <service-call name="update#mantle.account.financial.FinancialAccount"
+                    in-map="[finAccountId:finAccountId, actualBalance:postBalance]"/>
 
             <if condition="finAccountAuthId">
                 <!-- if there is an auth, expire it -->
@@ -227,12 +289,12 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[finAccountAuthId:finAccountAuthId, expireDate:ec.user.nowTimestamp]"/>
             </if>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
-
+            <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
+                    in-map="[finAccountId:finAccountId]" out-map="totalsOut"/>
+            <set field="postBalance" from="totalsOut.actualBalance"/>
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>
@@ -261,7 +323,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="differAmount" from="preAvailableBalance - postAvailableBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preAvailableBalance} and post balance ${postAvailableBalance} differ by [${differAmount}] and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preAvailableBalance} and post balance ${postAvailableBalance} differ by [${differAmount}] and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>

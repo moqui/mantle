@@ -417,4 +417,67 @@ along with this software (see the LICENSE.md file). If not, see
             ]]></script>
         </actions>
     </service>
+
+    <service verb="delete" noun="VariantProducts">
+        <description>WARNING: This service deletes all variant products including dependent records and associations
+            with the specified product.</description>
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="callOutServiceName"><description>Name of a service to call for each variant
+                (by delete#Product), will pass in the productId.</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.product.ProductAssoc" list="assocList">
+                <!-- don't filter by date, we'll be deleting products want to get all of them -->
+                <econdition field-name="productId"/>
+                <econdition field-name="productAssocTypeEnumId" value="PatVariant"/>
+            </entity-find>
+            <iterate list="assocList" entry="assoc">
+                <service-call name="mantle.product.ProductServices.delete#Product"
+                        in-map="[productId:assoc.toProductId, callOutServiceName:callOutServiceName]"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="delete" noun="Product">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="callOutServiceName"><description>Call this service before deleting anything else, passes
+                in productId.</description></parameter>
+        </in-parameters>
+        <actions>
+            <if condition="callOutServiceName">
+                <service-call name="${callOutServiceName}" in-map="[productId:productId]"/></if>
+
+            <!-- recursively delete variants/assocs -->
+            <service-call name="mantle.product.ProductServices.delete#VariantProducts"
+                    in-map="[productId:productId, callOutServiceName:callOutServiceName]"/>
+
+            <!-- delete dependent records -->
+            <entity-delete-by-condition entity-name="mantle.product.ProductAssoc">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductAssoc">
+                <econdition field-name="toProductId" from="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductContent">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductDimension">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductGeo">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductIdentification">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductParty">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductPrice">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+
+            <entity-delete-by-condition entity-name="mantle.product.feature.ProductFeatureAppl">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryMember">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+
+            <!-- last of all delete the Product -->
+            <entity-delete-by-condition entity-name="mantle.product.Product">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+        </actions>
+    </service>
 </services>

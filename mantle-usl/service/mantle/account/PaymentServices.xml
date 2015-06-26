@@ -60,7 +60,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="payment.orderId">
                 <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
-                    <econdition field-name="orderId" from="payment.orderId"/><order-by field-name="invoiceItemSeqId"/></entity-find>
+                    <econdition field-name="orderId" from="payment.orderId"/>
+                    <order-by field-name="invoiceId,invoiceItemSeqId"/></entity-find>
             </if>
 
             <set field="invoiceIdSet" from="new TreeSet()"/>
@@ -122,6 +123,86 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="unappliedTotal" from="paymentTotal - appliedTotal"/>
         </actions>
     </service>
+    <service verb="get" noun="PaymentCheckInfo">
+        <in-parameters><parameter name="paymentIdList" type="List" required="true"/></in-parameters>
+        <out-parameters><parameter name="paymentInfoList" type="List"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
+                <econdition field-name="paymentId" operator="in" from="paymentIdList"/>
+                <order-by field-name="paymentId"/>
+            </entity-find>
+
+            <set field="paymentInfoList" from="[]"/>
+
+            <iterate list="paymentList" entry="payment">
+                <set field="paymentId" from="payment.paymentId"/>
+
+                <set field="descOut" from="null"/>
+                <service-call name="mantle.account.PaymentServices.get#PaymentDescription" out-map="descOut"
+                        in-map="[paymentId:paymentId, payment:payment]"/>
+                <set field="totalsOut" from="null"/>
+                <service-call name="mantle.account.PaymentServices.get#PaymentTotals" out-map="totalsOut"
+                        in-map="[paymentId:paymentId]"/>
+
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromPartyDetail">
+                    <field-map field-name="partyId" from="payment.fromPartyId"/></entity-find-one>
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toPartyDetail">
+                    <field-map field-name="partyId" from="payment.toPartyId"/></entity-find-one>
+
+                <service-call name="mantle.party.ContactServices.get#PartyDefaultBilling" out-map="toBillingOut"
+                        in-map="[partyId:payment.toPartyId]"/>
+                <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="toBillingContactInfo"
+                        in-map="toBillingOut + [partyId:payment.toPartyId]"/>
+
+                <entity-find entity-name="mantle.party.PartyContent" list="primarySignatureList">
+                    <date-filter/>
+                    <econdition field-name="partyId" from="payment.fromPartyId"/>
+                    <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignaturePrimary"/>
+                </entity-find>
+                <set field="paymentSignaturePrimaryLocation" from="primarySignatureList ? primarySignatureList.first().contentLocation : null"/>
+                <entity-find entity-name="mantle.party.PartyContent" list="secondarySignatureList">
+                    <date-filter/>
+                    <econdition field-name="partyId" from="payment.fromPartyId"/>
+                    <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignatureSecondary"/>
+                </entity-find>
+                <set field="paymentSignatureSecondaryLocation" from="secondarySignatureList ? secondarySignatureList.first().contentLocation : null"/>
+
+                <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                    <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
+                <entity-find entity-name="mantle.account.payment.PaymentApplicationAndInvoice" list="invoiceList">
+                    <econdition field-name="paymentId"/><order-by field-name="invoiceId"/></entity-find>
+
+                <if condition="payment.finAccountTransId">
+                    <entity-find-one entity-name="mantle.account.financial.FinancialAccountTrans" value-field="financialAccountTrans">
+                        <field-map field-name="finAccountTransId" from="payment.finAccountTransId"/></entity-find-one>
+                    <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount">
+                        <field-map field-name="finAccountId" from="financialAccountTrans.finAccountId"/></entity-find-one>
+                </if>
+
+                <if condition="payment.orderId">
+                    <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                        <econdition field-name="orderId" from="payment.orderId"/>
+                        <order-by field-name="invoiceId,invoiceItemSeqId"/></entity-find>
+                </if>
+
+                <set field="paymentInfo" from="[payment:payment, paymentId:paymentId,
+                        fromPartyDetail:fromPartyDetail, toPartyDetail:toPartyDetail, toBillingContactInfo:toBillingContactInfo,
+                        paymentSignaturePrimaryLocation:paymentSignaturePrimaryLocation,
+                        paymentSignatureSecondaryLocation:paymentSignatureSecondaryLocation,
+                        paymentApplicationList:paymentApplicationList, invoiceList:invoiceList,
+                        financialAccount:financialAccount, financialAccountTrans:financialAccountTrans,
+                        orderItemBillingList:orderItemBillingList]"/>
+
+                <script>
+                    paymentInfo.amountWords = org.moqui.impl.StupidUtilities.numberToWordsWithDecimal(payment.amount)
+
+                    paymentInfo.putAll(descOut)
+                    paymentInfo.putAll(totalsOut)
+                    paymentInfoList.add(paymentInfo)
+                </script>
+            </iterate>
+        </actions>
+    </service>
 
     <service verb="void" noun="Payment">
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
@@ -154,6 +235,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="amount" type="BigDecimal" default="0"/>
             <parameter name="amountUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for whichever
                 Party (from or to) is an internal organization with an accounting preference record.</description></parameter>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <out-parameters><parameter name="paymentId"/></out-parameters>
         <actions>
@@ -179,7 +261,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="create" noun="InvoicePayment" transaction="cache">
+    <service verb="create" noun="InvoicePayment">
+        <!-- note: no transaction=cache here, used along with FinancialAccount deposit/withdraw which does a sum view query that doesn't work with it -->
         <description>
             Create a Payment for an Invoice and apply it to the Invoice.
 

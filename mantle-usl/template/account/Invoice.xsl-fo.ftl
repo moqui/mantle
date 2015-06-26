@@ -1,4 +1,4 @@
-<!--
+<#--
 This software is in the public domain under CC0 1.0 Universal.
 
 To the extent possible under law, the author(s) have dedicated all
@@ -11,7 +11,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 
-<!-- See the mantle.account.InvoiceServices.get#InvoicePrintInfo service for data preparation -->
+<#-- See the mantle.account.InvoiceServices.get#InvoicePrintInfo service for data preparation -->
 
 <#assign cellPadding = "1pt">
 <fo:root xmlns:fo="http://www.w3.org/1999/XSL/Format" font-family="Helvetica, sans-serif" font-size="10pt">
