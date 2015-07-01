@@ -18,51 +18,59 @@ along with this software (see the LICENSE.md file). If not, see
     <fo:layout-master-set>
         <fo:simple-page-master master-name="letter-portrait" page-width="8.5in" page-height="11in"
                                margin-top="0.5in" margin-bottom="0.5in" margin-left="0.5in" margin-right="0.5in">
-            <fo:region-body margin-top="0.4in" margin-bottom="0.6in"/>
-            <fo:region-before extent="1in"/>
+            <fo:region-body margin-top="1.2in" margin-bottom="0.6in"/>
+            <fo:region-before extent="1.2in"/>
             <fo:region-after extent="0.5in"/>
         </fo:simple-page-master>
     </fo:layout-master-set>
 
     <fo:page-sequence master-reference="letter-portrait" id="mainSequence">
         <fo:static-content flow-name="xsl-region-before">
-            <fo:block font-size="14pt" text-align="center">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(firstPartInfo.vendorDetail.organizationName!"", true))!""}${(firstPartInfo.vendorDetail.firstName)!""} ${(firstPartInfo.vendorDetail.lastName)!""}</fo:block>
-            <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">ORDER</fo:block>
-            <fo:block text-align="right">
-                <fo:instream-foreign-object>
-                    <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${orderId}">
-                        <barcode:code128>
-                            <barcode:height>0.4in</barcode:height>
-                            <barcode:module-width>0.3mm</barcode:module-width>
-                        </barcode:code128>
-                        <barcode:human-readable>
-                            <barcode:placement>bottom</barcode:placement>
-                            <barcode:font-name>Helvetica</barcode:font-name>
-                            <barcode:font-size>12pt</barcode:font-size>
-                            <barcode:display-start-stop>false</barcode:display-start-stop>
-                            <barcode:display-checksum>false</barcode:display-checksum>
-                        </barcode:human-readable>
-                    </barcode:barcode>
-                </fo:instream-foreign-object>
-            </fo:block>
+            <fo:block font-size="14pt" text-align="center" margin-bottom="0.1in">Order #${orderId}</fo:block>
+            <fo:table table-layout="fixed" margin-bottom="0.1in" width="7.5in">
+                <fo:table-body><fo:table-row>
+                    <fo:table-cell padding="3pt" width="3.75in">
+                        <fo:block font-weight="bold">Vendor</fo:block>
+                        <fo:block>${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(firstPartInfo.vendorDetail.organizationName!"", false))!""}${(firstPartInfo.vendorDetail.firstName)!""} ${(firstPartInfo.vendorDetail.lastName)!""}</fo:block>
+                        <fo:block font-weight="bold">Customer</fo:block>
+                        <fo:block>${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(firstPartInfo.customerDetail.organizationName!"", false))!""}${(firstPartInfo.customerDetail.firstName)!""} ${(firstPartInfo.customerDetail.lastName)!""}</fo:block>
+                    </fo:table-cell>
+                    <fo:table-cell padding="3pt" width="2in">
+                        <fo:block font-weight="bold">Date</fo:block>
+                        <fo:block><#if orderHeader.placedDate??>${ec.l10n.format(orderHeader.placedDate, "dd MMM yyyy")}<#else>Not yet placed</#if></fo:block>
+                        <fo:block font-weight="bold">Total</fo:block>
+                        <fo:block>${ec.l10n.formatCurrency(orderHeader.grandTotal, orderHeader.currencyUomId, 2)}</fo:block>
+                    </fo:table-cell>
+                    <fo:table-cell padding="3pt" width="1.75in">
+                        <fo:block text-align="right">
+                            <fo:instream-foreign-object>
+                                <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${orderId}">
+                                    <barcode:code128>
+                                        <barcode:height>0.4in</barcode:height>
+                                        <barcode:module-width>0.3mm</barcode:module-width>
+                                    </barcode:code128>
+                                    <barcode:human-readable>
+                                        <barcode:placement>bottom</barcode:placement>
+                                        <barcode:font-name>Helvetica</barcode:font-name>
+                                        <barcode:font-size>12pt</barcode:font-size>
+                                        <barcode:display-start-stop>false</barcode:display-start-stop>
+                                        <barcode:display-checksum>false</barcode:display-checksum>
+                                    </barcode:human-readable>
+                                </barcode:barcode>
+                            </fo:instream-foreign-object>
+                        </fo:block>
+                    </fo:table-cell>
+                </fo:table-row></fo:table-body>
+            </fo:table>
         </fo:static-content>
         <fo:static-content flow-name="xsl-region-after" font-size="8pt">
             <fo:block border-top="thin solid black">
-                <#-- TODO: show vendor's contact info (customer service or billing address, phone, email -->
+                <#-- TODO: show vendor's contact info (customer service or billing address, phone, email)? -->
                 <fo:block text-align="center">Order #${orderId} -- <#if orderHeader.placedDate??>${ec.l10n.format(orderHeader.placedDate, "dd MMM yyyy")}<#else>Not yet placed</#if> -- Page <fo:page-number/></fo:block>
             </fo:block>
         </fo:static-content>
 
         <fo:flow flow-name="xsl-region-body">
-            <fo:table table-layout="fixed" margin-bottom="0.1in">
-                <fo:table-body><fo:table-row>
-                    <fo:table-cell padding="3pt">
-                        <fo:block>Order #${orderId}</fo:block>
-                        <fo:block>Date: <#if orderHeader.placedDate??>${ec.l10n.format(orderHeader.placedDate, "dd MMM yyyy")}<#else>Not yet placed</#if></fo:block>
-                        <fo:block>Total: ${ec.l10n.formatCurrency(orderHeader.grandTotal, orderHeader.currencyUomId, 2)}</fo:block>
-                    </fo:table-cell>
-                </fo:table-row></fo:table-body>
-            </fo:table>
 
             <#list orderPartInfoList as orderPartInfo>
                 <#assign orderPart = orderPartInfo.orderPart>
@@ -135,7 +143,7 @@ along with this software (see the LICENSE.md file). If not, see
                             <fo:table-cell padding="${cellPadding}"><fo:block></fo:block></fo:table-cell>
                             <fo:table-cell padding="${cellPadding}"><fo:block></fo:block></fo:table-cell>
                             <fo:table-cell padding="${cellPadding}"><fo:block></fo:block></fo:table-cell>
-                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">Total</fo:block></fo:table-cell>
+                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">Part Total</fo:block></fo:table-cell>
                             <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">${ec.l10n.formatCurrency(orderPart.partTotal, orderHeader.currencyUomId, 2)}</fo:block></fo:table-cell>
                         </fo:table-row>
                     </fo:table-body>
