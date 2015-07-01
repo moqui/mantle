@@ -29,8 +29,7 @@ along with this software (see the LICENSE.md file). If not, see
             <fo:block font-size="14pt" text-align="center" border-bottom="thin solid black">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromParty.organizationName!"", true))!""}${(fromParty.firstName)!""} ${(fromParty.lastName)!""}</fo:block>
             <fo:block text-align="right">
                 <fo:instream-foreign-object>
-                    <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns"
-                                     message="${invoiceId}">
+                    <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${invoiceId}">
                         <barcode:code128>
                             <barcode:height>0.4in</barcode:height>
                             <barcode:module-width>0.3mm</barcode:module-width>
@@ -55,9 +54,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <#if fromContactInfo.telecomNumber?has_content>
                     -- <#if fromContactInfo.telecomNumber.countryCode?has_content>${fromContactInfo.telecomNumber.countryCode}-</#if><#if fromContactInfo.telecomNumber.areaCode?has_content>${fromContactInfo.telecomNumber.areaCode}-</#if>${fromContactInfo.telecomNumber.contactNumber!""}
                 </#if>
-                <#if fromContactInfo.emailAddress?has_content>
-                    -- ${fromContactInfo.emailAddress}
-                </#if>
+                <#if fromContactInfo.emailAddress?has_content> -- ${fromContactInfo.emailAddress}</#if>
                 </fo:block>
                 <fo:block text-align="center">Invoice #${invoiceId} -- ${ec.l10n.format(invoice.invoiceDate, "dd MMM yyyy")} -- Page <fo:page-number/> of <fo:page-number-citation-last ref-id="mainSequence"/></fo:block>
             </fo:block>
@@ -161,9 +158,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </fo:table-body>
             </fo:table>
 
-            <#if invoice.invoiceMessage?has_content>
-                <fo:block margin-top="0.2in">${invoice.invoiceMessage}</fo:block>
-            </#if>
+            <#if invoice.invoiceMessage?has_content><fo:block margin-top="0.2in">${invoice.invoiceMessage}</fo:block></#if>
         </fo:flow>
     </fo:page-sequence>
 </fo:root>
