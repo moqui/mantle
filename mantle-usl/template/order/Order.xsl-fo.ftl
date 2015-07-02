@@ -84,6 +84,10 @@ along with this software (see the LICENSE.md file). If not, see
                             <fo:block>${orderPart.orderPartSeqId}</fo:block>
                             <fo:block font-weight="bold">Part Total</fo:block>
                             <fo:block>${ec.l10n.formatCurrency(orderPart.partTotal, orderHeader.currencyUomId, 2)}</fo:block>
+                            <#if orderPart.otherPartyOrderId?has_content>
+                                <fo:block font-weight="bold"><#if orderPartInfo.isVendorInternalOrg>Customer<#else>Vendor</#if> Order #</fo:block>
+                                <fo:block>${orderPart.otherPartyOrderId}</fo:block>
+                            </#if>
                         </fo:table-cell>
                         <fo:table-cell padding="3pt" width="2in">
                             <#if orderPartInfo.shipmentMethodEnum?has_content>
