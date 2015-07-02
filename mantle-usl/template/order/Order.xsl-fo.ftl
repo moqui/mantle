@@ -77,25 +77,31 @@ along with this software (see the LICENSE.md file). If not, see
                 <#if orderPartInfo.isCustomerInternalOrg><#assign contactInfo = orderPartInfo.facilityContactInfo>
                     <#else><#assign contactInfo = orderPartInfo></#if>
 
-                <fo:table table-layout="fixed" margin-bottom="0.1in">
+                <fo:table table-layout="fixed" margin-bottom="0.1in" width="7.5in">
                     <fo:table-body><fo:table-row>
-                        <fo:table-cell padding="3pt">
-                            <fo:block>Order Part #${orderPart.orderPartSeqId}</fo:block>
-                            <fo:block>Part Total: ${ec.l10n.formatCurrency(orderPart.partTotal, orderHeader.currencyUomId, 2)}</fo:block>
-                            <#if orderPartInfo.shipmentMethodEnum?has_content>
-                                <fo:block>Ship By: ${orderPartInfo.shipmentMethodEnum.description}</fo:block></#if>
-                            <fo:block>Ship Before: ${ec.l10n.format(orderPart.shipBeforeDate, "")}</fo:block>
-                            <fo:block>Delivery Date: ${ec.l10n.format(orderPart.estimatedDeliveryDate, "")}</fo:block>
-                            <#if orderPartInfo.facility?has_content>
-                                <fo:block>To Facility: ${ec.resource.expand("FacilityNameTemplate", "", orderPartInfo.facility)}</fo:block></#if>
+                        <fo:table-cell padding="3pt" width="2in">
+                            <fo:block font-weight="bold">Order Part #</fo:block>
+                            <fo:block>${orderPart.orderPartSeqId}</fo:block>
+                            <fo:block font-weight="bold">Part Total</fo:block>
+                            <fo:block>${ec.l10n.formatCurrency(orderPart.partTotal, orderHeader.currencyUomId, 2)}</fo:block>
                         </fo:table-cell>
-                        <fo:table-cell padding="3pt" font-size="10pt">
+                        <fo:table-cell padding="3pt" width="2in">
+                            <#if orderPartInfo.shipmentMethodEnum?has_content>
+                                <fo:block font-weight="bold">Ship By</fo:block>
+                                <fo:block>${orderPartInfo.shipmentMethodEnum.description}</fo:block>
+                            </#if>
+                            <fo:block font-weight="bold">Ship Before</fo:block>
+                            <fo:block>${ec.l10n.format(orderPart.shipBeforeDate, "")}</fo:block>
+                            <fo:block font-weight="bold">Delivery Date</fo:block>
+                            <fo:block>${ec.l10n.format(orderPart.estimatedDeliveryDate, "")}</fo:block>
+                        </fo:table-cell>
+                        <fo:table-cell padding="3pt" font-size="10pt" width="3.5in">
+                            <fo:block font-weight="bold">Ship To</fo:block>
                             <fo:block>${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(orderPartInfo.customerDetail.organizationName!"", true))!""} ${(orderPartInfo.customerDetail.firstName)!""} ${(orderPartInfo.customerDetail.lastName)!""}</fo:block>
                             <#if contactInfo.postalAddress?has_content>
                                 <fo:block>${(contactInfo.postalAddress.address1)!""}<#if contactInfo.postalAddress.unitNumber?has_content> #${contactInfo.postalAddress.unitNumber}</#if></fo:block>
-                                <#if contactInfo.postalAddress.address2?has_content><fo:block font-size="8pt">${contactInfo.postalAddress.address2}</fo:block></#if>
-                                <fo:block>${contactInfo.postalAddress.city!""}, ${(contactInfo.postalAddressStateGeo.geoCodeAlpha2)!""} ${contactInfo.postalAddress.postalCode!""}<#if contactInfo.postalAddress.postalCodeExt?has_content>-${contactInfo.postalAddress.postalCodeExt}</#if></fo:block>
-                                <#if contactInfo.postalAddress.countryGeoId?has_content><fo:block font-size="8pt">${contactInfo.postalAddress.countryGeoId}</fo:block></#if>
+                                <#if contactInfo.postalAddress.address2?has_content><fo:block>${contactInfo.postalAddress.address2}</fo:block></#if>
+                                <fo:block>${contactInfo.postalAddress.city!""}, ${(contactInfo.postalAddressStateGeo.geoCodeAlpha2)!""} ${contactInfo.postalAddress.postalCode!""}<#if contactInfo.postalAddress.postalCodeExt?has_content>-${contactInfo.postalAddress.postalCodeExt}</#if><#if contactInfo.postalAddress.countryGeoId?has_content> ${contactInfo.postalAddress.countryGeoId}</#if></fo:block>
                             </#if>
                             <#if contactInfo.telecomNumber?has_content>
                                 <fo:block><#if contactInfo.telecomNumber.countryCode?has_content>${contactInfo.telecomNumber.countryCode}-</#if><#if contactInfo.telecomNumber.areaCode?has_content>${contactInfo.telecomNumber.areaCode}-</#if>${contactInfo.telecomNumber.contactNumber!""}</fo:block>
@@ -103,6 +109,11 @@ along with this software (see the LICENSE.md file). If not, see
                             <#if contactInfo.emailAddress?has_content>
                                 <fo:block>${contactInfo.emailAddress}</fo:block>
                             </#if>
+                            <#--
+                            <#if orderPartInfo.facility?has_content>
+                                <fo:block>${ec.resource.expand("FacilityNameTemplate", "", orderPartInfo.facility)}</fo:block>
+                            </#if>
+                            -->
                         </fo:table-cell>
                     </fo:table-row></fo:table-body>
                 </fo:table>
