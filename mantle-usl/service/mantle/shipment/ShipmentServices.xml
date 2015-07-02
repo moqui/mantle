@@ -13,7 +13,9 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-    <!-- STATUS: EXPERIMENTAL -->
+    <!-- ==================================================== -->
+    <!-- ========== Shipment View/Display Services ========== -->
+    <!-- ==================================================== -->
 
     <service verb="get" noun="ShipmentDisplayInfo">
         <in-parameters><parameter name="shipmentId"/></in-parameters>
@@ -71,6 +73,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="shipmentId"/><order-by field-name="-contentDate"/></entity-find>
         </actions>
     </service>
+
+    <!-- ========================================================= -->
+    <!-- ========== Shipment Create and Modify Services ========== -->
+    <!-- ========================================================= -->
 
     <service verb="create" noun="Shipment">
         <in-parameters>
@@ -277,6 +283,30 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="create" noun="ShipmentPackage">
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <auto-parameters entity-name="mantle.shipment.ShipmentPackage" include="nonpk"/>
+        </in-parameters>
+        <out-parameters><parameter name="shipmentPackageSeqId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.shipment.ShipmentPackage" in-map="context" out-map="context"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <iterate list="srsList" entry="srs">
+                <service-call name="create#mantle.shipment.ShipmentPackageRouteSeg"
+                        in-map="[shipmentId:shipmentId, shipmentPackageSeqId:shipmentPackageSeqId,
+                                shipmentRouteSegmentSeqId:srs.shipmentRouteSegmentSeqId]"/>
+            </iterate>
+
+        </actions>
+    </service>
+
+    <!-- ============================================= -->
+    <!-- ========== Order Shipment Services ========== -->
+    <!-- ============================================= -->
+
     <service verb="ship" noun="OrderPart">
         <!-- TODO: removed transaction="cache" because of issue related to create of ShipmentItemSource, then
             InventoryItem, then update of SIS to refer to it, causes FK issue as SIS gets created first; TX cache
@@ -416,25 +446,9 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="create" noun="ShipmentPackage">
-        <in-parameters>
-            <parameter name="shipmentId" required="true"/>
-            <auto-parameters entity-name="mantle.shipment.ShipmentPackage" include="nonpk"/>
-        </in-parameters>
-        <out-parameters><parameter name="shipmentPackageSeqId"/></out-parameters>
-        <actions>
-            <service-call name="create#mantle.shipment.ShipmentPackage" in-map="context" out-map="context"/>
-
-            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
-                <econdition field-name="shipmentId"/></entity-find>
-            <iterate list="srsList" entry="srs">
-                <service-call name="create#mantle.shipment.ShipmentPackageRouteSeg"
-                        in-map="[shipmentId:shipmentId, shipmentPackageSeqId:shipmentPackageSeqId,
-                                shipmentRouteSegmentSeqId:srs.shipmentRouteSegmentSeqId]"/>
-            </iterate>
-
-        </actions>
-    </service>
+    <!-- =============================================== -->
+    <!-- ========== Shipping/Packing Services ========== -->
+    <!-- =============================================== -->
 
     <service verb="pack" noun="ShipmentProduct">
         <in-parameters>
@@ -607,6 +621,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ======================================== -->
+    <!-- ========== Receiving Services ========== -->
+    <!-- ======================================== -->
+
     <service verb="receive" noun="EntireShipment" transaction="cache">
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
@@ -706,6 +724,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ============================================ -->
+    <!-- ========== Misc Shipment Services ========== -->
+    <!-- ============================================ -->
+
     <service verb="convert" noun="ProductBoxQuantity">
         <in-parameters>
             <parameter name="productId" required="true"/>
@@ -737,6 +759,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ============================================ -->
+    <!-- ========== Status Update Services ========== -->
+    <!-- ============================================ -->
+
     <service verb="pack" noun="Shipment">
         <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
         <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
@@ -754,7 +780,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ============================================== -->
     <!-- ========== ShipmentContent Services ========== -->
+    <!-- ============================================== -->
+
     <service verb="create" noun="ShipmentContent">
         <in-parameters>
             <auto-parameters entity-name="mantle.shipment.ShipmentContent" include="nonpk">

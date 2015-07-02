@@ -19,10 +19,8 @@ along with this software (see the LICENSE.md file). If not, see
 
     <parameter name="statusId"/>
 
-    <transition name="updateStatus">
-        <service-call name="update#example.Example"/>
-        <default-response url="."/>
-    </transition>
+    <transition name="updateStatus"><service-call name="update#example.Example"/>
+        <default-response url="."/></transition>
 
     <widgets>
         <!-- this requires a statusId field in the context, and a updateStatus transition with the PK and statusId as parameters -->
@@ -68,25 +66,66 @@ along with this software (see the LICENSE.md file). If not, see
                 <container-box>
                     <box-header><label text="Status History" type="h5"/></box-header>
                     <box-body>
-                        <section-iterate name="StatusHistoryList" list="statusHistoryList" entry="statusHistory">
-                            <actions>
-                                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                                    <field-map field-name="userId" from="statusHistory?.changedByUserId"/>
-                                </entity-find-one>
+                        <form-list name="StatusHistoryTable" list="statusHistoryList" skip-form="true" skip-header="true">
+                            <row-actions>
+                                <entity-find-one entity-name="mantle.party.PersonAndUserAccount" value-field="userAccount">
+                                    <field-map field-name="userId" from="changedByUserId"/></entity-find-one>
                                 <entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">
-                                    <field-map field-name="statusId" from="statusHistory?.oldValueText"/>
-                                </entity-find-one>
+                                    <field-map field-name="statusId" from="oldValueText"/></entity-find-one>
                                 <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem" cache="true">
-                                    <field-map field-name="statusId" from="statusHistory?.newValueText"/>
-                                </entity-find-one>
-                            </actions>
-                            <widgets>
-                                <label text="${oldStatusItem ? oldStatusItem.description + ' to ' : ''}${statusItem?.description}${(userAccount?.username ? ' by ' + ec.resource.expand('UsernameTemplate','',userAccount) : '')} at ${ec.l10n.format(statusHistory.changedDate, 'yyyy-MM-dd HH:mm')}" type="p"/>
-                            </widgets>
-                        </section-iterate>
+                                    <field-map field-name="statusId" from="newValueText"/></entity-find-one>
+                            </row-actions>
+                            <field name="newValueText">
+                                <default-field><display text="${statusItem?statusItem.description:''}"/></default-field></field>
+                            <field name="oldValueText">
+                                <default-field><display text="${oldStatusItem?'from '+oldStatusItem.description:''}"/></default-field></field>
+                            <field name="changedByUserId">
+                                <header-field title=""/><default-field><display text="by ${ec.resource.expand('UsernameTemplate','',userAccount?:[:])}"/></default-field></field>
+                            <field name="changedDate">
+                                <default-field><display text="at ${ec.l10n.format(changedDate, 'yyyy-MM-dd HH:mm')}"/></default-field></field>
+                        </form-list>
                     </box-body>
                 </container-box>
             </widgets>
         </section>
+
+        <!-- this requires a statusHistoryList field in the context (with moqui.entity.EntityAuditLog values) OR a
+        changedEntityName (like "example.Example") and pkPrimaryValue (exampleId, orderId, etc value) -->
+        <section name="StatusChangeAndHistorySection">
+            <actions>
+                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem"/>
+                <entity-find entity-name="moqui.basic.StatusFlowTransitionToDetail" list="statusTransitionList">
+                    <econdition field-name="statusId"/><order-by field-name="transitionSequence,transitionName"/></entity-find>
+                <if condition="!statusHistoryList &amp;&amp; changedEntityName">
+                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                        <econdition field-name="changedEntityName"/>
+                        <econdition field-name="changedFieldName" value="statusId"/>
+                        <econdition field-name="pkPrimaryValue"/>
+                        <order-by field-name="changedDate"/>
+                    </entity-find>
+                </if>
+            </actions>
+            <widgets>
+                <container-box>
+                    <box-header>
+                        <label text="Status:" type="h5"/>
+                        <label text="${statusItem?.description?:''}" type="h5"/>
+                    </box-header>
+                    <box-toolbar>
+                        <section-iterate name="StatusChangeLinkSection" list="statusTransitionList" entry="statusTransition">
+                            <widgets><link url="${statusChangeTransition ?: 'updateStatus'}"
+                                           text="TransitionNameTemplate" text-map="statusTransition"
+                                           parameter-map="[statusId:statusTransition.toStatusId]"/></widgets>
+                        </section-iterate>
+                    </box-toolbar>
+                    <box-body>
+                        <form-list name="StatusHistoryTable" list="statusHistoryList" skip-form="true"
+                                extends="component://mantle-usl/template/basic/StatusWidgets.xml#StatusHistoryTable">
+                        </form-list>
+                    </box-body>
+                </container-box>
+            </widgets>
+        </section>
+
     </widgets>
 </screen>
