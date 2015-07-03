@@ -450,6 +450,140 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== Shipping/Packing Services ========== -->
     <!-- =============================================== -->
 
+    <service verb="get" noun="ShipmentPickInfo">
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="originFacilityId"><description>Defaults to originFacilityId on the first ShipmentRouteSegment</description></parameter>
+            <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
+            <parameter name="productOrderBy" default-value="pseudoId,productName"/>
+        </in-parameters>
+        <out-parameters>
+            <!-- TODO: locationInfoList not yet populated -->
+            <parameter name="locationInfoList" type="List"/>
+            <!-- List of Maps with:
+              - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+              - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
+              - productInfoList - List of Maps with:
+                - Product fields (all fields from entity)
+                - quantityInfoList - List of Maps with:
+                  - quantity
+                  - binLocationNumber (from ShipmentItemSource)
+            -->
+            <parameter name="productInfoList" type="List"/>
+            <!-- List of Maps with:
+              - Product fields (all fields from entity)
+              - reservedLocationInfoList
+                - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+                - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
+                - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource, may be null) and value quantity
+              - otherLocationInfoList (same fields as reservedLocationInfoList)
+            -->
+        </out-parameters>
+        <actions>
+            <if condition="!originFacilityId">
+                <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
+                    <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+                <set field="originFacilityId" from="shipmentRouteSegmentList ? shipmentRouteSegmentList.first().originFacilityId : null"/>
+            </if>
+
+            <set field="locationInfoList" from="[]"/>
+            <set field="productInfoList" from="[]"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
+                <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+            <iterate list="shipmentItemList" entry="shipmentItem">
+                <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true">
+                    <field-map field-name="productId" from="shipmentItem.productId"/></entity-find-one>
+
+                <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
+                    <econdition field-name="shipmentId" from="shipmentItem.shipmentId"/>
+                    <econdition field-name="productId" from="shipmentItem.productId"/>
+                </entity-find>
+
+                <set field="reservedLocationInfoMap" from="[:]"/>
+                <set field="otherLocationInfoMap" from="[:]"/>
+                <iterate list="sisList" entry="sis">
+                    <if condition="!sis.quantityNotHandled"><continue/></if>
+                    <set field="curQuantityNotHandled" from="sis.quantityNotHandled"/>
+
+                    <!-- find assets by reservation, if any in place -->
+                    <entity-find entity-name="mantle.product.issuance.AssetAndReservation" list="resAssetList">
+                        <econdition field-name="orderId" from="sis.orderId"/>
+                        <econdition field-name="orderItemSeqId" from="sis.orderItemSeqId"/>
+                    </entity-find>
+                    <iterate list="resAssetList" entry="resAsset">
+                        <set field="assetLocKey" from="[facilityId:resAsset.facilityId, locationSeqId:resAsset.locationSeqId]"/>
+                        <set field="reservedLocationInfo" from="reservedLocationInfoMap.get(assetLocKey)"/>
+                        <if condition="!reservedLocationInfo">
+                            <set field="reservedLocationInfo" from="[quantityByBin:[:]]"/>
+                            <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
+                                <field-map field-name="facilityId" from="resAsset.facilityId"/>
+                                <field-map field-name="locationSeqId" from="resAsset.locationSeqId"/>
+                            </entity-find-one>
+                            <script>if (facLoc) reservedLocationInfo.putAll(facLoc)</script>
+                            <if condition="facLoc.geoPointId">
+                                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
+                                    <field-map field-name="facLoc.geoPointId"/></entity-find-one>
+                                <script>if (geoPoint) reservedLocationInfo.putAll(geoPoint)</script>
+                            </if>
+                            <script>reservedLocationInfoMap.put(assetLocKey, reservedLocationInfo)</script>
+                        </if>
+                        <set field="quantityToAdd" from="curQuantityNotHandled > resAsset.quantityNotIssued ? resAsset.quantityNotIssued : curQuantityNotHandled"/>
+                        <script>StupidUtilities.addToBigDecimalInMap(sis.binLocationNumber, quantityToAdd, reservedLocationInfo.quantityByBin)</script>
+                        <set field="curQuantityNotHandled" from="curQuantityNotHandled - quantityToAdd"/>
+                        <if condition="curQuantityNotHandled == 0"><break/></if>
+                    </iterate>
+
+                    <!-- find assets more generally for the product, like the reservation algorithm -->
+                    <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
+                        <econdition field-name="productId"/><econdition field-name="statusId" value="AstAvailable"/>
+                        <!-- exclude old, unused Asset records; is not-equals instead of greater so that negative ATP records
+                            for not-available reservations will be included and reused -->
+                        <econdition field-name="availableToPromiseTotal" operator="not-equals" from="0"/>
+                        <econdition field-name="facilityId" from="originFacilityId" ignore-if-empty="true"/>
+                    </entity-find>
+                    <iterate list="assetList" entry="asset">
+                        <set field="assetLocKey" from="[facilityId:asset.facilityId, locationSeqId:asset.locationSeqId]"/>
+                        <set field="otherLocationInfo" from="otherLocationInfoMap.get(assetLocKey)"/>
+                        <if condition="!otherLocationInfo">
+                            <set field="otherLocationInfo" from="[quantityByBin:[:]]"/>
+                            <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
+                                <field-map field-name="facilityId" from="asset.facilityId"/>
+                                <field-map field-name="locationSeqId" from="asset.locationSeqId"/>
+                            </entity-find-one>
+                            <script>if (facLoc) otherLocationInfo.putAll(facLoc)</script>
+                            <if condition="facLoc.geoPointId">
+                                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
+                                    <field-map field-name="facLoc.geoPointId"/></entity-find-one>
+                                <script>if (geoPoint) otherLocationInfo.putAll(geoPoint)</script>
+                            </if>
+                            <script>otherLocationInfoMap.put(assetLocKey, otherLocationInfo)</script>
+                        </if>
+                        <set field="quantityToAdd" from="curQuantityNotHandled > asset.quantityNotIssued ? asset.quantityNotIssued : curQuantityNotHandled"/>
+                        <script>StupidUtilities.addToBigDecimalInMap(sis.binLocationNumber, quantityToAdd, otherLocationInfo.quantityByBin)</script>
+                        <set field="curQuantityNotHandled" from="curQuantityNotHandled - quantityToAdd"/>
+                        <if condition="curQuantityNotHandled == 0"><break/></if>
+                    </iterate>
+
+                    
+                </iterate>
+                <set field="reservedLocationInfoList" from="new ArrayList(reservedLocationInfoMap.values())"/>
+                <order-map-list list="reservedLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+                <set field="otherLocationInfoList" from="new ArrayList(otherLocationInfoMap.values())"/>
+                <order-map-list list="otherLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+
+                <script>
+                    productInfo = [reservedLocationInfoList:reservedLocationInfoList, otherLocationInfoList:otherLocationInfoList]
+                    productInfo.putAll(product)
+                    productInfoList.add(productInfo)
+                </script>
+            </iterate>
+
+            <order-map-list list="locationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            <order-map-list list="productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+        </actions>
+    </service>
+
     <service verb="pack" noun="ShipmentProduct">
         <in-parameters>
             <parameter name="productId" required="true"/>
