@@ -465,7 +465,7 @@ along with this software (see the LICENSE.md file). If not, see
               - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
               - productInfoList - List of Maps with:
                 - Product fields (all fields from entity)
-                - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource, may be null) and value quantity
+                - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource or Shipment, may be null) and value quantity
             -->
             <parameter name="productInfoList" type="List"/>
             <!-- productInfoList is a List of Maps with:
@@ -473,11 +473,13 @@ along with this software (see the LICENSE.md file). If not, see
               - reservedLocationInfoList
                 - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
                 - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
-                - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource, may be null) and value quantity
+                - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource or Shipment, may be null) and value quantity
               - otherLocationInfoList (same fields as reservedLocationInfoList)
             -->
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+
             <if condition="!originFacilityId">
                 <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
                     <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
@@ -503,6 +505,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="productOtherLocationInfoMap" from="[:]"/>
                 <iterate list="sisList" entry="sis">
                     <if condition="!sis.quantityNotHandled"><continue/></if>
+                    <set field="binLocationNumber" from="sis.binLocationNumber ?: shipment.binLocationNumber"/>
 
                     <!-- find assets by reservation, if any in place -->
                     <entity-find entity-name="mantle.product.issuance.AssetAndReservation" list="resAssetList">
@@ -554,10 +557,10 @@ along with this software (see the LICENSE.md file). If not, see
                             reservedProductInfo.putAll(product)
                             reservedLocationInfoMap.productInfoMap.put(shipmentItem.productId, reservedProductInfo)
                         </script></if>
-                        <script>StupidUtilities.addToBigDecimalInMap(sis.binLocationNumber, quantityToAdd, reservedProductInfo.quantityByBin)</script>
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, reservedProductInfo.quantityByBin)</script>
 
                         <!-- handle quantity for productInfoList -->
-                        <script>StupidUtilities.addToBigDecimalInMap(sis.binLocationNumber, quantityToAdd, productReservedLocationInfo.quantityByBin)</script>
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productReservedLocationInfo.quantityByBin)</script>
 
                         <set field="curQuantityNotHandled" from="curQuantityNotHandled - quantityToAdd"/>
                         <if condition="curQuantityNotHandled == 0"><break/></if>
@@ -618,10 +621,10 @@ along with this software (see the LICENSE.md file). If not, see
                             productInfo.putAll(product)
                             otherLocationInfoMap.productInfoMap.put(shipmentItem.productId, productInfo)
                         </script></if>
-                        <script>StupidUtilities.addToBigDecimalInMap(sis.binLocationNumber, quantityToAdd, productInfo.quantityByBin)</script>
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productInfo.quantityByBin)</script>
 
                         <!-- handle quantity for productInfoList -->
-                        <script>StupidUtilities.addToBigDecimalInMap(sis.binLocationNumber, quantityToAdd, productOtherLocationInfo.quantityByBin)</script>
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productOtherLocationInfo.quantityByBin)</script>
                         <set field="curQuantityNotHandled" from="curQuantityNotHandled - quantityToAdd"/>
                         <if condition="curQuantityNotHandled == 0"><break/></if>
                     </iterate>
