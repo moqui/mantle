@@ -450,14 +450,15 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== Shipping/Packing Services ========== -->
     <!-- =============================================== -->
 
-    <service verb="get" noun="ShipmentPickInfo">
+    <service verb="get" noun="PicklistPickInfo">
         <in-parameters>
-            <parameter name="shipmentId" required="true"/>
+            <parameter name="picklistId" required="true"/>
             <parameter name="originFacilityId"><description>Defaults to originFacilityId on the first ShipmentRouteSegment</description></parameter>
             <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
             <parameter name="productOrderBy" default-value="pseudoId,productName"/>
         </in-parameters>
         <out-parameters>
+            <parameter name="shipmentList" type="EntityList"/>
             <parameter name="reservedLocationInfoList" type="List"/>
             <parameter name="otherLocationInfoList" type="List"/>
             <!-- reservedLocationInfoList and otherLocationInfoList are List of Maps with:
@@ -476,6 +477,40 @@ along with this software (see the LICENSE.md file). If not, see
                 - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource or Shipment, may be null) and value quantity
               - otherLocationInfoList (same fields as reservedLocationInfoList)
             -->
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.shipment.Shipment" list="shipmentList">
+                <econdition field-name="picklistId"/><order-by field-name="binLocationNumber"/></entity-find>
+
+            <set field="productInfoList" from="[]"/>
+            <set field="reservedLocationInfoMap" from="[:]"/>
+            <set field="otherLocationInfoMap" from="[:]"/>
+
+            <iterate list="shipmentList" entry="shipment">
+                <service-call name="mantle.shipment.ShipmentServices.get#ShipmentPickInfo" out-map="pickInfoOut"
+                        in-map="[shipmentId:shipment.shipmentId, originFacilityId:originFacilityId,
+                                 locationOrderBy:locationOrderBy, productOrderBy:productOrderBy]"/>
+                <!-- TODO -->
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="get" noun="ShipmentPickInfo">
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="originFacilityId"><description>Defaults to originFacilityId on the first ShipmentRouteSegment</description></parameter>
+            <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
+            <parameter name="productOrderBy" default-value="pseudoId,productName"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="reservedLocationInfoList" type="List"/>
+            <parameter name="otherLocationInfoList" type="List"/>
+            <parameter name="productInfoList" type="List"/>
+
+            <!-- for use by get#PicklistPickInfo and others that need more structured results -->
+            <parameter name="reservedLocationInfoMap" type="Map"/>
+            <parameter name="otherLocationInfoMap" type="Map"/>
+            <parameter name="reservedLocationInfoMap" type="Map"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
@@ -636,7 +671,9 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <script>
                     productInfo = [reservedLocationInfoList:productReservedLocationInfoList,
-                                   otherLocationInfoList:productOtherLocationInfoList]
+                                   productReservedLocationInfoMap:productReservedLocationInfoMap,
+                                   otherLocationInfoList:productOtherLocationInfoList,
+                                   productOtherLocationInfoMap:productOtherLocationInfoMap]
                     productInfo.putAll(product)
                     productInfoList.add(productInfo)
                 </script>
