@@ -453,13 +453,15 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="ShipmentLoadPickInfo">
         <in-parameters>
             <parameter name="workEffortId" required="true"/>
-            <parameter name="originFacilityId"><description>The warehouse the shipments are coming froms. Defaults to
-                WorkEffort.facilityId unless it is a dock type facility and has a warehouse parent facility, or
-                originFacilityId on the first ShipmentRouteSegment</description></parameter>
             <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
             <parameter name="productOrderBy" default-value="pseudoId,productName"/>
         </in-parameters>
         <out-parameters>
+            <parameter name="workEffort" type="EntityValue"/>
+            <parameter name="dockFacility" type="EntityValue"/>
+            <parameter name="warehouseFacility" type="EntityValue"><description>The warehouse the shipments come
+                from. Based on WorkEffort.facilityId unless it is a dock type facility and has a warehouse parent
+                facility.</description></parameter>
             <parameter name="shipmentList" type="EntityList"/>
             <parameter name="reservedLocationInfoList" type="List"/>
             <parameter name="otherLocationInfoList" type="List"/>
@@ -482,15 +484,21 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
-            <if condition="!originFacilityId &amp;&amp; workEffort.facilityId">
-                <entity-find-one entity-name="mantle.facility.Facility" value-field="loadFacility">
-                    <field-map field-name="facilityId" from="workEffort.facilityId"/></entity-find-one>
-                <if condition="loadFacility &amp;&amp; loadFacility.facilityTypeEnumId != 'FcTpWarehouse'">
-                    <!-- for either of these alternatives originFacilityId may still be null -->
-                    <set field="originFacilityId" from="loadFacility.parentFacilityId"/>
-                    <else><set field="originFacilityId" from="workEffort.facilityId"/></else>
-                </if>
+
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="dockFacility">
+                <field-map field-name="facilityId" from="workEffort.facilityId"/></entity-find-one>
+            <if condition="dockFacility &amp;&amp; dockFacility.facilityTypeEnumId != 'FcTpWarehouse'">
+                <!-- for any of these alternatives originFacilityId may still be null -->
+                <then>
+                    <entity-find-one entity-name="mantle.facility.Facility" value-field="warehouseFacility">
+                        <field-map field-name="facilityId" from="dockFacility.parentFacilityId"/></entity-find-one>
+                </then>
+                <else-if condition="dockFacility?.facilityTypeEnumId == 'FcTpWarehouse'">
+                    <set field="warehouseFacility" from="dockFacility"/>
+                    <set field="dockFacility" from="null"/>
+                </else-if>
             </if>
+            <set field="originFacilityId" from="warehouseFacility?.facilityId"/>
 
             <entity-find entity-name="mantle.shipment.Shipment" list="shipmentList">
                 <econdition field-name="shipWorkEffortId" from="workEffortId"/>
@@ -518,6 +526,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="productOrderBy" default-value="pseudoId,productName"/>
         </in-parameters>
         <out-parameters>
+            <parameter name="shipment" type="EntityValue"/>
+            <parameter name="warehouseFacility" type="EntityValue"><description>Facility record matching the passed or
+                looked up originFacilityId.</description></parameter>
             <parameter name="reservedLocationInfoList" type="List"/>
             <parameter name="otherLocationInfoList" type="List"/>
             <parameter name="productInfoList" type="List"/>
@@ -535,6 +546,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
                 <set field="originFacilityId" from="shipmentRouteSegmentList ? shipmentRouteSegmentList.first().originFacilityId : null"/>
             </if>
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="warehouseFacility">
+                <field-map field-name="facilityId" from="originFacilityId"/></entity-find-one>
 
             <set field="productInfoList" from="[]"/>
             <set field="reservedLocationInfoMap" from="[:]"/>
