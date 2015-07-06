@@ -450,10 +450,11 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== Shipping/Packing Services ========== -->
     <!-- =============================================== -->
 
-    <service verb="get" noun="PicklistPickInfo">
+    <service verb="get" noun="ShipmentLoadPickInfo">
         <in-parameters>
-            <parameter name="picklistId" required="true"/>
-            <parameter name="originFacilityId"><description>Defaults to originFacilityId on the first ShipmentRouteSegment</description></parameter>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="originFacilityId"><description>Defaults to WorkEffort.facilityId unless it is a dock type
+                facility and has a warehouse parent facility, or originFacilityId on the first ShipmentRouteSegment</description></parameter>
             <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
             <parameter name="productOrderBy" default-value="pseudoId,productName"/>
         </in-parameters>
@@ -479,8 +480,20 @@ along with this software (see the LICENSE.md file). If not, see
             -->
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+            <if condition="!originFacilityId &amp;&amp; workEffort.facilityId">
+                <entity-find-one entity-name="mantle.facility.Facility" value-field="loadFacility">
+                    <field-map field-name="facilityId" from="workEffort.facilityId"/></entity-find-one>
+                <if condition="loadFacility &amp;&amp; loadFacility.facilityTypeEnumId != 'FcTpWarehouse'">
+                    <!-- for either of these alternatives originFacilityId may still be null -->
+                    <set field="originFacilityId" from="loadFacility.parentFacilityId"/>
+                    <else><set field="originFacilityId" from="workEffort.facilityId"/></else>
+                </if>
+            </if>
+
             <entity-find entity-name="mantle.shipment.Shipment" list="shipmentList">
-                <econdition field-name="picklistId"/><order-by field-name="binLocationNumber"/></entity-find>
+                <econdition field-name="shipWorkEffortId" from="workEffortId"/>
+                <order-by field-name="binLocationNumber"/></entity-find>
 
             <set field="productInfoList" from="[]"/>
             <set field="reservedLocationInfoMap" from="[:]"/>
