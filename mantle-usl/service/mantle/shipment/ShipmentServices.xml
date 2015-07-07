@@ -84,9 +84,10 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="shipment" type="Map"/>
-            <parameter name="shipmentRouteSegment" type="Map"/>
-            <parameter name="originFacility" type="EntityValue"/>
-            <parameter name="destinationFacility" type="EntityValue"/>
+            <parameter name="firstShipmentRouteSegment" type="Map"/>
+            <parameter name="lastShipmentRouteSegment" type="Map"/>
+            <parameter name="originFacility" type="Map"/>
+            <parameter name="destinationFacility" type="Map"/>
 
             <parameter name="fromPartyId"><description>Shipment.fromPartyId or if empty then warehouse Facility.ownerPartyId</description></parameter>
             <parameter name="fromPartyDetail" type="Map"/>
@@ -107,21 +108,22 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="shipmentRouteSegmentSeqId" ignore-if-empty="true"/>
                 <order-by field-name="shipmentRouteSegmentSeqId"/>
             </entity-find>
-            <set field="shipmentRouteSegment" from="shipmentRouteSegmentList ? shipmentRouteSegmentList.first() : null"/>
+            <set field="firstShipmentRouteSegment" from="shipmentRouteSegmentList ? shipmentRouteSegmentList.first() : null"/>
+            <set field="lastShipmentRouteSegment" from="shipmentRouteSegmentList ? shipmentRouteSegmentList.last() : null"/>
 
             <entity-find-one entity-name="mantle.facility.Facility" value-field="originFacility">
-                <field-map field-name="facilityId" from="shipmentRouteSegment?.originFacilityId"/></entity-find-one>
+                <field-map field-name="facilityId" from="firstShipmentRouteSegment?.originFacilityId"/></entity-find-one>
             <entity-find-one entity-name="mantle.facility.Facility" value-field="destinationFacility">
-                <field-map field-name="facilityId" from="shipmentRouteSegment?.destinationFacilityId"/></entity-find-one>
+                <field-map field-name="facilityId" from="lastShipmentRouteSegment?.destinationFacilityId"/></entity-find-one>
 
             <set field="fromPartyId" from="shipment.fromPartyId ?: warehouseFacility?.ownerPartyId"/>
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromPartyDetail">
                 <field-map field-name="partyId" from="fromPartyId"/></entity-find-one>
 
-            <if condition="shipmentRouteSegment?.originFacilityId">
-                <set field="fromContactIdMap" from="[facilityId:shipmentRouteSegment?.originFacilityId,
-                        postalContactMechId:shipmentRouteSegment.originPostalContactMechId,
-                        telecomContactMechId:shipmentRouteSegment.originTelecomContactMechId]"/>
+            <if condition="firstShipmentRouteSegment?.originFacilityId">
+                <set field="fromContactIdMap" from="[facilityId:firstShipmentRouteSegment?.originFacilityId,
+                        postalContactMechId:firstShipmentRouteSegment?.originPostalContactMechId,
+                        telecomContactMechId:firstShipmentRouteSegment?.originTelecomContactMechId]"/>
                 <!-- will handle the contactMechIds if we have them now, otherwise use the purposes to look up -->
                 <service-call name="mantle.facility.ContactServices.get#FacilityContactInfo" out-map="fromContactInfo"
                         in-map="fromContactIdMap + [postalContactMechPurposeId:'PostalShippingOrigin',
@@ -134,10 +136,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toPartyDetail">
                 <field-map field-name="partyId" from="shipment.toPartyId"/></entity-find-one>
-            <if condition="shipmentRouteSegment?.destinationFacilityId">
-                <set field="toContactIdMap" from="[facilityId:shipmentRouteSegment?.destinationFacilityId,
-                        postalContactMechId:shipmentRouteSegment.destPostalContactMechId,
-                        telecomContactMechId:shipmentRouteSegment.destTelecomContactMechId]"/>
+            <if condition="lastShipmentRouteSegment?.destinationFacilityId">
+                <set field="toContactIdMap" from="[facilityId:lastShipmentRouteSegment?.destinationFacilityId,
+                        postalContactMechId:lastShipmentRouteSegment?.destPostalContactMechId,
+                        telecomContactMechId:lastShipmentRouteSegment?.destTelecomContactMechId]"/>
                 <!-- will handle the contactMechIds if we have them now, otherwise use the purposes to look up -->
                 <service-call name="mantle.facility.ContactServices.get#FacilityContactInfo" out-map="fromContactInfo"
                         in-map="toContactIdMap + [postalContactMechPurposeId:'PostalShippingDest',
@@ -536,7 +538,7 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="workEffort" type="EntityValue"/>
             <parameter name="dockFacility" type="EntityValue"/>
-            <parameter name="warehouseFacility" type="EntityValue"><description>The warehouse the shipments come
+            <parameter name="originFacility" type="EntityValue"><description>The warehouse the shipments come
                 from. Based on WorkEffort.facilityId unless it is a dock type facility and has a warehouse parent
                 facility.</description></parameter>
             <parameter name="shipmentList" type="EntityList"/>
@@ -595,17 +597,17 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="get" noun="ShipmentPickPackInfo">
-        <description>Get information for single shipment pick or pack insert documents.</description>
+        <description>Get information for single shipment pick sheet or pack insert documents.</description>
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
-            <parameter name="originFacilityId"><description>The warehouse the shipment comes from. Defaults to
-                originFacilityId on the first ShipmentRouteSegment.</description></parameter>
             <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
             <parameter name="productOrderBy" default-value="pseudoId,productName"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="shipment" type="EntityValue"/>
-            <parameter name="warehouseFacility" type="EntityValue"><description>Facility record matching the passed or
+            <parameter name="shipment" type="Map"/>
+            <parameter name="firstShipmentRouteSegment" type="Map"/>
+            <parameter name="lastShipmentRouteSegment" type="Map"/>
+            <parameter name="originFacility" type="EntityValue"><description>Facility record matching the passed or
                 looked up originFacilityId.</description></parameter>
 
             <parameter name="fromPartyId"><description>Shipment.fromPartyId or if empty then warehouse Facility.ownerPartyId</description></parameter>
