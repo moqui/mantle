@@ -64,7 +64,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <#if fromContactInfo.emailAddress?has_content> -- ${fromContactInfo.emailAddress}</#if>
                 </fo:block>
                 -->
-                <fo:block text-align="center">Picklist for Shipment #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, dateFormat)} -- </#if>Page <fo:page-number/></fo:block>
+                <fo:block text-align="center">Picklist for Shipment #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, dateFormat)} -- </#if>Printed ${ec.l10n.format(ec.user.nowTimestamp, dateTimeFormat)} -- Page <fo:page-number/></fo:block>
             </fo:block>
         </fo:static-content>
 
