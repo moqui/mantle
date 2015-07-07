@@ -155,7 +155,8 @@ along with this software (see the LICENSE.md file). If not, see
                                     </barcode:barcode>
                                 </fo:instream-foreign-object>
                             </fo:block></fo:table-cell>
-                            <fo:table-cell padding="${cellPadding}" number-columns-spanned="4"><fo:block text-align="left">${ec.resource.expand("ProductNameTemplate", "", productInfo)}</fo:block></fo:table-cell>
+                            <fo:table-cell padding="${cellPadding}" number-columns-spanned="3"><fo:block text-align="left">${ec.resource.expand("ProductNameTemplate", "", productInfo)}</fo:block></fo:table-cell>
+                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${productInfo.quantity}</fo:block></fo:table-cell>
                         </fo:table-row>
                         <#if productInfo.reservedLocationInfoList?has_content><#list productInfo.reservedLocationInfoList as locationInfo>
                             <fo:table-row font-size="9pt" border-top="thin solid black">
