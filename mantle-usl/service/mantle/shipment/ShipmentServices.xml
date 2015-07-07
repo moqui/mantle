@@ -546,6 +546,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="otherLocationInfoList" type="List"/>
             <!-- reservedLocationInfoList and otherLocationInfoList are List of Maps with:
               - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+              - locationTypeEnum
               - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
               - productInfoList - List of Maps with:
                 - Product fields (all fields from entity)
@@ -556,6 +557,7 @@ along with this software (see the LICENSE.md file). If not, see
               - Product fields (all fields from entity)
               - reservedLocationInfoList
                 - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+                - locationTypeEnum
                 - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
                 - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource or Shipment, may be null) and value quantity
               - otherLocationInfoList (same fields as reservedLocationInfoList)
@@ -607,8 +609,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="shipment" type="Map"/>
             <parameter name="firstShipmentRouteSegment" type="Map"/>
             <parameter name="lastShipmentRouteSegment" type="Map"/>
-            <parameter name="originFacility" type="EntityValue"><description>Facility record matching the passed or
-                looked up originFacilityId.</description></parameter>
+            <parameter name="originFacility" type="Map"/>
+            <parameter name="destinationFacility" type="Map"/>
 
             <parameter name="fromPartyId"><description>Shipment.fromPartyId or if empty then warehouse Facility.ownerPartyId</description></parameter>
             <parameter name="fromPartyDetail" type="Map"/>
@@ -654,7 +656,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="productOtherLocationInfoMap" from="[:]"/>
                 <iterate list="sisList" entry="sis">
                     <if condition="!sis.quantityNotHandled"><continue/></if>
-                    <set field="binLocationNumber" from="sis.binLocationNumber ?: shipment.binLocationNumber"/>
+                    <set field="binLocationNumber" from="sis.binLocationNumber ?: shipment.binLocationNumber ?: 'N/A'"/>
 
                     <!-- find assets by reservation, if any in place -->
                     <entity-find entity-name="mantle.product.issuance.AssetAndReservation" list="resAssetList">
@@ -664,16 +666,17 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="curQuantityNotHandled" from="sis.quantityNotHandled"/>
                     <iterate list="resAssetList" entry="resAsset">
                         <set field="assetLocKey" from="[facilityId:resAsset.facilityId, locationSeqId:resAsset.locationSeqId]"/>
+                        <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
+                            <field-map field-name="facilityId" from="resAsset.facilityId"/>
+                            <field-map field-name="locationSeqId" from="resAsset.locationSeqId"/>
+                        </entity-find-one>
+                        <set field="locationTypeEnum" from="facLoc?.'FacilityLocationType#moqui.basic.Enumeration'"/>
 
                         <set field="reservedLocationInfo" from="reservedLocationInfoMap.get(assetLocKey)"/>
                         <if condition="!reservedLocationInfo">
-                            <set field="reservedLocationInfo" from="[productInfoMap:[:]]"/>
-                            <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
-                                <field-map field-name="facilityId" from="resAsset.facilityId"/>
-                                <field-map field-name="locationSeqId" from="resAsset.locationSeqId"/>
-                            </entity-find-one>
+                            <set field="reservedLocationInfo" from="[productInfoMap:[:], locationTypeEnum:locationTypeEnum]"/>
                             <script>if (facLoc) reservedLocationInfo.putAll(facLoc)</script>
-                            <if condition="facLoc.geoPointId">
+                            <if condition="facLoc?.geoPointId">
                                 <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
                                     <field-map field-name="facLoc.geoPointId"/></entity-find-one>
                                 <script>if (geoPoint) reservedLocationInfo.putAll(geoPoint)</script>
@@ -683,13 +686,9 @@ along with this software (see the LICENSE.md file). If not, see
 
                         <set field="productReservedLocationInfo" from="productReservedLocationInfoMap.get(assetLocKey)"/>
                         <if condition="!productReservedLocationInfo">
-                            <set field="productReservedLocationInfo" from="[quantityByBin:[:]]"/>
-                            <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
-                                <field-map field-name="facilityId" from="resAsset.facilityId"/>
-                                <field-map field-name="locationSeqId" from="resAsset.locationSeqId"/>
-                            </entity-find-one>
+                            <set field="productReservedLocationInfo" from="[quantityByBin:new TreeMap(), locationTypeEnum:locationTypeEnum]"/>
                             <script>if (facLoc) productReservedLocationInfo.putAll(facLoc)</script>
-                            <if condition="facLoc.geoPointId">
+                            <if condition="facLoc?.geoPointId">
                                 <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
                                     <field-map field-name="facLoc.geoPointId"/></entity-find-one>
                                 <script>if (geoPoint) productReservedLocationInfo.putAll(geoPoint)</script>
@@ -700,11 +699,11 @@ along with this software (see the LICENSE.md file). If not, see
                         <set field="quantityToAdd" from="curQuantityNotHandled > resAsset.quantityNotIssued ? resAsset.quantityNotIssued : curQuantityNotHandled"/>
 
                         <!-- handle quantity for reservedLocationInfoList -->
-                        <set field="reservedProductInfo" from="reservedLocationInfoMap.productInfoMap.get(shipmentItem.productId)"/>
+                        <set field="reservedProductInfo" from="reservedLocationInfo.productInfoMap.get(shipmentItem.productId)"/>
                         <if condition="!reservedProductInfo"><script>
-                            reservedProductInfo = [quantityByBin:[:]]
+                            reservedProductInfo = [quantityByBin:new TreeMap()]
                             reservedProductInfo.putAll(product)
-                            reservedLocationInfoMap.productInfoMap.put(shipmentItem.productId, reservedProductInfo)
+                            reservedLocationInfo.productInfoMap.put(shipmentItem.productId, reservedProductInfo)
                         </script></if>
                         <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, reservedProductInfo.quantityByBin)</script>
 
@@ -728,16 +727,17 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="curQuantityNotHandled" from="sis.quantityNotHandled"/>
                     <iterate list="assetList" entry="asset">
                         <set field="assetLocKey" from="[facilityId:asset.facilityId, locationSeqId:asset.locationSeqId]"/>
+                        <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
+                            <field-map field-name="facilityId" from="asset.facilityId"/>
+                            <field-map field-name="locationSeqId" from="asset.locationSeqId"/>
+                        </entity-find-one>
+                        <set field="locationTypeEnum" from="facLoc?.'FacilityLocationType#moqui.basic.Enumeration'"/>
 
                         <set field="otherLocationInfo" from="otherLocationInfoMap.get(assetLocKey)"/>
                         <if condition="!otherLocationInfo">
-                            <set field="otherLocationInfo" from="[productInfoMap:[:]]"/>
-                            <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
-                                <field-map field-name="facilityId" from="asset.facilityId"/>
-                                <field-map field-name="locationSeqId" from="asset.locationSeqId"/>
-                            </entity-find-one>
+                            <set field="otherLocationInfo" from="[productInfoMap:[:], locationTypeEnum:locationTypeEnum]"/>
                             <script>if (facLoc) otherLocationInfo.putAll(facLoc)</script>
-                            <if condition="facLoc.geoPointId">
+                            <if condition="facLoc?.geoPointId">
                                 <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
                                     <field-map field-name="facLoc.geoPointId"/></entity-find-one>
                                 <script>if (geoPoint) otherLocationInfo.putAll(geoPoint)</script>
@@ -747,13 +747,9 @@ along with this software (see the LICENSE.md file). If not, see
 
                         <set field="productOtherLocationInfo" from="productOtherLocationInfoMap.get(assetLocKey)"/>
                         <if condition="!productOtherLocationInfo">
-                            <set field="productOtherLocationInfo" from="[quantityByBin:[:]]"/>
-                            <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
-                                <field-map field-name="facilityId" from="asset.facilityId"/>
-                                <field-map field-name="locationSeqId" from="asset.locationSeqId"/>
-                            </entity-find-one>
+                            <set field="productOtherLocationInfo" from="[quantityByBin:new TreeMap(), locationTypeEnum:locationTypeEnum]"/>
                             <script>if (facLoc) productOtherLocationInfo.putAll(facLoc)</script>
-                            <if condition="facLoc.geoPointId">
+                            <if condition="facLoc?.geoPointId">
                                 <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
                                     <field-map field-name="facLoc.geoPointId"/></entity-find-one>
                                 <script>if (geoPoint) productOtherLocationInfo.putAll(geoPoint)</script>
@@ -764,11 +760,11 @@ along with this software (see the LICENSE.md file). If not, see
                         <set field="quantityToAdd" from="curQuantityNotHandled > asset.quantityNotIssued ? asset.quantityNotIssued : curQuantityNotHandled"/>
 
                         <!-- handle quantity for reservedLocationInfoList -->
-                        <set field="productInfo" from="otherLocationInfoMap.productInfoMap.get(shipmentItem.productId)"/>
+                        <set field="productInfo" from="otherLocationInfo.productInfoMap.get(shipmentItem.productId)"/>
                         <if condition="!productInfo"><script>
-                            productInfo = [quantityByBin:[:]]
+                            productInfo = [quantityByBin:new TreeMap()]
                             productInfo.putAll(product)
-                            otherLocationInfoMap.productInfoMap.put(shipmentItem.productId, productInfo)
+                            otherLocationInfo.productInfoMap.put(shipmentItem.productId, productInfo)
                         </script></if>
                         <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productInfo.quantityByBin)</script>
 
@@ -795,11 +791,11 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- go through reservedLocationInfoMap and otherLocationInfoMap and create productInfoList from productInfoMap, then sort -->
             <iterate list="reservedLocationInfoMap" entry="locationInfo" key="assetLocKey">
-                <set field="locationInfo.productInfoList" from="locationInfo.productInfoMap.value()"/>
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
                 <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
             </iterate>
             <iterate list="otherLocationInfoMap" entry="locationInfo" key="assetLocKey">
-                <set field="locationInfo.productInfoList" from="locationInfo.productInfoMap.value()"/>
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
                 <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
             </iterate>
 
