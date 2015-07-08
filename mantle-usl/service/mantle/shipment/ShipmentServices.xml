@@ -536,12 +536,16 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="productOrderBy" default-value="pseudoId,productName"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="workEffort" type="EntityValue"/>
-            <parameter name="dockFacility" type="EntityValue"/>
-            <parameter name="originFacility" type="EntityValue"><description>The warehouse the shipments come
+            <parameter name="workEffort" type="Map"/>
+            <parameter name="dockFacility" type="Map"/>
+            <parameter name="originFacility" type="Map"><description>The warehouse the shipments come
                 from. Based on WorkEffort.facilityId unless it is a dock type facility and has a warehouse parent
                 facility.</description></parameter>
-            <parameter name="shipmentList" type="EntityList"/>
+            <parameter name="shipmentList" type="List"/>
+            <parameter name="shipmentPickPackInfoList" type="List"><description>List of Maps withs result from calls to
+                the get#ShipmentPickPackInfo service.</description></parameter>
+
+            <!-- The following are consolidated lists for picking -->
             <parameter name="reservedLocationInfoList" type="List"/>
             <parameter name="otherLocationInfoList" type="List"/>
             <!-- reservedLocationInfoList and otherLocationInfoList are List of Maps with:
@@ -586,15 +590,116 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="shipWorkEffortId" from="workEffortId"/>
                 <order-by field-name="binLocationNumber"/></entity-find>
 
-            <set field="productInfoList" from="[]"/>
+            <set field="shipmentPickPackInfoList" from="[]"/>
+
+            <set field="productInfoMap" from="[:]"/>
             <set field="reservedLocationInfoMap" from="[:]"/>
             <set field="otherLocationInfoMap" from="[:]"/>
 
             <iterate list="shipmentList" entry="shipment">
-                <service-call name="mantle.shipment.ShipmentServices.get#ShipmentPickInfo" out-map="pickInfoOut"
+                <service-call name="mantle.shipment.ShipmentServices.get#ShipmentPickPackInfo" out-map="pickInfoOut"
                         in-map="[shipmentId:shipment.shipmentId, originFacilityId:originFacilityId,
                                  locationOrderBy:locationOrderBy, productOrderBy:productOrderBy]"/>
-                <!-- TODO -->
+                <script>shipmentPickPackInfoList.add(pickInfoOut)</script>
+
+                <iterate list="pickInfoOut.productInfoList" entry="curProductInfo">
+                    <set field="productInfo" from="productInfoMap.get(curProductInfo.productId)"/>
+                    <if condition="productInfo">
+                        <then>
+                            <!-- merge curProductInfo into productInfo -->
+                            <set field="productInfo.quantity" from="productInfo.quantity + curProductInfo.quantity"/>
+
+                            <iterate list="curProductInfo.productReservedLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                                <set field="locationInfo" from="productInfo.productReservedLocationInfoMap.get(assetLocKey)"/>
+                                <if condition="locationInfo">
+                                    <then>
+                                        <iterate list="curLocationInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, locationInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>productInfo.productReservedLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                                </if>
+                            </iterate>
+                            <iterate list="curProductInfo.productOtherLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                                <set field="locationInfo" from="productInfo.productOtherLocationInfoMap.get(assetLocKey)"/>
+                                <if condition="locationInfo">
+                                    <then>
+                                        <iterate list="curLocationInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, locationInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>productInfo.productReservedLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                                </if>
+                            </iterate>
+                        </then>
+                        <else><script>productInfoMap.put(curProductInfo.productId, curProductInfo)</script></else>
+                    </if>
+                </iterate>
+
+                <iterate list="pickInfoOut.reservedLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                    <set field="locationInfo" from="reservedLocationInfoMap.get(assetLocKey)"/>
+                    <if condition="locationInfo">
+                        <then>
+                            <!-- merge curLocationInfo into locationInfo -->
+                            <iterate list="curLocationInfo.productInfoMap" entry="curProductInfo" key="productId">
+                                <set field="productInfo" from="locationInfo.productInfoMap.get(productId)"/>
+                                <if condition="productInfo">
+                                    <then>
+                                        <iterate list="curProductInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>locationInfo.productInfoMap.put(productId, curProductInfo)</script></else>
+                                </if>
+                            </iterate>
+                        </then>
+                        <else><script>reservedLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                    </if>
+                </iterate>
+                <iterate list="pickInfoOut.otherLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                    <set field="locationInfo" from="otherLocationInfoMap.get(assetLocKey)"/>
+                    <if condition="locationInfo">
+                        <then>
+                            <!-- merge curLocationInfo into locationInfo -->
+                            <iterate list="curLocationInfo.productInfoMap" entry="curProductInfo" key="productId">
+                                <set field="productInfo" from="locationInfo.productInfoMap.get(productId)"/>
+                                <if condition="productInfo">
+                                    <then>
+                                        <iterate list="curProductInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>locationInfo.productInfoMap.put(productId, curProductInfo)</script></else>
+                                </if>
+                            </iterate>
+                        </then>
+                        <else><script>otherLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                    </if>
+                </iterate>
+            </iterate>
+
+            <!-- create and order Lists from Maps for productInfoList -->
+            <set field="productInfoList" from="new ArrayList(productInfoMap.values())"/>
+            <order-map-list list="productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+            <iterate list="productInfoList" entry="productInfo">
+                <set field="productInfo.reservedLocationInfoList" from="new ArrayList(productInfo.productReservedLocationInfoMap.values())"/>
+                <order-map-list list="productInfo.reservedLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+                <set field="productInfo.otherLocationInfoList" from="new ArrayList(productInfo.productOtherLocationInfoMap.values())"/>
+                <order-map-list list="productInfo.otherLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            </iterate>
+
+            <!-- create and order Lists from Maps for reservedLocationInfoList and otherLocationInfoList -->
+            <set field="reservedLocationInfoList" from="new ArrayList(reservedLocationInfoMap.values())"/>
+            <order-map-list list="reservedLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            <iterate list="reservedLocationInfoList" entry="locationInfo">
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
+                <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+            </iterate>
+            <set field="otherLocationInfoList" from="new ArrayList(otherLocationInfoMap.values())"/>
+            <order-map-list list="otherLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            <iterate list="otherLocationInfoList" entry="locationInfo">
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
+                <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
             </iterate>
         </actions>
     </service>
@@ -630,7 +735,6 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- for use by get#PicklistPickInfo and others that need more structured results -->
             <parameter name="reservedLocationInfoMap" type="Map"/>
             <parameter name="otherLocationInfoMap" type="Map"/>
-            <parameter name="reservedLocationInfoMap" type="Map"/>
         </out-parameters>
         <actions>
             <service-call name="mantle.shipment.ShipmentServices.get#ShipmentContactInfo" out-map="context"
