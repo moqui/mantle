@@ -31,7 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:static-content flow-name="xsl-region-before">
             <#if fromPartyDetail?has_content><fo:block font-size="14pt" text-align="center">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromPartyDetail.organizationName!"", true))!""}${(fromPartyDetail.firstName)!""} ${(fromPartyDetail.lastName)!""}</fo:block></#if>
             <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">Shipment Load Picklist</fo:block>
-            <fo:block-container absolute-position="absolute" top="0.3in" right="0.5in" width="3in">
+            <fo:block-container absolute-position="absolute" top="0.2in" right="0.5in" width="3in">
                 <fo:block text-align="right">
                     <fo:instream-foreign-object>
                         <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${workEffortId}">
@@ -60,7 +60,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:flow flow-name="xsl-region-body">
             <fo:table table-layout="fixed" margin-bottom="0.1in" width="7.5in">
                 <fo:table-body><fo:table-row>
-                    <fo:table-cell padding="3pt" width="2in">
+                    <fo:table-cell padding="3pt" width="3in">
                         <fo:block font-weight="bold">Shipment Load #</fo:block>
                         <fo:block>${workEffortId}</fo:block>
                         <#if warehouseFacility?has_content>
@@ -83,8 +83,12 @@ along with this software (see the LICENSE.md file). If not, see
                         </#if>
                     </fo:table-cell>
                     <fo:table-cell padding="3pt" width="3in">
-                        <#-- put anything here? no single dest address... maybe equipment/truck info -->
-                        <fo:block> </fo:block>
+                        <fo:block font-weight="bold">Equipment</fo:block>
+                        <#if assignedAssetList?has_content>
+                            <#list assignedAssetList as assignedAsset>
+                                <fo:block>${ec.resource.expand("AssetNameTemplate", "", assignedAsset)}</fo:block>
+                            </#list>
+                        </#if>
                     </fo:table-cell>
                 </fo:table-row></fo:table-body>
             </fo:table>
