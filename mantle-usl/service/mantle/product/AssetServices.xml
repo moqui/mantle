@@ -832,6 +832,9 @@ along with this software (see the LICENSE.md file). If not, see
                             facilityId:facilityId, locationSeqId:locationSeqId, geoPointId:geoPointId]"/>
             </if>
 
+            <!-- have originalQuantity default to quantity received -->
+            <set field="originalQuantity" from="originalQuantity ?: quantity"/>
+
             <!-- create or update the Asset record -->
             <if condition="!assetId">
                 <!-- TODO: if this has a workEffortId and not an orderId get acquireCost from WorkEffort somehow? -->
@@ -845,6 +848,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <else>
                     <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+                    <set field="asset.originalQuantity" from="(asset.originalQuantity ?: 0) + originalQuantity"/>
                     <set field="asset.containerId" from="asset.containerId ?: containerId"/>
                     <set field="asset.geoPointId" from="asset.geoPointId ?: geoPointId"/>
                     <set field="asset.acquireWorkEffortId" from="asset.acquireWorkEffortId ?: workEffortId"/>
