@@ -27,7 +27,11 @@ along with this software (see the LICENSE.md file). If not, see
         </fo:simple-page-master>
     </fo:layout-master-set>
 
-    <fo:page-sequence master-reference="letter-portrait">
+    <@shipmentLoadPickPageSequence/>
+</fo:root>
+
+<#macro shipmentLoadPickPageSequence>
+    <fo:page-sequence master-reference="letter-portrait" initial-page-number="1" force-page-count="no-force">
         <fo:static-content flow-name="xsl-region-before">
             <#if fromPartyDetail?has_content><fo:block font-size="14pt" text-align="center">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromPartyDetail.organizationName!"", true))!""}${(fromPartyDetail.firstName)!""} ${(fromPartyDetail.lastName)!""}</fo:block></#if>
             <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">Shipment Load Picklist</fo:block>
@@ -184,7 +188,7 @@ along with this software (see the LICENSE.md file). If not, see
             </#if>
         </fo:flow>
     </fo:page-sequence>
-</fo:root>
+</#macro>
 
 <#macro locationInfoTable locationInfoList titleString>
 <fo:table table-layout="fixed" width="7.5in" border-bottom="solid black">

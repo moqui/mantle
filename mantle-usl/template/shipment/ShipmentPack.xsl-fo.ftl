@@ -27,11 +27,28 @@ along with this software (see the LICENSE.md file). If not, see
         </fo:simple-page-master>
     </fo:layout-master-set>
 
-    <fo:page-sequence master-reference="letter-portrait">
+    <@shipmentPackPageSequence context/>
+</fo:root>
+
+<#macro shipmentPackPageSequence shipmentInfo>
+    <#assign shipment = shipmentInfo.shipment!>
+    <#assign shipmentId = (shipment.shipmentId)!>
+    <#assign fromPartyDetail = shipmentInfo.fromPartyDetail!>
+    <#assign fromContactInfo = shipmentInfo.fromContactInfo!>
+    <#assign toPartyDetail = shipmentInfo.toPartyDetail!>
+    <#assign toContactInfo = shipmentInfo.toContactInfo!>
+    <#assign productInfoList = shipmentInfo.productInfoList!>
+
+    <fo:page-sequence master-reference="letter-portrait" initial-page-number="1" force-page-count="no-force">
         <fo:static-content flow-name="xsl-region-before">
             <#if fromPartyDetail?has_content><fo:block font-size="14pt" text-align="center">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromPartyDetail.organizationName!"", true))!""}${(fromPartyDetail.firstName)!""} ${(fromPartyDetail.lastName)!""}</fo:block></#if>
             <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">Shipment Pack Sheet</fo:block>
-            <fo:block-container absolute-position="absolute" top="0.3in" right="0.5in" width="3in">
+            <#if shipment.binLocationNumber?has_content>
+                <fo:block-container absolute-position="absolute" top="0.1in" left="0.1in" width="1in">
+                    <fo:block text-align="left" font-size="20pt">[${shipment.binLocationNumber}]</fo:block>
+                </fo:block-container>
+            </#if>
+            <fo:block-container absolute-position="absolute" top="0.1in" right="0.1in" width="3in">
                 <fo:block text-align="right">
                     <fo:instream-foreign-object>
                         <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${shipmentId}">
@@ -158,4 +175,4 @@ along with this software (see the LICENSE.md file). If not, see
             </#if>
         </fo:flow>
     </fo:page-sequence>
-</fo:root>
+</#macro>
