@@ -44,8 +44,8 @@ along with this software (see the LICENSE.md file). If not, see
             <#if fromPartyDetail?has_content><fo:block font-size="14pt" text-align="center">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromPartyDetail.organizationName!"", true))!""}${(fromPartyDetail.firstName)!""} ${(fromPartyDetail.lastName)!""}</fo:block></#if>
             <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">Shipment Pack Sheet</fo:block>
             <#if shipment.binLocationNumber?has_content>
-                <fo:block-container absolute-position="absolute" top="0.1in" left="0.1in" width="1in">
-                    <fo:block text-align="left" font-size="20pt">[${shipment.binLocationNumber}]</fo:block>
+                <fo:block-container absolute-position="absolute" top="0in" left="0in" width="0.6in">
+                    <fo:block text-align="center" font-size="20pt" border="solid black" padding-top="2pt" font-weight="bold" font-family="Courier, monospace">${shipment.binLocationNumber}</fo:block>
                 </fo:block-container>
             </#if>
             <fo:block-container absolute-position="absolute" top="0.1in" right="0.1in" width="3in">
