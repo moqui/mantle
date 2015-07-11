@@ -35,7 +35,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:static-content flow-name="xsl-region-before">
             <#if fromPartyDetail?has_content><fo:block font-size="14pt" text-align="center">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromPartyDetail.organizationName!"", true))!""}${(fromPartyDetail.firstName)!""} ${(fromPartyDetail.lastName)!""}</fo:block></#if>
             <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">Shipment Load Picklist</fo:block>
-            <fo:block-container absolute-position="absolute" top="0.2in" right="0.5in" width="3in">
+            <fo:block-container absolute-position="absolute" top="0in" right="0.5in" width="3in">
                 <fo:block text-align="right">
                     <fo:instream-foreign-object>
                         <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${workEffortId}">
@@ -141,7 +141,7 @@ along with this software (see the LICENSE.md file). If not, see
                             <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${productInfo.quantity}</fo:block></fo:table-cell>
                         </fo:table-row>
                         <#if productInfo.reservedLocationInfoList?has_content><#list productInfo.reservedLocationInfoList as locationInfo>
-                            <fo:table-row font-size="9pt" border-top="thin solid black">
+                            <fo:table-row font-size="9pt">
                                 <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${locationInfo.description!"No Location"}</fo:block></fo:table-cell>
                                 <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${locationInfo.areaId!" "}</fo:block></fo:table-cell>
                                 <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${locationInfo.aisleId!" "}</fo:block></fo:table-cell>
@@ -219,7 +219,7 @@ along with this software (see the LICENSE.md file). If not, see
             <fo:table-cell padding="${cellPadding}"><fo:block> </fo:block></fo:table-cell>
         </fo:table-row>
         <#list locationInfo.productInfoList as productInfo>
-            <fo:table-row font-size="9pt" border-top="thin solid black">
+            <fo:table-row font-size="9pt">
                 <fo:table-cell padding="${cellPadding}" number-columns-spanned="5"><fo:block text-align="center">
                     <fo:instream-foreign-object>
                         <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${productInfo.productId}">

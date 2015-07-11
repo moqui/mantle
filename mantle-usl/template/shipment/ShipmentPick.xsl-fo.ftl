@@ -31,7 +31,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:static-content flow-name="xsl-region-before">
             <#if fromPartyDetail?has_content><fo:block font-size="14pt" text-align="center">${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromPartyDetail.organizationName!"", true))!""}${(fromPartyDetail.firstName)!""} ${(fromPartyDetail.lastName)!""}</fo:block></#if>
             <fo:block font-size="12pt" text-align="center" margin-bottom="0.1in">Shipment Picklist</fo:block>
-            <fo:block-container absolute-position="absolute" top="0.3in" right="0.5in" width="3in">
+            <fo:block-container absolute-position="absolute" top="0in" right="0.5in" width="3in">
                 <fo:block text-align="right">
                     <fo:instream-foreign-object>
                         <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${shipmentId}">
@@ -133,7 +133,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                         <fo:table-cell width="1.5in" padding="${cellPadding}"><fo:block> </fo:block></fo:table-cell>
                         <fo:table-cell width="0.5in" padding="${cellPadding}"><fo:block text-align="center">Bin</fo:block></fo:table-cell>
-                        <fo:table-cell width="1in" padding="${cellPadding}"><fo:block text-align="center">Qty</fo:block></fo:table-cell>
+                        <fo:table-cell width="1in" padding="${cellPadding}"><fo:block text-align="right">Quantity</fo:block></fo:table-cell>
                     </fo:table-header>
                     <fo:table-body>
                     <#list productInfoList as productInfo>
@@ -156,10 +156,10 @@ along with this software (see the LICENSE.md file). If not, see
                                 </fo:instream-foreign-object>
                             </fo:block></fo:table-cell>
                             <fo:table-cell padding="${cellPadding}" number-columns-spanned="3"><fo:block text-align="left">${ec.resource.expand("ProductNameTemplate", "", productInfo)}</fo:block></fo:table-cell>
-                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${productInfo.quantity}</fo:block></fo:table-cell>
+                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">${productInfo.quantity}</fo:block></fo:table-cell>
                         </fo:table-row>
                         <#if productInfo.reservedLocationInfoList?has_content><#list productInfo.reservedLocationInfoList as locationInfo>
-                            <fo:table-row font-size="9pt" border-top="thin solid black">
+                            <fo:table-row font-size="9pt">
                                 <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${locationInfo.description!"No Location"}</fo:block></fo:table-cell>
                                 <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${locationInfo.areaId!" "}</fo:block></fo:table-cell>
                                 <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${locationInfo.aisleId!" "}</fo:block></fo:table-cell>
@@ -175,7 +175,7 @@ along with this software (see the LICENSE.md file). If not, see
                                 <fo:table-row font-size="9pt">
                                     <fo:table-cell padding="${cellPadding}" number-columns-spanned="7"><fo:block> </fo:block></fo:table-cell>
                                     <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${binLocationNumber!" "}</fo:block></fo:table-cell>
-                                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${locationInfo.quantityByBin.get(binLocationNumber!)}</fo:block></fo:table-cell>
+                                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">${locationInfo.quantityByBin.get(binLocationNumber!)}</fo:block></fo:table-cell>
                                 </fo:table-row>
                             </#list>
                         </#list></#if>
@@ -196,7 +196,7 @@ along with this software (see the LICENSE.md file). If not, see
                                 <fo:table-row font-size="9pt">
                                     <fo:table-cell padding="${cellPadding}" number-columns-spanned="7"><fo:block> </fo:block></fo:table-cell>
                                     <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${binLocationNumber!" "}</fo:block></fo:table-cell>
-                                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${locationInfo.quantityByBin.get(binLocationNumber!)}</fo:block></fo:table-cell>
+                                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">${locationInfo.quantityByBin.get(binLocationNumber!)}</fo:block></fo:table-cell>
                                 </fo:table-row>
                             </#list>
                         </#list></#if>
@@ -220,7 +220,7 @@ along with this software (see the LICENSE.md file). If not, see
 
         <fo:table-cell width="1.5in" padding="${cellPadding}"><fo:block> </fo:block></fo:table-cell>
         <fo:table-cell width="0.5in" padding="${cellPadding}"><fo:block text-align="center">Bin</fo:block></fo:table-cell>
-        <fo:table-cell width="1in" padding="${cellPadding}"><fo:block text-align="center">Qty</fo:block></fo:table-cell>
+        <fo:table-cell width="1in" padding="${cellPadding}"><fo:block text-align="right">Quantity</fo:block></fo:table-cell>
     </fo:table-header>
     <fo:table-body>
     <#list locationInfoList as locationInfo>
@@ -237,7 +237,7 @@ along with this software (see the LICENSE.md file). If not, see
             <fo:table-cell padding="${cellPadding}"><fo:block> </fo:block></fo:table-cell>
         </fo:table-row>
         <#list locationInfo.productInfoList as productInfo>
-            <fo:table-row font-size="9pt" border-top="thin solid black">
+            <fo:table-row font-size="9pt">
                 <fo:table-cell padding="${cellPadding}" number-columns-spanned="5"><fo:block text-align="center">
                     <fo:instream-foreign-object>
                         <barcode:barcode xmlns:barcode="http://barcode4j.krysalis.org/ns" message="${productInfo.productId}">
@@ -261,7 +261,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <fo:table-row font-size="9pt">
                     <fo:table-cell padding="${cellPadding}" number-columns-spanned="7"><fo:block> </fo:block></fo:table-cell>
                     <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${binLocationNumber!" "}</fo:block></fo:table-cell>
-                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="center">${productInfo.quantityByBin.get(binLocationNumber!)}</fo:block></fo:table-cell>
+                    <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">${productInfo.quantityByBin.get(binLocationNumber!)}</fo:block></fo:table-cell>
                 </fo:table-row>
             </#list>
         </#list>
