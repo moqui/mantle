@@ -604,7 +604,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="srsList"><set field="facilityId" from="srsList.getAt(0).originFacilityId"/></if>
                 </if>
             </if>
-            <if condition="!facilityId"><return error="true" message="Could not find inventory facility for shipment [${shipmentId}] and order item [${orderId}:${orderItemSeqId}]"/></if>
+            <if condition="!facilityId"><return error="true" message="Could not find inventory facility for shipment [${shipmentId}] and order item [${ec.resource.expand('OrderItemNameTemplate','')}]"/></if>
 
             <set field="ownerPartyId" from="productStore?.organizationPartyId"/>
             <!-- no ProductStore organizationPartyId? try OrderPart.vendorPartyId (for sales orders should be an internal org) -->
@@ -832,6 +832,9 @@ along with this software (see the LICENSE.md file). If not, see
                             facilityId:facilityId, locationSeqId:locationSeqId, geoPointId:geoPointId]"/>
             </if>
 
+            <!-- have originalQuantity default to quantity received -->
+            <set field="originalQuantity" from="originalQuantity ?: quantity"/>
+
             <!-- create or update the Asset record -->
             <if condition="!assetId">
                 <!-- TODO: if this has a workEffortId and not an orderId get acquireCost from WorkEffort somehow? -->
@@ -845,6 +848,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <else>
                     <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+                    <set field="asset.originalQuantity" from="(asset.originalQuantity ?: 0) + originalQuantity"/>
                     <set field="asset.containerId" from="asset.containerId ?: containerId"/>
                     <set field="asset.geoPointId" from="asset.geoPointId ?: geoPointId"/>
                     <set field="asset.acquireWorkEffortId" from="asset.acquireWorkEffortId ?: workEffortId"/>

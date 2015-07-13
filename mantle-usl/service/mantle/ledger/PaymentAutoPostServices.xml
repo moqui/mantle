@@ -138,7 +138,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Payment Method entry for from Party (outgoing) -->
             <if condition="fromPartyAcctgPreference">
                 <service-call name="mantle.ledger.PaymentAutoPostServices.get#PaymentMethodGlAccount"
-                        in-map="[paymentMethodTypeEnumId:payment.paymentMethodTypeEnumId,
+                        in-map="[paymentId:payment.paymentId,
                             organizationPartyId:payment.fromPartyId, otherPartyId:payment.toPartyId,
                             finAccountTypeId:financialAccount?.finAccountTypeId,
                             creditCardTypeEnumId:creditCard?.creditCardTypeEnumId]"
@@ -157,7 +157,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Payment Method entry for to Party (incoming) -->
             <if condition="toPartyAcctgPreference">
                 <service-call name="mantle.ledger.PaymentAutoPostServices.get#PaymentMethodGlAccount"
-                        in-map="[paymentMethodTypeEnumId:payment.paymentMethodTypeEnumId,
+                        in-map="[paymentId:payment.paymentId,
                             organizationPartyId:payment.toPartyId, otherPartyId:payment.fromPartyId,
                             finAccountTypeId:financialAccount?.finAccountTypeId,
                             creditCardTypeEnumId:creditCard?.creditCardTypeEnumId]"
@@ -285,12 +285,21 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="isApplied"/>
                 <econdition field-name="isPayable"/>
             </entity-find>
+            <if condition="!paymentTypeGlAccountList">
+                <!-- try isApplied=E -->
+                <entity-find entity-name="mantle.ledger.config.PaymentTypeGlAccount" list="paymentTypeGlAccountList" cache="true">
+                    <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                    <econdition field-name="paymentTypeEnumId" from="payment.paymentTypeEnumId"/>
+                    <econdition field-name="isApplied" value="E"/>
+                    <econdition field-name="isPayable"/>
+                </entity-find>
+            </if>
             <set field="glAccountId" from="paymentTypeGlAccountList.first?.glAccountId"/>
         </actions>
     </service>
     <service verb="get" noun="PaymentMethodGlAccount">
         <in-parameters>
-            <parameter name="paymentMethodTypeEnumId" required="true"/>
+            <parameter name="paymentId" required="true"/>
             <parameter name="organizationPartyId" required="true"/>
             <parameter name="otherPartyId"/>
             <parameter name="finAccountTypeId"/>
@@ -301,8 +310,11 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="glAccountTypeEnumId"/>
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
             <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
                     in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="isPayable" from="organizationPartyId == payment.fromPartyId ? 'Y' : 'N'"/>
+            <set field="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
 
             <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
                 <entity-find entity-name="mantle.ledger.config.CreditCardTypeGlAccount" list="creditCardTypeGlAccountList" cache="true">
@@ -311,19 +323,33 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
                 <set field="glAccountId" from="creditCardTypeGlAccountList.first?.glAccountId"/>
             </if>
-            <if condition="paymentMethodTypeEnumId == 'FinancialAccountTypeGlAccount'">
-                <entity-find entity-name="mantle.ledger.config.PaymentMethodTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
+            <if condition="paymentMethodTypeEnumId == 'PmtFinancialAccount'">
+                <entity-find entity-name="mantle.ledger.config.FinancialAccountTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
-                    <econdition field-name="finAccountTypeId"/>
+                    <econdition field-name="finAccountTypeId"/><econdition field-name="isPayable"/>
                 </entity-find>
+                <if condition="!financialAccountTypeGlAccountList">
+                    <!-- try isPayable=E -->
+                    <entity-find entity-name="mantle.ledger.config.FinancialAccountTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
+                        <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                        <econdition field-name="finAccountTypeId"/><econdition field-name="isPayable" value="E"/>
+                    </entity-find>
+                </if>
                 <set field="glAccountId" from="financialAccountTypeGlAccountList.first?.glAccountId"/>
             </if>
 
             <if condition="!glAccountId">
                 <entity-find entity-name="mantle.ledger.config.PaymentMethodTypeGlAccount" list="paymentMethodTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
-                    <econdition field-name="paymentMethodTypeEnumId"/>
+                    <econdition field-name="paymentMethodTypeEnumId"/><econdition field-name="isPayable"/>
                 </entity-find>
+                <if condition="!financialAccountTypeGlAccountList">
+                    <!-- try isPayable=E -->
+                    <entity-find entity-name="mantle.ledger.config.PaymentMethodTypeGlAccount" list="paymentMethodTypeGlAccountList" cache="true">
+                        <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                        <econdition field-name="paymentMethodTypeEnumId"/><econdition field-name="isPayable" value="E"/>
+                    </entity-find>
+                </if>
                 <set field="glAccountId" from="paymentMethodTypeGlAccountList.first?.glAccountId"/>
             </if>
         </actions>

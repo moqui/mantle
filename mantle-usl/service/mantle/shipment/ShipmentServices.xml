@@ -73,6 +73,84 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="shipmentId"/><order-by field-name="-contentDate"/></entity-find>
         </actions>
     </service>
+    <service verb="get" noun="ShipmentContactInfo">
+        <description>Get contact info for a Shipment (same structure in the info Map as get#PartyContactInfo) using the
+            ShipmentRouteSegment origin* and dest* fields, then look at origin and dest Facility shipping or primary
+            contact info then if still not found look for the Shipment from and to Party shipping contact info.
+        </description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="shipmentRouteSegmentSeqId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="shipment" type="Map"/>
+            <parameter name="firstShipmentRouteSegment" type="Map"/>
+            <parameter name="lastShipmentRouteSegment" type="Map"/>
+            <parameter name="originFacility" type="Map"/>
+            <parameter name="destinationFacility" type="Map"/>
+
+            <parameter name="fromPartyId"><description>Shipment.fromPartyId or if empty then warehouse Facility.ownerPartyId</description></parameter>
+            <parameter name="fromPartyDetail" type="Map"/>
+            <parameter name="fromContactInfo" type="Map"><description>The from ship info, first by
+                ShipmentRouteSegment.origin* fields then the warehouse Facility
+                (using mantle.facility.ContactServices.get#FacilityDefaultShipOrigin) or if no warehouse or contact info
+                found then from the mantle.party.ContactServices.get#PartyContactInfo service for the fromPartyId.</description></parameter>
+            <parameter name="toPartyDetail" type="Map"/>
+            <parameter name="toContactInfo" type="Map"><description>The to ship info, first by ShipmentRouteSegment.dest*,
+                then from the mantle.party.ContactServices.get#PartyContactInfo service for Shipment.toPartyId.</description></parameter>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+
+            <!-- get the first ShipmentRouteSegment -->
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
+                <econdition field-name="shipmentId"/>
+                <econdition field-name="shipmentRouteSegmentSeqId" ignore-if-empty="true"/>
+                <order-by field-name="shipmentRouteSegmentSeqId"/>
+            </entity-find>
+            <set field="firstShipmentRouteSegment" from="shipmentRouteSegmentList ? shipmentRouteSegmentList.first() : null"/>
+            <set field="lastShipmentRouteSegment" from="shipmentRouteSegmentList ? shipmentRouteSegmentList.last() : null"/>
+
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="originFacility">
+                <field-map field-name="facilityId" from="firstShipmentRouteSegment?.originFacilityId"/></entity-find-one>
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="destinationFacility">
+                <field-map field-name="facilityId" from="lastShipmentRouteSegment?.destinationFacilityId"/></entity-find-one>
+
+            <set field="fromPartyId" from="shipment.fromPartyId ?: warehouseFacility?.ownerPartyId"/>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromPartyDetail">
+                <field-map field-name="partyId" from="fromPartyId"/></entity-find-one>
+
+            <if condition="firstShipmentRouteSegment?.originFacilityId">
+                <set field="fromContactIdMap" from="[facilityId:firstShipmentRouteSegment?.originFacilityId,
+                        postalContactMechId:firstShipmentRouteSegment?.originPostalContactMechId,
+                        telecomContactMechId:firstShipmentRouteSegment?.originTelecomContactMechId]"/>
+                <!-- will handle the contactMechIds if we have them now, otherwise use the purposes to look up -->
+                <service-call name="mantle.facility.ContactServices.get#FacilityContactInfo" out-map="fromContactInfo"
+                        in-map="fromContactIdMap + [postalContactMechPurposeId:'PostalShippingOrigin',
+                            telecomContactMechPurposeId:'PhoneShippingOrigin', emailContactMechPurposeId:'EmailShippingOrigin']"/>
+            </if>
+            <!-- will handle the contactMechIds if we have them now, otherwise use the purposes to look up -->
+            <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="fromContactInfo"
+                    in-map="[partyId:fromPartyId, postalContactMechPurposeId:'PostalShippingOrigin',
+                        telecomContactMechPurposeId:'PhoneShippingOrigin', emailContactMechPurposeId:'EmailShippingOrigin']"/>
+
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toPartyDetail">
+                <field-map field-name="partyId" from="shipment.toPartyId"/></entity-find-one>
+            <if condition="lastShipmentRouteSegment?.destinationFacilityId">
+                <set field="toContactIdMap" from="[facilityId:lastShipmentRouteSegment?.destinationFacilityId,
+                        postalContactMechId:lastShipmentRouteSegment?.destPostalContactMechId,
+                        telecomContactMechId:lastShipmentRouteSegment?.destTelecomContactMechId]"/>
+                <!-- will handle the contactMechIds if we have them now, otherwise use the purposes to look up -->
+                <service-call name="mantle.facility.ContactServices.get#FacilityContactInfo" out-map="fromContactInfo"
+                        in-map="toContactIdMap + [postalContactMechPurposeId:'PostalShippingDest',
+                            telecomContactMechPurposeId:'PhoneShippingDest', emailContactMechPurposeId:'EmailShippingDest']"/>
+            </if>
+            <!-- will handle the contactMechIds if we have them now, otherwise use the purposes to look up -->
+            <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="toContactInfo"
+                    in-map="[partyId:shipment.toPartyId, postalContactMechPurposeId:'PostalShippingDest',
+                        telecomContactMechPurposeId:'PhoneShippingDest', emailContactMechPurposeId:'EmailShippingDest']"/>
+        </actions>
+    </service>
 
     <!-- ========================================================= -->
     <!-- ========== Shipment Create and Modify Services ========== -->
@@ -449,6 +527,396 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- =============================================== -->
     <!-- ========== Shipping/Packing Services ========== -->
     <!-- =============================================== -->
+
+    <service verb="get" noun="ShipmentLoadPickInfo">
+        <description>Get information for a picklist document for all shipments in a shipment ship/load work effort.</description>
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
+            <parameter name="productOrderBy" default-value="pseudoId,productName"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="workEffort" type="Map"/>
+            <parameter name="dockFacility" type="Map"/>
+            <parameter name="warehouseFacility" type="Map"><description>The warehouse the shipments come
+                from. Based on WorkEffort.facilityId unless it is a dock type facility and has a warehouse parent
+                facility.</description></parameter>
+            <parameter name="assignedAssetList" type="List"/>
+
+            <parameter name="shipmentList" type="List"/>
+            <parameter name="shipmentPickPackInfoList" type="List"><description>List of Maps withs result from calls to
+                the get#ShipmentPickPackInfo service.</description></parameter>
+
+            <!-- The following are consolidated lists for picking -->
+            <parameter name="reservedLocationInfoList" type="List"/>
+            <parameter name="otherLocationInfoList" type="List"/>
+            <!-- reservedLocationInfoList and otherLocationInfoList are List of Maps with:
+              - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+              - locationTypeEnum
+              - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
+              - productInfoList - List of Maps with:
+                - Product fields (all fields from entity)
+                - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource or Shipment, may be null) and value quantity
+            -->
+            <parameter name="productInfoList" type="List"/>
+            <!-- productInfoList is a List of Maps with:
+              - Product fields (all fields from entity)
+              - quantity
+              - reservedLocationInfoList
+                - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+                - locationTypeEnum
+                - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
+                - quantityByBin - Maps with key binLocationNumber (from ShipmentItemSource or Shipment, may be null) and value quantity
+              - otherLocationInfoList (same fields as reservedLocationInfoList)
+            -->
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+
+            <entity-find-one entity-name="mantle.facility.Facility" value-field="dockFacility">
+                <field-map field-name="facilityId" from="workEffort.facilityId"/></entity-find-one>
+            <if condition="dockFacility &amp;&amp; dockFacility.facilityTypeEnumId != 'FcTpWarehouse'">
+                <!-- for any of these alternatives originFacilityId may still be null -->
+                <then>
+                    <entity-find-one entity-name="mantle.facility.Facility" value-field="warehouseFacility">
+                        <field-map field-name="facilityId" from="dockFacility.parentFacilityId"/></entity-find-one>
+                </then>
+                <else-if condition="dockFacility?.facilityTypeEnumId == 'FcTpWarehouse'">
+                    <set field="warehouseFacility" from="dockFacility"/>
+                    <set field="dockFacility" from="null"/>
+                </else-if>
+            </if>
+
+            <entity-find entity-name="mantle.work.effort.WorkEffortAssetAndAssign" list="assignedAssetList">
+                <date-filter/><econdition field-name="workEffortId"/><order-by field-name="assetName"/></entity-find>
+
+            <entity-find entity-name="mantle.shipment.Shipment" list="shipmentList">
+                <econdition field-name="shipWorkEffortId" from="workEffortId"/>
+                <order-by field-name="binLocationNumber"/></entity-find>
+
+            <set field="shipmentPickPackInfoList" from="[]"/>
+
+            <set field="productInfoMap" from="[:]"/>
+            <set field="reservedLocationInfoMap" from="[:]"/>
+            <set field="otherLocationInfoMap" from="[:]"/>
+
+            <iterate list="shipmentList" entry="shipment">
+                <set field="pickInfoOut" from="null"/>
+                <service-call name="mantle.shipment.ShipmentServices.get#ShipmentPickPackInfo" out-map="pickInfoOut"
+                        in-map="[shipmentId:shipment.shipmentId, locationOrderBy:locationOrderBy, productOrderBy:productOrderBy]"/>
+                <script>shipmentPickPackInfoList.add(pickInfoOut)</script>
+                <!-- <log message="======== pickInfoOut:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(pickInfoOut))}"/> -->
+
+                <iterate list="pickInfoOut.productInfoList" entry="curProductInfo">
+                    <set field="productInfo" from="productInfoMap.get(curProductInfo.productId)"/>
+                    <if condition="productInfo">
+                        <then>
+                            <!-- merge curProductInfo into productInfo -->
+                            <set field="productInfo.quantity" from="productInfo.quantity + curProductInfo.quantity"/>
+
+                            <iterate list="curProductInfo.productReservedLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                                <set field="locationInfo" from="productInfo.productReservedLocationInfoMap.get(assetLocKey)"/>
+                                <if condition="locationInfo">
+                                    <then>
+                                        <iterate list="curLocationInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantity, locationInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>productInfo.productReservedLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                                </if>
+                            </iterate>
+                            <iterate list="curProductInfo.productOtherLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                                <set field="locationInfo" from="productInfo.productOtherLocationInfoMap.get(assetLocKey)"/>
+                                <if condition="locationInfo">
+                                    <then>
+                                        <iterate list="curLocationInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantity, locationInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>productInfo.productReservedLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                                </if>
+                            </iterate>
+                        </then>
+                        <else><script>productInfoMap.put(curProductInfo.productId, curProductInfo)</script></else>
+                    </if>
+                </iterate>
+
+                <iterate list="pickInfoOut.reservedLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                    <set field="locationInfo" from="reservedLocationInfoMap.get(assetLocKey)"/>
+                    <if condition="locationInfo">
+                        <then>
+                            <!-- merge curLocationInfo into locationInfo -->
+                            <iterate list="curLocationInfo.productInfoMap" entry="curProductInfo" key="productId">
+                                <set field="productInfo" from="locationInfo.productInfoMap.get(productId)"/>
+                                <if condition="productInfo">
+                                    <then>
+                                        <iterate list="curProductInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantity, productInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>locationInfo.productInfoMap.put(productId, curProductInfo)</script></else>
+                                </if>
+                            </iterate>
+                        </then>
+                        <else><script>reservedLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                    </if>
+                </iterate>
+                <iterate list="pickInfoOut.otherLocationInfoMap" entry="curLocationInfo" key="assetLocKey">
+                    <set field="locationInfo" from="otherLocationInfoMap.get(assetLocKey)"/>
+                    <if condition="locationInfo">
+                        <then>
+                            <!-- merge curLocationInfo into locationInfo -->
+                            <iterate list="curLocationInfo.productInfoMap" entry="curProductInfo" key="productId">
+                                <set field="productInfo" from="locationInfo.productInfoMap.get(productId)"/>
+                                <if condition="productInfo">
+                                    <then>
+                                        <iterate list="curProductInfo.quantityByBin" entry="quantity" key="binLocationNumber">
+                                            <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantity, productInfo.quantityByBin)</script>
+                                        </iterate>
+                                    </then>
+                                    <else><script>locationInfo.productInfoMap.put(productId, curProductInfo)</script></else>
+                                </if>
+                            </iterate>
+                        </then>
+                        <else><script>otherLocationInfoMap.put(assetLocKey, curLocationInfo)</script></else>
+                    </if>
+                </iterate>
+            </iterate>
+
+            <!-- create and order Lists from Maps for productInfoList -->
+            <set field="productInfoList" from="new ArrayList(productInfoMap.values())"/>
+            <order-map-list list="productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+            <iterate list="productInfoList" entry="productInfo">
+                <set field="productInfo.reservedLocationInfoList" from="new ArrayList(productInfo.productReservedLocationInfoMap.values())"/>
+                <order-map-list list="productInfo.reservedLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+                <set field="productInfo.otherLocationInfoList" from="new ArrayList(productInfo.productOtherLocationInfoMap.values())"/>
+                <order-map-list list="productInfo.otherLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            </iterate>
+
+            <!-- create and order Lists from Maps for reservedLocationInfoList and otherLocationInfoList -->
+            <set field="reservedLocationInfoList" from="new ArrayList(reservedLocationInfoMap.values())"/>
+            <order-map-list list="reservedLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            <iterate list="reservedLocationInfoList" entry="locationInfo">
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
+                <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+            </iterate>
+            <set field="otherLocationInfoList" from="new ArrayList(otherLocationInfoMap.values())"/>
+            <order-map-list list="otherLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            <iterate list="otherLocationInfoList" entry="locationInfo">
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
+                <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="get" noun="ShipmentPickPackInfo">
+        <description>Get information for single shipment pick sheet or pack insert documents.</description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="locationOrderBy" default-value="facilityId,areaId,aisleId,sectionId,levelId,positionId"/>
+            <parameter name="productOrderBy" default-value="pseudoId,productName"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="shipment" type="Map"/>
+            <parameter name="firstShipmentRouteSegment" type="Map"/>
+            <parameter name="lastShipmentRouteSegment" type="Map"/>
+            <parameter name="originFacility" type="Map"/>
+            <parameter name="destinationFacility" type="Map"/>
+
+            <parameter name="fromPartyId"><description>Shipment.fromPartyId or if empty then warehouse Facility.ownerPartyId</description></parameter>
+            <parameter name="fromPartyDetail" type="Map"/>
+            <parameter name="fromContactInfo" type="Map"><description>The from ship info, first by
+                ShipmentRouteSegment.origin* fields then the warehouse Facility
+                (using mantle.facility.ContactServices.get#FacilityDefaultShipOrigin) or if no warehouse or contact info
+                found then from the mantle.party.ContactServices.get#PartyContactInfo service for the fromPartyId.</description></parameter>
+            <parameter name="toPartyDetail" type="Map"/>
+            <parameter name="toContactInfo" type="Map"><description>The to ship info, first by ShipmentRouteSegment.dest*,
+                then from the mantle.party.ContactServices.get#PartyContactInfo service for Shipment.toPartyId.</description></parameter>
+
+            <parameter name="reservedLocationInfoList" type="List"/>
+            <parameter name="otherLocationInfoList" type="List"/>
+            <parameter name="productInfoList" type="List"/>
+
+            <!-- for use by get#PicklistPickInfo and others that need more structured results -->
+            <parameter name="reservedLocationInfoMap" type="Map"/>
+            <parameter name="otherLocationInfoMap" type="Map"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.shipment.ShipmentServices.get#ShipmentContactInfo" out-map="context"
+                    in-map="[shipmentId:shipmentId]"/>
+
+            <!-- Get the picklist info by product, by reserved location, by other location -->
+
+            <set field="productInfoList" from="[]"/>
+            <set field="reservedLocationInfoMap" from="[:]"/>
+            <set field="otherLocationInfoMap" from="[:]"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
+                <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+            <iterate list="shipmentItemList" entry="shipmentItem">
+                <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true">
+                    <field-map field-name="productId" from="shipmentItem.productId"/></entity-find-one>
+
+                <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
+                    <econdition field-name="shipmentId" from="shipmentItem.shipmentId"/>
+                    <econdition field-name="productId" from="shipmentItem.productId"/>
+                </entity-find>
+
+                <set field="productReservedLocationInfoMap" from="[:]"/>
+                <set field="productOtherLocationInfoMap" from="[:]"/>
+                <iterate list="sisList" entry="sis">
+                    <if condition="!sis.quantityNotHandled"><continue/></if>
+                    <set field="binLocationNumber" from="sis.binLocationNumber ?: shipment.binLocationNumber ?: 'N/A'"/>
+
+                    <!-- find assets by reservation, if any in place -->
+                    <entity-find entity-name="mantle.product.issuance.AssetAndReservation" list="resAssetList">
+                        <econdition field-name="orderId" from="sis.orderId"/>
+                        <econdition field-name="orderItemSeqId" from="sis.orderItemSeqId"/>
+                    </entity-find>
+                    <set field="curQuantityNotHandled" from="sis.quantityNotHandled"/>
+                    <iterate list="resAssetList" entry="resAsset">
+                        <set field="assetLocKey" from="[facilityId:resAsset.facilityId, locationSeqId:resAsset.locationSeqId]"/>
+                        <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
+                            <field-map field-name="facilityId" from="resAsset.facilityId"/>
+                            <field-map field-name="locationSeqId" from="resAsset.locationSeqId"/>
+                        </entity-find-one>
+                        <set field="locationTypeEnum" from="facLoc?.'FacilityLocationType#moqui.basic.Enumeration'"/>
+
+                        <set field="reservedLocationInfo" from="reservedLocationInfoMap.get(assetLocKey)"/>
+                        <if condition="!reservedLocationInfo">
+                            <set field="reservedLocationInfo" from="[productInfoMap:[:], locationTypeEnum:locationTypeEnum]"/>
+                            <script>if (facLoc) reservedLocationInfo.putAll(facLoc)</script>
+                            <if condition="facLoc?.geoPointId">
+                                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
+                                    <field-map field-name="facLoc.geoPointId"/></entity-find-one>
+                                <script>if (geoPoint) reservedLocationInfo.putAll(geoPoint)</script>
+                            </if>
+                            <script>reservedLocationInfoMap.put(assetLocKey, reservedLocationInfo)</script>
+                        </if>
+
+                        <set field="productReservedLocationInfo" from="productReservedLocationInfoMap.get(assetLocKey)"/>
+                        <if condition="!productReservedLocationInfo">
+                            <set field="productReservedLocationInfo" from="[quantityByBin:new TreeMap(), locationTypeEnum:locationTypeEnum]"/>
+                            <script>if (facLoc) productReservedLocationInfo.putAll(facLoc)</script>
+                            <if condition="facLoc?.geoPointId">
+                                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
+                                    <field-map field-name="facLoc.geoPointId"/></entity-find-one>
+                                <script>if (geoPoint) productReservedLocationInfo.putAll(geoPoint)</script>
+                            </if>
+                            <script>productReservedLocationInfoMap.put(assetLocKey, productReservedLocationInfo)</script>
+                        </if>
+
+                        <set field="quantityToAdd" from="curQuantityNotHandled > resAsset.quantityNotIssued ? resAsset.quantityNotIssued : curQuantityNotHandled"/>
+
+                        <!-- handle quantity for reservedLocationInfoList -->
+                        <set field="reservedProductInfo" from="reservedLocationInfo.productInfoMap.get(shipmentItem.productId)"/>
+                        <if condition="!reservedProductInfo"><script>
+                            reservedProductInfo = [quantityByBin:new TreeMap()]
+                            reservedProductInfo.putAll(product)
+                            reservedLocationInfo.productInfoMap.put(shipmentItem.productId, reservedProductInfo)
+                        </script></if>
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, reservedProductInfo.quantityByBin)</script>
+
+                        <!-- handle quantity for productInfoList -->
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productReservedLocationInfo.quantityByBin)</script>
+
+                        <set field="curQuantityNotHandled" from="curQuantityNotHandled - quantityToAdd"/>
+                        <if condition="curQuantityNotHandled == 0"><break/></if>
+                    </iterate>
+
+                    <!-- find assets more generally for the product, like the reservation algorithm -->
+                    <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
+                        <econdition field-name="productId" from="shipmentItem.productId"/>
+                        <econdition field-name="statusId" value="AstAvailable"/>
+                        <econdition field-name="availableToPromiseTotal" operator="greater" from="0"/>
+                        <econdition field-name="facilityId" from="originFacilityId" ignore-if-empty="true"/>
+                        <order-by field-name="receivedDate"/><!-- Ascending by receivedDate, FIFO -->
+                    </entity-find>
+                    <!-- NOTE: these are alternate locations, reset curQuantityNotHandled for full list of recommened alternatives -->
+                    <set field="curQuantityNotHandled" from="sis.quantityNotHandled"/>
+                    <iterate list="assetList" entry="asset">
+                        <set field="assetLocKey" from="[facilityId:asset.facilityId, locationSeqId:asset.locationSeqId]"/>
+                        <entity-find-one entity-name="mantle.facility.FacilityLocation" value-field="facLoc">
+                            <field-map field-name="facilityId" from="asset.facilityId"/>
+                            <field-map field-name="locationSeqId" from="asset.locationSeqId"/>
+                        </entity-find-one>
+                        <set field="locationTypeEnum" from="facLoc?.'FacilityLocationType#moqui.basic.Enumeration'"/>
+
+                        <set field="otherLocationInfo" from="otherLocationInfoMap.get(assetLocKey)"/>
+                        <if condition="!otherLocationInfo">
+                            <set field="otherLocationInfo" from="[productInfoMap:[:], locationTypeEnum:locationTypeEnum]"/>
+                            <script>if (facLoc) otherLocationInfo.putAll(facLoc)</script>
+                            <if condition="facLoc?.geoPointId">
+                                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
+                                    <field-map field-name="facLoc.geoPointId"/></entity-find-one>
+                                <script>if (geoPoint) otherLocationInfo.putAll(geoPoint)</script>
+                            </if>
+                            <script>otherLocationInfoMap.put(assetLocKey, otherLocationInfo)</script>
+                        </if>
+
+                        <set field="productOtherLocationInfo" from="productOtherLocationInfoMap.get(assetLocKey)"/>
+                        <if condition="!productOtherLocationInfo">
+                            <set field="productOtherLocationInfo" from="[quantityByBin:new TreeMap(), locationTypeEnum:locationTypeEnum]"/>
+                            <script>if (facLoc) productOtherLocationInfo.putAll(facLoc)</script>
+                            <if condition="facLoc?.geoPointId">
+                                <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="geoPoint">
+                                    <field-map field-name="facLoc.geoPointId"/></entity-find-one>
+                                <script>if (geoPoint) productOtherLocationInfo.putAll(geoPoint)</script>
+                            </if>
+                            <script>productOtherLocationInfoMap.put(assetLocKey, productOtherLocationInfo)</script>
+                        </if>
+
+                        <set field="quantityToAdd" from="curQuantityNotHandled > asset.availableToPromiseTotal ? asset.availableToPromiseTotal : curQuantityNotHandled"/>
+
+                        <!-- handle quantity for otherLocationInfoList -->
+                        <set field="productInfo" from="otherLocationInfo.productInfoMap.get(shipmentItem.productId)"/>
+                        <if condition="!productInfo"><script>
+                            productInfo = [quantityByBin:new TreeMap()]
+                            productInfo.putAll(product)
+                            otherLocationInfo.productInfoMap.put(shipmentItem.productId, productInfo)
+                        </script></if>
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productInfo.quantityByBin)</script>
+
+                        <!-- handle quantity for productInfoList -->
+                        <script>StupidUtilities.addToBigDecimalInMap(binLocationNumber, quantityToAdd, productOtherLocationInfo.quantityByBin)</script>
+                        <set field="curQuantityNotHandled" from="curQuantityNotHandled - quantityToAdd"/>
+                        <if condition="curQuantityNotHandled == 0"><break/></if>
+                    </iterate>
+                </iterate>
+                <set field="productReservedLocationInfoList" from="new ArrayList(productReservedLocationInfoMap.values())"/>
+                <order-map-list list="productReservedLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+                <set field="productOtherLocationInfoList" from="new ArrayList(productOtherLocationInfoMap.values())"/>
+                <order-map-list list="productOtherLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+
+                <script>
+                    productInfo = [reservedLocationInfoList:productReservedLocationInfoList,
+                                   productReservedLocationInfoMap:productReservedLocationInfoMap,
+                                   otherLocationInfoList:productOtherLocationInfoList,
+                                   productOtherLocationInfoMap:productOtherLocationInfoMap,
+                                   quantity:shipmentItem.quantity]
+                    productInfo.putAll(product)
+                    productInfoList.add(productInfo)
+                </script>
+            </iterate>
+
+            <!-- go through reservedLocationInfoMap and otherLocationInfoMap and create productInfoList from productInfoMap, then sort -->
+            <iterate list="reservedLocationInfoMap" entry="locationInfo" key="assetLocKey">
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
+                <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+            </iterate>
+            <iterate list="otherLocationInfoMap" entry="locationInfo" key="assetLocKey">
+                <set field="locationInfo.productInfoList" from="new ArrayList(locationInfo.productInfoMap.values())"/>
+                <order-map-list list="locationInfo.productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+            </iterate>
+            <set field="reservedLocationInfoList" from="new ArrayList(reservedLocationInfoMap.values())"/>
+            <order-map-list list="reservedLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+            <set field="otherLocationInfoList" from="new ArrayList(otherLocationInfoMap.values())"/>
+            <order-map-list list="otherLocationInfoList"><order-by field-name="${locationOrderBy}"/></order-map-list>
+
+            <!-- order productInfoList, all that is needed at this point -->
+            <order-map-list list="productInfoList"><order-by field-name="${productOrderBy}"/></order-map-list>
+        </actions>
+    </service>
 
     <service verb="pack" noun="ShipmentProduct">
         <in-parameters>

@@ -16,7 +16,6 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
     <!--  - mantle.shipment -->
     <!--  - mantle.shipment.carrier -->
-    <!--  - mantle.shipment.picklist -->
     <!-- ========================================================= -->
 
 
@@ -29,8 +28,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="shipmentTypeEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
 
-        <field name="picklistId" type="id"/>
-        <field name="binLocationNumber" type="number-integer"/>
+        <field name="binLocationNumber" type="number-integer"><description>For picking multiple shipments in a single
+            shipment load (WorkEffort with purpose Shipment Load/Ship, WepShipmentShip); this is the structure for a
+            picklist instead of having a separate Picklist entity. This may be overridden within a Shipment with the
+            field of the same name on ShipmentItemSource.</description></field>
 
         <field name="estimatedReadyDate" type="date-time"/>
         <field name="estimatedShipDate" type="date-time"/>
@@ -53,7 +54,6 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="ShipmentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="shipmentTypeEnumId"/></relationship>
         <relationship type="one" title="Shipment" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" related-entity-name="mantle.shipment.picklist.Picklist"/>
         <relationship type="one" title="Ship" related-entity-name="mantle.work.effort.WorkEffort">
             <key-map field-name="shipWorkEffortId"/></relationship>
         <relationship type="one" title="Receive" related-entity-name="mantle.work.effort.WorkEffort">
@@ -437,32 +437,5 @@ along with this software (see the LICENSE.md file). If not, see
                     shippingGatewayTypeEnumId="ShGtwyLocal" description="Local gateway for order shipping rate"
                     getOrderRateServiceName="mantle.shipment.CarrierServices.get#OrderShippingRateLocal"/>
         </seed-data>
-    </entity>
-
-    <!-- ========================================================= -->
-    <!-- mantle.shipment.picklist -->
-    <!-- ========================================================= -->
-
-    <entity entity-name="Picklist" package-name="mantle.shipment.picklist">
-        <description>A Picklist is used to organize pending Shipments for a pick/pack process.</description>
-        <field name="picklistId" type="id" is-pk="true"/>
-        <field name="description" type="text-medium"/>
-        <field name="facilityId" type="id"/>
-        <field name="shipmentMethodEnumId" type="id"/>
-        <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="picklistDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
-        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="shipmentMethodEnumId"/></relationship>
-        <relationship type="one" title="Picklist" related-entity-name="moqui.basic.StatusItem"/>
-    </entity>
-    <entity entity-name="PicklistParty" package-name="mantle.shipment.picklist">
-        <field name="picklistId" type="id" is-pk="true"/>
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="roleTypeId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.shipment.picklist.Picklist"/>
-        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
     </entity>
 </entities>

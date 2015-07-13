@@ -26,6 +26,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="emailContactMechPurposeId"/>
             <parameter name="otherContactMechId"/>
             <parameter name="otherContactMechPurposeId"/>
+            <parameter name="defaultToPrimaryPurpose" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="postalContactMechId"/>
@@ -49,100 +50,97 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="otherInfoString"/>
         </out-parameters>
         <actions>
-            <if condition="postalContactMechPurposeId || postalContactMechId">
+            <if condition="postalContactMechPurposeId &amp;&amp; !postalContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="postalPcmList">
-                    <date-filter/>
-                    <econdition field-name="partyId"/>
-                    <econdition field-name="contactMechId" from="postalContactMechId" ignore-if-empty="true"/>
-                    <econdition field-name="contactMechPurposeId" from="postalContactMechPurposeId" ignore-if-empty="true"/>
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" from="postalContactMechPurposeId"/>
                     <order-by field-name="-fromDate"/>
                 </entity-find>
-                <if condition="postalPcmList">
-                    <set field="postalContactMechId" from="postalPcmList[0].contactMechId"/>
-                    <set field="postalContactMechPurposeId" from="postalPcmList[0].contactMechPurposeId"/>
-                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="postalContactMech">
-                        <field-map field-name="contactMechId" from="postalContactMechId"/>
-                    </entity-find-one>
-                    <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress">
-                        <field-map field-name="contactMechId" from="postalContactMechId"/>
-                    </entity-find-one>
+                <if condition="defaultToPrimaryPurpose &amp;&amp; !postalPcmList">
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="postalPcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" value="PostalPrimary"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                    <if condition="postalPcmList"><set field="postalContactMechPurposeId" value="PostalPrimary"/></if>
                 </if>
-                <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
-                <entity-find-related-one value-field="postalAddress" relationship-name="Country#moqui.basic.Geo" to-value-field="postalAddressCountryGeo"/>
-                <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
+                <set field="postalContactMechId" from="postalPcmList ? postalPcmList[0].contactMechId : null"/>
             </if>
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="postalContactMech">
+                <field-map field-name="contactMechId" from="postalContactMechId"/></entity-find-one>
+            <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress">
+                <field-map field-name="contactMechId" from="postalContactMechId"/></entity-find-one>
+            <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
+            <entity-find-related-one value-field="postalAddress" relationship-name="Country#moqui.basic.Geo" to-value-field="postalAddressCountryGeo"/>
+            <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
 
-            <if condition="telecomContactMechPurposeId || telecomContactMechId">
+            <if condition="telecomContactMechPurposeId &amp;&amp; !telecomContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
-                    <date-filter/>
-                    <econdition field-name="partyId"/>
-                    <econdition field-name="contactMechId" from="telecomContactMechId" ignore-if-empty="true"/>
-                    <econdition field-name="contactMechPurposeId" from="telecomContactMechPurposeId" ignore-if-empty="true"/>
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" from="telecomContactMechPurposeId"/>
                     <order-by field-name="-fromDate"/>
                 </entity-find>
-                <if condition="telecomPcmList">
-                    <set field="telecomContactMechId" from="telecomPcmList[0].contactMechId"/>
-                    <set field="telecomContactMechPurposeId" from="telecomPcmList[0].contactMechPurposeId"/>
-                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
-                        <field-map field-name="contactMechId" from="telecomContactMechId"/>
-                    </entity-find-one>
-                    <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
-                        <field-map field-name="contactMechId" from="telecomContactMechId"/>
-                    </entity-find-one>
+                <if condition="defaultToPrimaryPurpose &amp;&amp; !telecomPcmList">
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" value="PhonePrimary"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                    <if condition="telecomPcmList"><set field="telecomContactMechPurposeId" value="PhonePrimary"/></if>
                 </if>
+                <set field="telecomContactMechId" from="telecomPcmList ? telecomPcmList[0].contactMechId : null"/>
             </if>
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
+                <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
+            <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
+                <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
             <if condition="!telecomContactMech &amp;&amp; postalAddress?.telecomContactMechId">
-                <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
-                    <field-map field-name="contactMechId" from="postalAddress.telecomContactMechId"/>
-                </entity-find-one>
                 <set field="telecomContactMechId" from="telecomContactMech.contactMechId"/>
+                <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
+                    <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
                 <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
-                    <field-map field-name="contactMechId" from="telecomContactMechId"/>
-                </entity-find-one>
+                    <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
             </if>
 
-            <if condition="emailContactMechPurposeId || emailContactMechId">
+            <if condition="emailContactMechPurposeId &amp;&amp; !emailContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
-                    <date-filter/>
-                    <econdition field-name="partyId"/>
-                    <econdition field-name="contactMechId" from="emailContactMechId" ignore-if-empty="true"/>
-                    <econdition field-name="contactMechPurposeId" from="emailContactMechPurposeId" ignore-if-empty="true"/>
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" from="emailContactMechPurposeId"/>
                     <order-by field-name="-fromDate"/>
                 </entity-find>
-                <if condition="emailPcmList">
-                    <set field="emailContactMechId" from="emailPcmList[0].contactMechId"/>
-                    <set field="emailContactMechPurposeId" from="emailPcmList[0].contactMechPurposeId"/>
-                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
-                        <field-map field-name="contactMechId" from="emailContactMechId"/>
-                    </entity-find-one>
-                    <set field="emailAddress" from="emailContactMech.infoString"/>
+                <if condition="defaultToPrimaryPurpose &amp;&amp; !emailPcmList">
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" value="EmailPrimary"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                    <if condition="emailPcmList"><set field="emailContactMechPurposeId" value="EmailPrimary"/></if>
                 </if>
+                <set field="emailContactMechId" from="emailPcmList ? emailPcmList[0].contactMechId : null"/>
             </if>
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
+                <field-map field-name="contactMechId" from="emailContactMechId"/></entity-find-one>
+            <set field="emailAddress" from="emailContactMech?.infoString"/>
             <if condition="!emailContactMech &amp;&amp; postalAddress?.emailContactMechId">
-                <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
-                    <field-map field-name="contactMechId" from="postalAddress.emailContactMechId"/>
-                </entity-find-one>
                 <set field="emailContactMechId" from="emailContactMech.contactMechId"/>
-                <set field="emailAddress" from="emailContactMech.infoString"/>
+                <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
+                    <field-map field-name="contactMechId" from="emailContactMechId"/></entity-find-one>
+                <set field="emailAddress" from="emailContactMech?.infoString"/>
             </if>
 
-            <if condition="otherContactMechPurposeId || otherContactMechId">
+            <if condition="otherContactMechPurposeId &amp;&amp; !otherContactMechId">
                 <entity-find entity-name="mantle.party.contact.PartyContactMech" list="otherPcmList">
-                    <date-filter/>
-                    <econdition field-name="partyId"/>
-                    <econdition field-name="contactMechId" from="otherContactMechId" ignore-if-empty="true"/>
-                    <econdition field-name="contactMechPurposeId" from="otherContactMechPurposeId" ignore-if-empty="true"/>
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" from="otherContactMechPurposeId"/>
                     <order-by field-name="-fromDate"/>
                 </entity-find>
-                <if condition="otherPcmList">
-                    <set field="otherContactMechId" from="otherPcmList[0].contactMechId"/>
-                    <set field="otherContactMechPurposeId" from="otherPcmList[0].contactMechPurposeId"/>
-                    <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="otherContactMech">
-                        <field-map field-name="contactMechId" from="otherContactMechId"/>
-                    </entity-find-one>
-                    <set field="otherInfoString" from="otherContactMech.infoString"/>
-                </if>
+                <set field="otherContactMechId" from="otherPcmList ? otherPcmList[0].contactMechId : null"/>
             </if>
+            <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="otherContactMech">
+                <field-map field-name="contactMechId" from="otherContactMechId"/>
+            </entity-find-one>
+            <set field="otherInfoString" from="otherContactMech?.infoString"/>
+
             <!-- <log level="warn" message="get#PartyContactInfo finish context=${context.context}"/> -->
         </actions>
     </service>
