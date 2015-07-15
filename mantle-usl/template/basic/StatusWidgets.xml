@@ -54,36 +54,45 @@ along with this software (see the LICENSE.md file). If not, see
         <section name="StatusHistorySection">
             <actions>
                 <if condition="!statusHistoryList &amp;&amp; changedEntityName">
-                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="reverseList">
                         <econdition field-name="changedEntityName"/>
                         <econdition field-name="changedFieldName" value="statusId"/>
                         <econdition field-name="pkPrimaryValue"/>
-                        <order-by field-name="changedDate"/>
+                        <order-by field-name="-changedDate"/>
                     </entity-find>
+                    <else-if condition="statusHistoryList">
+                        <script><![CDATA[
+                            reverseList = statusHistoryList.cloneList().orderByFields(["-changedDate"])
+                        ]]></script>
+                    </else-if>
                 </if>
             </actions>
             <widgets>
                 <container-box>
                     <box-header><label text="Status History" type="h5"/></box-header>
                     <box-body>
-                        <form-list name="StatusHistoryTable" list="statusHistoryList" skip-form="true" skip-header="true">
-                            <row-actions>
+                        <section-iterate name="StatusHistoryTable" list="reverseList" entry="statusHistory">
+                            <actions>
                                 <entity-find-one entity-name="mantle.party.PersonAndUserAccount" value-field="userAccount">
-                                    <field-map field-name="userId" from="changedByUserId"/></entity-find-one>
-                                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">
-                                    <field-map field-name="statusId" from="oldValueText"/></entity-find-one>
+                                    <field-map field-name="userId" from="statusHistory.changedByUserId"/></entity-find-one>
                                 <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem" cache="true">
-                                    <field-map field-name="statusId" from="newValueText"/></entity-find-one>
-                            </row-actions>
-                            <field name="newValueText">
-                                <default-field><display text="${statusItem?statusItem.description:''}"/></default-field></field>
-                            <field name="oldValueText">
-                                <default-field><display text="${oldStatusItem?'from '+oldStatusItem.description:''}"/></default-field></field>
-                            <field name="changedByUserId">
-                                <header-field title=""/><default-field><display text="by ${ec.resource.expand('UsernameTemplate','',userAccount?:[:])}"/></default-field></field>
-                            <field name="changedDate">
-                                <default-field><display text="at ${ec.l10n.format(changedDate, 'yyyy-MM-dd HH:mm')}"/></default-field></field>
-                        </form-list>
+                                    <field-map field-name="statusId" from="statusHistory.newValueText"/></entity-find-one>
+                                <!--<entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">-->
+                                <!--<field-map field-name="statusId" from="statusHistory.oldValueText"/></entity-find-one>-->
+                            </actions>
+                            <widgets>
+                                <container-row>
+                                    <row-col lg="7" md="7" sm="7">
+                                        <label text="${ec.l10n.format(statusHistory.changedDate, 'yyyy-MM-dd HH:mm')}" type="strong" style="text-nowrap"/>
+                                        <label text="by ${ec.resource.expand('UsernameTemplate','',userAccount?:[:])}" style="text-nowrap"/>
+                                    </row-col>
+                                    <row-col lg="5" md="5" sm="5">
+                                        <label text="${statusItem?statusItem.description:''}" type="p" style="text-success" condition="statusHistory_index == 0"/>
+                                        <label text="${statusItem?statusItem.description:''}" type="p" condition="statusHistory_index"/>
+                                    </row-col>
+                                </container-row>
+                            </widgets>
+                        </section-iterate>
                     </box-body>
                 </container-box>
             </widgets>
@@ -97,19 +106,24 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find entity-name="moqui.basic.StatusFlowTransitionToDetail" list="statusTransitionList">
                     <econdition field-name="statusId"/><order-by field-name="transitionSequence,transitionName"/></entity-find>
                 <if condition="!statusHistoryList &amp;&amp; changedEntityName">
-                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="reverseList">
                         <econdition field-name="changedEntityName"/>
                         <econdition field-name="changedFieldName" value="statusId"/>
                         <econdition field-name="pkPrimaryValue"/>
-                        <order-by field-name="changedDate"/>
+                        <order-by field-name="-changedDate"/>
                     </entity-find>
+                    <else-if condition="statusHistoryList">
+                        <script><![CDATA[
+                            reverseList = statusHistoryList.cloneList().orderByFields(["-changedDate"])
+                        ]]></script>
+                    </else-if>
                 </if>
             </actions>
             <widgets>
                 <container-box>
                     <box-header>
-                        <label text="Status:" type="h5"/>
-                        <label text="${statusItem?.description?:''}" type="h5"/>
+                        <label text="Status" type="h5"/>
+                        <!--<label text="${statusItem?.description?:''}" type="h5" style="text-success"/>-->
                     </box-header>
                     <box-toolbar>
                         <section-iterate name="StatusChangeLinkSection" list="statusTransitionList" entry="statusTransition">
@@ -119,9 +133,28 @@ along with this software (see the LICENSE.md file). If not, see
                         </section-iterate>
                     </box-toolbar>
                     <box-body>
-                        <form-list name="StatusHistoryTable" list="statusHistoryList" skip-form="true"
-                                extends="component://mantle-usl/template/basic/StatusWidgets.xml#StatusHistoryTable">
-                        </form-list>
+                        <section-iterate name="StatusChangeAndHistoryTable" list="reverseList" entry="statusHistory">
+                            <actions>
+                                <entity-find-one entity-name="mantle.party.PersonAndUserAccount" value-field="userAccount">
+                                    <field-map field-name="userId" from="statusHistory.changedByUserId"/></entity-find-one>
+                                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem" cache="true">
+                                    <field-map field-name="statusId" from="statusHistory.newValueText"/></entity-find-one>
+                                <!--<entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">-->
+                                <!--<field-map field-name="statusId" from="statusHistory.oldValueText"/></entity-find-one>-->
+                            </actions>
+                            <widgets>
+                                <container-row>
+                                    <row-col lg="7" md="7" sm="7">
+                                        <label text="${ec.l10n.format(statusHistory.changedDate, 'yyyy-MM-dd HH:mm')}" type="strong" style="text-nowrap"/>
+                                        <label text="by ${ec.resource.expand('UsernameTemplate','',userAccount?:[:])}" style="text-nowrap"/>
+                                    </row-col>
+                                    <row-col lg="5" md="5" sm="5">
+                                        <label text="${statusItem?statusItem.description:''}" type="p" style="text-success" condition="statusHistory_index == 0"/>
+                                        <label text="${statusItem?statusItem.description:''}" type="p" condition="statusHistory_index"/>
+                                    </row-col>
+                                </container-row>
+                            </widgets>
+                        </section-iterate>
                     </box-body>
                 </container-box>
             </widgets>
