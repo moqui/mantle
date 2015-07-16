@@ -194,22 +194,26 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="terminationReasonEnumId" type="id"/>
         <field name="terminationTypeEnumId" type="id"/>
         <field name="jobRequisitionId" type="id"/>
-        <field name="homeCityGeoId" type="id"/>
-        <field name="homeSchoolDistrictGeoId" type="id"/>
-        <field name="workCountyGeoId" type="id"/>
         <field name="identityTypeEnumId" type="id"/>
         <field name="identityLocation" type="text-medium"/>
         <field name="emplAuthzTypeEnumId" type="id"/>
         <field name="emplAuthzLocation" type="text-medium"/>
+        <field name="timePeriodTypeId" type="id"><description>Payroll time period</description></field>
         <field name="taxClassificationEnumId" type="id"/>
         <field name="taxName" type="text-medium"><description>Defaults to Person or Organization name fields</description></field>
+        <field name="taxLastName" type="text-medium"><description>Defaults to Person.lastName if applicable</description></field>
         <field name="taxBusinessName" type="text-medium"/>
-        <field name="taxAddressContactMechId" type="id"/>
-        <field name="taxExempt" type="text-indicator"/>
+        <field name="taxHomeContactMechId" type="id"/>
+        <field name="taxWorkContactMechId" type="id"/>
         <field name="taxExemptPayeeCode" type="text-short"/>
         <field name="taxExemptFatchaCode" type="text-short"/>
         <field name="taxAccountNumbers" type="text-medium"/>
-        <field name="taxAllowances" type="number-integer"/>
+        <field name="taxFederalStatusEnumId" type="text-indicator"/>
+        <field name="taxStateStatusEnumId" type="id"/>
+        <field name="taxFederalAllowances" type="number-integer"/>
+        <field name="taxStateAllowances" type="number-integer"/>
+        <field name="taxFederalAddtlWithhold" type="currency-amount"/>
+        <field name="taxStateAddtlWithhold" type="currency-amount"/>
         <relationship type="one" related-entity-name="mantle.party.PartyRelationship"/>
         <relationship type="one" related-entity-name="mantle.humanres.position.EmplPosition"/>
         <relationship type="one" title="TerminationReason" related-entity-name="moqui.basic.Enumeration">
@@ -217,20 +221,21 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="TerminationType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="terminationTypeEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.humanres.recruitment.JobRequisition"/>
-        <relationship type="one" title="HomeCity" related-entity-name="moqui.basic.Geo">
-            <key-map field-name="homeCityGeoId"/></relationship>
-        <relationship type="one" title="HomeSchoolDistrict" related-entity-name="moqui.basic.Geo">
-            <key-map field-name="homeSchoolDistrictGeoId"/></relationship>
-        <relationship type="one" title="WorkCounty" related-entity-name="moqui.basic.Geo">
-            <key-map field-name="workCountyGeoId"/></relationship>
         <relationship type="one" title="IdentityType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="identityTypeEnumId"/></relationship>
         <relationship type="one" title="EmplAuthzType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="emplAuthzTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
         <relationship type="one" title="TaxClassification" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="taxClassificationEnumId"/></relationship>
-        <relationship type="one" title="TaxAddress" related-entity-name="mantle.party.contact.PostalAddress">
-            <key-map field-name="taxAddressContactMechId"/></relationship>
+        <relationship type="one" title="TaxHome" related-entity-name="mantle.party.contact.PostalAddress">
+            <key-map field-name="taxHomeContactMechId"/></relationship>
+        <relationship type="one" title="TaxWork" related-entity-name="mantle.party.contact.PostalAddress">
+            <key-map field-name="taxWorkContactMechId"/></relationship>
+        <relationship type="one" title="TaxFederalStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxFederalStatusEnumId"/></relationship>
+        <relationship type="one" title="TaxStateStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxStateStatusEnumId"/></relationship>
 
         <seed-data>
             <!-- Termination Type -->
@@ -276,6 +281,22 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Native Tribal Document" enumId="EatNativeDoc" enumTypeId="EmplAuthzType"/>
             <moqui.basic.Enumeration description="Citizen ID Card" enumId="EatCitizenId" enumTypeId="EmplAuthzType"/>
             <moqui.basic.Enumeration description="Resident Citizen ID Card" enumId="EatResCitizenId" enumTypeId="EmplAuthzType"/>
+
+            <!-- Tax Federal Status -->
+            <moqui.basic.EnumerationType description="Tax Federal Status" enumTypeId="TaxFederalStatus"/>
+            <moqui.basic.Enumeration description="Do Not Withhold" enumId="TfsDoNotWithhold" sequenceNum="1" enumTypeId="TaxFederalStatus"/>
+            <moqui.basic.Enumeration description="Married File Joint" enumId="TfsMarriedFileJoint" sequenceNum="2" enumTypeId="TaxFederalStatus"/>
+            <moqui.basic.Enumeration description="Married File Separate" enumId="TfsMarriedSeparate" sequenceNum="3" enumTypeId="TaxFederalStatus"/>
+            <moqui.basic.Enumeration description="Single" enumId="TfsSingle" sequenceNum="4" enumTypeId="TaxFederalStatus"/>
+
+            <!-- Tax State Status -->
+            <moqui.basic.EnumerationType description="Tax State Status" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Do Not Withhold" enumId="TssDoNotWithhold" sequenceNum="1" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Married File Joint 1 Income" enumId="TssMarriedFileJoint1" sequenceNum="2" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Married File Joint 2+ Incomes" enumId="TssMarriedFileJoint2" sequenceNum="3" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Married File Separate" enumId="TssMarriedSeparate" sequenceNum="4" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Head of Household" enumId="TssHeadHousehold" sequenceNum="5" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Single" enumId="TssSingle" sequenceNum="6" enumTypeId="TaxStateStatus"/>
         </seed-data>
     </entity>
     <entity entity-name="EmploymentApplication" package-name="mantle.humanres.employment">
