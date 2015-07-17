@@ -187,33 +187,116 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
     </entity>
     <entity entity-name="Employment" package-name="mantle.humanres.employment">
-        <field name="employmentId" type="id" is-pk="true"/>
+        <description>This is a type of PartyRelationship so shares the ID with the related PartyRelationship record
+            between employee (fromPartyId) and internal organization (toPartyId) with relationshipTypeEnumId=PrtEmployee.</description>
+        <field name="partyRelationshipId" type="id" is-pk="true"/>
         <field name="emplPositionId" type="id"/>
-        <field name="payGradeId" type="id"><description>Overrides EmplPosition.payGradeId</description></field>
-        <field name="employerPartyId" type="id"/>
-        <field name="employeePartyId" type="id"/>
-        <field name="fromDate" type="date-time"/>
-        <field name="thruDate" type="date-time"/>
         <field name="terminationReasonEnumId" type="id"/>
         <field name="terminationTypeEnumId" type="id"/>
         <field name="jobRequisitionId" type="id"/>
+        <field name="identityTypeEnumId" type="id"/>
+        <field name="identityLocation" type="text-medium"/>
+        <field name="emplAuthzTypeEnumId" type="id"/>
+        <field name="emplAuthzLocation" type="text-medium"/>
+        <field name="timePeriodTypeId" type="id"><description>Payroll time period</description></field>
+        <field name="taxClassificationEnumId" type="id"/>
+        <field name="taxName" type="text-medium"><description>Defaults to Person or Organization name fields</description></field>
+        <field name="taxLastName" type="text-medium"><description>Defaults to Person.lastName if applicable</description></field>
+        <field name="taxBusinessName" type="text-medium"/>
+        <field name="taxHomeContactMechId" type="id"/>
+        <field name="taxWorkContactMechId" type="id"/>
+        <field name="taxExemptPayeeCode" type="text-short"/>
+        <field name="taxExemptFatchaCode" type="text-short"/>
+        <field name="taxAccountNumbers" type="text-medium"/>
+        <field name="taxFederalStatusEnumId" type="id"/>
+        <field name="taxStateStatusEnumId" type="id"/>
+        <field name="taxFederalAllowances" type="number-integer"/>
+        <field name="taxStateAllowances" type="number-integer"/>
+        <field name="taxFederalAddtlWithhold" type="currency-amount"/>
+        <field name="taxStateAddtlWithhold" type="currency-amount"/>
+        <field name="taxYtdPriorIncome" type="currency-amount"><description>Added to YTD income for starting year only (for taxes limited by YTD income)</description></field>
+        <relationship type="one" related-entity-name="mantle.party.PartyRelationship"/>
         <relationship type="one" related-entity-name="mantle.humanres.position.EmplPosition"/>
-        <relationship type="one" related-entity-name="mantle.humanres.rate.PayGrade"/>
-        <relationship type="one" title="Employer" related-entity-name="mantle.party.Party">
-            <key-map field-name="employerPartyId"/></relationship>
-        <relationship type="one" title="Employee" related-entity-name="mantle.party.Party">
-            <key-map field-name="employeePartyId"/></relationship>
         <relationship type="one" title="TerminationReason" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="terminationReasonEnumId"/></relationship>
         <relationship type="one" title="TerminationType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="terminationTypeEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.humanres.recruitment.JobRequisition"/>
+        <relationship type="one" title="IdentityType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="identityTypeEnumId"/></relationship>
+        <relationship type="one" title="EmplAuthzType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="emplAuthzTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
+        <relationship type="one" title="TaxClassification" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxClassificationEnumId"/></relationship>
+        <relationship type="one" title="TaxHome" related-entity-name="mantle.party.contact.PostalAddress">
+            <key-map field-name="taxHomeContactMechId"/></relationship>
+        <relationship type="one" title="TaxWork" related-entity-name="mantle.party.contact.PostalAddress">
+            <key-map field-name="taxWorkContactMechId"/></relationship>
+        <relationship type="one" title="TaxFederalStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxFederalStatusEnumId"/></relationship>
+        <relationship type="one" title="TaxStateStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxStateStatusEnumId"/></relationship>
+
         <seed-data>
             <!-- Termination Type -->
             <moqui.basic.EnumerationType description="Termination Type" enumTypeId="TerminationType"/>
-            <moqui.basic.Enumeration description="Resignation" enumId="TT_RESIGN" enumTypeId="TerminationType"/>
-            <moqui.basic.Enumeration description="Fired" enumId="TT_FIRE" enumTypeId="TerminationType"/>
-            <moqui.basic.Enumeration description="Retirement" enumId="TT_RETIRE" enumTypeId="TerminationType"/>
+            <moqui.basic.Enumeration description="Resigned" enumId="TtResigned" enumTypeId="TerminationType"/>
+            <moqui.basic.Enumeration description="Fired" enumId="TtFired" enumTypeId="TerminationType"/>
+            <moqui.basic.Enumeration description="Layoff" enumId="TtLayoff" enumTypeId="TerminationType"/>
+            <moqui.basic.Enumeration description="Retired" enumId="TtRetired" enumTypeId="TerminationType"/>
+
+            <!-- Identity Type -->
+            <moqui.basic.EnumerationType description="Identity Type" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Local Passport" enumId="IdTpLocalPassport" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Foreign Passport" enumId="IdTpForeignPassport" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Permanent Resident Card" enumId="IdTpResidentCard" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Alien Registration Receipt Card" enumId="IdTpAlienCard" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Employment Authorization Document" enumId="IdTpEmplAuthzDoc" enumTypeId="IdentityType"/>
+
+            <moqui.basic.Enumeration description="Local Driver License" enumId="IdTpLclDriverLicense" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Foreign Driver License" enumId="IdTpFrnDriverLicense" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Government ID Card" enumId="IdTpGovtIdCard" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="School ID Card" enumId="IdTpSchoolIdCard" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Voter Registration" enumId="IdTpVoterReg" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Military ID" enumId="IdTpMilitaryId" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Military Dependent ID" enumId="IdTpMilDepId" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Merchant Mariner Card" enumId="IdTpMerchMarCard" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Native Tribal Document" enumId="IdTpNativeDoc" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="School Record" enumId="IdTpSchoolRecord" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Medical Record" enumId="IdTpMedicalRecord" enumTypeId="IdentityType"/>
+            <moqui.basic.Enumeration description="Daycare Record" enumId="IdTpDaycareRecord" enumTypeId="IdentityType"/>
+
+            <!-- Employment Authorization Type -->
+            <moqui.basic.EnumerationType description="Employment Authorization Type" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Local Passport" enumId="EatLocalPassport" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Foreign Passport plus Visa" enumId="EatForeignPassportVisa" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Permanent Resident Card" enumId="EatResidentCard" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Alien Registration Receipt Card" enumId="EatAlienCard" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Employment Authorization Document" enumId="EatEmplAuthzDoc" enumTypeId="EmplAuthzType"/>
+
+            <moqui.basic.Enumeration description="Social Security Card" enumId="EatSocSecCard" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Certification of Birth Abroad" enumId="EatCertBirthAbroad" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Certification of Report of Birth" enumId="EatCertRepOfBirth" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Birth Certificate" enumId="EatBirthCert" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Native Tribal Document" enumId="EatNativeDoc" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Citizen ID Card" enumId="EatCitizenId" enumTypeId="EmplAuthzType"/>
+            <moqui.basic.Enumeration description="Resident Citizen ID Card" enumId="EatResCitizenId" enumTypeId="EmplAuthzType"/>
+
+            <!-- Tax Federal Status -->
+            <moqui.basic.EnumerationType description="Tax Federal Status" enumTypeId="TaxFederalStatus"/>
+            <moqui.basic.Enumeration description="Do Not Withhold" enumId="TfsDoNotWithhold" sequenceNum="1" enumTypeId="TaxFederalStatus"/>
+            <moqui.basic.Enumeration description="Married File Joint" enumId="TfsMarriedJoint" sequenceNum="2" enumTypeId="TaxFederalStatus"/>
+            <moqui.basic.Enumeration description="Single or Married File Separate" enumId="TfsSingle" sequenceNum="4" enumTypeId="TaxFederalStatus"/>
+
+            <!-- Tax State Status -->
+            <moqui.basic.EnumerationType description="Tax State Status" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Do Not Withhold" enumId="TssDoNotWithhold" sequenceNum="1" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Married File Joint 1 Income" enumId="TssMarriedFileJoint1" sequenceNum="2" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Married File Joint 2+ Incomes" enumId="TssMarriedFileJoint2" sequenceNum="3" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Married File Separate" enumId="TssMarriedSeparate" sequenceNum="4" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Head of Household" enumId="TssHeadHousehold" sequenceNum="5" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Single" enumId="TssSingle" sequenceNum="6" enumTypeId="TaxStateStatus"/>
         </seed-data>
     </entity>
     <entity entity-name="EmploymentApplication" package-name="mantle.humanres.employment">
@@ -250,7 +333,7 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
     </entity>
     <entity entity-name="EmploymentBenefit" package-name="mantle.humanres.employment">
-        <field name="employmentId" type="id" is-pk="true"/>
+        <field name="partyRelationshipId" type="id" is-pk="true"/>
         <field name="benefitTypeId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
@@ -280,40 +363,63 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- Employment Leave Type -->
             <moqui.basic.EnumerationType description="Employment Leave Type" enumTypeId="EmploymentLeaveType"/>
-            <moqui.basic.Enumeration description="Earned Leave" enumId="ELT_EARNED" enumTypeId="EmploymentLeaveType"/>
-            <moqui.basic.Enumeration description="Loss of Pay" enumId="ELT_LOSS_OF_PAY" enumTypeId="EmploymentLeaveType"/>
-            <moqui.basic.Enumeration description="Holiday" enumId="ELT_HOLIDAY" enumTypeId="EmploymentLeaveType"/>
-            <moqui.basic.Enumeration description="Special Day Off" enumId="ELT_SPECIAL_DAY_OFF" enumTypeId="EmploymentLeaveType"/>
+            <moqui.basic.Enumeration description="Earned Leave" enumId="EltEarned" enumTypeId="EmploymentLeaveType"/>
+            <moqui.basic.Enumeration description="Loss of Pay" enumId="EltLossOfPay" enumTypeId="EmploymentLeaveType"/>
+            <moqui.basic.Enumeration description="Holiday" enumId="EltHoliday" enumTypeId="EmploymentLeaveType"/>
+            <moqui.basic.Enumeration description="Special Day Off" enumId="EltSpecialDayOff" enumTypeId="EmploymentLeaveType"/>
 
             <!-- Employment Leave Reason -->
             <moqui.basic.EnumerationType description="Employment Leave Reason" enumTypeId="EmploymentLeaveReason"/>
-            <moqui.basic.Enumeration description="Medical" enumId="ELR_MEDICAL" enumTypeId="EmploymentLeaveReason"/>
-            <moqui.basic.Enumeration description="Personal" enumId="ELR_PERSONAL" enumTypeId="EmploymentLeaveReason"/>
+            <moqui.basic.Enumeration description="Medical" enumId="ElrMedical" enumTypeId="EmploymentLeaveReason"/>
+            <moqui.basic.Enumeration description="Personal" enumId="ElrPersonal" enumTypeId="EmploymentLeaveReason"/>
         </seed-data>
     </entity>
-    <entity entity-name="EmploymentPayGrade" package-name="mantle.humanres.employment">
-        <field name="employmentId" type="id" is-pk="true"/>
-        <field name="payGradeId" type="id" is-pk="true"/>
+    <entity entity-name="EmploymentSalary" package-name="mantle.humanres.employment">
+        <description>The current and past actual salary amounts for Employment. Current salary found by standard date
+            filter and sort (filter by fromDate, thruDate; sort by ascending fromDate; use first result).</description>
+        <field name="partyRelationshipId" type="id" is-pk="true"/>
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
+        <field name="payGradeId" type="id"/>
         <field name="comments" type="text-medium"/>
+        <field name="amount" type="currency-amount" enable-audit-log="true"/>
+        <field name="currencyUomId" type="id"/>
+        <field name="timePeriodTypeId" type="id"/>
         <relationship type="one" related-entity-name="mantle.humanres.employment.Employment"/>
         <relationship type="one" related-entity-name="mantle.humanres.rate.PayGrade"/>
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="currencyUomId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
     </entity>
     <entity entity-name="PayrollAdjustment" package-name="mantle.humanres.employment">
         <field name="payrollAdjustmentId" type="id" is-pk="true"/>
-        <field name="employmentId" type="id"/>
+        <field name="partyRelationshipId" type="id"><description>If null applies to all employees.</description></field>
         <field name="itemTypeEnumId" type="id"/>
         <field name="timePeriodTypeId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="percentage" type="number-float"/>
-        <field name="basisLimit" type="currency-amount"/>
+        <field name="percAfterYtdMin" type="text-indicator"/>
+        <field name="ytdMin" type="currency-amount"/>
+        <field name="ytdMax" type="currency-amount"/>
+        <field name="percAfterPeriodMin" type="text-indicator"/>
+        <field name="periodMin" type="currency-amount"/>
+        <field name="periodMax" type="currency-amount"/>
         <field name="flatAmount" type="currency-amount"/>
+        <field name="isTax" type="text-indicator"/>
+        <field name="deductibleFromTax" type="text-indicator"/>
+        <field name="taxFederalStatusEnumId" type="id"/>
+        <field name="taxStateStatusEnumId" type="id"/>
+        <field name="taxAuthorityId" type="id"/>
         <relationship type="one" related-entity-name="mantle.humanres.employment.Employment"/>
         <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="itemTypeEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
+        <relationship type="one" title="TaxFederalStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxFederalStatusEnumId"/></relationship>
+        <relationship type="one" title="TaxStateStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxStateStatusEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
         <!--
         <field name="paymentMethodTypeEnumId" type="id"/>
         <field name="paymentMethodId" type="id"/>
@@ -322,10 +428,47 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
         -->
     </entity>
+    <entity entity-name="PayrollAllowance" package-name="mantle.humanres.employment">
+        <field name="payrollAllowanceId" type="id" is-pk="true"/>
+        <field name="taxAuthorityId" type="id"/>
+        <field name="timePeriodTypeId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="amountTypeEnumId" type="id"/>
+        <field name="amount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
+        <relationship type="one" title="PayrollAllowanceAmountType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="amountTypeEnumId"/></relationship>
+        <seed-data>
+            <!-- Payroll Allowance Amount Type -->
+            <moqui.basic.EnumerationType description="Payroll Allowance Amount Type" enumTypeId="PayrollAllowanceAmountType"/>
+            <moqui.basic.Enumeration description="Deduction" enumId="PaatDeduction" enumTypeId="PayrollAllowanceAmountType"/>
+            <moqui.basic.Enumeration description="Exemption" enumId="PaatExemption" enumTypeId="PayrollAllowanceAmountType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="PayrollStdDeduction" package-name="mantle.humanres.employment">
+        <field name="payrollStdDeductionId" type="id" is-pk="true"/>
+        <field name="taxAuthorityId" type="id"/>
+        <field name="timePeriodTypeId" type="id"/>
+        <field name="taxFederalStatusEnumId" type="id"/>
+        <field name="taxStateStatusEnumId" type="id"/>
+        <field name="minAllowances" type="number-integer"/>
+        <field name="maxAllowances" type="number-integer"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="amount" type="currency-amount"/>
+        <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
+        <relationship type="one" title="TaxFederalStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxFederalStatusEnumId"/></relationship>
+        <relationship type="one" title="TaxStateStatus" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxStateStatusEnumId"/></relationship>
+    </entity>
     <entity entity-name="UnemploymentClaim" package-name="mantle.humanres.employment">
         <field name="unemploymentClaimId" type="id" is-pk="true"/>
         <field name="unemploymentClaimDate" type="date-time"/>
-        <field name="employmentId" type="id"/>
+        <field name="partyRelationshipId" type="id"/>
         <field name="statusId" type="id"/>
         <field name="description" type="text-medium"/>
         <field name="fromDate" type="date-time"/>
@@ -345,20 +488,18 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="EmplPosition" package-name="mantle.humanres.position">
         <field name="emplPositionId" type="id" is-pk="true"/>
         <field name="organizationPartyId" type="id"/>
-        <field name="emplPositionClassId" type="id"/>
+        <field name="emplPositionClassId" type="id" enable-audit-log="true"/>
         <field name="description" type="text-medium"/>
         <field name="statusId" type="id"/>
-        <field name="payGradeId" type="id"/>
+        <field name="payGradeId" type="id" enable-audit-log="true"/>
         <field name="budgetId" type="id"/>
         <field name="budgetItemSeqId" type="id"/>
         <field name="salaryFlag" type="text-indicator"/>
         <field name="exemptFlag" type="text-indicator"/>
         <field name="fullTimeFlag" type="text-indicator"/>
         <field name="temporaryFlag" type="text-indicator"/>
-        <field name="estimatedFromDate" type="date-time"/>
-        <field name="estimatedThruDate" type="date-time"/>
-        <field name="actualFromDate" type="date-time"/>
-        <field name="actualThruDate" type="date-time"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
         <field name="standardHoursPerWeek" type="number-integer"/>
         <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
             <key-map field-name="organizationPartyId"/></relationship>
@@ -454,7 +595,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <entity entity-name="PayGrade" package-name="mantle.humanres.rate">
         <field name="payGradeId" type="id" is-pk="true"/>
-        <field name="payGradeName" type="text-medium"/>
+        <field name="description" type="text-medium"/>
         <field name="comments" type="text-medium"/>
     </entity>
     <entity entity-name="PayGradeSalary" package-name="mantle.humanres.rate">
@@ -462,8 +603,14 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fromDate" type="date-time" is-pk="true"/>
         <field name="thruDate" type="date-time"/>
         <field name="amount" type="currency-amount"/>
+        <field name="minAmount" type="currency-amount"/>
+        <field name="maxAmount" type="currency-amount"/>
         <field name="currencyUomId" type="id"/>
+        <field name="timePeriodTypeId" type="id"/>
         <relationship type="one" related-entity-name="mantle.humanres.rate.PayGrade"/>
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="currencyUomId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
     </entity>
     <entity entity-name="RateAmount" package-name="mantle.humanres.rate">
         <field name="rateAmountId" type="id" is-pk="true"/>

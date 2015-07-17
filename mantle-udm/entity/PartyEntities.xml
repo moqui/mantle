@@ -121,6 +121,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="partyId" type="id" is-pk="true"/>
         <field name="partyIdTypeEnumId" type="id" is-pk="true"/>
         <field name="idValue" type="id-long" encrypt="true"/>
+        <field name="issuedBy" type="text-medium"/>
         <field name="expireDate" type="date"/>
         <relationship type="one" title="PartyIdType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="partyIdTypeEnumId"/></relationship>
@@ -134,6 +135,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Federal EIN" enumId="PtidFein" enumTypeId="PartyIdType"/>
             <moqui.basic.Enumeration description="Matricula Consular ID" enumId="PtidMcid" enumTypeId="PartyIdType"/>
             <moqui.basic.Enumeration description="Global Location Number" enumId="PtidGln" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Alien Registration Number" enumId="PtidArn" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Immigrant Admission Number" enumId="PtidIan" enumTypeId="PartyIdType"/>
         </seed-data>
     </entity>
     <entity entity-name="PartyGeoPoint" package-name="mantle.party">
@@ -630,8 +633,8 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="AgreementItemEmployment" package-name="mantle.party.agreement">
         <field name="agreementId" type="id" is-pk="true"/>
         <field name="agreementItemSeqId" type="id" is-pk="true"/>
-        <field name="employmentId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="Employment"/>
+        <field name="partyRelationshipId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="mantle.humanres.employment.Employment"/>
         <relationship type="one" related-entity-name="mantle.party.agreement.AgreementItem">
             <key-map field-name="agreementId"/>
             <key-map field-name="agreementItemSeqId"/>
@@ -916,6 +919,10 @@ along with this software (see the LICENSE.md file). If not, see
                     description="Postal - Primary"/>
             <ContactMechPurpose contactMechPurposeId="PostalPrevious" contactMechTypeEnumId="CmtPostalAddress"
                     description="Postal - Previous"/>
+            <ContactMechPurpose contactMechPurposeId="PostalHome" contactMechTypeEnumId="CmtPostalAddress"
+                    description="Postal - Home"/>
+            <ContactMechPurpose contactMechPurposeId="PostalWork" contactMechTypeEnumId="CmtPostalAddress"
+                    description="Postal - Work"/>
 
             <ContactMechPurpose contactMechPurposeId="PhoneShippingDest" contactMechTypeEnumId="CmtTelecomNumber"
                     description="Phone - Shipping Destination"/>
@@ -997,6 +1004,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="unitNumber" type="text-medium"/>
         <field name="directions" type="text-long"/>
         <field name="city" type="text-medium"/>
+        <field name="cityGeoId" type="id"/>
+        <field name="schoolDistrictGeoId" type="id"/>
         <field name="countyGeoId" type="id"/>
         <field name="stateProvinceGeoId" type="id"/>
         <field name="countryGeoId" type="id"/>
@@ -1009,12 +1018,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="telecomContactMechId" type="id"/>
         <field name="emailContactMechId" type="id"/>
         <relationship type="one" related-entity-name="mantle.party.contact.ContactMech"/>
-        <relationship type="one" title="Country" related-entity-name="moqui.basic.Geo">
-            <key-map field-name="countryGeoId"/></relationship>
-        <relationship type="one" title="StateProvince" related-entity-name="moqui.basic.Geo">
-            <key-map field-name="stateProvinceGeoId"/></relationship>
+        <relationship type="one" title="City" related-entity-name="moqui.basic.Geo">
+            <key-map field-name="cityGeoId"/></relationship>
+        <relationship type="one" title="SchoolDistrict" related-entity-name="moqui.basic.Geo">
+            <key-map field-name="schoolDistrictGeoId"/></relationship>
         <relationship type="one" title="County" related-entity-name="moqui.basic.Geo">
             <key-map field-name="countyGeoId"/></relationship>
+        <relationship type="one" title="StateProvince" related-entity-name="moqui.basic.Geo">
+            <key-map field-name="stateProvinceGeoId"/></relationship>
+        <relationship type="one" title="Country" related-entity-name="moqui.basic.Geo">
+            <key-map field-name="countryGeoId"/></relationship>
         <relationship type="one" title="PostalCode" related-entity-name="moqui.basic.Geo">
             <key-map field-name="postalCodeGeoId"/></relationship>
         <relationship type="one" related-entity-name="GeoPoint"/>
@@ -1060,7 +1073,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="TimePeriodType" package-name="mantle.party.time">
         <field name="timePeriodTypeId" type="id" is-pk="true"/>
         <field name="description" type="text-medium"/>
-        <field name="periodLength" type="number-integer"/>
+        <field name="periodLength" type="number-decimal"/>
         <field name="lengthUomId" type="id"/>
         <relationship type="one" title="Length" related-entity-name="moqui.basic.Uom">
             <key-map field-name="lengthUomId" related-field-name="uomId"/></relationship>
@@ -1072,7 +1085,11 @@ along with this software (see the LICENSE.md file). If not, see
             <mantle.party.time.TimePeriodType description="Fiscal Week" timePeriodTypeId="FiscalWeek" periodLength="1" lengthUomId="TF_wk"/>
             <mantle.party.time.TimePeriodType description="Sales Quarter" timePeriodTypeId="SalesQuarter" periodLength="3" lengthUomId="TF_mon"/>
             <mantle.party.time.TimePeriodType description="Sales Month" timePeriodTypeId="SalesMonth" periodLength="1" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Payroll Year" timePeriodTypeId="PayrollYear" periodLength="1" lengthUomId="TF_yr"/>
+            <mantle.party.time.TimePeriodType description="Payroll Semi-Year" timePeriodTypeId="PayrollSemiYear" periodLength="6" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Payroll Quarter" timePeriodTypeId="PayrollQuarter" periodLength="3" lengthUomId="TF_mon"/>
             <mantle.party.time.TimePeriodType description="Payroll Month" timePeriodTypeId="PayrollMonth" periodLength="1" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Payroll Semi-Month" timePeriodTypeId="PayrollSemiMonth" periodLength="0.5" lengthUomId="TF_mon"/>
             <mantle.party.time.TimePeriodType description="Payroll Bi-Week" timePeriodTypeId="PayrollBiWeek" periodLength="2" lengthUomId="TF_wk"/>
             <mantle.party.time.TimePeriodType description="Payroll Week" timePeriodTypeId="PayrollWeek" periodLength="1" lengthUomId="TF_wk"/>
         </seed-data>
