@@ -13,6 +13,35 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
+    <service verb="create" noun="Employment">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyRelationship" include="nonpk"/>
+            <auto-parameters entity-name="mantle.humanres.employment.Employment" include="nonpk"/>
+            <parameter name="fromPartyId" required="true"/>
+            <parameter name="toPartyId" required="true"/>
+            <parameter name="fromRoleTypeId" default-value="Employee"/>
+            <parameter name="relationshipTypeEnumId" default-value="PrtEmployee"/>
+            <parameter name="toRoleTypeId" default-value="OrgInternal"/>
+            <parameter name="fromDate" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters><parameter name="partyRelationshipId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.party.PartyRelationship" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.humanres.employment.Employment" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="Employment">
+        <in-parameters>
+            <parameter name="partyRelationshipId" required="true"/>
+            <auto-parameters entity-name="mantle.party.PartyRelationship" include="nonpk"/>
+            <auto-parameters entity-name="mantle.humanres.employment.Employment" include="nonpk"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.party.PartyRelationship" in-map="context"/>
+            <service-call name="update#mantle.humanres.employment.Employment" in-map="context"/>
+        </actions>
+    </service>
+
     <!-- Payroll TimePeriod services -->
     <!-- TODO: change to handle PayrollWeek, PayrollBiWeek, etc based on some configuration of what the org will actually use; or this may not be needed at all and TimePeriod records can be created as needed for payroll processing -->
     <service verb="check" noun="NextPayrollTimePeriods">
