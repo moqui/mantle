@@ -324,4 +324,62 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+
+    <!-- ============================================== -->
+    <!-- ========== PartyContent Services ========== -->
+    <!-- ============================================== -->
+
+    <service verb="create" noun="PartyContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="partyContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.party.PartyContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.party.PartyServices.save#PartyContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="PartyContent">
+        <in-parameters>
+            <parameter name="partyContentId" required="true"/>
+            <auto-parameters entity-name="mantle.party.PartyContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.party.PartyContent" value-field="partyContent"/>
+                <service-call name="mantle.party.PartyServices.save#PartyContentFile" out-map="context"
+                        in-map="context + [partyId:partyContent.partyId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.party.PartyContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="PartyContentFile">
+        <in-parameters>
+            <parameter name="partyContentId" required="true"/>
+            <parameter name="partyId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/party/${partyId}/content_${partyContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.party.PartyContent"
+                    in-map="[partyContentId:partyContentId, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
 </services>
