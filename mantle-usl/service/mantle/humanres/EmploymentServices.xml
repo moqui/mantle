@@ -35,8 +35,35 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="partyRelationshipId" required="true"/>
             <auto-parameters entity-name="mantle.party.PartyRelationship" include="nonpk"/>
             <auto-parameters entity-name="mantle.humanres.employment.Employment" include="nonpk"/>
+            <parameter name="identityDocumentFile" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="emplAuthzDocumentFile" type="org.apache.commons.fileupload.FileItem"/>
         </in-parameters>
         <actions>
+            <if condition="identityDocumentFile != null &amp;&amp; identityDocumentFile.size &gt; 0">
+                <if condition="!identityLocation">
+                    <set field="filename" from="identityDocumentFile.getName()"/>
+                    <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+                    <set field="identityLocation" value="${contentRoot}/employment/${partyRelationshipId}/identity/${filename}"/>
+                </if>
+                <set field="docRr" from="ec.resource.getLocationReference(identityLocation)"/>
+                <script>
+                    fileStream = identityDocumentFile.getInputStream()
+                    try { docRr.putStream(fileStream) } finally { fileStream.close() }
+                </script>
+            </if>
+            <if condition="emplAuthzDocumentFile != null &amp;&amp; emplAuthzDocumentFile.size &gt; 0">
+                <if condition="!emplAuthzLocation">
+                    <set field="filename" from="emplAuthzDocumentFile.getName()"/>
+                    <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+                    <set field="emplAuthzLocation" value="${contentRoot}/employment/${partyRelationshipId}/emplAuthz/${filename}"/>
+                </if>
+                <set field="docRr" from="ec.resource.getLocationReference(emplAuthzLocation)"/>
+                <script>
+                    fileStream = emplAuthzDocumentFile.getInputStream()
+                    try { docRr.putStream(fileStream) } finally { fileStream.close() }
+                </script>
+            </if>
+
             <service-call name="update#mantle.party.PartyRelationship" in-map="context"/>
             <service-call name="store#mantle.humanres.employment.Employment" in-map="context"/>
         </actions>
