@@ -62,6 +62,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
+            <log message="========== start update#AssetFromDetail ${assetId}: ${availableToPromiseDiff}/${quantityOnHandDiff} :: ${asset.availableToPromiseTotal}/${asset.quantityOnHandTotal}"/>
             <!-- view-entity with sum function approach, doesn't work with TransactionCache:
             <entity-find-one entity-name="AssetDetailSummary" value-field="assetDetailSummary"/>
             <set field="asset.availableToPromiseTotal" from="assetDetailSummary.availableToPromiseTotal ?: 0"/>
@@ -69,7 +70,11 @@ along with this software (see the LICENSE.md file). If not, see
             -->
             <set field="asset.availableToPromiseTotal" from="(asset.availableToPromiseTotal ?: 0) + (availableToPromiseDiff ?: 0)"/>
             <set field="asset.quantityOnHandTotal" from="(asset.quantityOnHandTotal ?: 0) + (quantityOnHandDiff ?: 0)"/>
+            <set field="message" from="'========== before update update#AssetFromDetail ' + assetId + ': ' + availableToPromiseDiff + '/' + quantityOnHandDiff + ' :: ' + asset.availableToPromiseTotal + '/' + asset.quantityOnHandTotal"/>
+            <log message="${message}"/>
             <entity-update value-field="asset"/>
+            <set field="message" from="'========== end update#AssetFromDetail ' + assetId + ': ' + availableToPromiseDiff + '/' + quantityOnHandDiff + ' :: ' + asset.availableToPromiseTotal + '/' + asset.quantityOnHandTotal"/>
+            <log message="${message}"/>
         </actions>
     </service>
 
@@ -216,35 +221,40 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <if condition="assetList">
-                <!-- reserve by availableToPromiseTotal (no reservation here, but respect others) -->
-                <iterate list="assetList" entry="asset">
-                    <set field="lastAsset" from="asset"/>
-                    <if condition="quantityRemaining &gt; 0 &amp;&amp; asset_has_next">
-                        <set field="quantityToReserve" from="asset.availableToPromiseTotal &gt; quantityRemaining ? quantityRemaining : asset.availableToPromiseTotal"/>
-                        <set field="quantityRemaining" from="quantityRemaining - quantityToReserve"/>
+                <then>
+                    <!-- reserve by availableToPromiseTotal (no reservation here, but respect others) -->
+                    <iterate list="assetList" entry="asset">
+                        <set field="lastAsset" from="asset"/>
+                        <if condition="quantityRemaining &gt; 0 &amp;&amp; asset_has_next">
+                            <set field="quantityToReserve" from="asset.availableToPromiseTotal &gt; quantityRemaining ? quantityRemaining : asset.availableToPromiseTotal"/>
+                            <set field="quantityRemaining" from="quantityRemaining - quantityToReserve"/>
+                            <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
+                                    [assetId:asset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityToReserve,
+                                    quantityNotAvailable:0, quantityNotIssued:quantityToReserve, priority:orderItem.priority,
+                                    sequenceNum:asset_index, reservationOrderEnumId:reservationOrderEnumId]"/>
+                            <log message="====== before create#AssetDetail ${asset.assetId}: ${-quantityToReserve}/0"/>
+                            <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap +
+                                    [assetId:asset.assetId, effectiveDate:ec.user.nowTimestamp,
+                                    availableToPromiseDiff:-quantityToReserve, assetReservationId:resOut.assetReservationId]"/>
+                            <log message="====== after create#AssetDetail ${asset.assetId}: ${-quantityToReserve}/0"/>
+                        </if>
+                    </iterate>
+                    <!-- not all issued? issue to last (most recent) Asset -->
+                    <if condition="quantityRemaining &gt; 0">
+                        <set field="quantityNotAvailable" from="lastAsset.availableToPromiseTotal &gt; quantityRemaining ? 0 :
+                                (lastAsset.availableToPromiseTotal &gt; 0 ? quantityRemaining - lastAsset.availableToPromiseTotal : quantityRemaining)"/>
                         <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
-                                [assetId:asset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityToReserve,
-                                quantityNotAvailable:0, quantityNotIssued:quantityToReserve, priority:orderItem.priority,
-                                sequenceNum:asset_index, reservationOrderEnumId:reservationOrderEnumId]"/>
+                                [assetId:lastAsset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityRemaining,
+                                quantityNotAvailable:quantityNotAvailable, quantityNotIssued:quantityRemaining,
+                                priority:orderItem.priority, sequenceNum:asset_index,
+                                reservationOrderEnumId:reservationOrderEnumId]"/>
+                        <log message="====== before create#AssetDetail ${lastAsset.assetId}: ${-quantityRemaining}/0"/>
                         <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap +
-                                [assetId:asset.assetId, effectiveDate:ec.user.nowTimestamp,
-                                availableToPromiseDiff:-quantityToReserve, assetReservationId:resOut.assetReservationId]"/>
+                                [assetId:lastAsset.assetId, effectiveDate:ec.user.nowTimestamp,
+                                availableToPromiseDiff:-quantityRemaining, assetReservationId:resOut.assetReservationId]"/>
+                        <log message="====== after create#AssetDetail ${lastAsset.assetId}: ${-quantityRemaining}/0"/>
                     </if>
-                </iterate>
-                <!-- not all issued? issue to last (most recent) Asset -->
-                <if condition="quantityRemaining &gt; 0">
-                    <set field="quantityNotAvailable" from="lastAsset.availableToPromiseTotal &gt; quantityRemaining ? 0 :
-                            (lastAsset.availableToPromiseTotal &gt; 0 ? quantityRemaining - lastAsset.availableToPromiseTotal : quantityRemaining)"/>
-                    <service-call name="create#mantle.product.issuance.AssetReservation" out-map="resOut" in-map="baseMap +
-                            [assetId:lastAsset.assetId, reservedDate:ec.user.nowTimestamp, quantity:quantityRemaining,
-                            quantityNotAvailable:quantityNotAvailable, quantityNotIssued:quantityRemaining,
-                            priority:orderItem.priority, sequenceNum:asset_index,
-                            reservationOrderEnumId:reservationOrderEnumId]"/>
-                    <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap +
-                            [assetId:lastAsset.assetId, effectiveDate:ec.user.nowTimestamp,
-                            availableToPromiseDiff:-quantityRemaining, assetReservationId:resOut.assetReservationId]"/>
-                </if>
-
+                </then>
                 <else>
                     <!-- no asset... create a shell one to record the issuance and detail against -->
                     <service-call name="create#mantle.product.asset.Asset" out-map="assetOut"
@@ -257,9 +267,11 @@ along with this software (see the LICENSE.md file). If not, see
                             quantityNotAvailable:quantityRemaining, quantityNotIssued:quantityRemaining,
                             priority:orderItem.priority, sequenceNum:0,
                             reservationOrderEnumId:reservationOrderEnumId]"/>
+                    <log message="====== before create#AssetDetail ${assetOut.assetId}: ${-quantityRemaining}/0"/>
                     <service-call name="create#mantle.product.asset.AssetDetail" in-map="baseMap +
                             [assetId:assetOut.assetId, effectiveDate:ec.user.nowTimestamp,
                             availableToPromiseDiff:-quantityRemaining, assetReservationId:resOut.assetReservationId]"/>
+                    <log message="====== after create#AssetDetail ${assetOut.assetId}: ${-quantityRemaining}/0"/>
                 </else>
             </if>
         </actions>
