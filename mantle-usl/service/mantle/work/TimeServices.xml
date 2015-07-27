@@ -137,48 +137,89 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="rateAmount"/>
             <parameter name="vendorRateAmountId"/>
             <parameter name="vendorRateAmount"/>
+            <parameter name="pieceRateAmountId"/>
+            <parameter name="pieceRateAmount"/>
+            <parameter name="vendorPieceRateAmountId"/>
+            <parameter name="vendorPieceRateAmount"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry" for-update="true"/>
 
-            <if condition="!timeEntry.rateAmountId">
-                <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="clientRate"
-                        in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprClient', rateCurrencyUomId:rateCurrencyUomId]"/>
-                <if condition="clientRate.rateAmountId">
-                    <set field="timeEntry.rateAmountId" from="clientRate.rateAmountId"/>
-                    <set field="rateAmountId" from="clientRate.rateAmountId"/>
-                    <set field="rateAmount" from="clientRate.rateAmount"/>
-                </if>
-
+            <if condition="!timeEntry.rateAmountId &amp;&amp; timeEntry.rateTypeEnumId">
+                <then>
+                    <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="clientRate"
+                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprClient',
+                                rateTypeEnumId:timeEntry.rateTypeEnumId, rateCurrencyUomId:rateCurrencyUomId]"/>
+                    <if condition="clientRate.rateAmountId">
+                        <set field="timeEntry.rateAmountId" from="clientRate.rateAmountId"/>
+                        <set field="rateAmountId" from="clientRate.rateAmountId"/>
+                        <set field="rateAmount" from="clientRate.rateAmount"/>
+                    </if>
+                </then>
                 <else>
                     <set field="rateAmountId" from="timeEntry.rateAmountId"/>
                     <set field="rateAmount" from="timeEntry.'mantle.humanres.rate.RateAmount'?.rateAmount"/>
                 </else>
             </if>
-
-            <if condition="!timeEntry.vendorRateAmountId">
-                <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="vendorRate"
-                        in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprVendor', rateCurrencyUomId:rateCurrencyUomId]"/>
-                <if condition="vendorRate.rateAmountId">
-                    <set field="timeEntry.vendorRateAmountId" from="vendorRate.rateAmountId"/>
-                    <set field="vendorRateAmountId" from="vendorRate.rateAmountId"/>
-                    <set field="vendorRateAmount" from="vendorRate.rateAmount"/>
-                </if>
-
+            <if condition="!timeEntry.vendorRateAmountId &amp;&amp; timeEntry.rateTypeEnumId">
+                <then>
+                    <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="vendorRate"
+                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprVendor',
+                                rateTypeEnumId:timeEntry.rateTypeEnumId, rateCurrencyUomId:rateCurrencyUomId]"/>
+                    <if condition="vendorRate.rateAmountId">
+                        <set field="timeEntry.vendorRateAmountId" from="vendorRate.rateAmountId"/>
+                        <set field="vendorRateAmountId" from="vendorRate.rateAmountId"/>
+                        <set field="vendorRateAmount" from="vendorRate.rateAmount"/>
+                    </if>
+                </then>
                 <else>
                     <set field="vendorRateAmountId" from="timeEntry.vendorRateAmountId"/>
                     <set field="vendorRateAmount" from="timeEntry.'Vendor#mantle.humanres.rate.RateAmount'?.rateAmount"/>
                 </else>
             </if>
 
+            <if condition="!timeEntry.pieceRateAmountId &amp;&amp; timeEntry.pieceRateTypeEnumId">
+                <then>
+                    <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="pieceRate"
+                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprClient',
+                                rateTypeEnumId:timeEntry.pieceRateTypeEnumId, rateCurrencyUomId:rateCurrencyUomId]"/>
+                    <if condition="pieceRate.rateAmountId">
+                        <set field="timeEntry.pieceRateAmountId" from="pieceRate.rateAmountId"/>
+                        <set field="pieceRateAmountId" from="pieceRate.rateAmountId"/>
+                        <set field="pieceRateAmount" from="pieceRate.rateAmount"/>
+                    </if>
+                </then>
+                <else>
+                    <set field="pieceRateAmountId" from="timeEntry.pieceRateAmountId"/>
+                    <set field="pieceRateAmount" from="timeEntry.'Piece#mantle.humanres.rate.RateAmount'?.rateAmount"/>
+                </else>
+            </if>
+            <if condition="!timeEntry.vendorPieceRateAmountId &amp;&amp; timeEntry.pieceRateTypeEnumId">
+                <then>
+                    <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="vendorPieceRate"
+                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprVendor',
+                                rateTypeEnumId:timeEntry.pieceRateTypeEnumId, rateCurrencyUomId:rateCurrencyUomId]"/>
+                    <if condition="vendorPieceRate.rateAmountId">
+                        <set field="timeEntry.vendorPieceRateAmountId" from="vendorPieceRate.rateAmountId"/>
+                        <set field="vendorPieceRateAmountId" from="vendorPieceRate.rateAmountId"/>
+                        <set field="vendorPieceRateAmount" from="vendorPieceRate.rateAmount"/>
+                    </if>
+                </then>
+                <else>
+                    <set field="vendorPieceRateAmountId" from="timeEntry.vendorPieceRateAmountId"/>
+                    <set field="vendorPieceRateAmount" from="timeEntry.'VendorPiece#mantle.humanres.rate.RateAmount'?.rateAmount"/>
+                </else>
+            </if>
+
             <entity-update value-field="timeEntry"/>
-            <!-- <log level="warn" message="=============== rateAmountId=${rateAmountId}, rateAmount=${rateAmount}, vendorRateAmountId=${vendorRateAmountId}, vendorRateAmount=${vendorRateAmount}"/> -->
+            <!-- <log level="warn" message="=============== rateAmountId=${rateAmountId}, rateAmount=${rateAmount}, vendorRateAmountId=${vendorRateAmountId}, vendorRateAmount=${vendorRateAmount}, pieceRateAmountId=${pieceRateAmountId}, pieceRateAmount=${pieceRateAmount}, vendorPieceRateAmountId=${vendorPieceRateAmountId}, vendorPieceRateAmount=${vendorPieceRateAmount}"/> -->
         </actions>
     </service>
     <service verb="find" noun="TimeEntryRateAmount">
         <in-parameters>
             <parameter name="timeEntry" type="EntityValue" required="true"/>
             <parameter name="ratePurposeEnumId" required="true"/>
+            <parameter name="rateTypeEnumId" required="true"/>
             <parameter name="rateCurrencyUomId" required="true"/>
         </in-parameters>
         <out-parameters>
@@ -201,7 +242,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="workEffortId" from="null"/>
                 </econditions>
                 <econdition field-name="emplPositionClassId" from="timeEntry.emplPositionClassId" or-null="true" ignore-if-empty="true"/>
-                <econdition field-name="rateTypeEnumId" from="timeEntry.rateTypeEnumId ?: 'RatpStandard'"/>
+                <econdition field-name="rateTypeEnumId"/>
                 <econdition field-name="ratePurposeEnumId"/><!-- this comes from the parameter -->
                 <econdition field-name="timePeriodUomId" value="TF_hr"/>
                 <econdition field-name="rateCurrencyUomId"/><!-- this comes from the parameter -->
