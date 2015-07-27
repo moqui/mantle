@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
+        default-menu-title="Time" default-menu-index="4">
+
+    <transition name="recordTimeEntry"><service-call name="mantle.work.TimeServices.record#TimeEntry" in-map="context"/>
+        <default-response url="."/></transition>
+
+    <actions>
+        <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+        <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList">
+            <search-form-inputs default-order-by="-fromDate"/>
+            <econdition field-name="partyId"/>
+        </entity-find>
+    </actions>
+    <widgets>
+        <container-dialog id="AddTimeDialog" button-text="Record Time">
+            <form-single name="AddTaskTime" transition="recordTimeEntry">
+                <field name="partyId"><default-field><hidden/></default-field></field>
+                <field name="rateTypeEnumId"><default-field title="Rate Type">
+                    <drop-down no-current-selected-key="RatpStandard"><entity-options key="${enumId}" text="${description}">
+                        <entity-find entity-name="moqui.basic.Enumeration">
+                            <econdition field-name="enumTypeId" value="RateType"/>
+                            <econdition field-name="enumId" operator="not-equals" value="RatpPiece"/>
+                        </entity-find>
+                    </entity-options></drop-down>
+                </default-field></field>
+                <field name="comments"><default-field><text-area cols="60" rows="3"/></default-field></field>
+                <field name="breakHours"><default-field><text-line size="5"/></default-field></field>
+                <field name="hours"><default-field><text-line size="5"/></default-field></field>
+                <field name="fromDate"><default-field title="From"><date-time/></default-field></field>
+                <field name="thruDate"><default-field title="Thru"><date-time/></default-field></field>
+                <field name="submitButton"><default-field title="Add Time"><submit/></default-field></field>
+
+                <field-layout collapsible="true">
+                    <fields-not-referenced/>
+                    <field-group title="Enter Hours (Thru Now)">
+                        <field-ref name="hours"/>
+                    </field-group>
+                    <field-group title="OR From/Thru/Break">
+                        <field-ref name="fromDate"/><field-ref name="thruDate"/>
+                    </field-group>
+                    <field-ref name="submitButton"/>
+                </field-layout>
+            </form-single>
+        </container-dialog>
+
+        <form-list name="TimeEntryList" list="timeEntryList" skip-form="true">
+            <!-- <field name="timeEntryId"><default-field title="ID"><display/></default-field></field> -->
+            <field name="hours"><default-field><display format="0.00"/></default-field></field>
+            <field name="breakHours"><default-field title="Break"><display format="0.00"/></default-field></field>
+            <field name="fromDate"><default-field><display/></default-field></field>
+            <field name="thruDate"><default-field><display/></default-field></field>
+            <field name="rateTypeEnumId"><default-field title="Rate Type">
+                <display-entity entity-name="moqui.basic.Enumeration" key-field-name="enumId"/></default-field></field>
+            <field name="comments"><default-field><display/></default-field></field>
+        </form-list>
+    </widgets>
+</screen>
