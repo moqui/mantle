@@ -36,6 +36,87 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="fromDate" from="new Timestamp((Long) (thruDate.time - (hours*60*60*1000) - (breakHours ? (breakHours*60*60*1000) : 0)))"/>
             </if>
 
+            <!-- what is the party's emplPositionClassId? try WorkEffortParty with task first, then root/project, then try EmplPositionClassParty -->
+            <if condition="!emplPositionClassId &amp;&amp; workEffortId">
+                <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="taskWorkEffort">
+                    <field-map field-name="workEffortId"/></entity-find-one>
+
+                <entity-find entity-name="WorkEffortParty" list="workEffortPartyList">
+                    <date-filter valid-date="fromDate"/>
+                    <econdition field-name="workEffortId" operator="in"
+                            from="[taskWorkEffort.workEffortId, taskWorkEffort.rootWorkEffortId, null]"/>
+                    <econdition field-name="partyId"/>
+                    <order-by field-name="fromDate"/>
+                </entity-find>
+                <filter-map-list list="workEffortPartyList" to-list="taskWorkEffortPartyList">
+                    <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
+                </filter-map-list>
+                <iterate list="taskWorkEffortPartyList" entry="taskWorkEffortParty">
+                    <if condition="taskWorkEffortParty.emplPositionClassId">
+                        <set field="emplPositionClassId" from="taskWorkEffortParty.emplPositionClassId"/></if>
+                </iterate>
+                <if condition="!emplPositionClassId">
+                    <filter-map-list list="workEffortPartyList" to-list="projectWorkEffortPartyList">
+                        <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
+                    </filter-map-list>
+                    <iterate list="projectWorkEffortPartyList" entry="projectWorkEffortParty">
+                        <if condition="projectWorkEffortParty.emplPositionClassId">
+                            <set field="emplPositionClassId" from="projectWorkEffortParty.emplPositionClassId"/></if>
+                    </iterate>
+                </if>
+            </if>
+            <if condition="!emplPositionClassId">
+                <!-- look at Employment/EmplPosition for the emplPositionClassId -->
+                <entity-find entity-name="mantle.party.PartyRelationship" list="employRelList">
+                    <date-filter/><econdition field-name="fromPartyId" from="partyId"/>
+                    <econdition field-name="toPartyId" from="partyId"/>
+                    <econdition field-name="relationshipTypeEnumId" value="PrtEmployee"/>
+                </entity-find>
+                <if condition="employRelList">
+                    <entity-find-one entity-name="mantle.humanres.employment.Employment" value-field="employment">
+                        <field-map field-name="partyRelationshipId" from="employRelList[0].partyRelationshipId"/></entity-find-one>
+                    <if condition="employment">
+                        <set field="emplPosition" from="employment.'mantle.humanres.position.EmplPosition'"/>
+                        <set field="emplPositionClassId" from="emplPosition?.emplPositionClassId"/>
+                    </if>
+                </if>
+            </if>
+            <!-- look at EmplPositionClassParty for the emplPositionClassId? maybe too generic, better to not filter by
+            <if condition="!emplPositionClassId">
+                <entity-find entity-name="mantle.humanres.position.EmplPositionClassParty" list="emplPositionClassPartyList">
+                    <date-filter/><econdition field-name="partyId" from="timeEntry.partyId"/>
+                    <order-by field-name="fromDate"/></entity-find>
+                <if condition="emplPositionClassPartyList">
+                    <set field="emplPositionClassId" from="emplPositionClassPartyList[0].emplPositionClassId"/></if>
+            </if>
+             -->
+            <!-- at this point if there is no emplPositionClassId we'll consider it null and not applicable -->
+
+            <!-- if clientPartyId not set find from timesheetId or workEffortId -->
+            <if condition="!clientPartyId &amp;&amp; timesheetId">
+                <entity-find-one entity-name="mantle.work.time.Timesheet" value-field="timesheet"/>
+                <set field="clientPartyId" from="timesheet.clientPartyId"/>
+            </if>
+            <if condition="!clientPartyId &amp;&amp; workEffortId">
+                <!-- see if there is a CustomerBillTo associated with the WorkEffort (task) -->
+                <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="billToList">
+                    <date-filter/><econdition field-name="workEffortId"/>
+                    <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
+                <if condition="billToList">
+                    <then><set field="clientPartyId" from="billToList[0].partyId"/></then>
+                    <else>
+                        <!-- see if there is a CustomerBillTo associated with the root (project) -->
+                        <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+                        <if condition="workEffort?.rootWorkEffortId">
+                            <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="rootBillToList">
+                                <date-filter/><econdition field-name="workEffortId" from="workEffort.rootWorkEffortId"/>
+                                <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
+                            <if condition="rootBillToList"><set field="clientPartyId" from="rootBillToList[0].partyId"/></if>
+                        </if>
+                    </else>
+                </if>
+            </if>
+
             <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
             <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="context" in-map="context"/>
         </actions>
@@ -103,73 +184,23 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <if condition="timeEntry.workEffortId">
                 <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="taskWorkEffort">
-                    <field-map field-name="workEffortId" from="timeEntry.workEffortId"/>
-                </entity-find-one>
-
-                <!-- what is the party's emplPositionClassId? try WorkEffortParty with task first, then root/project, then try EmplPositionClassParty -->
-                <entity-find entity-name="WorkEffortParty" list="workEffortPartyList">
-                    <date-filter valid-date="timeEntry.fromDate"/>
-                    <econdition field-name="workEffortId" operator="in"
-                            from="[taskWorkEffort.workEffortId, taskWorkEffort.rootWorkEffortId, null]"/>
-                    <econdition field-name="partyId" from="timeEntry.partyId"/>
-                    <order-by field-name="fromDate"/>
-                </entity-find>
-                <filter-map-list list="workEffortPartyList" to-list="taskWorkEffortPartyList">
-                    <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
-                </filter-map-list>
-                <iterate list="taskWorkEffortPartyList" entry="taskWorkEffortParty">
-                    <if condition="taskWorkEffortParty.emplPositionClassId">
-                        <set field="emplPositionClassId" from="taskWorkEffortParty.emplPositionClassId"/></if>
-                </iterate>
-                <if condition="!emplPositionClassId">
-                    <filter-map-list list="workEffortPartyList" to-list="projectWorkEffortPartyList">
-                        <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
-                    </filter-map-list>
-                    <iterate list="projectWorkEffortPartyList" entry="projectWorkEffortParty">
-                        <if condition="projectWorkEffortParty.emplPositionClassId">
-                            <set field="emplPositionClassId" from="projectWorkEffortParty.emplPositionClassId"/></if>
-                    </iterate>
-                </if>
+                    <field-map field-name="workEffortId" from="timeEntry.workEffortId"/></entity-find-one>
             </if>
-
-            <!-- TODO: look at Employment/EmplPosition for the emplPositionClassId -->
-            <if condition="!emplPositionClassId">
-                <entity-find entity-name="EmplPositionClassParty" list="emplPositionClassPartyList">
-                    <date-filter/>
-                    <econdition field-name="partyId" from="timeEntry.partyId"/>
-                    <order-by field-name="fromDate"/>
-                </entity-find>
-                <iterate list="emplPositionClassPartyList" entry="emplPositionClassParty">
-                    <if condition="emplPositionClassParty.emplPositionClassId">
-                        <set field="emplPositionClassId" from="emplPositionClassParty.emplPositionClassId"/></if>
-                </iterate>
-            </if>
-            <!-- at this point if there is no emplPositionClassId we'll consider it null and not applicable -->
 
             <!-- get all possible rates in one query, then do maximal match -->
             <entity-find entity-name="mantle.humanres.rate.RateAmount" list="rateAmountList">
                 <date-filter valid-date="timeEntry.fromDate ?: ec.user.nowTimestamp"/>
+                <econdition field-name="partyId" from="timeEntry.partyId" or-null="true"/>
                 <econditions combine="or">
-                    <econdition field-name="partyId" from="timeEntry.partyId"/>
-                    <econdition field-name="partyId" from="null"/>
-                </econditions>
-                <!-- <econdition field-name="partyId" operator="in" from="[timeEntry.partyId, null]"/> -->
-                <econditions combine="or">
-                    <econdition field-name="workEffortId" from="taskWorkEffort?.workEffortId"/>
-                    <econdition field-name="workEffortId" from="taskWorkEffort?.rootWorkEffortId"/>
+                    <econdition field-name="workEffortId" from="taskWorkEffort?.workEffortId" ignore-if-empty="true"/>
+                    <econdition field-name="workEffortId" from="taskWorkEffort?.rootWorkEffortId" ignore-if-empty="true"/>
                     <econdition field-name="workEffortId" from="null"/>
                 </econditions>
-                <!-- <econdition field-name="workEffortId" operator="in"
-                        from="[taskWorkEffort.workEffortId, taskWorkEffort.rootWorkEffortId, null]"/> -->
-                <econditions combine="or">
-                    <econdition field-name="emplPositionClassId" from="emplPositionClassId"/>
-                    <econdition field-name="emplPositionClassId" from="null"/>
-                </econditions>
-                <!-- <econdition field-name="emplPositionClassId" operator="in" from="[emplPositionClassId, null]"/> -->
+                <econdition field-name="emplPositionClassId" from="timeEntry.emplPositionClassId" or-null="true" ignore-if-empty="true"/>
                 <econdition field-name="rateTypeEnumId" from="timeEntry.rateTypeEnumId ?: 'RatpStandard'"/>
-                <econdition field-name="ratePurposeEnumId"/>
+                <econdition field-name="ratePurposeEnumId"/><!-- this comes from the parameter -->
                 <econdition field-name="timePeriodUomId" value="TF_hr"/>
-                <econdition field-name="rateCurrencyUomId"/><!-- this comes from the parameter, maybe do a better default somehow -->
+                <econdition field-name="rateCurrencyUomId"/><!-- this comes from the parameter -->
             </entity-find>
 
             <!-- <log level="warn" message="=============== rateAmountList=${rateAmountList}"/> -->
