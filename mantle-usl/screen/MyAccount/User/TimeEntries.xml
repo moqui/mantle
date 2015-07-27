@@ -24,16 +24,27 @@ along with this software (see the LICENSE.md file). If not, see
             <search-form-inputs default-order-by="-fromDate"/>
             <econdition field-name="partyId"/>
         </entity-find>
+
     </actions>
     <widgets>
         <container-dialog id="AddTimeDialog" button-text="Record Time">
             <form-single name="AddTaskTime" transition="recordTimeEntry">
                 <field name="partyId"><default-field><hidden/></default-field></field>
+                <field name="clientPartyId"><default-field title="Employer">
+                    <drop-down style="chosen-wider"><entity-options key="${toPartyId}" text="PartyNameTemplate">
+                        <entity-find entity-name="mantle.party.PartyToAndRelationship" list="employerRelList">
+                            <date-filter/><econdition field-name="fromPartyId" from="partyId"/>
+                            <econdition field-name="relationshipTypeEnumId" value="PrtEmployee"/>
+                            <order-by field-name="pseudoId,organizationName,lastName,firstName"/>
+                        </entity-find>
+                    </entity-options></drop-down>
+                </default-field></field>
                 <field name="rateTypeEnumId"><default-field title="Rate Type">
                     <drop-down no-current-selected-key="RatpStandard"><entity-options key="${enumId}" text="${description}">
                         <entity-find entity-name="moqui.basic.Enumeration">
                             <econdition field-name="enumTypeId" value="RateType"/>
                             <econdition field-name="enumId" operator="not-equals" value="RatpPiece"/>
+                            <order-by field-name="description"/>
                         </entity-find>
                     </entity-options></drop-down>
                 </default-field></field>
@@ -49,7 +60,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <field-group title="Enter Hours (Thru Now)">
                         <field-ref name="hours"/>
                     </field-group>
-                    <field-group title="OR From/Thru/Break">
+                    <field-group title="OR From/Thru">
                         <field-ref name="fromDate"/><field-ref name="thruDate"/>
                     </field-group>
                     <field-ref name="submitButton"/>
@@ -59,13 +70,42 @@ along with this software (see the LICENSE.md file). If not, see
 
         <form-list name="TimeEntryList" list="timeEntryList" skip-form="true">
             <!-- <field name="timeEntryId"><default-field title="ID"><display/></default-field></field> -->
-            <field name="hours"><default-field><display format="0.00"/></default-field></field>
-            <field name="breakHours"><default-field title="Break"><display format="0.00"/></default-field></field>
-            <field name="fromDate"><default-field><display/></default-field></field>
-            <field name="thruDate"><default-field><display/></default-field></field>
-            <field name="rateTypeEnumId"><default-field title="Rate Type">
-                <display-entity entity-name="moqui.basic.Enumeration" key-field-name="enumId"/></default-field></field>
+            <field name="fromDate"><header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="thruDate"><header-field show-order-by="true"><date-period allow-empty="true"/></header-field>
+                <default-field><display/></default-field></field>
+            <field name="clientPartyId">
+                <header-field title="Employer">
+                    <drop-down allow-empty="true"><entity-options key="${toPartyId}" text="PartyNameTemplate">
+                        <entity-find entity-name="mantle.party.PartyToAndRelationship" list="employerRelList">
+                            <date-filter/><econdition field-name="fromPartyId" from="partyId"/>
+                            <econdition field-name="relationshipTypeEnumId" value="PrtEmployee"/>
+                            <order-by field-name="pseudoId,organizationName,lastName,firstName"/>
+                        </entity-find>
+                    </entity-options></drop-down>
+                </header-field>
+                <default-field><display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/></default-field>
+            </field>
+            <field name="hours"><header-field show-order-by="true"/>
+                <default-field><display format="0.00"/></default-field></field>
+            <field name="breakHours"><header-field show-order-by="true"/>
+                <default-field title="Break"><display format="0.00"/></default-field></field>
+            <field name="rateTypeEnumId">
+                <header-field title="Rate Type" show-order-by="true">
+                    <drop-down allow-empty="true"><entity-options key="${enumId}" text="${description}">
+                        <entity-find entity-name="moqui.basic.Enumeration">
+                            <econdition field-name="enumTypeId" value="RateType"/>
+                            <econdition field-name="enumId" operator="not-equals" value="RatpPiece"/>
+                            <order-by field-name="description"/>
+                        </entity-find>
+                    </entity-options></drop-down>
+                </header-field>
+                <default-field><display-entity entity-name="moqui.basic.Enumeration" key-field-name="enumId"/></default-field>
+            </field>
             <field name="comments"><default-field><display/></default-field></field>
+
+            <field name="findButton"><header-field title="Find"><submit/></header-field>
+                <default-field><display text=" "/></default-field></field>
         </form-list>
     </widgets>
 </screen>
