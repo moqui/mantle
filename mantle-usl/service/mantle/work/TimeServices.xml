@@ -13,7 +13,33 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-    <!-- STATUS: EXPERIMENTAL -->
+    <service verb="record" noun="TimeEntry">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk"/>
+            <parameter name="partyId" default-value="${ec.user.userAccount.partyId}"/>
+            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
+            <parameter name="comments"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="timeEntryId"/>
+        </out-parameters>
+        <actions>
+            <!-- calculate hours using fromDate/thruDate/breakHours -->
+            <if condition="!hours &amp;&amp; fromDate &amp;&amp; thruDate">
+                <set field="hours" from="((thruDate.time - fromDate.time)/(60*60*1000)) - (breakHours ?: 0)"/>
+            </if>
+            <!-- if empty set default from/thru dates based on hours and current time -->
+            <if condition="!thruDate">
+                <set field="thruDate" from="ec.l10n.parseTimestamp(ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')"/>
+            </if>
+            <if condition="hours &amp;&amp; !fromDate">
+                <set field="fromDate" from="new Timestamp((Long) (thruDate.time - (hours*60*60*1000) - (breakHours ? (breakHours*60*60*1000) : 0)))"/>
+            </if>
+
+            <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
+            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="context" in-map="context"/>
+        </actions>
+    </service>
 
     <service verb="get" noun="TimeEntryRate">
         <in-parameters>
