@@ -225,14 +225,16 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.work.TimeServices.record#TimeEntry" out-map="context" in-map="context"/>
 
             <if condition="remainingWorkTime != null">
-                <service-call name="update#mantle.work.effort.WorkEffort"
-                        in-map="[workEffortId:workEffortId, remainingWorkTime:remainingWorkTime]"/>
-
+                <then>
+                    <service-call name="update#mantle.work.effort.WorkEffort"
+                            in-map="[workEffortId:workEffortId, remainingWorkTime:remainingWorkTime]"/>
+                </then>
                 <else>
                     <!-- auto deduct from remainingWorkTime -->
+                    <entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry"/>
                     <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="task"/>
                     <if condition="task.remainingWorkTime">
-                        <set field="task.remainingWorkTime" from="task.remainingWorkTime - hours"/>
+                        <set field="task.remainingWorkTime" from="task.remainingWorkTime - timeEntry.hours"/>
                         <if condition="task.remainingWorkTime &lt; 0"><set field="task.remainingWorkTime" from="0"/></if>
                         <entity-update value-field="task"/>
                     </if>
