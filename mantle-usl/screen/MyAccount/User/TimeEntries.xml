@@ -25,20 +25,40 @@ along with this software (see the LICENSE.md file). If not, see
             <econdition field-name="partyId"/>
         </entity-find>
 
+        <!-- Get EmplPositionClass options from EmplPositionClassParty and EmplPosition -->
+        <entity-find entity-name="mantle.humanres.position.EmplPositionClassParty" list="emplPositionClassPartyList">
+            <date-filter/><econdition field-name="partyId"/></entity-find>
+        <if condition="emplPositionClassPartyList">
+            <then><set field="emplPositionClassIdList" from="emplPositionClassPartyList.emplPositionClassId"/></then>
+            <else><set field="emplPositionClassIdList" from="[]"/></else>
+        </if>
+        <entity-find entity-name="mantle.party.PartyToAndRelationship" list="employRelList">
+            <date-filter/><econdition field-name="fromPartyId" from="partyId"/>
+            <econdition field-name="relationshipTypeEnumId" value="PrtEmployee"/>
+            <order-by field-name="pseudoId,organizationName,lastName,firstName"/>
+        </entity-find>
+        <iterate list="employRelList" entry="employRel">
+            <entity-find-one entity-name="mantle.humanres.employment.Employment" value-field="employment">
+                <field-map field-name="partyRelationshipId" from="employRel.partyRelationshipId"/></entity-find-one>
+            <if condition="employment">
+                <set field="emplPosition" from="employment.'mantle.humanres.position.EmplPosition'"/>
+                <if condition="emplPosition?.emplPositionClassId">
+                    <script>emplPositionClassIdList.add(emplPosition?.emplPositionClassId)</script></if>
+            </if>
+        </iterate>
+        <entity-find entity-name="mantle.humanres.position.EmplPositionClass" list="positionClassList">
+            <econdition field-name="emplPositionClassId" operator="in" from="emplPositionClassIdList" ignore-if-empty="true"/>
+            <order-by field-name="title"/>
+        </entity-find>
     </actions>
     <widgets>
         <container-dialog id="AddTimeDialog" button-text="Record Time">
             <form-single name="AddTaskTime" transition="recordTimeEntry">
                 <field name="partyId"><default-field><hidden/></default-field></field>
-                <field name="clientPartyId"><default-field title="Employer">
-                    <drop-down style="chosen-wider"><entity-options key="${toPartyId}" text="PartyNameTemplate">
-                        <entity-find entity-name="mantle.party.PartyToAndRelationship" list="employerRelList">
-                            <date-filter/><econdition field-name="fromPartyId" from="partyId"/>
-                            <econdition field-name="relationshipTypeEnumId" value="PrtEmployee"/>
-                            <order-by field-name="pseudoId,organizationName,lastName,firstName"/>
-                        </entity-find>
-                    </entity-options></drop-down>
-                </default-field></field>
+                <field name="clientPartyId"><default-field title="Employer"><drop-down style="chosen-wider">
+                    <list-options list="employRelList" key="${toPartyId}" text="PartyNameTemplate"/></drop-down></default-field></field>
+                <field name="emplPositionClassId"><default-field title="Work Class"><drop-down allow-empty="true" style="chosen-wider">
+                    <list-options list="positionClassList" key="${emplPositionClassId}" text="${title}"/></drop-down></default-field></field>
                 <field name="rateTypeEnumId"><default-field title="Rate Type">
                     <drop-down no-current-selected-key="RatpStandard"><entity-options key="${enumId}" text="${description}">
                         <entity-find entity-name="moqui.basic.Enumeration">
@@ -86,10 +106,11 @@ along with this software (see the LICENSE.md file). If not, see
                 </header-field>
                 <default-field><display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/></default-field>
             </field>
-            <field name="hours"><header-field show-order-by="true"/>
-                <default-field><display format="0.00"/></default-field></field>
-            <field name="breakHours"><header-field show-order-by="true"/>
-                <default-field title="Break"><display format="0.00"/></default-field></field>
+            <field name="emplPositionClassId">
+                <header-field title="Work Class"><drop-down allow-empty="true">
+                    <list-options list="positionClassList" key="${emplPositionClassId}" text="${title}"/></drop-down></header-field>
+                <default-field><display-entity entity-name="mantle.humanres.position.EmplPositionClass" text="${title}"/></default-field>
+            </field>
             <field name="rateTypeEnumId">
                 <header-field title="Rate Type" show-order-by="true">
                     <drop-down allow-empty="true"><entity-options key="${enumId}" text="${description}">
@@ -102,6 +123,10 @@ along with this software (see the LICENSE.md file). If not, see
                 </header-field>
                 <default-field><display-entity entity-name="moqui.basic.Enumeration" key-field-name="enumId"/></default-field>
             </field>
+            <field name="hours"><header-field show-order-by="true"/>
+                <default-field><display format="0.00"/></default-field></field>
+            <field name="breakHours"><header-field show-order-by="true"/>
+                <default-field title="Break"><display format="0.00"/></default-field></field>
             <field name="comments"><default-field><display/></default-field></field>
 
             <field name="findButton"><header-field title="Find"><submit/></header-field>
