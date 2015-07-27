@@ -175,48 +175,46 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <log level="warn" message="=============== rateAmountList=${rateAmountList}"/> -->
 
             <!-- rates associated with the task and party? -->
-            <filter-map-list list="rateAmountList" to-list="partyTaskList">
-                <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
-                <field-map field-name="partyId" from="timeEntry.partyId"/>
-            </filter-map-list>
-            <if condition="partyTaskList"><set field="raListToUse" from="partyTaskList"/></if>
-            <!-- rates associated with the root/project and party? -->
-            <if condition="!raListToUse">
-                <filter-map-list list="rateAmountList" to-list="partyProjectList">
-                    <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
+            <if condition="taskWorkEffort">
+                <filter-map-list list="rateAmountList" to-list="partyTaskList">
+                    <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
                     <field-map field-name="partyId" from="timeEntry.partyId"/>
                 </filter-map-list>
-                <if condition="partyProjectList"><set field="raListToUse" from="partyProjectList"/></if>
+                <if condition="partyTaskList"><set field="raListToUse" from="partyTaskList"/></if>
+                <!-- rates associated with the root/project and party? -->
+                <if condition="!raListToUse &amp;&amp; taskWorkEffort.rootWorkEffortId">
+                    <filter-map-list list="rateAmountList" to-list="partyProjectList">
+                        <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
+                        <field-map field-name="partyId" from="timeEntry.partyId"/>
+                    </filter-map-list>
+                    <if condition="partyProjectList"><set field="raListToUse" from="partyProjectList"/></if>
+                </if>
             </if>
 
             <!-- rates associated with the task? -->
-            <if condition="!raListToUse">
+            <if condition="!raListToUse &amp;&amp; taskWorkEffort?.workEffortId">
                 <filter-map-list list="rateAmountList" to-list="taskList">
-                    <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/>
-                </filter-map-list>
+                    <field-map field-name="workEffortId" from="taskWorkEffort.workEffortId"/></filter-map-list>
                 <if condition="taskList"><set field="raListToUse" from="taskList"/></if>
             </if>
             <!-- rates associated with the root/project? -->
-            <if condition="!raListToUse">
+            <if condition="!raListToUse &amp;&amp; taskWorkEffort?.rootWorkEffortId">
                 <filter-map-list list="rateAmountList" to-list="projectList">
-                    <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/>
-                </filter-map-list>
+                    <field-map field-name="workEffortId" from="taskWorkEffort.rootWorkEffortId"/></filter-map-list>
                 <if condition="projectList"><set field="raListToUse" from="projectList"/></if>
             </if>
 
             <!-- no rate yet? get the default rate for the TimeEntry Party -->
             <if condition="!raListToUse">
                 <filter-map-list list="rateAmountList" to-list="partyList">
-                    <field-map field-name="partyId" from="timeEntry.partyId"/>
-                </filter-map-list>
+                    <field-map field-name="partyId" from="timeEntry.partyId"/></filter-map-list>
                 <if condition="partyList"><set field="raListToUse" from="partyList"/></if>
             </if>
 
             <!-- no rate yet? get the default rate for the EmplPositionClass -->
             <if condition="!raListToUse &amp;&amp; emplPositionClassId">
                 <filter-map-list list="rateAmountList" to-list="emplPositionClassList">
-                    <field-map field-name="emplPositionClassId" from="emplPositionClassId"/>
-                </filter-map-list>
+                    <field-map field-name="emplPositionClassId" from="emplPositionClassId"/></filter-map-list>
                 <if condition="emplPositionClassList"><set field="raListToUse" from="emplPositionClassList"/></if>
             </if>
 
