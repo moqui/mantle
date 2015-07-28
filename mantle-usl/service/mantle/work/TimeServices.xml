@@ -181,7 +181,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!timeEntry.pieceRateAmountId &amp;&amp; timeEntry.pieceRateTypeEnumId">
                 <then>
                     <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="pieceRate"
-                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprClient',
+                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprClient', timePeriodUomId:'OTH_ea',
                                 rateTypeEnumId:timeEntry.pieceRateTypeEnumId, rateCurrencyUomId:rateCurrencyUomId]"/>
                     <if condition="pieceRate.rateAmountId">
                         <set field="timeEntry.pieceRateAmountId" from="pieceRate.rateAmountId"/>
@@ -197,7 +197,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!timeEntry.vendorPieceRateAmountId &amp;&amp; timeEntry.pieceRateTypeEnumId">
                 <then>
                     <service-call name="mantle.work.TimeServices.find#TimeEntryRateAmount" out-map="vendorPieceRate"
-                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprVendor',
+                            in-map="[timeEntry:timeEntry, ratePurposeEnumId:'RaprVendor', timePeriodUomId:'OTH_ea',
                                 rateTypeEnumId:timeEntry.pieceRateTypeEnumId, rateCurrencyUomId:rateCurrencyUomId]"/>
                     <if condition="vendorPieceRate.rateAmountId">
                         <set field="timeEntry.vendorPieceRateAmountId" from="vendorPieceRate.rateAmountId"/>
@@ -221,6 +221,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="ratePurposeEnumId" required="true"/>
             <parameter name="rateTypeEnumId" required="true"/>
             <parameter name="rateCurrencyUomId" required="true"/>
+            <parameter name="timePeriodUomId" default-value="TF_hr"/>
         </in-parameters>
         <out-parameters>
             <parameter name="rateAmountId"/>
@@ -242,13 +243,13 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="workEffortId" from="null"/>
                 </econditions>
                 <econdition field-name="emplPositionClassId" from="timeEntry.emplPositionClassId" or-null="true" ignore-if-empty="true"/>
+                <econdition field-name="ratePurposeEnumId"/>
                 <econdition field-name="rateTypeEnumId"/>
-                <econdition field-name="ratePurposeEnumId"/><!-- this comes from the parameter -->
-                <econdition field-name="timePeriodUomId" value="TF_hr"/>
-                <econdition field-name="rateCurrencyUomId"/><!-- this comes from the parameter -->
+                <econdition field-name="rateCurrencyUomId"/>
+                <econdition field-name="timePeriodUomId"/>
             </entity-find>
 
-            <!-- <log level="warn" message="=============== rateAmountList=${rateAmountList}"/> -->
+            <!-- <log level="warn" message="=============== ratePurposeEnumId=${ratePurposeEnumId}, rateTypeEnumId=${rateTypeEnumId}\nrateAmountList=${rateAmountList}"/> -->
 
             <!-- rates associated with the task and party? -->
             <if condition="taskWorkEffort">
@@ -288,9 +289,9 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <!-- no rate yet? get the default rate for the EmplPositionClass -->
-            <if condition="!raListToUse &amp;&amp; emplPositionClassId">
+            <if condition="!raListToUse &amp;&amp; timeEntry.emplPositionClassId">
                 <filter-map-list list="rateAmountList" to-list="emplPositionClassList">
-                    <field-map field-name="emplPositionClassId" from="emplPositionClassId"/></filter-map-list>
+                    <field-map field-name="emplPositionClassId" from="timeEntry.emplPositionClassId"/></filter-map-list>
                 <if condition="emplPositionClassList"><set field="raListToUse" from="emplPositionClassList"/></if>
             </if>
 
@@ -298,7 +299,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="rateAmountId" from="raListToUse[0].rateAmountId"/>
                 <set field="rateAmount" from="raListToUse[0].rateAmount"/>
             </if>
-            <!-- <log level="warn" message="=============== rateAmountId=${rateAmountId}, rateAmount=${rateAmount}"/> -->
+            <!-- <log level="warn" message="=============== ratePurposeEnumId=${ratePurposeEnumId}, rateTypeEnumId=${rateTypeEnumId}, rateAmountId=${rateAmountId}, rateAmount=${rateAmount}"/> -->
         </actions>
     </service>
 
