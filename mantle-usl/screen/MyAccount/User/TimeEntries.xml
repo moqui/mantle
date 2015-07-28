@@ -15,7 +15,9 @@ along with this software (see the LICENSE.md file). If not, see
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
         default-menu-title="Time" default-menu-index="4">
 
-    <transition name="recordTimeEntry"><service-call name="mantle.work.TimeServices.record#TimeEntry" in-map="context"/>
+    <transition name="recordTimeEntry"><service-call name="mantle.work.TimeServices.store#TimeEntry" in-map="context"/>
+        <default-response url="."/></transition>
+    <transition name="clockInTimeEntry"><service-call name="mantle.work.TimeServices.create#TimeEntryClockIn" in-map="context"/>
         <default-response url="."/></transition>
 
     <actions>
@@ -24,6 +26,9 @@ along with this software (see the LICENSE.md file). If not, see
             <search-form-inputs default-order-by="-fromDate"/>
             <econdition field-name="partyId"/>
         </entity-find>
+        <filter-map-list list="timeEntryList" to-list="openTimeEntryList">
+            <field-map field-name="thruDate" from="null"/></filter-map-list>
+        <set field="openTimeEntry" from="openTimeEntryList ? openTimeEntryList[0] : null"/>
 
         <entity-find entity-name="mantle.work.effort.WorkEffortAndParty" list="myTaskList">
             <date-filter/><econdition field-name="workEffortTypeEnumId" value="WetTask"/>
@@ -65,6 +70,69 @@ along with this software (see the LICENSE.md file). If not, see
                 <field name="submitButton"><default-field title="Add Time"><submit/></default-field></field>
             </form-single>
         </container-dialog>
+        <section name="ClockInOutSection" condition="openTimeEntry">
+            <widgets>
+                <container-dialog id="ClockOutDialog" button-text="Clock Out">
+                    <form-single name="ClockOutForm" transition="recordTimeEntry" map="openTimeEntry">
+                        <field name="partyId"><default-field><hidden/></default-field></field>
+                        <field name="timeEntryId"><default-field><hidden/></default-field></field>
+                        <field name="clientPartyId"><default-field title="Employer"><drop-down style="chosen-wider">
+                            <list-options list="employerRelList" key="${toPartyId}" text="PartyNameTemplate"/></drop-down></default-field></field>
+                        <field name="workEffortId"><default-field title="Task"><drop-down allow-empty="true" style="chosen-wider">
+                            <list-options list="myTaskList" text="WorkEffortNameTemplate"/></drop-down></default-field></field>
+                        <field name="emplPositionClassId"><default-field title="Work Class"><drop-down style="chosen-wider">
+                            <list-options list="emplPositionClassList" key="${emplPositionClassId}" text="${title}"/></drop-down></default-field></field>
+                        <field name="rateTypeEnumId"><default-field title="Rate Type">
+                            <drop-down no-current-selected-key="RatpStandard"><entity-options key="${enumId}" text="${description}">
+                                <entity-find entity-name="moqui.basic.Enumeration">
+                                    <econdition field-name="enumTypeId" value="RateType"/>
+                                    <econdition field-name="enumId" operator="not-equals" value="RatpPiece"/>
+                                    <order-by field-name="description"/>
+                                </entity-find>
+                            </entity-options></drop-down>
+                        </default-field></field>
+                        <field name="comments"><default-field><text-area cols="60" rows="3"/></default-field></field>
+
+
+                        <field name="pieceCount"><default-field><text-line size="6"/></default-field></field>
+                        <field name="fromDate"><default-field title="From"><display/></default-field></field>
+                        <field name="breakHours"><default-field><text-line size="5" default-value="0"/></default-field></field>
+                        <field name="instructions"><default-field title="">
+                            <display text="To clock out now leave these 2 fields empty; specify Hours or Thru if your clock out time is in the past"/>
+                        </default-field></field>
+                        <field name="hours"><default-field><text-line size="5"/></default-field></field>
+                        <field name="thruDate"><default-field title="Thru"><date-time/></default-field></field>
+                        <field name="submitButton"><default-field title="Clock Out"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+
+            </widgets>
+            <fail-widgets>
+                <container-dialog id="ClockInDialog" button-text="Clock In">
+                    <form-single name="ClockInForm" transition="clockInTimeEntry">
+                        <field name="partyId"><default-field><hidden/></default-field></field>
+                        <field name="clientPartyId"><default-field title="Employer"><drop-down style="chosen-wider">
+                            <list-options list="employerRelList" key="${toPartyId}" text="PartyNameTemplate"/></drop-down></default-field></field>
+                        <field name="workEffortId"><default-field title="Task"><drop-down allow-empty="true" style="chosen-wider">
+                            <list-options list="myTaskList" text="WorkEffortNameTemplate"/></drop-down></default-field></field>
+                        <field name="emplPositionClassId"><default-field title="Work Class"><drop-down style="chosen-wider">
+                            <list-options list="emplPositionClassList" key="${emplPositionClassId}" text="${title}"/></drop-down></default-field></field>
+                        <field name="rateTypeEnumId"><default-field title="Rate Type">
+                            <drop-down no-current-selected-key="RatpStandard"><entity-options key="${enumId}" text="${description}">
+                                <entity-find entity-name="moqui.basic.Enumeration">
+                                    <econdition field-name="enumTypeId" value="RateType"/>
+                                    <econdition field-name="enumId" operator="not-equals" value="RatpPiece"/>
+                                    <order-by field-name="description"/>
+                                </entity-find>
+                            </entity-options></drop-down>
+                        </default-field></field>
+                        <field name="comments"><default-field><text-area cols="60" rows="3"/></default-field></field>
+                        <field name="fromDate" entry-name="ec.user.nowTimestamp"><default-field title="From"><date-time/></default-field></field>
+                        <field name="submitButton"><default-field title="Clock In"><submit/></default-field></field>
+                    </form-single>
+                </container-dialog>
+            </fail-widgets>
+        </section>
 
         <form-list name="TimeEntryList" list="timeEntryList" skip-form="true">
             <!-- <field name="timeEntryId"><default-field title="ID"><display/></default-field></field> -->
