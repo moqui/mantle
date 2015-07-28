@@ -13,27 +13,42 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-    <service verb="record" noun="TimeEntry">
+    <service verb="store" noun="TimeEntry">
         <in-parameters>
+            <parameter name="timeEntryId"><description>If specified updates the record, if not creates a new one</description></parameter>
             <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk"/>
-            <parameter name="partyId" default-value="${ec.user.userAccount.partyId}"/>
+            <parameter name="partyId" default="ec.user.userAccount.partyId"/>
             <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
-            <parameter name="comments"/>
         </in-parameters>
         <out-parameters>
             <parameter name="timeEntryId"/>
         </out-parameters>
         <actions>
+            <if condition="timeEntryId">
+                <entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry" for-update="true"/>
+                <if condition="timeEntry">
+                    <!-- fill in field values not passed into this service so that calcs can run -->
+                    <iterate list="timeEntry" entry="fieldValue" key="fieldName">
+                        <if condition="fieldValue != null &amp;&amp; !context.containsKey(fieldName)">
+                            <script>context.put(fieldName, fieldValue)</script></if>
+                    </iterate>
+                </if>
+            </if>
+
+            <!-- calculate thruDate based from fromDate/hours/breakHours -->
+            <if condition="hours &amp;&amp; fromDate &amp;&amp; !thruDate">
+                <set field="thruDate" from="new Timestamp((Long) (fromDate.time + (hours*60*60*1000) + (breakHours ? (breakHours*60*60*1000) : 0)))"/>
+            </if>
+            <!-- at this point if there is no thruDate default to now -->
+            <if condition="!thruDate"><set field="thruDate" from="ec.user.nowTimestamp"/></if>
+
+            <!-- calculate fromDate based on thruDate/hours/breakHours -->
+            <if condition="hours &amp;&amp; !fromDate &amp;&amp; thruDate">
+                <set field="fromDate" from="new Timestamp((Long) (thruDate.time - (hours*60*60*1000) - (breakHours ? (breakHours*60*60*1000) : 0)))"/>
+            </if>
             <!-- calculate hours using fromDate/thruDate/breakHours -->
             <if condition="!hours &amp;&amp; fromDate &amp;&amp; thruDate">
                 <set field="hours" from="((thruDate.time - fromDate.time)/(60*60*1000)) - (breakHours ?: 0)"/>
-            </if>
-            <!-- if empty set default from/thru dates based on hours and current time -->
-            <if condition="!thruDate">
-                <set field="thruDate" from="ec.l10n.parseTimestamp(ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')"/>
-            </if>
-            <if condition="hours &amp;&amp; !fromDate">
-                <set field="fromDate" from="new Timestamp((Long) (thruDate.time - (hours*60*60*1000) - (breakHours ? (breakHours*60*60*1000) : 0)))"/>
             </if>
 
             <!-- what is the party's emplPositionClassId? try WorkEffortParty with task first, then root/project, then try EmplPositionClassParty -->
@@ -121,8 +136,25 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="pieceCount &amp;&amp; !pieceRateTypeEnumId">
                 <set field="pieceRateTypeEnumId" value="RatpPiece"/></if>
 
-            <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
+            <service-call name="store#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
             <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="context" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="create" noun="TimeEntryClockIn">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk">
+                <exclude field-name="hours"/><exclude field-name="breakHours"/><exclude field-name="thruDate"/>
+                <exclude field-name="pieceCount"/>
+            </auto-parameters>
+            <parameter name="partyId" default="ec.user.userAccount.partyId"/>
+            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
+            <parameter name="fromDate" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="timeEntryId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
         </actions>
     </service>
 
