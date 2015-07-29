@@ -325,9 +325,60 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- ============================================== -->
+    <!-- ========================================= -->
+    <!-- ========== PartyBadge Services ========== -->
+    <!-- ========================================= -->
+
+    <service verb="scan" noun="PartyBadge">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk"/>
+            <parameter name="scanValue" required="true"/>
+            <parameter name="scanDate" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="partyBadgeId"/>
+            <parameter name="partyId"/>
+            <parameter name="organizationPartyId"/>
+        </out-parameters>
+        <actions>
+            <!-- look up by partyBadgeId, serialNumber, or storedValue -->
+            <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                <field-map field-name="partyBadgeId" from="scanValue"/></entity-find-one>
+            <if condition="!partyBadge">
+                <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                    <field-map field-name="serialNumber" from="scanValue"/></entity-find-one>
+            </if>
+            <if condition="!partyBadge">
+                <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                    <field-map field-name="storedValue" from="scanValue"/></entity-find-one>
+            </if>
+
+            <if condition="!partyBadge">
+                <return error="true" message="No badge found for scan value [${scanValue}]"/></if>
+            <set field="partyBadgeId" from="partyBadge.partyBadgeId"/>
+            <set field="partyId" from="partyBadge.partyId"/>
+            <set field="organizationPartyId" from="partyBadge.organizationPartyId"/>
+
+            <!-- check valid dates -->
+            <if condition="partyBadge.fromDate &gt; ec.user.nowTimestamp">
+                <set field="scanResultEnumId" value="PbsrNotYetValid"/>
+                <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
+                <return error="true" message="Badge not yet valid"/>
+            </if>
+            <if condition="partyBadge.thruDate &lt; ec.user.nowTimestamp">
+                <set field="scanResultEnumId" value="PbsrExpired"/>
+                <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
+                <return error="true" message="Badge expired"/>
+            </if>
+
+            <set field="scanResultEnumId" value="PbsrSuccess"/>
+            <service-call name="create#mantle.party.PartyBadgeScan" in-map="context"/>
+        </actions>
+    </service>
+
+    <!-- =========================================== -->
     <!-- ========== PartyContent Services ========== -->
-    <!-- ============================================== -->
+    <!-- =========================================== -->
 
     <service verb="create" noun="PartyContent">
         <in-parameters>
