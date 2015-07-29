@@ -117,6 +117,48 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.party.Party"/>
     </extend-entity>
 
+    <entity entity-name="PartyBadge" package-name="mantle.party">
+        <field name="partyBadgeId" type="id" is-pk="true"/>
+        <field name="partyId" type="id"/>
+        <field name="organizationPartyId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="serialNumber" type="text-short"/>
+        <field name="storedValue" type="text-medium"><description>For RFID this is the unique tracking identifier
+            (the TID can be tracked in the serialNumber field)</description></field>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
+            <key-map field-name="organizationPartyId"/></relationship>
+        <index name="PartyBadgeSerial" unique="true"><index-field name="serialNumber"/></index>
+        <index name="PartyBadgeStored" unique="true"><index-field name="storedValue"/></index>
+    </entity>
+    <entity entity-name="PartyBadgeScan" package-name="mantle.party">
+        <field name="partyBadgeId" type="id" is-pk="true"/>
+        <field name="scanDate" type="date-time" is-pk="true"/>
+        <field name="scanValue" type="text-short"/>
+        <field name="scanPurposeEnumId" type="id"/>
+        <field name="scanResultEnumId" type="id"/>
+        <field name="facilityId" type="id"/>
+        <field name="timeEntryId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.party.PartyBadge"/>
+        <relationship type="one" title="PartyBadgeScanPurpose" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="scanPurposeEnumId"/></relationship>
+        <relationship type="one" title="PartyBadgeScanResult" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="scanResultEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one" related-entity-name="mantle.work.time.TimeEntry"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Party Badge Scan Purpose" enumTypeId="PartyBadgeScanPurpose"/>
+            <moqui.basic.Enumeration description="Access" enumId="PbspAccess" enumTypeId="PartyBadgeScanPurpose"/>
+            <moqui.basic.Enumeration description="Clock In" enumId="PbspClockIn" enumTypeId="PartyBadgeScanPurpose"/>
+            <moqui.basic.Enumeration description="Clock Out" enumId="PbspClockOut" enumTypeId="PartyBadgeScanPurpose"/>
+
+            <moqui.basic.EnumerationType description="Party Badge Scan Result" enumTypeId="PartyBadgeScanResult"/>
+            <moqui.basic.Enumeration description="Success" enumId="PbsrSuccess" enumTypeId="PartyBadgeScanResult"/>
+            <moqui.basic.Enumeration description="Not Yet Valid" enumId="PbsrNotYetValid" enumTypeId="PartyBadgeScanResult"/>
+            <moqui.basic.Enumeration description="Expired" enumId="PbsrExpired" enumTypeId="PartyBadgeScanResult"/>
+        </seed-data>
+    </entity>
     <entity entity-name="PartyClassification" package-name="mantle.party">
         <field name="partyClassificationId" type="id" is-pk="true"/>
         <field name="classificationTypeEnumId" type="id"/>
@@ -687,7 +729,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="contactMechTypeEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
 
-        <!-- needed? <field name="originalCommEventId" type="id"/> -->
         <field name="parentCommEventId" type="id"/>
         <field name="rootCommEventId" type="id"/>
 
@@ -775,15 +816,23 @@ along with this software (see the LICENSE.md file). If not, see
         </seed-data>
     </entity>
     <entity entity-name="CommunicationEventContent" package-name="mantle.party.communication">
-        <field name="communicationEventId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="assocTypeEnumId" type="id"/>
+        <field name="communicationEventContentId" type="id" is-pk="true"/>
+        <field name="communicationEventId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="contentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <field name="sequenceNum" type="number-integer"/>
-        <relationship type="one" related-entity-name="mantle.party.communication.CommunicationEvent"/>
-        <relationship type="one" title="AssocType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="assocTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" title="CommunicationContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="contentTypeEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Communication Content Type" enumTypeId="CommunicationContentType"/>
+            <moqui.basic.Enumeration description="Plain Text" enumId="CmctPlainText" enumTypeId="CommunicationContentType"/>
+            <moqui.basic.Enumeration description="HTML Text" enumId="CmctHtmlText" enumTypeId="CommunicationContentType"/>
+            <moqui.basic.Enumeration description="Attachment" enumId="CmctAttachment" enumTypeId="CommunicationContentType"/>
+        </seed-data>
     </entity>
     <entity entity-name="CommunicationEventProduct" package-name="mantle.party.communication">
         <field name="productId" type="id" is-pk="true"/>
