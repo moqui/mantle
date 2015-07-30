@@ -334,6 +334,15 @@ along with this software (see the LICENSE.md file). If not, see
             <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk"/>
             <parameter name="scanValue" required="true"/>
             <parameter name="scanDate" default="ec.user.nowTimestamp"/>
+            <parameter name="scanTime" type="Timestamp" default="ec.user.nowTimestamp"/>
+
+            <!-- parameters for clock in -->
+            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
+            <parameter name="emplPositionClassId"/>
+            <parameter name="workEffortId"/>
+            <!-- parameters for clock out -->
+            <parameter name="breakHours" type="BigDecimal"/>
+            <parameter name="pieceCount" type="BigDecimal"/>
         </in-parameters>
         <out-parameters>
             <parameter name="partyBadgeId"/>
@@ -371,8 +380,41 @@ along with this software (see the LICENSE.md file). If not, see
                 <return error="true" message="Badge expired"/>
             </if>
 
+            <!-- create the PartyBadgeScan record -->
             <set field="scanResultEnumId" value="PbsrSuccess"/>
-            <service-call name="create#mantle.party.PartyBadgeScan" in-map="context"/>
+            <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
+
+            <!-- handle TimeEntry for clock in and clock out -->
+
+            <set field="clientPartyId" from="partyBadge.organizationPartyId"/>
+            <entity-find entity-name="mantle.work.time.TimeEntry" list="openTimeEntryList">
+                <search-form-inputs default-order-by="-fromDate"/>
+                <econdition field-name="partyId"/>
+                <econdition field-name="thruDate" from="null"/>
+            </entity-find>
+            <set field="openTimeEntry" from="openTimeEntryList ? openTimeEntryList[0] : null"/>
+            <if condition="scanPurposeEnumId == 'PbspClockIn'">
+                <then>
+                    <!-- If scanPurposeEnumId=PbspClockIn call mantle.work.TimeServices.create#TimeEntryClockIn
+                        If there is an open TimeEntry call mantle.work.TimeServices.store#TimeEntry first -->
+                    <if condition="openTimeEntry">
+                        <service-call name="mantle.work.TimeServices.store#TimeEntry"
+                                in-map="openTimeEntry + [thruDate:scanTime, breakHours:breakHours, pieceCount:pieceCount]"/>
+                    </if>
+
+                    <set field="fromDate" from="scanTime"/>
+                    <service-call name="mantle.work.TimeServices.create#TimeEntryClockIn" in-map="context"/>
+                </then>
+                <else-if condition="scanPurposeEnumId == 'PbspClockOut'">
+                    <!-- If scanPurposeEnumId=PbspClockOut call mantle.work.TimeServices.store#TimeEntry -->
+                    <if condition="openTimeEntry">
+                        <service-call name="mantle.work.TimeServices.store#TimeEntry"
+                                in-map="openTimeEntry + [thruDate:scanTime, breakHours:breakHours, pieceCount:pieceCount]"/>
+
+                        <else><return error="true" message="Cannot clock out, no open time entry found"/></else>
+                    </if>
+                </else-if>
+            </if>
         </actions>
     </service>
 
