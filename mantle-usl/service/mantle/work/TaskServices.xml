@@ -13,8 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-    <!-- STATUS: EXPERIMENTAL -->
-
     <service verb="get" noun="FullCalendarData">
         <description>Get data to display WorkEffort tasks by due date (estimatedCompletionDate) with the FullCalender JS library (see http://fullcalendar.io/)</description>
         <in-parameters>
@@ -128,7 +126,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedWorkTime" type="BigDecimal"/>
-            <parameter name="remainingWorkTime" type="BigDecimal" default-value="${estimatedWorkTime}"/>
+            <parameter name="remainingWorkTime" type="BigDecimal" default="estimatedWorkTime"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
 
             <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
@@ -152,9 +150,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="workEffortId" required="true"/>
             <parameter name="estimatedStartDate" type="Timestamp" format="yyyy-MM-dd"/>
             <parameter name="estimatedCompletionDate" type="Timestamp" format="yyyy-MM-dd"/>
-            <parameter name="estimatedWorkTime" type="BigDecimal"/>
-            <parameter name="remainingWorkTime" type="BigDecimal"/>
-            <parameter name="actualWorkTime" type="BigDecimal"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
         </in-parameters>
         <actions>
@@ -218,44 +213,28 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="add" noun="TaskTime">
         <in-parameters>
+            <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk"/>
             <parameter name="workEffortId" required="true"/>
             <parameter name="partyId" default-value="${ec.user.userAccount.partyId}"/>
-            <parameter name="hours" type="BigDecimal"/>
-            <parameter name="breakHours" type="BigDecimal"/>
-            <parameter name="remainingWorkTime" type="BigDecimal"/>
-            <parameter name="fromDate" type="Timestamp"/>
-            <parameter name="thruDate" type="Timestamp"/>
             <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
-            <parameter name="comments"/>
         </in-parameters>
         <out-parameters>
             <parameter name="timeEntryId"/>
         </out-parameters>
         <actions>
-            <!-- calculate hours using fromDate/thruDate/breakHours -->
-            <if condition="!hours &amp;&amp; fromDate &amp;&amp; thruDate &amp;&amp; breakHours">
-                <set field="hours" from="((thruDate.time - fromDate.time)/(60*60*1000)) - breakHours"/>
-            </if>
-            <!-- if empty set default from/thru dates based on hours and current time -->
-            <if condition="!thruDate">
-                <set field="thruDate" from="ec.l10n.parseTimestamp(ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')"/>
-            </if>
-            <if condition="hours &amp;&amp; !fromDate">
-                <set field="fromDate" from="new Timestamp((Long) (thruDate.time - (hours*60*60*1000) - (breakHours ? (breakHours*60*60*1000) : 0)))"/>
-            </if>
-
-            <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
-            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="context" in-map="context"/>
+            <service-call name="mantle.work.TimeServices.store#TimeEntry" out-map="context" in-map="context"/>
 
             <if condition="remainingWorkTime != null">
-                <service-call name="update#mantle.work.effort.WorkEffort"
-                        in-map="[workEffortId:workEffortId, remainingWorkTime:remainingWorkTime]"/>
-
+                <then>
+                    <service-call name="update#mantle.work.effort.WorkEffort"
+                            in-map="[workEffortId:workEffortId, remainingWorkTime:remainingWorkTime]"/>
+                </then>
                 <else>
                     <!-- auto deduct from remainingWorkTime -->
+                    <entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry"/>
                     <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="task"/>
                     <if condition="task.remainingWorkTime">
-                        <set field="task.remainingWorkTime" from="task.remainingWorkTime - hours"/>
+                        <set field="task.remainingWorkTime" from="task.remainingWorkTime - timeEntry.hours"/>
                         <if condition="task.remainingWorkTime &lt; 0"><set field="task.remainingWorkTime" from="0"/></if>
                         <entity-update value-field="task"/>
                     </if>

@@ -195,9 +195,11 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="terminationTypeEnumId" type="id"/>
         <field name="jobRequisitionId" type="id"/>
         <field name="identityTypeEnumId" type="id"/>
-        <field name="identityLocation" type="text-medium"/>
         <field name="emplAuthzTypeEnumId" type="id"/>
+        <!-- use PartyContent instead
+        <field name="identityLocation" type="text-medium"/>
         <field name="emplAuthzLocation" type="text-medium"/>
+        -->
         <field name="timePeriodTypeId" type="id"><description>Payroll time period</description></field>
         <field name="taxClassificationEnumId" type="id"/>
         <field name="taxName" type="text-medium"><description>Defaults to Person or Organization name fields</description></field>
@@ -295,7 +297,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Married File Joint 1 Income" enumId="TssMarriedFileJoint1" sequenceNum="2" enumTypeId="TaxStateStatus"/>
             <moqui.basic.Enumeration description="Married File Joint 2+ Incomes" enumId="TssMarriedFileJoint2" sequenceNum="3" enumTypeId="TaxStateStatus"/>
             <moqui.basic.Enumeration description="Married File Separate" enumId="TssMarriedSeparate" sequenceNum="4" enumTypeId="TaxStateStatus"/>
-            <moqui.basic.Enumeration description="Head of Household" enumId="TssHeadHousehold" sequenceNum="5" enumTypeId="TaxStateStatus"/>
+            <moqui.basic.Enumeration description="Unmarried Head of Household" enumId="TssHeadHousehold" sequenceNum="5" enumTypeId="TaxStateStatus"/>
             <moqui.basic.Enumeration description="Single" enumId="TssSingle" sequenceNum="6" enumTypeId="TaxStateStatus"/>
         </seed-data>
     </entity>
@@ -398,6 +400,18 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="timePeriodTypeId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
+        <field name="isTax" type="text-indicator"/>
+        <field name="deductibleFromTax" type="text-indicator"/>
+        <field name="taxAuthorityId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.humanres.employment.Employment"/>
+        <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="itemTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
+        <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
+    </entity>
+    <entity entity-name="PayrollAdjustmentDetail" package-name="mantle.humanres.employment">
+        <field name="payrollAdjustmentId" type="id" is-pk="true"/>
+        <field name="detailSeqId" type="id" is-pk="true"/>
         <field name="percentage" type="number-float"/>
         <field name="percAfterYtdMin" type="text-indicator"/>
         <field name="ytdMin" type="currency-amount"/>
@@ -406,27 +420,21 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="periodMin" type="currency-amount"/>
         <field name="periodMax" type="currency-amount"/>
         <field name="flatAmount" type="currency-amount"/>
-        <field name="isTax" type="text-indicator"/>
-        <field name="deductibleFromTax" type="text-indicator"/>
+        <relationship type="one" related-entity-name="mantle.humanres.employment.PayrollAdjustment"/>
+    </entity>
+    <entity entity-name="PayrollAdjustmentFedStts" package-name="mantle.humanres.employment">
+        <field name="payrollAdjustmentId" type="id" is-pk="true"/>
         <field name="taxFederalStatusEnumId" type="id"/>
-        <field name="taxStateStatusEnumId" type="id"/>
-        <field name="taxAuthorityId" type="id"/>
-        <relationship type="one" related-entity-name="mantle.humanres.employment.Employment"/>
-        <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="itemTypeEnumId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.party.time.TimePeriodType"/>
+        <relationship type="one" related-entity-name="mantle.humanres.employment.PayrollAdjustment"/>
         <relationship type="one" title="TaxFederalStatus" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="taxFederalStatusEnumId"/></relationship>
+    </entity>
+    <entity entity-name="PayrollAdjustmentStateStts" package-name="mantle.humanres.employment">
+        <field name="payrollAdjustmentId" type="id" is-pk="true"/>
+        <field name="taxStateStatusEnumId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="mantle.humanres.employment.PayrollAdjustment"/>
         <relationship type="one" title="TaxStateStatus" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="taxStateStatusEnumId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
-        <!--
-        <field name="paymentMethodTypeEnumId" type="id"/>
-        <field name="paymentMethodId" type="id"/>
-        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="paymentMethodTypeEnumId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
-        -->
     </entity>
     <entity entity-name="PayrollAllowance" package-name="mantle.humanres.employment">
         <field name="payrollAllowanceId" type="id" is-pk="true"/>
@@ -495,7 +503,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="budgetId" type="id"/>
         <field name="budgetItemSeqId" type="id"/>
         <field name="salaryFlag" type="text-indicator"/>
-        <field name="exemptFlag" type="text-indicator"/>
+        <field name="exemptFlag" type="text-indicator"><description>Tax exempt (contract, 1099 only, etc)</description></field>
         <field name="fullTimeFlag" type="text-indicator"/>
         <field name="temporaryFlag" type="text-indicator"/>
         <field name="fromDate" type="date-time"/>
@@ -643,7 +651,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="RatpStandard" description="Standard" enumTypeId="RateType"/>
             <moqui.basic.Enumeration enumId="RatpDiscounted" description="Discounted" enumTypeId="RateType"/>
             <moqui.basic.Enumeration enumId="RatpOvertime" description="Overtime" enumTypeId="RateType"/>
-            <moqui.basic.Enumeration enumId="RatpOnsite" description="On-site Work" enumTypeId="RateType"/>
+            <moqui.basic.Enumeration enumId="RatpOnsite" description="On-site" enumTypeId="RateType"/>
+            <moqui.basic.Enumeration enumId="RatpRemote" description="Remote" enumTypeId="RateType"/>
             <moqui.basic.Enumeration enumId="RatpPiece" description="Piece Count" enumTypeId="RateType"/>
             <!-- leave these out until we have a reason to use them:
             <moqui.basic.Enumeration enumId="RatpAverage" description="Average Pay" enumTypeId="RateType"/>
@@ -654,7 +663,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Rate Purpose -->
             <moqui.basic.EnumerationType description="Rate Purpose" enumTypeId="RatePurpose"/>
             <moqui.basic.Enumeration enumId="RaprClient" description="Client Billing" enumTypeId="RatePurpose"/>
-            <moqui.basic.Enumeration enumId="RaprVendor" description="Vendor Payment" enumTypeId="RatePurpose"/>
+            <moqui.basic.Enumeration enumId="RaprVendor" description="Worker/Vendor Payment" enumTypeId="RatePurpose"/>
         </seed-data>
     </entity>
 

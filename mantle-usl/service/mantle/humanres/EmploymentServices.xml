@@ -13,6 +13,105 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
+    <service verb="create" noun="Employment">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyRelationship" include="nonpk"/>
+            <auto-parameters entity-name="mantle.humanres.employment.Employment" include="nonpk"/>
+            <parameter name="fromPartyId" required="true"/>
+            <parameter name="toPartyId" required="true"/>
+            <parameter name="fromRoleTypeId" default-value="Employee"/>
+            <parameter name="relationshipTypeEnumId" default-value="PrtEmployee"/>
+            <parameter name="toRoleTypeId" default-value="OrgInternal"/>
+            <parameter name="fromDate" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters><parameter name="partyRelationshipId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.party.PartyRelationship" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.humanres.employment.Employment" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="Employment">
+        <in-parameters>
+            <parameter name="partyRelationshipId" required="true"/>
+            <auto-parameters entity-name="mantle.party.PartyRelationship" include="nonpk"/>
+            <auto-parameters entity-name="mantle.humanres.employment.Employment" include="nonpk"/>
+            <!-- use PartyContent instead
+            <parameter name="identityDocumentFile" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="emplAuthzDocumentFile" type="org.apache.commons.fileupload.FileItem"/>
+            -->
+        </in-parameters>
+        <actions>
+            <!-- use PartyContent instead
+            <if condition="identityDocumentFile != null &amp;&amp; identityDocumentFile.size &gt; 0">
+                <if condition="!identityLocation">
+                    <set field="filename" from="identityDocumentFile.getName()"/>
+                    <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+                    <set field="identityLocation" value="${contentRoot}/employment/${partyRelationshipId}/identity/${filename}"/>
+                </if>
+                <set field="docRr" from="ec.resource.getLocationReference(identityLocation)"/>
+                <script>
+                    fileStream = identityDocumentFile.getInputStream()
+                    try { docRr.putStream(fileStream) } finally { fileStream.close() }
+                </script>
+            </if>
+            <if condition="emplAuthzDocumentFile != null &amp;&amp; emplAuthzDocumentFile.size &gt; 0">
+                <if condition="!emplAuthzLocation">
+                    <set field="filename" from="emplAuthzDocumentFile.getName()"/>
+                    <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+                    <set field="emplAuthzLocation" value="${contentRoot}/employment/${partyRelationshipId}/emplAuthz/${filename}"/>
+                </if>
+                <set field="docRr" from="ec.resource.getLocationReference(emplAuthzLocation)"/>
+                <script>
+                    fileStream = emplAuthzDocumentFile.getInputStream()
+                    try { docRr.putStream(fileStream) } finally { fileStream.close() }
+                </script>
+            </if>
+            -->
+
+            <service-call name="update#mantle.party.PartyRelationship" in-map="context"/>
+            <service-call name="store#mantle.humanres.employment.Employment" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="create" noun="EmploymentSalary">
+        <description>Create an EmploymentSalary record, getting defaults and checking against min/max amounts on
+            PayGrade record from EmplPosition for Employment.</description>
+        <in-parameters>
+            <parameter name="partyRelationshipId" required="true"/>
+            <auto-parameters entity-name="mantle.humanres.employment.EmploymentSalary" include="nonpk"/>
+            <parameter name="fromDate" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters><parameter name="fromDate"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.humanres.employment.Employment" value-field="employment"/>
+            <if condition="!timePeriodTypeId"><set field="timePeriodTypeId" from="employment.timePeriodTypeId"/></if>
+            <if condition="!payGradeId">
+                <entity-find-related-one value-field="employment" relationship-name="mantle.humanres.position.EmplPosition"
+                        to-value-field="emplPosition"/>
+                <set field="payGradeId" from="emplPosition.payGradeId"/>
+            </if>
+            <if condition="payGradeId">
+                <entity-find entity-name="mantle.humanres.rate.PayGradeSalary" list="payGradeSalaryList">
+                    <date-filter/><econdition field-name="payGradeId"/>
+                    <econdition field-name="timePeriodTypeId" ignore-if-empty="true"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="payGradeSalaryList">
+                    <set field="payGradeSalary" from="payGradeSalaryList[0]"/>
+                    <if condition="!timePeriodTypeId"><set field="timePeriodTypeId" from="payGradeSalary.timePeriodTypeId"/></if>
+                    <if condition="!currencyUomId"><set field="currencyUomId" from="payGradeSalary.currencyUomId"/></if>
+                    <if condition="!amount"><set field="amount" from="payGradeSalary.amount"/></if>
+                    <if condition="payGradeSalary.minAmount &amp;&amp; amount &lt; payGradeSalary.minAmount">
+                        <message>Warning: salary amount ${amount} is less than pay grade minimum amount (${payGradeSalary.minAmount})</message></if>
+                    <if condition="payGradeSalary.maxAmount &amp;&amp; amount &gt; payGradeSalary.maxAmount">
+                        <message>Warning: salary amount ${amount} is greater than pay grade maximum amount (${payGradeSalary.maxAmount})</message></if>
+                </if>
+            </if>
+
+            <service-call name="create#mantle.humanres.employment.EmploymentSalary" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+
     <!-- Payroll TimePeriod services -->
     <!-- TODO: change to handle PayrollWeek, PayrollBiWeek, etc based on some configuration of what the org will actually use; or this may not be needed at all and TimePeriod records can be created as needed for payroll processing -->
     <service verb="check" noun="NextPayrollTimePeriods">
