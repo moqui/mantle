@@ -329,6 +329,31 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== PartyBadge Services ========== -->
     <!-- ========================================= -->
 
+    <service verb="get" noun="PartyBadgeInfo">
+        <in-parameters><parameter name="partyBadgeId"/></in-parameters>
+        <out-parameters>
+            <parameter name="partyBadge" type="Map"/>
+            <parameter name="person" type="Map"/>
+            <parameter name="faceImageLocation"/>
+            <parameter name="logoImageLocation"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge"/>
+            <if condition="partyBadge.partyId">
+                <entity-find-one entity-name="mantle.party.Person" value-field="person">
+                    <field-map field-name="partyId" from="partyBadge.partyId"/></entity-find-one>
+
+                <service-call name="mantle.party.PartyServices.get#PartyContentLocation" out-map="faceOut"
+                    in-map="[partyId:partyBadge.partyId, partyContentTypeEnumIdList:['PcntFaceImage', 'PcntPrimaryImage']]"/>
+                <set field="faceImageLocation" from="faceOut.contentLocation"/>
+            </if>
+            <if condition="partyBadge.organizationPartyId">
+                <service-call name="mantle.party.PartyServices.get#PartyContentLocation" out-map="logoOut"
+                    in-map="[partyId:partyBadge.organizationPartyId, partyContentTypeEnumIdList:['PcntLogoImage', 'PcntPrimaryImage']]"/>
+                <set field="logoImageLocation" from="logoOut.contentLocation"/>
+            </if>
+        </actions>
+    </service>
     <service verb="scan" noun="PartyBadge">
         <in-parameters>
             <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk">
@@ -431,6 +456,29 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- =========================================== -->
     <!-- ========== PartyContent Services ========== -->
     <!-- =========================================== -->
+
+    <service verb="get" noun="PartyContentLocation">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="partyContentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="partyContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="partyContentTypeEnumIdList" entry="partyContentTypeEnumId">
+                <entity-find entity-name="mantle.party.PartyContent" list="partyContentList">
+                    <econdition field-name="partyId"/><econdition field-name="partyContentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="partyContentList">
+                    <set field="partyContent" from="partyContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="partyContent ? partyContent.contentLocation : null"/>
+        </actions>
+    </service>
 
     <service verb="create" noun="PartyContent">
         <in-parameters>
