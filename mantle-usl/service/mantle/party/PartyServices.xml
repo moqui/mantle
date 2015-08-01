@@ -354,28 +354,10 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
-    <service verb="scan" noun="PartyBadge">
-        <in-parameters>
-            <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk">
-                <exclude field-name="scanResultEnumId"/><exclude field-name="timeEntryId"/></auto-parameters>
-            <parameter name="scanValue" required="true"/>
-            <parameter name="scanDate" default="ec.user.nowTimestamp"/>
-
-            <!-- parameters for clock in -->
-            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
-            <parameter name="emplPositionClassId"/>
-            <parameter name="workEffortId"/>
-            <!-- parameters for clock out -->
-            <parameter name="breakHours" type="BigDecimal"/>
-            <parameter name="pieceCount" type="BigDecimal"/>
-        </in-parameters>
+    <service verb="lookup" noun="PartyBadge">
+        <in-parameters><parameter name="scanValue"/></in-parameters>
         <out-parameters>
-            <parameter name="partyBadgeId"/>
-            <parameter name="partyId"/>
-            <parameter name="organizationPartyId"/>
-            <parameter name="scanResultEnumId"/>
-            <parameter name="timeEntryId"/>
-            <parameter name="closedTimeEntryId"/>
+            <parameter name="partyBadge" type="Map"/>
         </out-parameters>
         <actions>
             <!-- look up by partyBadgeId, serialNumber, or storedValue -->
@@ -389,6 +371,34 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
                     <field-map field-name="storedValue" from="scanValue"/></entity-find-one>
             </if>
+        </actions>
+    </service>
+    <service verb="scan" noun="PartyBadge">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk">
+                <exclude field-name="scanResultEnumId"/><exclude field-name="timeEntryId"/></auto-parameters>
+            <parameter name="scanValue" required="true"/>
+            <parameter name="scanDate" default="ec.user.nowTimestamp"/>
+
+            <!-- parameters for clock in -->
+            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
+            <parameter name="emplPositionClassId"/>
+            <parameter name="workEffortId"/>
+            <!-- parameters for clock out -->
+            <parameter name="breakHours" type="BigDecimal"/>
+            <parameter name="breakMinutes" type="BigDecimal"/>
+            <parameter name="pieceCount" type="BigDecimal"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="partyBadgeId"/>
+            <parameter name="partyId"/>
+            <parameter name="organizationPartyId"/>
+            <parameter name="scanResultEnumId"/>
+            <parameter name="timeEntryId"/>
+            <parameter name="closedTimeEntryId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.party.PartyServices.lookup#PartyBadge" in-map="context" out-map="context"/>
 
             <if condition="!partyBadge">
                 <return error="true" message="No badge found for scan value [${scanValue}]"/></if>
@@ -413,6 +423,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#mantle.party.PartyBadgeScan" in-map="context"/>
 
             <!-- handle TimeEntry for clock in and clock out -->
+            <if condition="breakMinutes"><set field="breakHours" from="(breakHours ?: 0) + (breakMinutes / 60)"/></if>
             <if condition="scanPurposeEnumId in ['PbspClockIn', 'PbspClockOut']">
                 <set field="clientPartyId" from="partyBadge.organizationPartyId"/>
                 <entity-find entity-name="mantle.work.time.TimeEntry" list="openTimeEntryList">
