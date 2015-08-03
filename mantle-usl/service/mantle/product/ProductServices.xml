@@ -496,4 +496,62 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="productId"/></entity-delete-by-condition>
         </actions>
     </service>
+
+    <!-- =========================================== -->
+    <!-- ========== ProductContent Services ========== -->
+    <!-- =========================================== -->
+
+    <service verb="create" noun="ProductContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.product.ProductContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="productContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.product.ProductContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.product.ProductServices.save#ProductContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="ProductContent">
+        <in-parameters>
+            <parameter name="productContentId" required="true"/>
+            <auto-parameters entity-name="mantle.product.ProductContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.product.ProductContent" value-field="productContent"/>
+                <service-call name="mantle.product.ProductServices.save#ProductContentFile" out-map="context"
+                        in-map="context + [productId:productContent.productId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.product.ProductContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="ProductContentFile">
+        <in-parameters>
+            <parameter name="productContentId" required="true"/>
+            <parameter name="productId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/product/${productId}/content_${productContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.product.ProductContent"
+                    in-map="[productContentId:productContentId, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
 </services>
