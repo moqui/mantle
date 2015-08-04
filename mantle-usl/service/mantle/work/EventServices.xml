@@ -116,15 +116,22 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="timeUomId" default-value="TF_hr"/>
             <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
             <parameter name="requestId"/>
+            <parameter name="assetId"/>
         </in-parameters>
         <out-parameters><parameter name="workEffortId"/></out-parameters>
         <actions>
             <set field="seqName" value="Project_${rootWorkEffortId}"/>
-            <service-call name="create#mantle.work.effort.WorkEffort" out-map="context" in-map="context"/>
-            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
-                        roleTypeId:'_NA_', fromDate:ec.user.nowTimestamp, statusId:'WeptAssigned']"/>
+            <service-call name="create#mantle.work.effort.WorkEffort" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+                    partyId:assignToPartyId, roleTypeId:'_NA_', fromDate:ec.user.nowTimestamp, statusId:'WeptAssigned']"/>
             <if condition="requestId">
-                <service-call name="create#mantle.request.RequestWorkEffort" in-map="[workEffortId:workEffortId, requestId:requestId]"/></if>
+                <service-call name="create#mantle.request.RequestWorkEffort"
+                        in-map="[workEffortId:workEffortId, requestId:requestId]"/>
+            </if>
+            <if condition="assetId">
+                <service-call name="create#mantle.work.effort.WorkEffortAssetAssign" in-map="[workEffortId:workEffortId,
+                        assetId:assetId, fromDate:ec.user.nowTimestamp, statusId:'WeaaAssigned']"/>
+            </if>
         </actions>
     </service>
 </services>
