@@ -14,34 +14,45 @@ along with this software (see the LICENSE.md file). If not, see
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
     <service verb="create" noun="TimePeriod">
-        <description>Must specify either fromDate or previousPeriodId.
-            If thruDate is empty (common case) will be calculated.
+        <description>If previousPeriodId is not specified must specify fromDate, partyId, and timePeriodTypeId.
             Checks for an existing TimePeriod for the partyId, timePeriodTypeId, and fromDate.
+            If thruDate is empty (common case) will be calculated.
             The periodName field can be empty and one will be generated.
             The periodNum field can be empty and one will be generated.
             If no parentPeriodId is specified and previousPeriodId is then it will be copied from that (when advancing to a new parent period must create first and specify parentPeriodId).
         </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.party.time.TimePeriod" include="nonpk"/>
-            <parameter name="partyId" required="true"/>
-            <parameter name="timePeriodTypeId" required="true"/>
             <parameter name="isClosed" default-value="N"/>
         </in-parameters>
         <out-parameters>
             <parameter name="timePeriodId"/>
         </out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.party.time.TimePeriodType" value-field="timePeriodType"/>
-
-            <if condition="!fromDate &amp;&amp; !previousPeriodId">
-                <return error="true" message="Must specify either fromDate or previousPeriodId"/></if>
-
             <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="previousPeriod">
                 <field-map field-name="timePeriodId" from="previousPeriodId"/></entity-find-one>
+
             <if condition="previousPeriod">
-                <if condition="!fromDate"><set field="fromDate" from="previousPeriod.thruDate"/></if>
-                <if condition="!parentPeriodId"><set field="parentPeriodId" from="previousPeriod.parentPeriodId"/></if>
+                <then>
+                    <if condition="!partyId"><set field="partyId" from="previousPeriod.partyId"/></if>
+                    <if condition="!timePeriodTypeId"><set field="timePeriodTypeId" from="previousPeriod.timePeriodTypeId"/></if>
+                    <if condition="!fromDate"><script>
+                        Calendar fromDateCal = ec.user.getCalendarSafe()
+                        fromDateCal.setTime(previousPeriod.thruDate)
+                        fromDateCal.add(Calendar.DAY_OF_MONTH, 1)
+                        fromDate = new java.sql.Date(fromDateCal.getTimeInMillis())
+                    </script></if>
+                    <if condition="!parentPeriodId"><set field="parentPeriodId" from="previousPeriod.parentPeriodId"/></if>
+                </then>
+                <else>
+                    <if condition="!partyId"><message error="true">With no previousPeriodId must specify partyId</message></if>
+                    <if condition="!timePeriodTypeId"><message error="true">With no previousPeriodId must specify timePeriodTypeId</message></if>
+                    <if condition="!fromDate"><message error="true">With no previousPeriodId must specify fromDate</message></if>
+                    <check-errors/>
+                </else>
             </if>
+
+            <entity-find-one entity-name="mantle.party.time.TimePeriodType" value-field="timePeriodType"/>
 
             <!-- see if there is already a TimePeriod for the partyId, timePeriodTypeId, and fromDate -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="existingPeriodList">
