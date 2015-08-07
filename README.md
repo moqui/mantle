@@ -1,6 +1,8 @@
 
 ## Welcome to Mantle Business Artifacts
 
+[![Build Status](https://travis-ci.org/moqui/mantle.svg)](https://travis-ci.org/moqui/mantle)
+
 Mantle includes a universal data model and service library for general enterprise automation applications.
 
 For details about Mantle see its page on moqui.org:
