@@ -75,7 +75,7 @@ class AssetReservationMultipleThreads extends Specification {
                 }
             }
         }
-        latch.await(10, TimeUnit.SECONDS)
+        latch.await(20, TimeUnit.SECONDS)
         EntityValue asset = gec.entity.find("mantle.product.asset.Asset").condition("assetId","DEMO_1_1A").one()
         logger.info("ATP of DEMO_1_1A is " + asset.availableToPromiseTotal)
 
