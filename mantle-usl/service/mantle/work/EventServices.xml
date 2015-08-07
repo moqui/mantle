@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
@@ -79,7 +80,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="eventList" from="[]"/>
             <iterate list="workEffortList" entry="workEffortDef">
                 <set field="workEffort" from="workEffortDef"/><!-- put it in the context -->
-                <set field="title" from="ec.resource.evaluateStringExpand(titleGString, '')"/>
+                <set field="title" from="ec.resource.expand(titleGString, '')"/>
                 <set field="start" from="ec.l10n.format(workEffort.estimatedStartDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
                 <if condition="workEffort.estimatedCompletionDate">
                     <set field="end" from="ec.l10n.format(workEffort.estimatedCompletionDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
@@ -94,7 +95,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     </else>
                 </if>
                 <if condition="urlGString">
-                    <set field="url" from="ec.resource.evaluateStringExpand(urlGString, '')"/>
+                    <set field="url" from="ec.resource.expand(urlGString, '')"/>
                     <else><set field="url" value=""/></else>
                 </if>
                 <set field="eventMap" from="[id:workEffort.workEffortId, title:title, start:start, end:end, url:url, allDay:false]"/>
@@ -115,15 +116,22 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="timeUomId" default-value="TF_hr"/>
             <parameter name="assignToPartyId" default-value="${ec.user.userAccount.partyId}"/>
             <parameter name="requestId"/>
+            <parameter name="assetId"/>
         </in-parameters>
         <out-parameters><parameter name="workEffortId"/></out-parameters>
         <actions>
             <set field="seqName" value="Project_${rootWorkEffortId}"/>
-            <service-call name="create#mantle.work.effort.WorkEffort" out-map="context" in-map="context"/>
-            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId, partyId:assignToPartyId,
-                        roleTypeId:'_NA_', fromDate:ec.user.nowTimestamp, statusId:'WeptAssigned']"/>
+            <service-call name="create#mantle.work.effort.WorkEffort" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.work.effort.WorkEffortParty" in-map="[workEffortId:workEffortId,
+                    partyId:assignToPartyId, roleTypeId:'_NA_', fromDate:ec.user.nowTimestamp, statusId:'WeptAssigned']"/>
             <if condition="requestId">
-                <service-call name="create#mantle.request.RequestWorkEffort" in-map="[workEffortId:workEffortId, requestId:requestId]"/></if>
+                <service-call name="create#mantle.request.RequestWorkEffort"
+                        in-map="[workEffortId:workEffortId, requestId:requestId]"/>
+            </if>
+            <if condition="assetId">
+                <service-call name="create#mantle.work.effort.WorkEffortAssetAssign" in-map="[workEffortId:workEffortId,
+                        assetId:assetId, fromDate:ec.user.nowTimestamp, statusId:'WeaaAssigned']"/>
+            </if>
         </actions>
     </service>
 </services>

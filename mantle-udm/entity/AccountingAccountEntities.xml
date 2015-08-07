@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
 
-This Work includes contributions authored by contributors to Apache OFBiz
-and those parts may be licensed under the Apache License 2.0.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.5.xsd">
@@ -160,15 +158,17 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
         <field name="glReconciliationId" type="id"/>
+        <field name="reasonEnumId" type="id"><description>Used to determine the balancing GlAccount to the one based
+            on FinancialAccount.finAccountTypeId.</description></field>
         <field name="transactionDate" type="date-time"/>
         <field name="entryDate" type="date-time"/>
         <field name="amount" type="currency-amount"/>
+        <field name="postBalance" type="currency-amount"/>
         <field name="paymentId" type="id"/>
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"><description>To be used along with orderId to point to an OrderItem that
             represents the purchase of a product to add money to the account.</description></field>
         <field name="performedByUserId" type="id-long"/>
-        <field name="reasonEnumId" type="id"/>
         <field name="comments" type="text-medium"/>
         <relationship type="one" title="FinancialAccountTransType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="finAccountTransTypeEnumId"/></relationship>
@@ -211,6 +211,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Initial Deposit" enumId="FatrInitDeposit" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Replenishment" enumId="FatrReplenish" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Refund" enumId="FatrRefund" enumTypeId="FinancialAccountTransReason"/>
+            <moqui.basic.Enumeration description="Disbursement" enumId="FatrDisbursement" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Customer Service Credit" enumId="FatrCsCredit" enumTypeId="FinancialAccountTransReason"/>
             <moqui.basic.Enumeration description="Error Adjustment" enumId="FatrErrorAdjust" enumTypeId="FinancialAccountTransReason"/>
         </seed-data>
@@ -272,6 +273,8 @@ and those parts may be licensed under the Apache License 2.0.
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="LoanAccount"/>
             <mantle.account.financial.FinancialAccountType description="Equity Line Account" finAccountTypeId="EquityLine"
                                   replenishTypeEnumId="FarpManual" isRefundable="Y" parentTypeId="LoanAccount"/>
+            <mantle.account.financial.FinancialAccountType description="Supplier Deposit Account" finAccountTypeId="SupplierDepositAccount"
+                    replenishTypeEnumId="FarpManual" isRefundable="Y"/>
         </seed-data>
     </entity>
 
@@ -576,7 +579,8 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Gift Card" enumId="PmtGiftCard" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Gift Certificate" enumId="PmtGiftCerificate" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Cash" enumId="PmtCash" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Electronic Funds Transfer" enumId="PmtEft" enumTypeId="PaymentMethodType"/>
+            <!-- Use ACH instead, more specific: <moqui.basic.Enumeration description="Electronic Funds Transfer" enumId="PmtEft" enumTypeId="PaymentMethodType"/> -->
+            <moqui.basic.Enumeration description="Automated Clearing House" enumId="PmtAch" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Financial Account" enumId="PmtFinancialAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Personal Check" enumId="PmtPersonalCheck" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Company Check" enumId="PmtCompanyCheck" enumTypeId="PaymentMethodType"/>
@@ -585,7 +589,9 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Company Account" enumId="PmtCompanyAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Billing Account" enumId="PmtBillingAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Cash On Delivery" enumId="PmtCod" enumTypeId="PaymentMethodType"/>
-            <!-- really need this? implied by various others... <moqui.basic.Enumeration description="Offline Payment" enumId="PmtOffline" enumTypeId="PaymentMethodType"/> -->
+            <moqui.basic.Enumeration description="Write-off" enumId="PmtWriteOff" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Discount" enumId="PmtDiscount" enumTypeId="PaymentMethodType"/>
+            <!-- really need this? implied by various more specific others... <moqui.basic.Enumeration description="Offline Payment" enumId="PmtOffline" enumTypeId="PaymentMethodType"/> -->
         </seed-data>
     </entity>
     <entity entity-name="BitcoinWallet" package-name="mantle.account.method">
@@ -792,6 +798,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="paymentAuthCode" type="text-short"/>
         <field name="paymentRefNum" type="text-short"/>
         <field name="comments" type="text-medium"/>
+        <field name="memo" type="text-medium"/>
 
         <field name="amount" type="currency-amount"/>
         <field name="amountUomId" type="id"/>
@@ -813,7 +820,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="processAttempt" type="number-integer"/>
         <field name="needsNsfRetry" type="text-indicator"/>
 
-        <field name="visitId" type="id"/>
+        <field name="visitId" type="id"><description>Track the Visit so we know the session info, including client IP,
+            for audit and fraud purposes.</description></field>
 
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="paymentTypeEnumId"/></relationship>
@@ -846,6 +854,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Disbursement" enumId="PtDisbursement" enumTypeId="PaymentType"/>
             <moqui.basic.Enumeration description="Refund" enumId="PtRefund" enumTypeId="PaymentType"/>
             <moqui.basic.Enumeration description="Invoice Payment" enumId="PtInvoicePayment" enumTypeId="PaymentType"/>
+            <moqui.basic.Enumeration description="Financial Account Transaction" enumId="PtFinancialAccount" enumTypeId="PaymentType"/>
 
             <!-- Payment Status -->
             <moqui.basic.StatusType description="Payment Status" statusTypeId="Payment"/>

@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
@@ -87,7 +88,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <set field="invoiceTotal" from="0"/>
             <iterate list="invoiceItemList" entry="invoiceItem">
-                <set field="invoiceTotal" from="invoiceTotal + (invoiceItem.quantity * invoiceItem.amount)"/>
+                <set field="invoiceTotal" from="invoiceTotal + ((invoiceItem.quantity ?: 1) * (invoiceItem.amount ?: 0))"/>
             </iterate>
 
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
@@ -95,7 +96,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <set field="appliedPaymentsTotal" from="0"/>
             <iterate list="paymentApplicationList" entry="paymentApplication">
-                <set field="appliedPaymentsTotal" from="appliedPaymentsTotal + paymentApplication.amountApplied"/>
+                <set field="appliedPaymentsTotal" from="appliedPaymentsTotal + (paymentApplication.amountApplied ?: 0)"/>
             </iterate>
 
             <set field="unpaidTotal" from="invoiceTotal - appliedPaymentsTotal"/>
@@ -143,8 +144,8 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="invoiceItem.itemTypeEnumId == 'ItemTimeEntry'"><set field="itemTypeSummaryMap.amount" from="invoiceItem.amount"/></if>
                     <script>itemTypeSummaryMapMap.put(mapKey, itemTypeSummaryMap)</script>
                 </if>
-                <set field="itemTypeSummaryMap.quantity" from="itemTypeSummaryMap.quantity + (invoiceItem.quantity?:1)"/>
-                <set field="itemTypeSummaryMap.total" from="itemTypeSummaryMap.total + ((invoiceItem.quantity?:1) * invoiceItem.amount)"/>
+                <set field="itemTypeSummaryMap.quantity" from="itemTypeSummaryMap.quantity + (invoiceItem.quantity ?: 1)"/>
+                <set field="itemTypeSummaryMap.total" from="itemTypeSummaryMap.total + ((invoiceItem.quantity ?: 1) * (invoiceItem.amount ?: 0))"/>
             </iterate>
             <set field="itemTypeSummaryMapList" from="itemTypeSummaryMapMap.values()"/>
 
@@ -596,7 +597,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     </entity-find-one>
                     <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId ?: 'USD'"/>
                 </if>
-                <set field="description" value="Invoice for ${workEffort ? 'project' + workEffort.workEffortName + ' [' + workEffortId + ']' : ''} ${workerParty ? 'worker' + workerParty.firstName?:'' + ' ' + workerParty.lastName?:'' + workerParty.organizationName?:'' + ' [' + workerPartyId + ']' : ''}"/>
+                <set field="description" value="Invoice for ${workEffort ? 'project ' + ec.resource.expand('WorkEffortNameTemplate','') : ''} ${workerParty ? 'worker ' + ec.resource.expand('PartyNameTemplate','',workerParty) : ''}"/>
                 <if condition="ratePurposeEnumId == 'RaprClient'">
                     <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
                             in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
@@ -654,7 +655,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </if>
 
             <if condition="invoiceItemCreatedCount == 0">
-                <message error="true">No time entries or expenses found for Project [${workEffortId}], not creating invoice or adding items to existing invoice.</message>
+                <message error="true">No time entries or expenses found for Project ${ec.resource.expand('WorkEffortNameTemplate','',workEffort)}, not creating invoice or adding items to existing invoice.</message>
 
                 <else>
                     <message>Added ${invoiceItemCreatedCount} items to Invoice ${invoiceId}</message>
@@ -727,7 +728,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <if condition="rateAmount"><set field="amountTotal" from="amountTotal + (timeEntry.hours*rateAmount.rateAmount)"/></if>
                 </iterate>
                 <if condition="amountTotal">
-                    <set field="description" value="Time entries for task ${workEffort.workEffortName} [${workEffortId}]"/>
+                    <set field="description" value="Time entries for task ${ec.resource.expand('WorkEffortNameTemplate','',workEffort)}"/>
                     <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
                             in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
                                 amount:amountTotal, quantity:1, description:description]"/>

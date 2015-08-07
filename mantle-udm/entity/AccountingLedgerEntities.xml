@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
 
-This Work includes contributions authored by contributors to Apache OFBiz
-and those parts may be licensed under the Apache License 2.0.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.5.xsd">
@@ -93,6 +91,7 @@ and those parts may be licensed under the Apache License 2.0.
              |     |===> CURRENT_LIABILITY
              |           |===> ACCOUNTS_PAYABLE
              |           |===> ACCRUED_EXPENSES
+             |           |===> THIRD_PARTY_HOLDINGS
              |     |===> LONGTERM_LIABILITY
              |===> EQUITY
              |     |===> OWNERS_EQUITY
@@ -123,10 +122,11 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Other Asset" enumId="OTHER_ASSET" parentEnumId="ASSET" enumTypeId="GlAccountClass"/>
 
             <moqui.basic.Enumeration description="Liability" enumId="LIABILITY" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Current Liability" enumId="CURRENT_LIABILITY" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Accounts Payable" enumId="ACCOUNTS_PAYABLE" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Accrued Expenses" enumId="ACCRUED_EXPENSES" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountClass"/>
-            <moqui.basic.Enumeration description="Long Term Liability" enumId="LONGTERM_LIABILITY" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Current Liability" enumId="CURRENT_LIABILITY_CLASS" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Accounts Payable" enumId="ACCOUNTS_PAYABLE" parentEnumId="CURRENT_LIABILITY_CLASS" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Accrued Expenses" enumId="ACCRUED_EXPENSES" parentEnumId="CURRENT_LIABILITY_CLASS" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Third-Party Holdings" enumId="THIRD_PARTY_HOLDINGS" parentEnumId="CURRENT_LIABILITY_CLASS" enumTypeId="GlAccountClass"/>
+            <moqui.basic.Enumeration description="Long Term Liability" enumId="LONG_TERM_LIABILITY_CLASS" parentEnumId="LIABILITY" enumTypeId="GlAccountClass"/>
 
             <moqui.basic.Enumeration description="Equity" enumId="EQUITY" parentEnumId="CREDIT" enumTypeId="GlAccountClass"/>
             <moqui.basic.Enumeration description="Owners Equity" enumId="OWNERS_EQUITY" parentEnumId="EQUITY" enumTypeId="GlAccountClass"/>
@@ -209,6 +209,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Customer Gift Certificate Balances" enumId="CUSTOMER_GC_DEPOSIT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Uninvoiced Shipment Receipts" enumId="UNINVOICED_SHIP_RCPT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Purchase Price Variance" enumId="PURCHASE_PRICE_VAR" parentEnumId="OTHER_EXPENSE" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Supplier Deposits" enumId="SUPPLIER_DEPOSIT" parentEnumId="CURRENT_LIABILITY" enumTypeId="GlAccountType"/>
 
             <moqui.basic.Enumeration description="Income" enumId="INCOME" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Other Income" enumId="OTHER_INCOME" parentEnumId="INCOME" enumTypeId="GlAccountType"/>
@@ -403,6 +404,16 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="organizationPartyId"/></relationship>
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
     </entity>
+    <entity entity-name="FinancialAccountReasonGlAccount" package-name="mantle.ledger.config">
+        <field name="reasonEnumId" type="id" is-pk="true"/>
+        <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="glAccountId" type="id"/>
+        <relationship type="one" title="FinancialAccountTransReason" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="reasonEnumId"/></relationship>
+        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
+            <key-map field-name="organizationPartyId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
+    </entity>
     <entity entity-name="GlAccountTypePartyDefault" package-name="mantle.ledger.config">
         <field name="organizationPartyId" type="id" is-pk="true"/>
         <field name="partyId" type="id" is-pk="true"/>
@@ -442,6 +453,7 @@ and those parts may be licensed under the Apache License 2.0.
     <entity entity-name="PaymentMethodTypeGlAccount" package-name="mantle.ledger.config">
         <field name="paymentMethodTypeEnumId" type="id" is-pk="true"/>
         <field name="organizationPartyId" type="id" is-pk="true"/>
+        <field name="isPayable" type="text-indicator" is-pk="true"><description>If Y is Payable, N is Receivable, E for either.</description></field>
         <field name="glAccountId" type="id"/>
         <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="paymentMethodTypeEnumId"/></relationship>
@@ -454,7 +466,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="organizationPartyId" type="id" is-pk="true"/>
         <field name="isPayable" type="text-indicator" is-pk="true"><description>If Y is Payable, N is Receivable.</description></field>
         <field name="isApplied" type="text-indicator" is-pk="true"><description>If Y is for Applied Payment, N for
-            Unapplied Payment.</description></field>
+            Unapplied Payment, E for either.</description></field>
         <field name="glAccountId" type="id"/>
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="paymentTypeEnumId"/></relationship>
@@ -487,12 +499,10 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
     </entity>
     <entity entity-name="TaxAuthorityGlAccount" package-name="mantle.ledger.config">
-        <field name="taxAuthGeoId" type="id" is-pk="true"/>
-        <field name="taxAuthPartyId" type="id" is-pk="true"/>
+        <field name="taxAuthorityId" type="id" is-pk="true"/>
         <field name="organizationPartyId" type="id" is-pk="true"/>
         <field name="glAccountId" type="id"/>
-        <relationship type="one" related-entity-name="TaxAuthority">
-            <key-map field-name="taxAuthGeoId"/><key-map field-name="taxAuthPartyId"/></relationship>
+        <relationship type="one" related-entity-name="TaxAuthority"/>
         <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
             <key-map field-name="organizationPartyId"/></relationship>
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
@@ -512,7 +522,10 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="organizationPartyId" type="id" is-pk="true"/>
         <field name="fiscalYearStartMonth" type="number-integer"/>
         <field name="fiscalYearStartDay" type="number-integer"/>
+        <field name="hourlyTimePeriodTypeId" type="id"/>
+        <field name="salaryTimePeriodTypeId" type="id"/>
         <field name="taxFormEnumId" type="id"/>
+        <field name="taxClassificationEnumId" type="id"/>
         <field name="cogsMethodEnumId" type="id"/>
         <field name="baseCurrencyUomId" type="id"/>
         <field name="invoiceSequenceEnumId" type="id"/>
@@ -535,8 +548,14 @@ and those parts may be licensed under the Apache License 2.0.
 
         <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
             <key-map field-name="organizationPartyId"/></relationship>
+        <relationship type="one" title="Hourly" related-entity-name="mantle.party.time.TimePeriodType">
+            <key-map field-name="hourlyTimePeriodTypeId"/></relationship>
+        <relationship type="one" title="Salary" related-entity-name="mantle.party.time.TimePeriodType">
+            <key-map field-name="salaryTimePeriodTypeId"/></relationship>
         <relationship type="one" title="TaxForm" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="taxFormEnumId"/></relationship>
+        <relationship type="one" title="TaxClassification" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxClassificationEnumId"/></relationship>
         <relationship type="one" title="CogsMethod" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="cogsMethodEnumId"/></relationship>
         <relationship type="one" related-entity-name="moqui.basic.Uom">
@@ -560,6 +579,18 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Form 990-PF (US IRS)" enumId="TxfUsIrs990PF" sequenceNum="5" enumTypeId="TaxForm"/>
             <moqui.basic.Enumeration description="Form 990-T (US IRS)" enumId="TxfUsIrs990T" sequenceNum="6" enumTypeId="TaxForm"/>
             <moqui.basic.Enumeration description="Form 1040 (US IRS)" enumId="TxfUsIrs1040" sequenceNum="7" enumTypeId="TaxForm"/>
+
+            <!-- Tax Classification -->
+            <moqui.basic.EnumerationType description="Tax Classification" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="Individual, Sole Proprietor, Single-member LLC" enumId="TxcIndividual" sequenceNum="1" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="C Corporation" enumId="TxcCCorp" sequenceNum="2" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="S Corporation" enumId="TxcSCorp" sequenceNum="3" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="Partnership" enumId="TxcPartnership" sequenceNum="4" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="Trust/Estate" enumId="TxcTrustEstate" sequenceNum="5" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="LLC as S Corp" enumId="TxcLlcSCorp" sequenceNum="6" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="LLC as C Corp" enumId="TxcLlcCCorp" sequenceNum="7" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="LLC as Partnership" enumId="TxcLlcPartnership" sequenceNum="8" enumTypeId="TaxClassification"/>
+            <moqui.basic.Enumeration description="Other" enumId="TxcOther" sequenceNum="9" enumTypeId="TaxClassification"/>
 
             <!-- Cost Of Goods Sold methods -->
             <moqui.basic.EnumerationType description="COGS Method" enumTypeId="CogsMethod"/>
@@ -714,6 +745,10 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration enumId="AttSalesInventory" description="Sales Inventory" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttReturnInventory" description="Return Inventory" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttManufacturing" description="Manufacturing" enumTypeId="AcctgTransType"/>
+
+            <moqui.basic.Enumeration enumId="AttFinancialDeposit" description="Financial Account Deposit" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttFinancialWithdrawal" description="Financial Account Withdrawal" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttFinancialAdjustment" description="Financial Account Adjustment" enumTypeId="AcctgTransType"/>
 
             <moqui.basic.Enumeration enumId="AttIncomingPayment" description="Incoming Payment (Receipt)" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttOutgoingPayment" description="Outgoing Payment (Disbursement)" enumTypeId="AcctgTransType"/>

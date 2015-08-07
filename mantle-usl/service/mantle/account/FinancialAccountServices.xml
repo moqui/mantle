@@ -1,18 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
+    <service verb="get" noun="StatementPrintInfo">
+        <in-parameters>
+            <parameter name="finAccountId" required="true"/>
+            <parameter name="year"/>
+            <parameter name="month"/>
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="financialAccount" type="EntityValue"/>
+            <parameter name="ownerDetail" type="EntityValue"/>
+            <parameter name="organizationDetail" type="EntityValue"/>
+            <parameter name="financialAccountTransList" type="EntityList"/>
+
+            <parameter name="fromDate" type="Timestamp"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="beginningBalance" type="BigDecimal"/>
+            <parameter name="endingBalance" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"/>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="ownerDetail">
+                <field-map field-name="partyId" from="financialAccount.ownerPartyId"/></entity-find-one>
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="organizationDetail">
+                <field-map field-name="partyId" from="financialAccount.organizationPartyId"/></entity-find-one>
+
+            <script><![CDATA[
+                if (fromDate == null && thruDate == null && year && month) {
+                    fromCal = ec.l10n.parseDateTime("${year}-${month}-01 00:00:00", "yyyy-MM-dd HH:mm:ss")
+                    thruCal = fromCal.clone()
+                    thruCal.add(Calendar.MONTH, 1)
+                    thruCal.add(Calendar.SECOND, -1)
+
+                    fromDate = new Timestamp(fromCal.getTimeInMillis())
+                    thruDate = new Timestamp(thruCal.getTimeInMillis())
+                }
+            ]]></script>
+
+            <entity-find entity-name="mantle.account.financial.FinancialAccountTrans" list="financialAccountTransList">
+                <econdition field-name="finAccountId"/>
+                <econdition field-name="transactionDate" operator="greater-equals" from="fromDate" ignore-if-empty="true"/>
+                <econdition field-name="transactionDate" operator="less-equals" from="thruDate" ignore-if-empty="true"/>
+                <order-by field-name="transactionDate"/>
+            </entity-find>
+
+            <set field="firstTrans" from="financialAccountTransList ? financialAccountTransList.first() : null"/>
+            <set field="beginningBalance" from="(firstTrans?.get('postBalance') ?: 0) - (firstTrans?.get('amount') ?: 0)"/>
+            <set field="lastTrans" from="financialAccountTransList ? financialAccountTransList.last() : null"/>
+            <set field="endingBalance" from="lastTrans?.get('postBalance') ?: 0"/>
+        </actions>
+    </service>
 
     <service verb="create" noun="FinancialAccount">
         <in-parameters>
@@ -110,6 +161,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <exclude field-name="finAccountAuthId"/>
             </auto-parameters>
             <parameter name="finAccountId" required="true"/>
+            <parameter name="reasonEnumId" default-value="FatrErrorAdjust"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -117,11 +169,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
             <set field="performedByUserId" from="ec.user.userId"/>
 
             <!-- do a for-update query to lock the FinancialAccount record -->
@@ -129,15 +183,16 @@ This Work includes contributions authored by David E. Jones, not as a
                     for-update="true"/>
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <set field="postBalance" from="preBalance + amount"/>
             <set field="finAccountTransTypeEnumId" value="FattAdjustment"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
-
+            <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
+                    in-map="[finAccountId:finAccountId]" out-map="totalsOut"/>
+            <set field="postBalance" from="totalsOut.actualBalance"/>
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>
@@ -149,6 +204,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <exclude field-name="finAccountAuthId"/>
             </auto-parameters>
             <parameter name="finAccountId" required="true"/>
+            <parameter name="reasonEnumId" default-value="FatrReplenish"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -156,11 +212,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
             <set field="performedByUserId" from="ec.user.userId"/>
 
             <!-- do a for-update query to lock the FinancialAccount record -->
@@ -168,15 +226,19 @@ This Work includes contributions authored by David E. Jones, not as a
                     for-update="true"/>
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.organizationPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.ownerPartyId"/></if>
+
+            <set field="postBalance" from="preBalance + amount"/>
             <set field="finAccountTransTypeEnumId" value="FattDeposit"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
-
+            <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
+                    in-map="[finAccountId:finAccountId]" out-map="totalsOut"/>
+            <set field="postBalance" from="totalsOut.actualBalance"/>
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>
@@ -186,6 +248,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 <exclude field-name="finAccountTransTypeEnumId"/>
             </auto-parameters>
             <parameter name="finAccountId" required="true"/>
+            <parameter name="reasonEnumId" default-value="FatrDisbursement"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -193,23 +256,32 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- <parameter name="isRefund" type="Boolean" default-value="false"/> -->
         </in-parameters>
         <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
             <parameter name="preBalance" type="BigDecimal"/>
             <parameter name="postBalance" type="BigDecimal"/>
             <parameter name="finAccountTransId"/>
         </out-parameters>
         <actions>
+            <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
             <set field="performedByUserId" from="ec.user.userId"/>
-
-            <!-- this is a withdrawal, so subtract the amount -->
-            <set field="amount" from="-amount"/>
 
             <!-- do a for-update query to lock the FinancialAccount record -->
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
             <set field="preBalance" from="financialAccount.actualBalance ?: 0"/>
 
+            <if condition="!fromPartyId"><set field="fromPartyId" from="financialAccount.ownerPartyId"/></if>
+            <if condition="!toPartyId"><set field="toPartyId" from="financialAccount.organizationPartyId"/></if>
+
+            <!-- this is a withdrawal, so subtract the amount -->
+            <set field="amount" from="-amount"/>
+
+            <set field="postBalance" from="preBalance + amount"/>
             <set field="finAccountTransTypeEnumId" value="FattWithdraw"/>
             <service-call name="create#mantle.account.financial.FinancialAccountTrans" in-map="context" out-map="context"/>
+
+            <service-call name="update#mantle.account.financial.FinancialAccount"
+                    in-map="[finAccountId:finAccountId, actualBalance:postBalance]"/>
 
             <if condition="finAccountAuthId">
                 <!-- if there is an auth, expire it -->
@@ -217,12 +289,12 @@ This Work includes contributions authored by David E. Jones, not as a
                         in-map="[finAccountAuthId:finAccountAuthId, expireDate:ec.user.nowTimestamp]"/>
             </if>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postBalance" from="postFinancialAccount.actualBalance"/>
-
+            <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
+                    in-map="[finAccountId:finAccountId]" out-map="totalsOut"/>
+            <set field="postBalance" from="totalsOut.actualBalance"/>
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>
@@ -251,7 +323,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <set field="differAmount" from="preAvailableBalance - postAvailableBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account [${finAccountId}], pre balance ${preAvailableBalance} and post balance ${postAvailableBalance} differ by [${differAmount}] and not by transaction amount ${amount}"/>
+                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preAvailableBalance} and post balance ${postAvailableBalance} differ by [${differAmount}] and not by transaction amount ${amount}"/>
             </if>
         </actions>
     </service>
@@ -262,6 +334,38 @@ This Work includes contributions authored by David E. Jones, not as a
         </in-parameters>
         <actions>
             <service-call name="update#mantle.account.financial.FinancialAccountAuth" in-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="disburse" noun="FinancialAccount">
+        <description>Disburse funds from a FinancialAccount through a Payment which will be in the Promised status
+            (will need to be Authorized, then Delivered to post).</description>
+        <implements service="mantle.account.FinancialAccountServices.withdraw#FinancialAccount"/>
+        <in-parameters>
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentMethodId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="finAccountTransId"/>
+            <parameter name="paymentId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
+                    for-update="true"/>
+
+            <!-- create Payment first (then update after with finAccountTransId, because FinancialAccountTrans is create-only/immutable) -->
+            <service-call name="mantle.account.PaymentServices.create#Payment" out-map="context"
+                    in-map="[paymentTypeEnumId:'PtFinancialAccount', statusId:'PmntPromised', comments:comments,
+                        fromPartyId:financialAccount.organizationPartyId, toPartyId:financialAccount.ownerPartyId,
+                        amount:amount, amountUomId:financialAccount.currencyUomId, finAccountId:finAccountId,
+                        paymentMethodTypeEnumId:paymentMethodTypeEnumId, paymentMethodId:paymentMethodId]"/>
+
+            <!-- withdraw from FinancialAccount -->
+            <service-call name="mantle.account.FinancialAccountServices.withdraw#FinancialAccount" out-map="context"
+                    in-map="context"/>
+
+            <!-- update Payment record, set finAccountTransId -->
+            <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, finAccountTransId:finAccountTransId]"/>
         </actions>
     </service>
 

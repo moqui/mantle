@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
     <service verb="clone" noun="Product">
@@ -17,9 +18,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <auto-parameters entity-name="mantle.product.Product" include="nonpk"/>
             <parameter name="copyCategories" type="Boolean" default="true"/>
             <parameter name="copyFeatures" type="Boolean" default="true"/>
+            <parameter name="copyDimensions" type="Boolean" default="true"/>
             <parameter name="copyAssocFrom" type="Boolean" default="true"/>
             <parameter name="copyAssocTo" type="Boolean" default="true"/>
             <parameter name="copyPrices" type="Boolean" default="true"/>
+            <parameter name="copyContent" type="Boolean" default="true"/>
             <parameter name="copyIdentifications" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters><parameter name="productId"/></out-parameters>
@@ -44,6 +47,11 @@ This Work includes contributions authored by David E. Jones, not as a
                     <date-filter/><econdition field-name="productId" from="baseProductId"/></entity-find>
                 <iterate list="pfaList" entry="pfa"><set field="pfa.productId" from="productId"/><entity-create value-field="pfa"/></iterate>
             </if>
+            <if condition="copyDimensions">
+                <entity-find entity-name="mantle.product.ProductDimension" list="pdimList">
+                    <date-filter/><econdition field-name="productId" from="baseProductId"/></entity-find>
+                <iterate list="pdimList" entry="pdim"><set field="pdim.productId" from="productId"/><entity-create value-field="pdim"/></iterate>
+            </if>
 
             <if condition="copyAssocFrom">
                 <entity-find entity-name="mantle.product.ProductAssoc" list="pasList">
@@ -60,6 +68,15 @@ This Work includes contributions authored by David E. Jones, not as a
                 <entity-find entity-name="mantle.product.ProductPrice" list="pasList">
                     <date-filter/><econdition field-name="productId" from="baseProductId"/></entity-find>
                 <iterate list="pasList" entry="pas"><set field="pas.productId" from="productId"/><entity-create value-field="pas"/></iterate>
+            </if>
+            <if condition="copyContent">
+                <entity-find entity-name="mantle.product.ProductContent" list="pcntList">
+                    <date-filter/><econdition field-name="productId" from="baseProductId"/></entity-find>
+                <iterate list="pcntList" entry="pcnt">
+                    <set field="pcnt.productId" from="productId"/>
+                    <set field="pcnt.productContentId" from="null"/>
+                    <entity-create value-field="pcnt"/>
+                </iterate>
             </if>
             <if condition="copyIdentifications">
                 <entity-find entity-name="mantle.product.ProductIdentification" list="pasList">
@@ -147,7 +164,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="productFeatureList" type="List"/>
         </out-parameters>
         <actions>
-            <set field="productFeatureList" from="[]"/>
+            <set field="productFeatureMap" from="[:]"/>
             <entity-find entity-name="mantle.product.feature.ProductCategoryFeatGrpAppl" list="pcfgaList">
                 <date-filter/><econdition field-name="productCategoryId"/>
                 <econdition field-name="productFeatureGroupId" operator="in" from="productFeatureGroupIdSet" ignore-if-empty="true"/>
@@ -158,8 +175,11 @@ This Work includes contributions authored by David E. Jones, not as a
                     <date-filter/><econdition field-name="productFeatureGroupId" from="pcfga.productFeatureGroupId"/>
                     <econdition field-name="productFeatureTypeEnumId" ignore-if-empty="true"/>
                 </entity-find>
-                <script>productFeatureList.addAll(pfagaList)</script>
+                <iterate list="pfagaList" entry="pfaga">
+                    <script>productFeatureMap.put(pfaga.productFeatureId, pfaga)</script>
+                </iterate>
             </iterate>
+            <set field="productFeatureList" from="new ArrayList(productFeatureMap.values())"/>
         </actions>
     </service>
     <service verb="get" noun="ProductCategoryFeatureList">
@@ -175,7 +195,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <script>
                 resultList = []
                 for (def productFeature in productFeatureList)
-                    resultList.add([productFeatureId:productFeature.productFeatureId, label:"${productFeature.description} [${productFeature.abbrev ?: productFeature.productFeatureId}]".toString()])
+                    resultList.add([productFeatureId:productFeature.productFeatureId, label:ec.resource.expand('ProductFeatureNameTemplate', '', productFeature)])
             </script>
         </actions>
     </service>
@@ -207,14 +227,14 @@ This Work includes contributions authored by David E. Jones, not as a
                     </else>
                 </if>
                 <if condition="feature.productFeatureTypeEnumId == productFeatureTypeEnumId">
-                    <script>resultList.add([productFeatureId:feature.productFeatureId, label:"${feature.description} [${feature.abbrev ?: feature.productFeatureId}]".toString()])</script>
+                    <script>resultList.add([productFeatureId:feature.productFeatureId, label:ec.resource.expand('ProductFeatureNameTemplate', '', feature)])</script>
                 </if>
             </iterate>
             <if condition="!resultList">
                 <entity-find entity-name="mantle.product.feature.ProductFeature" list="featureList">
                     <econdition field-name="productFeatureTypeEnumId"/></entity-find>
                 <iterate list="featureList" entry="feature">
-                    <script>resultList.add([productFeatureId:feature.productFeatureId, label:"${feature.description} [${feature.abbrev ?: feature.productFeatureId}]".toString()])</script>
+                    <script>resultList.add([productFeatureId:feature.productFeatureId, label:ec.resource.expand('ProductFeatureNameTemplate', '', feature)])</script>
                 </iterate>
             </if>
             <order-map-list list="resultList"><order-by field-name="label"/></order-map-list>
@@ -411,6 +431,127 @@ This Work includes contributions authored by David E. Jones, not as a
                 ec.logger.info("Created variant of ${product.productId}: ${newProduct.productId}:${newProduct.productName}")
 
             ]]></script>
+        </actions>
+    </service>
+
+    <service verb="delete" noun="VariantProducts">
+        <description>WARNING: This service deletes all variant products including dependent records and associations
+            with the specified product.</description>
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="callOutServiceName"><description>Name of a service to call for each variant
+                (by delete#Product), will pass in the productId.</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.product.ProductAssoc" list="assocList">
+                <!-- don't filter by date, we'll be deleting products want to get all of them -->
+                <econdition field-name="productId"/>
+                <econdition field-name="productAssocTypeEnumId" value="PatVariant"/>
+            </entity-find>
+            <iterate list="assocList" entry="assoc">
+                <service-call name="mantle.product.ProductServices.delete#Product"
+                        in-map="[productId:assoc.toProductId, callOutServiceName:callOutServiceName]"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="delete" noun="Product">
+        <in-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="callOutServiceName"><description>Call this service before deleting anything else, passes
+                in productId.</description></parameter>
+        </in-parameters>
+        <actions>
+            <if condition="callOutServiceName">
+                <service-call name="${callOutServiceName}" in-map="[productId:productId]"/></if>
+
+            <!-- recursively delete variants/assocs -->
+            <service-call name="mantle.product.ProductServices.delete#VariantProducts"
+                    in-map="[productId:productId, callOutServiceName:callOutServiceName]"/>
+
+            <!-- delete dependent records -->
+            <entity-delete-by-condition entity-name="mantle.product.ProductAssoc">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductAssoc">
+                <econdition field-name="toProductId" from="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductContent">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductDimension">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductGeo">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductIdentification">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductParty">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.ProductPrice">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+
+            <entity-delete-by-condition entity-name="mantle.product.feature.ProductFeatureAppl">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+            <entity-delete-by-condition entity-name="mantle.product.category.ProductCategoryMember">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+
+            <!-- last of all delete the Product -->
+            <entity-delete-by-condition entity-name="mantle.product.Product">
+                <econdition field-name="productId"/></entity-delete-by-condition>
+        </actions>
+    </service>
+
+    <!-- =========================================== -->
+    <!-- ========== ProductContent Services ========== -->
+    <!-- =========================================== -->
+
+    <service verb="create" noun="ProductContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.product.ProductContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="productId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="productContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.product.ProductContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.product.ProductServices.save#ProductContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="ProductContent">
+        <in-parameters>
+            <parameter name="productContentId" required="true"/>
+            <auto-parameters entity-name="mantle.product.ProductContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.product.ProductContent" value-field="productContent"/>
+                <service-call name="mantle.product.ProductServices.save#ProductContentFile" out-map="context"
+                        in-map="context + [productId:productContent.productId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.product.ProductContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="ProductContentFile">
+        <in-parameters>
+            <parameter name="productContentId" required="true"/>
+            <parameter name="productId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/product/${productId}/content_${productContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.product.ProductContent"
+                    in-map="[productContentId:productContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
 </services>

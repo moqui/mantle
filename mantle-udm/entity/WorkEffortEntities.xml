@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
 
-This Work includes contributions authored by contributors to Apache OFBiz
-and those parts may be licensed under the Apache License 2.0.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.5.xsd">
@@ -57,6 +55,8 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="location" type="text-medium"/>
         <field name="facilityId" type="id"><description>Where the WorkEffort takes place</description></field>
         <field name="infoUrl" type="text-medium"/>
+        <field name="shipmentMethodEnumId" type="id"><description>Mostly for Shipment Load/Ship (WepShipmentShip)
+            purpose, using WorkEffort as a more task and planning oriented approach to a picklist.</description></field>
 
         <field name="estimatedStartDate" type="date-time"/>
         <field name="estimatedCompletionDate" type="date-time"/>
@@ -129,7 +129,7 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Routing Task" enumId="WepRoutingTask" parentEnumId="WepManufacturing" enumTypeId="WorkEffortPurpose"/>
             <moqui.basic.Enumeration description="Production Run" enumId="WepProductionRun" parentEnumId="WepManufacturing" enumTypeId="WorkEffortPurpose"/>
 
-            <moqui.basic.Enumeration description="Shipment Load/Ship" enumId="WepShipmentShip" enumTypeId="WorkEffortPurpose"/>
+            <moqui.basic.Enumeration description="Shipment Pick/Load/Ship" enumId="WepShipmentShip" enumTypeId="WorkEffortPurpose"/>
             <moqui.basic.Enumeration description="Shipment Receive" enumId="WepShipmentReceive" enumTypeId="WorkEffortPurpose"/>
 
             <moqui.basic.Enumeration description="Asset Usage (Rental)" enumId="WepAssetUsage" enumTypeId="WorkEffortPurpose"/>
@@ -548,13 +548,19 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="timeEntryId" type="id" is-pk="true"/>
         <field name="timesheetId" type="id"/>
         <field name="partyId" type="id"/>
+        <field name="clientPartyId" type="id"><description>Optional, may get through timesheetId or workEffortId</description></field>
         <field name="rateTypeEnumId" type="id"/>
+        <field name="emplPositionClassId" type="id"/>
         <field name="rateAmountId" type="id"/>
         <field name="vendorRateAmountId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="hours" type="number-decimal"/>
         <field name="breakHours" type="number-decimal"/>
+        <field name="pieceCount" type="number-decimal"/>
+        <field name="pieceRateTypeEnumId" type="id"/>
+        <field name="pieceRateAmountId" type="id"/>
+        <field name="vendorPieceRateAmountId" type="id"/>
         <field name="comments" type="text-long"/>
         <field name="workEffortId" type="id"/>
         <field name="invoiceId" type="id"/>
@@ -564,11 +570,21 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="mantle.work.time.Timesheet"/>
         <relationship type="one" related-entity-name="mantle.party.Party"/>
         <relationship type="one-nofk" related-entity-name="mantle.party.Person"/>
+        <relationship type="one" title="Client" related-entity-name="mantle.party.Party">
+            <key-map field-name="clientPartyId"/></relationship>
         <relationship type="one" title="RateType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="rateTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.humanres.position.EmplPositionClass"/>
         <relationship type="one" related-entity-name="mantle.humanres.rate.RateAmount"/>
         <relationship type="one" title="Vendor" related-entity-name="mantle.humanres.rate.RateAmount">
             <key-map field-name="vendorRateAmountId"/></relationship>
+        <relationship type="one" title="PieceRateType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="pieceRateTypeEnumId"/></relationship><!-- Uses enumTypeId = RateType -->
+        <relationship type="one" title="Piece" related-entity-name="mantle.humanres.rate.RateAmount">
+            <key-map field-name="pieceRateAmountId"/></relationship>
+        <relationship type="one" title="VendorPiece" related-entity-name="mantle.humanres.rate.RateAmount">
+            <key-map field-name="vendorPieceRateAmountId"/></relationship>
+
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
         <relationship type="one" related-entity-name="mantle.account.invoice.InvoiceItem">
             <key-map field-name="invoiceId"/>

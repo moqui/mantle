@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entity-facade-xml type="seed">
     <moqui.security.UserGroupPreference userGroupId="ALL_USERS" preferenceKey="mantle.content.root"
@@ -26,23 +27,70 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <moqui.screen.ScreenThemeResource screenThemeId="DEFAULT" sequenceNum="120" resourceTypeEnumId="STRT_HEADER_NAVBAR_ITEM">
         <resourceValue><![CDATA[
+<#if ec.user.userId?has_content>
 <div class="btn-group navbar-right">
     <#assign messageCount = ec.entity.find("mantle.party.communication.CommunicationEventAndPurpose").condition("toPartyId", ec.user.userAccount.partyId!).condition("statusId", "CeReceived").condition("communicationEventTypeId", "in", "Email,Message,Comment").disableAuthz().count()>
     <#assign eventCount = ec.entity.find("mantle.work.effort.WorkEffortAndParty").condition("partyId", ec.user.userAccount.partyId!).condition("estimatedStartDate", "greater-equals", ec.user.getPeriodRange("week", "")[0]).condition("estimatedStartDate", "less-equals", ec.user.getPeriodRange("week", "")[1]).condition("workEffortTypeEnumId", "WetEvent").disableAuthz().count()>
     <#assign taskCount = ec.entity.find("mantle.work.effort.WorkEffortAndParty").condition("partyId", ec.user.userAccount.partyId!).condition("statusId", "not-in", "WeClosed,WeCancelled").condition("workEffortTypeEnumId", "WetTask").disableAuthz().count()>
-    <a href="/apps/my/User/Messages/FindMessage?statusId=CeReceived&toPartyId=${ec.user.userAccount.partyId!}" data-toggle="tooltip" data-original-title="Messages" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
+    <a href="/apps/my/User/Messages/FindMessage?statusId=CeReceived&toPartyId=${ec.user.userAccount.partyId!}" data-toggle="tooltip" data-container="body" data-original-title="Messages" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
         <i class="glyphicon glyphicon-envelope"></i>
         <span class="label label-warning">${messageCount!"0"}</span>
     </a>
-    <a href="/apps/my/User/Calendar/MyCalendar" data-toggle="tooltip" data-original-title="Events This Week" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
+    <a href="/apps/my/User/Calendar/MyCalendar" data-toggle="tooltip" data-container="body" data-original-title="Events This Week" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
         <i class="glyphicon glyphicon-calendar"></i>
         <span class="label label-primary">${eventCount!"0"}</span>
     </a>
-    <a href="/apps/my/User/Task/MyTasks" data-toggle="tooltip" data-original-title="Open Tasks" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
+    <a href="/apps/my/User/Task/MyTasks" data-toggle="tooltip" data-container="body" data-original-title="Open Tasks" data-placement="bottom" class="btn btn-default btn-sm navbar-btn">
         <i class="glyphicon glyphicon-check"></i>
         <span class="label label-success">${taskCount!"0"}</span>
     </a>
 </div>
+</#if>
         ]]></resourceValue>
     </moqui.screen.ScreenThemeResource>
+
+    <moqui.basic.LocalizedMessage locale="default" original="AssetNameTemplate"
+                                  localized="${assetName ? assetName + ' [' + assetId + ']' : assetId}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="ContainerNameTemplate"
+                                  localized="${description ? description + ' [' + containerId + ']' : containerId}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="FacilityLocationNameTemplate"
+                                  localized="${locationSeqId?:''} ${description?:''} [${areaId?:' '}:${aisleId?:' '}:${sectionId?:' '}:${levelId?:' '}:${positionId?:' '}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="FinancialAccountNameTemplate"
+                                  localized="${finAccountName} [${finAccountCode ?: finAccountId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="FacilityNameTemplate"
+                                  localized="${facilityName?:name?:''} [${pseudoId}]"/> <!-- name is used in data documents -->
+    <moqui.basic.LocalizedMessage locale="default" original="GlAccountNameTemplate"
+                                  localized="${accountCode} [${accountName}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="OrderNameTemplate"
+                                  localized="${orderId}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="OrderPartNameTemplate"
+                                  localized="${orderId}${orderPartSeqId?':'+orderPartSeqId:''}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="OrderItemNameTemplate"
+                                  localized="${orderId}${orderPartSeqId ? ':' + orderPartSeqId : ''}:${orderItemSeqId}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="PartyFullNameTemplate"
+                                  localized="${organizationName?:''}${firstName?:''}${middleName ? ' ' + middleName : ''}${lastName ? ' ' + lastName : ''}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="PartyNameOnlyTemplate"
+                                  localized="${organizationName?:''}${firstName?:''}${lastName ? ' ' + lastName : ''}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="PartyNameTemplate"
+                                  localized="${organizationName?:''}${firstName?:''}${lastName ? ' ' + lastName : ''} [${pseudoId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="ProductCategoryNameTemplate"
+                                  localized="${categoryName?:''} [${pseudoId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="ProductFeatureGroupNameTemplate"
+                                  localized="${description}: ${productFeatureGroupId?:''}"/>
+    <moqui.basic.LocalizedMessage locale="default" original="ProductFeatureNameTemplate"
+                                  localized="${description} [${abbrev ?: productFeatureId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="ProductNameTemplate"
+                                  localized="${productName?:name?:''} [${pseudoId}]"/> <!-- name is used in data documents -->
+    <moqui.basic.LocalizedMessage locale="default" original="TimePeriodNameTemplate"
+                                  localized="${periodName} [${timePeriodId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="TransitionNameTemplate"
+                                  localized="${transitionName} (${description})"/>
+    <moqui.basic.LocalizedMessage locale="default" original="UomNameTemplate"
+                                  localized="${description?:''} (${abbreviation?:uomId})"/>
+    <moqui.basic.LocalizedMessage locale="default" original="UserGroupNameTemplate"
+                                  localized="${description} [${userGroupId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="UsernameTemplate"
+                                  localized="${userFullName?:''} [${username?:userId}]"/>
+    <moqui.basic.LocalizedMessage locale="default" original="WorkEffortNameTemplate"
+                                  localized="${workEffortName?:''} [${workEffortId}]"/>
 </entity-facade-xml>

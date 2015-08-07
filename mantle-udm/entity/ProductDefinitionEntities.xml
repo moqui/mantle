@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
 
-This Work includes contributions authored by contributors to Apache OFBiz
-and those parts may be licensed under the Apache License 2.0.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.5.xsd">
@@ -32,6 +30,7 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="productId" type="id" is-pk="true"/>
         <field name="pseudoId" type="id" default="productId"/>
         <field name="productTypeEnumId" type="id"/>
+        <field name="productClassEnumId" type="id"/>
         <field name="statusId" type="id"/>
 
         <field name="productName" type="text-medium"/>
@@ -62,6 +61,8 @@ and those parts may be licensed under the Apache License 2.0.
 
         <relationship type="one" title="ProductType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="productTypeEnumId"/></relationship>
+        <relationship type="one" title="ProductClass" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productClassEnumId"/></relationship>
         <relationship type="one" title="Product" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="RequirementMethod" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="requirementMethodEnumId"/></relationship>
@@ -71,6 +72,10 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="defaultShipmentBoxTypeId"/></relationship>
         <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
             <key-map field-name="amountUomId"/></relationship>
+
+        <!-- explicit many relationship, used in MantleProduct DataDocument -->
+        <relationship type="many" related-entity-name="mantle.product.ProductDimension">
+            <key-map field-name="productId"/></relationship>
 
         <index name="PRODUCT_ID_PSEUDO" unique="true"><index-field name="pseudoId"/></index>
 
@@ -96,6 +101,10 @@ and those parts may be licensed under the Apache License 2.0.
 
             <!-- Product Status -->
             <moqui.basic.StatusType description="Product" statusTypeId="Product"/>
+
+            <!-- Product Class -->
+            <moqui.basic.EnumerationType description="Product Class" enumTypeId="ProductClass"/>
+            <!-- No default product classes, vary widely by industry -->
         </seed-data>
     </entity>
     <entity entity-name="ProductAssoc" package-name="mantle.product">
@@ -150,13 +159,32 @@ and those parts may be licensed under the Apache License 2.0.
         <field name="averageCustomerRating" type="number-decimal"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
     </entity>
+    <entity entity-name="ProductClassDimension" package-name="mantle.product">
+        <field name="productClassEnumId" type="id" is-pk="true"/>
+        <field name="dimensionTypeId" type="id" is-pk="true"/>
+        <relationship type="one" title="ProductClass" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productClassEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.product.ProductDimensionType"/>
+    </entity>
+    <entity entity-name="ProductClassFeature" package-name="mantle.product">
+        <field name="productClassEnumId" type="id" is-pk="true"/>
+        <field name="productFeatureTypeEnumId" type="id" is-pk="true"/>
+        <relationship type="one" title="ProductClass" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productClassEnumId"/></relationship>
+        <relationship type="one" title="ProductFeatureType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="productFeatureTypeEnumId"/></relationship>
+    </entity>
     <entity entity-name="ProductContent" package-name="mantle.product">
-        <field name="productId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="productContentTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="productContentId" type="id" is-pk="true"/>
+        <field name="productId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="productContentTypeEnumId" type="id"/>
+        <field name="locale" type="text-short"/>
+        <field name="fromDate" type="date-time" default="ec.user.nowTimestamp"/>
         <field name="thruDate" type="date-time"/>
+        <field name="description" type="text-long"/>
         <field name="sequenceNum" type="number-integer"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" title="ProductContentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="productContentTypeEnumId"/></relationship>
@@ -178,11 +206,11 @@ and those parts may be licensed under the Apache License 2.0.
             <moqui.basic.Enumeration description="Terms and Conditions" enumId="PcntTermsConditions" enumTypeId="ProductContentType"/>
             <moqui.basic.Enumeration description="Delivery Info" enumId="PcntDeliveryInfo" enumTypeId="ProductContentType"/>
 
-            <moqui.basic.Enumeration description="Image URL - Small" enumId="PcntImageUrlSmall" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Medium" enumId="PcntImageUrlMedium" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Large" enumId="PcntImageUrlLarge" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Detail" enumId="PcntImageUrlDetail" enumTypeId="ProductContentType"/>
-            <moqui.basic.Enumeration description="Image URL - Original" enumId="PcntImageUrlOriginal" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image - Small" enumId="PcntImageUrlSmall" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image - Medium" enumId="PcntImageUrlMedium" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image - Large" enumId="PcntImageUrlLarge" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image - Detail" enumId="PcntImageUrlDetail" enumTypeId="ProductContentType"/>
+            <moqui.basic.Enumeration description="Image - Original" enumId="PcntImageUrlOriginal" enumTypeId="ProductContentType"/>
             <moqui.basic.Enumeration description="Image Alt Text - Small" enumId="PcntImageAltSmall" enumTypeId="ProductContentType"/>
             <moqui.basic.Enumeration description="Image Alt Text - Medium" enumId="PcntImageAltMedium" enumTypeId="ProductContentType"/>
             <moqui.basic.Enumeration description="Image Alt Text - Large" enumId="PcntImageAltLarge" enumTypeId="ProductContentType"/>
@@ -200,26 +228,36 @@ and those parts may be licensed under the Apache License 2.0.
     </entity>
     <entity entity-name="ProductDimension" package-name="mantle.product">
         <field name="productId" type="id" is-pk="true"/>
-        <field name="dimensionTypeEnumId" type="id" is-pk="true"/>
+        <!-- old field: <field name="dimensionTypeEnumId" type="id" is-pk="true"/> -->
+        <field name="dimensionTypeId" type="id" is-pk="true"/>
         <field name="value" type="number-decimal"/>
         <field name="valueUomId" type="id"/>
-        <relationship type="one" title="ProductDimensionType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="dimensionTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.product.ProductDimensionType"/>
+        <relationship type="one" title="Value" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="valueUomId"/></relationship>
+    </entity>
+    <entity entity-name="ProductDimensionType" package-name="mantle.product">
+        <field name="dimensionTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="uomTypeEnumId" type="id"/>
+        <field name="defaultUomId" type="id"/>
+        <relationship type="one" title="UomType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="uomTypeEnumId"/></relationship>
+        <relationship type="one" title="Default" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="defaultUomId"/></relationship>
         <seed-data>
-            <!-- Product Dimension Type -->
-            <moqui.basic.EnumerationType description="Product Dimension Type" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Quantity Included" enumId="PdtQuantityIncluded" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Pieces Included" enumId="PdtPiecesIncluded" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Weight" enumId="PdtWeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Height" enumId="PdtHeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Width" enumId="PdtWidth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Depth" enumId="PdtDepth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Volume" enumId="PdtVolume" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Weight" enumId="PdtShippingWeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Height" enumId="PdtShippingHeight" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Width" enumId="PdtShippingWidth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Shipping Depth" enumId="PdtShippingDepth" enumTypeId="ProductDimensionType"/>
-            <moqui.basic.Enumeration description="Diameter" enumId="PdtDiameter" enumTypeId="ProductDimensionType"/>
+            <mantle.product.ProductDimensionType description="Quantity Included" dimensionTypeId="QuantityIncluded" defaultUomId="OTH_ea"/>
+            <mantle.product.ProductDimensionType description="Pieces Included" dimensionTypeId="PiecesIncluded" defaultUomId="OTH_ea"/>
+            <mantle.product.ProductDimensionType description="Weight" dimensionTypeId="Weight" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Height" dimensionTypeId="Height" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Width" dimensionTypeId="Width" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Depth" dimensionTypeId="Depth" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Volume" dimensionTypeId="Volume" uomTypeEnumId="UT_VOLUME_DRY_MEAS"/>
+            <mantle.product.ProductDimensionType description="Shipping Weight" dimensionTypeId="ShippingWeight" uomTypeEnumId="UT_WEIGHT_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Shipping Height" dimensionTypeId="ShippingHeight" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Shipping Width" dimensionTypeId="ShippingWidth" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Shipping Depth" dimensionTypeId="ShippingDepth" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+            <mantle.product.ProductDimensionType description="Diameter" dimensionTypeId="Diameter" uomTypeEnumId="UT_LENGTH_MEASURE"/>
         </seed-data>
     </entity>
     <entity entity-name="ProductGeo" package-name="mantle.product">
@@ -298,11 +336,10 @@ and those parts may be licensed under the Apache License 2.0.
             or a usage unit measure (bits, minutes, etc).</description></field>
 
         <field name="taxInPrice" type="text-indicator"><description>If Y the price field has tax included for the given
-            taxAuthPartyId/taxAuthGeoId at the taxPercentage.</description></field>
+            taxAuthorityId at the taxPercentage.</description></field>
         <field name="taxAmount" type="currency-precise"/>
         <field name="taxPercentage" type="number-decimal"/>
-        <field name="taxAuthPartyId" type="id"/>
-        <field name="taxAuthGeoId" type="id"/>
+        <field name="taxAuthorityId" type="id"/>
 
         <field name="agreementId" type="id"/>
         <field name="agreementItemSeqId" type="id"><description>Use along with agreementId to associate the price with
@@ -330,10 +367,7 @@ and those parts may be licensed under the Apache License 2.0.
             <key-map field-name="priceUomId"/></relationship>
         <relationship type="one" title="Term" related-entity-name="moqui.basic.Uom"><key-map field-name="termUomId"/></relationship>
         <relationship type="one" related-entity-name="ProductStore"/>
-        <relationship type="one" title="TaxAuthority" related-entity-name="mantle.party.Party">
-            <key-map field-name="taxAuthPartyId"/></relationship>
-        <relationship type="one" title="TaxAuthority" related-entity-name="moqui.basic.Geo">
-            <key-map field-name="taxAuthGeoId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
 
         <relationship type="one" title="SupplierPreferredOrder" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="preferredOrderEnumId"/></relationship>
@@ -382,7 +416,7 @@ and those parts may be licensed under the Apache License 2.0.
         <relationship type="one" related-entity-name="mantle.product.store.ProductStore"/>
         <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" title="ProductReview" related-entity-name="moqui.basic.StatusItem"/>
         <seed-data>
             <!-- Product Review Status -->
             <moqui.basic.StatusType description="Product Review" statusTypeId="ProductReview"/>

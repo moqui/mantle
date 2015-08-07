@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
 
-This Work includes contributions authored by contributors to Apache OFBiz
-and those parts may be licensed under the Apache License 2.0.
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.5.xsd">
@@ -83,11 +81,14 @@ and those parts may be licensed under the Apache License 2.0.
     </view-entity>
 
     <view-entity entity-name="PersonAndUserAccount" package-name="mantle.party">
-        <member-entity entity-alias="PER" entity-name="mantle.party.Person"/>
-        <member-entity entity-alias="USRACT" entity-name="UserAccount" join-from-alias="PER" join-optional="true">
+        <member-entity entity-alias="PTY" entity-name="mantle.party.Party"/>
+        <member-entity entity-alias="PER" entity-name="mantle.party.Person" join-from-alias="PTY">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="USRACT" entity-name="moqui.security.UserAccount" join-from-alias="PER" join-optional="true">
             <key-map field-name="partyId"/></member-entity>
         <alias-all entity-alias="PER"/>
         <alias-all entity-alias="USRACT"/>
+        <alias name="pseudoId" entity-alias="PTY"/>
     </view-entity>
 
     <view-entity entity-name="PartyDetail" package-name="mantle.party">
@@ -174,27 +175,32 @@ and those parts may be licensed under the Apache License 2.0.
     <!-- ========================================================= -->
 
     <view-entity entity-name="PartyContactMechInfo" package-name="mantle.party.contact">
-        <member-entity entity-alias="PCM" entity-name="PartyContactMech"/>
-        <member-entity entity-alias="CM" entity-name="ContactMech" join-from-alias="PCM">
+        <member-entity entity-alias="PCM" entity-name="mantle.party.contact.PartyContactMech"/>
+        <member-entity entity-alias="CM" entity-name="mantle.party.contact.ContactMech" join-from-alias="PCM">
             <key-map field-name="contactMechId"/></member-entity>
         <alias-all entity-alias="PCM"/>
         <alias-all entity-alias="CM"/>
     </view-entity>
     <view-entity entity-name="PartyContactMechPostalAddress" package-name="mantle.party.contact">
-        <member-entity entity-alias="PCM" entity-name="PartyContactMech"/>
-        <member-entity entity-alias="CM" entity-name="ContactMech" join-from-alias="PCM">
+        <member-entity entity-alias="PCM" entity-name="mantle.party.contact.PartyContactMech"/>
+        <member-entity entity-alias="CM" entity-name="mantle.party.contact.ContactMech" join-from-alias="PCM">
             <key-map field-name="contactMechId"/></member-entity>
-        <member-entity entity-alias="PA" entity-name="PostalAddress" join-from-alias="PCM">
+        <member-entity entity-alias="PA" entity-name="mantle.party.contact.PostalAddress" join-from-alias="PCM">
             <key-map field-name="contactMechId"/></member-entity>
+        <member-entity entity-alias="STG" entity-name="moqui.basic.Geo" join-from-alias="PA" join-optional="true">
+            <key-map field-name="stateProvinceGeoId" related-field-name="geoId"/></member-entity>
         <alias-all entity-alias="PCM"/>
         <alias-all entity-alias="CM"/>
         <alias-all entity-alias="PA"/>
+        <alias entity-alias="STG" name="stateGeoName" field="geoName"/>
+        <alias entity-alias="STG" name="stateGeoCodeAlpha2" field="geoCodeAlpha2"/>
+        <alias entity-alias="STG" name="stateGeoCodeAlpha3" field="geoCodeAlpha3"/>
     </view-entity>
     <view-entity entity-name="PartyContactMechTelecomNumber" package-name="mantle.party.contact">
-        <member-entity entity-alias="PCM" entity-name="PartyContactMech"/>
-        <member-entity entity-alias="CM" entity-name="ContactMech" join-from-alias="PCM">
+        <member-entity entity-alias="PCM" entity-name="mantle.party.contact.PartyContactMech"/>
+        <member-entity entity-alias="CM" entity-name="mantle.party.contact.ContactMech" join-from-alias="PCM">
             <key-map field-name="contactMechId"/></member-entity>
-        <member-entity entity-alias="TN" entity-name="TelecomNumber" join-from-alias="PCM">
+        <member-entity entity-alias="TN" entity-name="mantle.party.contact.TelecomNumber" join-from-alias="PCM">
             <key-map field-name="contactMechId"/></member-entity>
         <alias-all entity-alias="PCM"/>
         <alias-all entity-alias="CM"/>

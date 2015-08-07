@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
@@ -28,7 +29,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- <log message="====== ${term}:${roleTypeId}, partyDetail: ${partyDetail}"/> -->
             <if condition="partyDetail">
                 <script>
-                    def outList = [[value:partyDetail.partyId, label:"${partyDetail.organizationName?:''}${partyDetail.firstName?:''} ${partyDetail.lastName?:''} [${partyDetail.pseudoId}]".toString()]]
+                    def outList = [[value:partyDetail.partyId, label:ec.resource.expand("PartyNameTemplate", "", partyDetail)]]
                     ec.web.sendJsonResponse(outList)
                 </script>
 
@@ -50,7 +51,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <script>
                         def outList = []
                         for (def party in partyList)
-                            outList.add([value:party.partyId, label:"${party.organizationName?:''}${party.firstName?:''} ${party.lastName?:''} [${party.pseudoId}]".toString()])
+                            outList.add([value:party.partyId, label:ec.resource.expand("PartyNameTemplate", "", party)])
                         ec.web.sendJsonResponse(outList)
                     </script>
                 </else>
@@ -66,18 +67,13 @@ This Work includes contributions authored by David E. Jones, not as a
     </transition>
     <!-- this should ALWAYS be included for postal address forms (copy into your screen) -->
     <transition name="getGeoCountryStates">
-        <actions>
-            <service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown" in-map="[geoId:countryGeoId]" out-map="context"/>
-            <script>ec.web.sendJsonResponse(resultList)</script>
-        </actions>
+        <service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown" in-map="[geoId:countryGeoId]"
+                web-send-json-response="resultList"/>
         <default-response type="none"/>
     </transition>
     <transition name="getGeoStateCounties">
-        <actions>
-            <service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown" out-map="context"
-                    in-map="[geoId:stateGeoId, geoTypeEnumId:'GEOT_COUNTY']"/>
-            <script>ec.web.sendJsonResponse(resultList)</script>
-        </actions>
+        <service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown" out-map="context"
+                in-map="[geoId:stateGeoId, geoTypeEnumId:'GEOT_COUNTY']" web-send-json-response="resultList"/>
         <default-response type="none"/>
     </transition>
 

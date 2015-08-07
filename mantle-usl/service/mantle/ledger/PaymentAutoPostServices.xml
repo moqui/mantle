@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
@@ -137,7 +138,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- Payment Method entry for from Party (outgoing) -->
             <if condition="fromPartyAcctgPreference">
                 <service-call name="mantle.ledger.PaymentAutoPostServices.get#PaymentMethodGlAccount"
-                        in-map="[paymentMethodTypeEnumId:payment.paymentMethodTypeEnumId,
+                        in-map="[paymentId:payment.paymentId,
                             organizationPartyId:payment.fromPartyId, otherPartyId:payment.toPartyId,
                             finAccountTypeId:financialAccount?.finAccountTypeId,
                             creditCardTypeEnumId:creditCard?.creditCardTypeEnumId]"
@@ -156,7 +157,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <!-- Payment Method entry for to Party (incoming) -->
             <if condition="toPartyAcctgPreference">
                 <service-call name="mantle.ledger.PaymentAutoPostServices.get#PaymentMethodGlAccount"
-                        in-map="[paymentMethodTypeEnumId:payment.paymentMethodTypeEnumId,
+                        in-map="[paymentId:payment.paymentId,
                             organizationPartyId:payment.toPartyId, otherPartyId:payment.fromPartyId,
                             finAccountTypeId:financialAccount?.finAccountTypeId,
                             creditCardTypeEnumId:creditCard?.creditCardTypeEnumId]"
@@ -284,12 +285,21 @@ This Work includes contributions authored by David E. Jones, not as a
                 <econdition field-name="isApplied"/>
                 <econdition field-name="isPayable"/>
             </entity-find>
+            <if condition="!paymentTypeGlAccountList">
+                <!-- try isApplied=E -->
+                <entity-find entity-name="mantle.ledger.config.PaymentTypeGlAccount" list="paymentTypeGlAccountList" cache="true">
+                    <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                    <econdition field-name="paymentTypeEnumId" from="payment.paymentTypeEnumId"/>
+                    <econdition field-name="isApplied" value="E"/>
+                    <econdition field-name="isPayable"/>
+                </entity-find>
+            </if>
             <set field="glAccountId" from="paymentTypeGlAccountList.first?.glAccountId"/>
         </actions>
     </service>
     <service verb="get" noun="PaymentMethodGlAccount">
         <in-parameters>
-            <parameter name="paymentMethodTypeEnumId" required="true"/>
+            <parameter name="paymentId" required="true"/>
             <parameter name="organizationPartyId" required="true"/>
             <parameter name="otherPartyId"/>
             <parameter name="finAccountTypeId"/>
@@ -300,8 +310,11 @@ This Work includes contributions authored by David E. Jones, not as a
             <parameter name="glAccountTypeEnumId"/>
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
             <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
                     in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="isPayable" from="organizationPartyId == payment.fromPartyId ? 'Y' : 'N'"/>
+            <set field="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
 
             <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
                 <entity-find entity-name="mantle.ledger.config.CreditCardTypeGlAccount" list="creditCardTypeGlAccountList" cache="true">
@@ -310,19 +323,33 @@ This Work includes contributions authored by David E. Jones, not as a
                 </entity-find>
                 <set field="glAccountId" from="creditCardTypeGlAccountList.first?.glAccountId"/>
             </if>
-            <if condition="paymentMethodTypeEnumId == 'FinancialAccountTypeGlAccount'">
-                <entity-find entity-name="mantle.ledger.config.PaymentMethodTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
+            <if condition="paymentMethodTypeEnumId == 'PmtFinancialAccount'">
+                <entity-find entity-name="mantle.ledger.config.FinancialAccountTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
-                    <econdition field-name="finAccountTypeId"/>
+                    <econdition field-name="finAccountTypeId"/><econdition field-name="isPayable"/>
                 </entity-find>
+                <if condition="!financialAccountTypeGlAccountList">
+                    <!-- try isPayable=E -->
+                    <entity-find entity-name="mantle.ledger.config.FinancialAccountTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
+                        <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                        <econdition field-name="finAccountTypeId"/><econdition field-name="isPayable" value="E"/>
+                    </entity-find>
+                </if>
                 <set field="glAccountId" from="financialAccountTypeGlAccountList.first?.glAccountId"/>
             </if>
 
             <if condition="!glAccountId">
                 <entity-find entity-name="mantle.ledger.config.PaymentMethodTypeGlAccount" list="paymentMethodTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
-                    <econdition field-name="paymentMethodTypeEnumId"/>
+                    <econdition field-name="paymentMethodTypeEnumId"/><econdition field-name="isPayable"/>
                 </entity-find>
+                <if condition="!financialAccountTypeGlAccountList">
+                    <!-- try isPayable=E -->
+                    <entity-find entity-name="mantle.ledger.config.PaymentMethodTypeGlAccount" list="paymentMethodTypeGlAccountList" cache="true">
+                        <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                        <econdition field-name="paymentMethodTypeEnumId"/><econdition field-name="isPayable" value="E"/>
+                    </entity-find>
+                </if>
                 <set field="glAccountId" from="paymentMethodTypeGlAccountList.first?.glAccountId"/>
             </if>
         </actions>

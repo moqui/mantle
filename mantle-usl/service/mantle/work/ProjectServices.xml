@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
@@ -136,18 +137,18 @@ This Work includes contributions authored by David E. Jones, not as a
             <set field="clientBudgetUsedPercent" from="workEffort.totalClientCostAllowed ? ((workEffort.actualClientCost ?: 0) / workEffort.totalClientCostAllowed) * 100 : 0"/>
             <set field="clientActualOverBudget" from="workEffort.actualClientCost &gt; workEffort.totalClientCostAllowed"/>
 
-            <set field="actualPlusRemainingTime" from="workEffort.actualWorkTime + workEffort.remainingWorkTime"/>
+            <set field="actualPlusRemainingTime" from="(workEffort.actualWorkTime ?: 0) + (workEffort.remainingWorkTime ?: 0)"/>
             <set field="bestTimeEstimate" from="actualPlusRemainingTime &gt; workEffort.estimatedWorkTime ? actualPlusRemainingTime : workEffort.estimatedWorkTime "/>
             <set field="estimatedCompletePercent" from="workEffort.estimatedWorkTime ? ((workEffort.actualWorkTime ?: 0) / workEffort.estimatedWorkTime) * 100 : 0"/>
             <set field="estimatedRemainingPercent" from="workEffort.estimatedWorkTime ? ((workEffort.remainingWorkTime ?: 0) / workEffort.estimatedWorkTime) * 100 : 0"/>
-            <set field="estimatedActualPlusRemainingDiff" from="workEffort.estimatedWorkTime - actualPlusRemainingTime"/>
+            <set field="estimatedActualPlusRemainingDiff" from="(workEffort.estimatedWorkTime ?: 0) - actualPlusRemainingTime"/>
             <set field="actualPlusRemainingOverEstimated" from="actualPlusRemainingTime &gt; workEffort.estimatedWorkTime"/>
 
             <set field="clientAverageHourCost" from="workEffort.actualWorkTime ? ((workEffort.actualClientCost ?: 0) / workEffort.actualWorkTime) : 0"/>
             <set field="clientEstimatedCost" from="clientAverageHourCost * bestTimeEstimate"/>
             <set field="clientBudgetEstimateDiff" from="(workEffort.totalClientCostAllowed ?: 0) - clientEstimatedCost"/>
 
-            <set field="estimatedCompleteBudgetPercentGap" from="estimatedCompletePercent - clientBudgetUsedPercent"/>
+            <set field="estimatedCompleteBudgetPercentGap" from="(estimatedCompletePercent ?: 0) - clientBudgetUsedPercent"/>
             <set field="estimatedCompleteOverBudget" from="estimatedCompletePercent &lt; clientBudgetUsedPercent"/>
 
             <set field="projectDanger" from="clientActualOverBudget | actualPlusRemainingOverEstimated"/>
@@ -180,7 +181,7 @@ This Work includes contributions authored by David E. Jones, not as a
                 resultList = []
                 if (addOptional == "true") resultList.add([partyId:"", name:"None"])
                 for (def wepap in wepapList)
-                    resultList.add([partyId:wepap.partyId, name:"${wepap.firstName} ${wepap.lastName} (${wepap.username?:wepap.partyId})"])
+                    resultList.add([partyId:wepap.partyId, name:ec.resource.expand('PartyNameTemplate','',wepap)])
             </script>
         </actions>
     </service>
@@ -197,7 +198,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <script>
                 resultList = [[partyId:"", name:"None"]]
                 for (def weapd in weapdList)
-                    resultList.add([partyId:weapd.partyId, name:"${weapd.organizationName?:''}${weapd.firstName?:''} ${weapd.lastName?:''}"])
+                    resultList.add([partyId:weapd.partyId, name:ec.resource.expand('PartyNameTemplate','',weapd)])
             </script>
         </actions>
     </service>
@@ -214,7 +215,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <script>
                 resultList = [[workEffortId:"", taskLabel:"None"]]
                 for (def task in taskList)
-                    resultList.add([workEffortId:task.workEffortId, taskLabel:"${task.workEffortId}: ${task.workEffortName}"])
+                    resultList.add([workEffortId:task.workEffortId, taskLabel:ec.resource.expand('WorkEffortNameTemplate','',task)])
             </script>
         </actions>
     </service>
@@ -230,7 +231,7 @@ This Work includes contributions authored by David E. Jones, not as a
             <script>
                 resultList = [[workEffortId:"", milestoneLabel:"None"]]
                 for (def milestone in milestoneList)
-                    resultList.add([workEffortId:milestone.workEffortId, milestoneLabel:"${milestone.workEffortId}: ${milestone.workEffortName}"])
+                    resultList.add([workEffortId:milestone.workEffortId, milestoneLabel:ec.resource.expand('WorkEffortNameTemplate','',milestone)])
             </script>
         </actions>
     </service>

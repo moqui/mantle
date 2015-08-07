@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
     <service verb="find" noun="Party" type="script"
@@ -22,7 +23,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <parameter name="combinedName"/>
             <parameter name="organizationName"/>
-            <parameter name="firstName"/><parameter name="lastName"/>
+            <parameter name="firstName"/><parameter name="lastName"/><parameter name="suffix"/>
 
             <parameter name="address1"/><parameter name="address2"/>
             <parameter name="city"/><parameter name="stateProvinceGeoId"/><parameter name="postalCode"/>
@@ -64,7 +65,7 @@ This Work includes contributions authored by David E. Jones, not as a
             </entity-find>
             <script>
                 outList = []
-                for (def pau in pauList) outList.add([value:pau.partyId, label:"${pau.firstName} ${pau.lastName} (${pau.username})".toString()])
+                for (def pau in pauList) outList.add([value:pau.partyId, label:ec.resource.expand('UsernameTemplate','',pau)])
             </script>
         </actions>
     </service>
@@ -112,7 +113,7 @@ This Work includes contributions authored by David E. Jones, not as a
                     <econdition field-name="username"/></entity-find>
                 <if condition="existingUaList"><return error="true" message="Username [${username}] is already in use. Choose another."/></if>
 
-                <set field="userFullName" value="${firstName} ${middleName ? middleName + ' ' : ''}${lastName}"/>
+                <set field="userFullName" value="${ec.resource.expand('PartyFullNameTemplate','')}"/>
                 <if condition="newPassword">
                     <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="newUaOut"/>
 
@@ -227,7 +228,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
             <entity-find-one entity-name="mantle.party.Person" value-field="person"/>
             <if condition="!person"><return error="true" message="Party [${partyId}] is not a person, not creating user account."/></if>
-            <set field="userFullName" value="${person?.firstName} ${person?.middleName ? person.middleName + ' ' : ''}${person?.lastName}"/>
+            <set field="userFullName" value="${ec.resource.expand('PartyFullNameTemplate','',person?:[:])}"/>
 
             <if condition="newPassword">
                 <service-call name="org.moqui.impl.UserServices.create#UserAccount" in-map="context" out-map="context"/>
@@ -321,6 +322,157 @@ This Work includes contributions authored by David E. Jones, not as a
             <if condition="party.partyTypeEnumId == 'PtyOrganization'">
                 <service-call name="update#mantle.party.Organization" in-map="context"/>
             </if>
+        </actions>
+    </service>
+
+    <!-- ========================================= -->
+    <!-- ========== PartyBadge Services ========== -->
+    <!-- ========================================= -->
+
+    <service verb="scan" noun="PartyBadge">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk"/>
+            <parameter name="scanValue" required="true"/>
+            <parameter name="scanDate" default="ec.user.nowTimestamp"/>
+            <parameter name="scanTime" type="Timestamp" default="ec.user.nowTimestamp"/>
+
+            <!-- parameters for clock in -->
+            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
+            <parameter name="emplPositionClassId"/>
+            <parameter name="workEffortId"/>
+            <!-- parameters for clock out -->
+            <parameter name="breakHours" type="BigDecimal"/>
+            <parameter name="pieceCount" type="BigDecimal"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="partyBadgeId"/>
+            <parameter name="partyId"/>
+            <parameter name="organizationPartyId"/>
+        </out-parameters>
+        <actions>
+            <!-- look up by partyBadgeId, serialNumber, or storedValue -->
+            <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                <field-map field-name="partyBadgeId" from="scanValue"/></entity-find-one>
+            <if condition="!partyBadge">
+                <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                    <field-map field-name="serialNumber" from="scanValue"/></entity-find-one>
+            </if>
+            <if condition="!partyBadge">
+                <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                    <field-map field-name="storedValue" from="scanValue"/></entity-find-one>
+            </if>
+
+            <if condition="!partyBadge">
+                <return error="true" message="No badge found for scan value [${scanValue}]"/></if>
+            <set field="partyBadgeId" from="partyBadge.partyBadgeId"/>
+            <set field="partyId" from="partyBadge.partyId"/>
+            <set field="organizationPartyId" from="partyBadge.organizationPartyId"/>
+
+            <!-- check valid dates -->
+            <if condition="partyBadge.fromDate &gt; ec.user.nowTimestamp">
+                <set field="scanResultEnumId" value="PbsrNotYetValid"/>
+                <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
+                <return error="true" message="Badge not yet valid"/>
+            </if>
+            <if condition="partyBadge.thruDate &lt; ec.user.nowTimestamp">
+                <set field="scanResultEnumId" value="PbsrExpired"/>
+                <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
+                <return error="true" message="Badge expired"/>
+            </if>
+
+            <!-- create the PartyBadgeScan record -->
+            <set field="scanResultEnumId" value="PbsrSuccess"/>
+            <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
+
+            <!-- handle TimeEntry for clock in and clock out -->
+
+            <set field="clientPartyId" from="partyBadge.organizationPartyId"/>
+            <entity-find entity-name="mantle.work.time.TimeEntry" list="openTimeEntryList">
+                <search-form-inputs default-order-by="-fromDate"/>
+                <econdition field-name="partyId"/>
+                <econdition field-name="thruDate" from="null"/>
+            </entity-find>
+            <set field="openTimeEntry" from="openTimeEntryList ? openTimeEntryList[0] : null"/>
+            <if condition="scanPurposeEnumId == 'PbspClockIn'">
+                <then>
+                    <!-- If scanPurposeEnumId=PbspClockIn call mantle.work.TimeServices.create#TimeEntryClockIn
+                        If there is an open TimeEntry call mantle.work.TimeServices.store#TimeEntry first -->
+                    <if condition="openTimeEntry">
+                        <service-call name="mantle.work.TimeServices.store#TimeEntry"
+                                in-map="openTimeEntry + [thruDate:scanTime, breakHours:breakHours, pieceCount:pieceCount]"/>
+                    </if>
+
+                    <set field="fromDate" from="scanTime"/>
+                    <service-call name="mantle.work.TimeServices.create#TimeEntryClockIn" in-map="context"/>
+                </then>
+                <else-if condition="scanPurposeEnumId == 'PbspClockOut'">
+                    <!-- If scanPurposeEnumId=PbspClockOut call mantle.work.TimeServices.store#TimeEntry -->
+                    <if condition="openTimeEntry">
+                        <service-call name="mantle.work.TimeServices.store#TimeEntry"
+                                in-map="openTimeEntry + [thruDate:scanTime, breakHours:breakHours, pieceCount:pieceCount]"/>
+
+                        <else><return error="true" message="Cannot clock out, no open time entry found"/></else>
+                    </if>
+                </else-if>
+            </if>
+        </actions>
+    </service>
+
+    <!-- =========================================== -->
+    <!-- ========== PartyContent Services ========== -->
+    <!-- =========================================== -->
+
+    <service verb="create" noun="PartyContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="partyContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.party.PartyContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.party.PartyServices.save#PartyContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="PartyContent">
+        <in-parameters>
+            <parameter name="partyContentId" required="true"/>
+            <auto-parameters entity-name="mantle.party.PartyContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.party.PartyContent" value-field="partyContent"/>
+                <service-call name="mantle.party.PartyServices.save#PartyContentFile" out-map="context"
+                        in-map="context + [partyId:partyContent.partyId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.party.PartyContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="PartyContentFile">
+        <in-parameters>
+            <parameter name="partyContentId" required="true"/>
+            <parameter name="partyId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/party/${partyId}/content_${partyContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.party.PartyContent"
+                    in-map="[partyContentId:partyContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
 </services>

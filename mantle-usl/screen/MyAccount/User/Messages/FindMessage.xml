@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
@@ -23,7 +24,7 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <transition name="getPartyList">
         <actions>
-            <entity-find entity-name="mantle.party.Person" list="partyList" limit="20">
+            <entity-find entity-name="mantle.party.PartyDetail" list="partyList" limit="20">
                 <econditions combine="or">
                     <econdition field-name="partyId" operator="like" value="%${term}%" ignore-case="true"/>
                     <econdition field-name="firstName" operator="like" value="%${term}%" ignore-case="true"/>
@@ -34,17 +35,13 @@ This Work includes contributions authored by David E. Jones, not as a
             <script>
                 def outList = []
                 for (def party in partyList)
-                outList.add([value:party.partyId, label:"${party.firstName?:''} ${party.lastName?:''}".toString()])
+                outList.add([value:party.partyId, label:ec.resource.expand('PartyNameTemplate','',party)])
                 ec.web.sendJsonResponse(outList)
             </script>
         </actions>
         <default-response type="none"/>
     </transition>
 
-    <pre-actions>
-        <set field="partyId" from="ec.user.userAccount.partyId"/>
-    </pre-actions>
-    
     <actions>
         <!-- <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party"/> -->
         <entity-find entity-name="mantle.party.communication.CommunicationEventAndPurpose" list="commEventList">
@@ -60,11 +57,11 @@ This Work includes contributions authored by David E. Jones, not as a
         </entity-find>
     </actions>
     <widgets>
-        <!-- <label text="Messages to or from ${party?.organizationName?:''}${party?.firstName?:''} ${party?.lastName?:''}" type="h3"/> -->
+        <!-- <label text="Messages to or from ${ec.resource.expand('PartyNameTemplate','',party)}" type="h3"/> -->
         <container-dialog id="CreateMessageDialog" button-text="Send Message" width="800">
             <form-single name="CreateMessage" transition="createMessage">
                 <field name="toPartyId"><default-field title="To">
-                    <text-line ac-transition="getPartyList" ac-min-length="2" size="15"/>
+                    <text-line ac-transition="getPartyList" ac-min-length="2" size="60"/>
                 </default-field></field>
                 <field name="purposeEnumId"><default-field title="Purpose">
                     <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
@@ -95,20 +92,20 @@ This Work includes contributions authored by David E. Jones, not as a
             </field>
             <field name="fromPartyId">
                 <header-field title="From">
-                    <text-line ac-transition="getPartyList" ac-min-length="2" size="10"/>
+                    <text-line ac-transition="getPartyList" ac-min-length="2" size="15"/>
                 </header-field>
                 <default-field>
                     <display-entity entity-name="mantle.party.PartyDetail" also-hidden="false" key-field-name="partyId"
-                            text="${organizationName?:''}${firstName?:''} ${lastName?:''}"/>
+                            text="PartyNameTemplate"/>
                 </default-field>
             </field>
             <field name="toPartyId">
                 <header-field title="To">
-                    <text-line ac-transition="getPartyList" ac-min-length="2" size="10"/>
+                    <text-line ac-transition="getPartyList" ac-min-length="2" size="15"/>
                 </header-field>
                 <default-field>
                     <display-entity entity-name="mantle.party.PartyDetail" also-hidden="false" key-field-name="partyId"
-                            text="${organizationName?:''}${firstName?:''} ${lastName?:''}"/>
+                            text="PartyNameTemplate"/>
                 </default-field>
             </field>
             <field name="subject"><header-field show-order-by="case-insensitive"/><default-field>
@@ -128,7 +125,8 @@ This Work includes contributions authored by David E. Jones, not as a
             <field name="purposeEnumId">
                 <header-field title="Purpose" show-order-by="true">
                     <widget-template-include location="component://webroot/template/screen/BasicWidgetTemplates.xml#enumDropDown">
-                        <set field="enumTypeId" value="CommunicationPurpose"/><set field="allowEmpty" value="true"/></widget-template-include>
+                        <set field="enumTypeId" value="CommunicationPurpose"/><set field="allowEmpty" value="true"/>
+                        <set field="style" value=" "/></widget-template-include>
                 </header-field>
                 <default-field>
                     <section-iterate name="PurposeListSection" list="cepList" entry="cep">

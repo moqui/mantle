@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This Work is in the public domain and is provided on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE,
-NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
-You are solely responsible for determining the appropriateness of using
-this Work and assume any risks associated with your use of this Work.
+This software is in the public domain under CC0 1.0 Universal.
 
-This Work includes contributions authored by David E. Jones, not as a
-"work for hire", who hereby disclaims any copyright to the same.
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
@@ -18,10 +19,8 @@ This Work includes contributions authored by David E. Jones, not as a
 
     <parameter name="statusId"/>
 
-    <transition name="updateStatus">
-        <service-call name="update#moqui.example.Example"/>
-        <default-response url="."/>
-    </transition>
+    <transition name="updateStatus"><service-call name="update#example.Example"/>
+        <default-response url="."/></transition>
 
     <widgets>
         <!-- this requires a statusId field in the context, and a updateStatus transition with the PK and statusId as parameters -->
@@ -29,57 +28,143 @@ This Work includes contributions authored by David E. Jones, not as a
             <actions>
                 <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem"/>
                 <entity-find entity-name="moqui.basic.StatusFlowTransitionToDetail" list="statusTransitionList">
-                    <econdition field-name="statusId"/><order-by field-name="transitionSequence,transitionName"/></entity-find>
+                    <econdition field-name="statusId"/>
+                    <econdition field-name="statusFlowId" from="statusFlowId ?: 'Default'"/>
+                    <order-by field-name="transitionSequence,transitionName"/>
+                </entity-find>
             </actions>
             <widgets>
-                <container style="shaded-area" type="span">
-                    <label text="Status " type="strong"/>
-                    <label text="(Current: ${statusItem?.description ?: ''})" type="span"/>
-                    <section-iterate name="StatusChangeLinkSection" list="statusTransitionList" entry="statusTransition">
-                        <widgets><link url="${statusChangeTransition ?: 'updateStatus'}"
-                                text="${statusTransition.transitionName} (${statusTransition.description})"
-                                parameter-map="[statusId:statusTransition.toStatusId]"/></widgets>
-                    </section-iterate>
+                <container style="shaded-area condensed" type="span">
+                    <container style="float-plain condensed" type="ul">
+                        <container type="li">
+                            <container><label text="Status" type="strong"/></container>
+                            <container><label text="Current: ${statusItem?.description ?: ''}"/></container>
+                        </container>
+                        <container type="li">
+                            <section-iterate name="StatusChangeLinkSection" list="statusTransitionList" entry="statusTransition">
+                                <widgets><link url="${statusChangeTransition ?: 'updateStatus'}"
+                                        text="TransitionNameTemplate" text-map="statusTransition"
+                                        parameter-map="[statusId:statusTransition.toStatusId]"/></widgets>
+                            </section-iterate>
+                        </container>
+                    </container>
                 </container>
             </widgets>
         </section>
 
         <!-- this requires a statusHistoryList field in the context (with moqui.entity.EntityAuditLog values) OR a
-            changedEntityName (like "moqui.example.Example") and pkPrimaryValue (exampleId, orderId, etc value) -->
+            changedEntityName (like "example.Example") and pkPrimaryValue (exampleId, orderId, etc value) -->
         <section name="StatusHistorySection">
             <actions>
                 <if condition="!statusHistoryList &amp;&amp; changedEntityName">
-                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="reverseList">
                         <econdition field-name="changedEntityName"/>
                         <econdition field-name="changedFieldName" value="statusId"/>
                         <econdition field-name="pkPrimaryValue"/>
-                        <order-by field-name="changedDate"/>
+                        <order-by field-name="-changedDate"/>
                     </entity-find>
+                    <else-if condition="statusHistoryList">
+                        <script><![CDATA[
+                            reverseList = statusHistoryList.cloneList().orderByFields(["-changedDate"])
+                        ]]></script>
+                    </else-if>
                 </if>
             </actions>
             <widgets>
                 <container-box>
                     <box-header><label text="Status History" type="h5"/></box-header>
                     <box-body>
-                        <section-iterate name="StatusHistoryList" list="statusHistoryList" entry="statusHistory">
+                        <section-iterate name="StatusHistoryTable" list="reverseList" entry="statusHistory">
                             <actions>
-                                <entity-find-one entity-name="moqui.security.UserAccount" value-field="userAccount">
-                                    <field-map field-name="userId" from="statusHistory?.changedByUserId"/>
-                                </entity-find-one>
-                                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">
-                                    <field-map field-name="statusId" from="statusHistory?.oldValueText"/>
-                                </entity-find-one>
+                                <entity-find-one entity-name="mantle.party.PersonAndUserAccount" value-field="userAccount">
+                                    <field-map field-name="userId" from="statusHistory.changedByUserId"/></entity-find-one>
                                 <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem" cache="true">
-                                    <field-map field-name="statusId" from="statusHistory?.newValueText"/>
-                                </entity-find-one>
+                                    <field-map field-name="statusId" from="statusHistory.newValueText"/></entity-find-one>
+                                <!--<entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">-->
+                                <!--<field-map field-name="statusId" from="statusHistory.oldValueText"/></entity-find-one>-->
                             </actions>
                             <widgets>
-                                <label text="${oldStatusItem ? oldStatusItem.description + ' to ' : ''}${statusItem?.description}${(userAccount?.username ? ' by ' + userAccount.username : '')} at ${ec.l10n.format(statusHistory.changedDate, 'yyyy-MM-dd HH:mm')}" type="p"/>
+                                <container-row>
+                                    <row-col lg="7" md="7" sm="7">
+                                        <label text="${ec.l10n.format(statusHistory.changedDate, 'yyyy-MM-dd HH:mm')}" type="strong" style="text-nowrap"/>
+                                        <label text="by ${ec.resource.expand('UsernameTemplate','',userAccount?:[:])}" style="text-nowrap"/>
+                                    </row-col>
+                                    <row-col lg="5" md="5" sm="5">
+                                        <label text="${statusItem?statusItem.description:''}" type="p" style="text-success" condition="statusHistory_index == 0"/>
+                                        <label text="${statusItem?statusItem.description:''}" type="p" condition="statusHistory_index"/>
+                                    </row-col>
+                                </container-row>
                             </widgets>
                         </section-iterate>
                     </box-body>
                 </container-box>
             </widgets>
         </section>
+
+        <!-- this requires a statusHistoryList field in the context (with moqui.entity.EntityAuditLog values) OR a
+        changedEntityName (like "example.Example") and pkPrimaryValue (exampleId, orderId, etc value) -->
+        <section name="StatusChangeAndHistorySection">
+            <actions>
+                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem"/>
+                <entity-find entity-name="moqui.basic.StatusFlowTransitionToDetail" list="statusTransitionList">
+                    <econdition field-name="statusId"/>
+                    <econdition field-name="statusFlowId" from="statusFlowId ?: 'Default'"/>
+                    <order-by field-name="transitionSequence,transitionName"/>
+                </entity-find>
+                <if condition="!statusHistoryList &amp;&amp; changedEntityName">
+                    <entity-find entity-name="moqui.entity.EntityAuditLog" list="reverseList">
+                        <econdition field-name="changedEntityName"/>
+                        <econdition field-name="changedFieldName" value="statusId"/>
+                        <econdition field-name="pkPrimaryValue"/>
+                        <order-by field-name="-changedDate"/>
+                    </entity-find>
+                    <else-if condition="statusHistoryList">
+                        <script><![CDATA[
+                            reverseList = statusHistoryList.cloneList().orderByFields(["-changedDate"])
+                        ]]></script>
+                    </else-if>
+                </if>
+            </actions>
+            <widgets>
+                <container-box>
+                    <box-header>
+                        <label text="Status" type="h5"/>
+                        <!--<label text="${statusItem?.description?:''}" type="h5" style="text-success"/>-->
+                    </box-header>
+                    <box-toolbar>
+                        <section-iterate name="StatusChangeLinkSection" list="statusTransitionList" entry="statusTransition">
+                            <widgets><link url="${statusChangeTransition ?: 'updateStatus'}"
+                                           text="TransitionNameTemplate" text-map="statusTransition"
+                                           parameter-map="[statusId:statusTransition.toStatusId]"/></widgets>
+                        </section-iterate>
+                    </box-toolbar>
+                    <box-body>
+                        <section-iterate name="StatusChangeAndHistoryTable" list="reverseList" entry="statusHistory">
+                            <actions>
+                                <entity-find-one entity-name="mantle.party.PersonAndUserAccount" value-field="userAccount">
+                                    <field-map field-name="userId" from="statusHistory.changedByUserId"/></entity-find-one>
+                                <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem" cache="true">
+                                    <field-map field-name="statusId" from="statusHistory.newValueText"/></entity-find-one>
+                                <!--<entity-find-one entity-name="moqui.basic.StatusItem" value-field="oldStatusItem" cache="true">-->
+                                <!--<field-map field-name="statusId" from="statusHistory.oldValueText"/></entity-find-one>-->
+                            </actions>
+                            <widgets>
+                                <container-row>
+                                    <row-col lg="7" md="7" sm="7">
+                                        <label text="${ec.l10n.format(statusHistory.changedDate, 'yyyy-MM-dd HH:mm')}" type="strong" style="text-nowrap"/>
+                                        <label text="by ${ec.resource.expand('UsernameTemplate','',userAccount?:[:])}" style="text-nowrap"/>
+                                    </row-col>
+                                    <row-col lg="5" md="5" sm="5">
+                                        <label text="${statusItem?statusItem.description:''}" type="p" style="text-success" condition="statusHistory_index == 0"/>
+                                        <label text="${statusItem?statusItem.description:''}" type="p" condition="statusHistory_index"/>
+                                    </row-col>
+                                </container-row>
+                            </widgets>
+                        </section-iterate>
+                    </box-body>
+                </container-box>
+            </widgets>
+        </section>
+
     </widgets>
 </screen>
