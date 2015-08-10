@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+    <service verb="get" noun="EmploymentPayAmount">
+        <in-parameters>
+            <parameter name="partyRelationshipId" required="true"/>
+            <parameter name="timePeriodId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="payAmount" type="BigDecimal"/>
+            <parameter name="currencyUomId"/>
+            <parameter name="salaryFlag"/>
+            <parameter name="hourlyTotal" type="BigDecimal"/>
+            <parameter name="pieceTotal" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.humanres.employment.Employment" value-field="employment"/>
+            <entity-find-related-one value-field="employment" relationship-name="mantle.humanres.position.EmplPosition"
+                    to-value-field="emplPosition"/>
+            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromDetail">
+                <field-map field-name="partyId" from="employment.fromPartyId"/></entity-find-one>
+
+            <set field="salaryFlag" from="emplPosition.salaryFlag"/>
+            <set field="payAmount" from="0"/>
+
+            <if condition="employment.timePeriodTypeId != timePeriod.timePeriodTypeId">
+                <return message="Employee ${ec.resource.expand('PartyNameTemplate', '', fromDetail)} is not paid in this type of period"/></if>
+
+            <set field="fromTimestamp" from="ec.l10n.parseTimestamp(&quot;${timePeriod.fromDate} 00:00:00.000&quot;, '')"/>
+            <set field="thruTimestamp" from="ec.l10n.parseTimestamp(&quot;${timePeriod.thruDate} 23:59:59.999&quot;, '')"/>
+
+            <if condition="employment.fromDate != null &amp;&amp; employment.fromDate &gt; thruTimestamp">
+                <return message="Employee ${ec.resource.expand('PartyNameTemplate', '', fromDetail)} is not yet employed"/></if>
+            <if condition="employment.thruDate != null &amp;&amp; employment.thruDate &lt; fromTimestamp">
+                <return message="Employee ${ec.resource.expand('PartyNameTemplate', '', fromDetail)} is no longer employed"/></if>
+
+            <if condition="salaryFlag == 'Y'">
+                <then>
+                    <!-- NOTE: if pay rate change mid-period, pro-rate the rate by applicable time? currently uses salary on period thruDate -->
+                    <entity-find entity-name="mantle.humanres.employment.EmploymentSalary" list="employmentSalaryList">
+                        <date-filter valid-date="timePeriod.thruDate"/>
+                        <econdition field-name="partyRelationshipId"/>
+                        <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
+                        <order-by field-name="-fromDate"/><!-- if more than one get most recent -->
+                    </entity-find>
+
+                    <if condition="!employmentSalaryList">
+                        <return error="true" message="No salary found for salaried employee ${ec.resource.expand('PartyNameTemplate', '', fromDetail)}"/></if>
+                    <set field="employmentSalary" from="employmentSalaryList[0]"/>
+
+                    <!-- TODO handle partial period for salary (first and last, ie by from and thru) -->
+                    <set field="payAmount"  from="employmentSalary.amount"/>
+                    <set field="currencyUomId" from="employmentSalary.currencyUomId"/>
+                </then>
+                <else>
+
+                </else>
+            </if>
+        </actions>
+    </service>
+</services>
