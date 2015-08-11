@@ -158,7 +158,115 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="get" noun="TimeEntryAmount">
+        <description>Calculate the amount for a time entry (for worker/vendor or client).</description>
+        <in-parameters>
+            <parameter name="timeEntryId" required="true"/>
+            <parameter name="timeEntry" type="Map"/>
+            <parameter name="ratePurposeEnumId" default-value="RaprVendor"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="amountTotal" type="BigDecimal"/>
+            <parameter name="amount" type="BigDecimal"/>
+            <parameter name="quantity" type="BigDecimal"/>
+
+            <parameter name="hourlyAmountTotal" type="BigDecimal"/>
+            <parameter name="pieceAmountTotal" type="BigDecimal"/>
+            <parameter name="hourlyAmount" type="BigDecimal"/>
+            <parameter name="pieceAmount" type="BigDecimal"/>
+            <parameter name="hours" type="BigDecimal"/>
+            <parameter name="pieceCount" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <if condition="!timeEntry"><entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry"/></if>
+
+            <set field="hours" from="timeEntry.hours ?: 0"/>
+            <set field="pieceCount" from="timeEntry.pieceCount ?: 0"/>
+
+            <if condition="hours">
+                <then>
+                    <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+                    <if condition="rateAmountId">
+                        <then>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
+                                <field-map field-name="rateAmountId"/></entity-find-one>
+                        </then>
+                        <else>
+                            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
+                                    in-map="[timeEntryId:timeEntryId]"/>
+                            <!-- set the values in the timeEntry record for use below since the service updates the DB record and we don't want to re-query to get it -->
+                            <set field="timeEntry.rateAmountId" from="getTerOut.rateAmountId"/>
+                            <set field="timeEntry.vendorRateAmountId" from="getTerOut.vendorRateAmountId"/>
+
+                            <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
+                                <field-map field-name="rateAmountId"/></entity-find-one>
+                        </else>
+                    </if>
+                    <if condition="rateAmount">
+                        <set field="hourlyAmount" from="rateAmount.rateAmount"/>
+                        <set field="hourlyAmountTotal" from="hours * hourlyAmount"/>
+
+                        <else><message error="true">No hourly rate amount found for time entry [${timeEntryId}]</message></else>
+                    </if>
+                </then>
+                <else>
+                    <set field="hourlyAmount" from="0"/>
+                    <set field="hourlyAmountTotal" from="0"/>
+                </else>
+            </if>
+            <if condition="pieceCount">
+                <then>
+                    <set field="pieceRateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorPieceRateAmountId : timeEntry.pieceRateAmountId"/>
+                    <if condition="pieceRateAmountId">
+                        <then>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
+                                <field-map field-name="pieceRateAmountId"/></entity-find-one>
+                        </then>
+                        <else>
+                            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
+                                    in-map="[timeEntryId:timeEntryId]"/>
+                            <!-- set the values in the timeEntry record for use below since the service updates the DB record and we don't want to re-query to get it -->
+                            <set field="timeEntry.pieceRateAmountId" from="getTerOut.pieceRateAmountId"/>
+                            <set field="timeEntry.vendorPieceRateAmountId" from="getTerOut.vendorPieceRateAmountId"/>
+
+                            <set field="pieceRateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorPieceRateAmountId : getTerOut.pieceRateAmountId"/>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="pieceRateAmount" cache="true">
+                                <field-map field-name="rateAmountId" from="pieceRateAmountId"/></entity-find-one>
+                        </else>
+                    </if>
+                    <if condition="pieceRateAmount">
+                        <set field="pieceAmount" from="pieceRateAmount.rateAmount"/>
+                        <set field="pieceAmountTotal" from="pieceCount * pieceAmount"/>
+
+                        <else><message error="true">No piece rate amount found for time entry [${timeEntryId}]</message></else>
+                    </if>
+                </then>
+                <else>
+                    <set field="pieceAmount" from="0"/>
+                    <set field="pieceAmountTotal" from="0"/>
+                </else>
+            </if>
+
+            <check-errors/>
+
+            <if condition="hourlyAmountTotal &gt; pieceAmountTotal">
+                <then>
+                    <set field="amountTotal" from="hourlyAmountTotal"/>
+                    <set field="amount" from="hourlyAmount"/>
+                    <set field="quantity" from="hours"/>
+                </then>
+                <else>
+                    <set field="amountTotal" from="pieceAmountTotal"/>
+                    <set field="amount" from="pieceAmount"/>
+                    <set field="quantity" from="pieceCount"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
     <service verb="get" noun="TimeEntryRate">
+        <description>Find the RateAmount records for a TimeEntry. Rate amounts can be calculated from these.</description>
         <in-parameters>
             <parameter name="timeEntryId" required="true"/>
             <!-- TODO: where to get currency... project setting? client or internal org setting? -->
