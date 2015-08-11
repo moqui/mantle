@@ -703,92 +703,59 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="itemTypeEnumId" value="ItemTimeEntry"/>
             <set field="invoiceItemCreatedCount" from="0" type="Long"/>
             <if condition="createSingleItem">
-                <set field="amountTotal" from="0"/>
-                <iterate list="timeEntryList" entry="timeEntry">
-                    <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
-
-                    <if condition="rateAmountId">
-                        <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                            <field-map field-name="rateAmountId"/>
-                        </entity-find-one>
-
-                        <else>
-                            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
-                                    in-map="[timeEntryId:timeEntry.timeEntryId]"/>
-                            <!-- set the values in the timeEntry record for use below since the service updates the DB record and we don't want to re-query to get it -->
-                            <set field="timeEntry.rateAmountId" from="getTerOut.rateAmountId"/>
-                            <set field="timeEntry.vendorRateAmountId" from="getTerOut.vendorRateAmountId"/>
-
-                            <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
-                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                <field-map field-name="rateAmountId"/>
-                            </entity-find-one>
-                        </else>
-                    </if>
-                    <if condition="rateAmount"><set field="amountTotal" from="amountTotal + (timeEntry.hours*rateAmount.rateAmount)"/></if>
-                </iterate>
-                <if condition="amountTotal">
-                    <set field="description" value="Time entries for task ${ec.resource.expand('WorkEffortNameTemplate','',workEffort)}"/>
-                    <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                            in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
-                                amount:amountTotal, quantity:1, description:description]"/>
-                    <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
-
+                <then>
+                    <set field="amountTotal" from="0"/>
                     <iterate list="timeEntryList" entry="timeEntry">
-                        <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
-                        <if condition="rateAmountId">
-                            <if condition="ratePurposeEnumId == 'RaprVendor'">
-                                <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
-                                <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-
-                                <else>
-                                    <set field="timeEntry.invoiceId" from="invoiceId"/>
-                                    <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                </else>
-                            </if>
-                            <entity-update value-field="timeEntry"/>
-                        </if>
+                        <service-call name="mantle.work.TimeServices.get#TimeEntryAmount" out-map="getTeaOut"
+                                in-map="[timeEntryId:timeEntry.timeEntryId, timeEntry:timeEntry, ratePurposeEnumId:ratePurposeEnumId]"/>
+                        <set field="amountTotal" from="amountTotal + getTeaOut.amountTotal"/>
                     </iterate>
-                </if>
+                    <if condition="amountTotal">
+                        <set field="description" value="Time entries for task ${ec.resource.expand('WorkEffortNameTemplate','',workEffort)}"/>
+                        <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
+                                    amount:amountTotal, quantity:1, description:description]"/>
+                        <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
 
+                        <iterate list="timeEntryList" entry="timeEntry">
+                            <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+                            <if condition="rateAmountId">
+                                <if condition="ratePurposeEnumId == 'RaprVendor'">
+                                    <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
+                                    <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
 
+                                    <else>
+                                        <set field="timeEntry.invoiceId" from="invoiceId"/>
+                                        <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                    </else>
+                                </if>
+                                <entity-update value-field="timeEntry"/>
+                            </if>
+                        </iterate>
+                    </if>
+                </then>
                 <else>
                     <iterate list="timeEntryList" entry="timeEntry">
-                        <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+                        <service-call name="mantle.work.TimeServices.get#TimeEntryAmount" out-map="getTeaOut"
+                                in-map="[timeEntryId:timeEntry.timeEntryId, timeEntry:timeEntry, ratePurposeEnumId:ratePurposeEnumId]"/>
 
-                        <if condition="rateAmountId">
-                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                <field-map field-name="rateAmountId"/>
-                            </entity-find-one>
+                        <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
+                                    amount:getTeaOut.amount, quantity:getTeaOut.quantity, description:timeEntry.comments,
+                                    itemDate:timeEntry.thruDate]"/>
+                        <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
 
-                            <else>
-                                <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
-                                        in-map="[timeEntryId:timeEntry.timeEntryId]"/>
-                                <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
-                                <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                    <field-map field-name="rateAmountId"/>
-                                </entity-find-one>
-                            </else>
-                        </if>
-
-                        <if condition="rateAmount">
-                            <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                    in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
-                                        amount:rateAmount.rateAmount, quantity:timeEntry.hours, description:timeEntry.comments,
-                                        itemDate:timeEntry.fromDate]"/>
-                            <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
-
-                            <if condition="ratePurposeEnumId == 'RaprVendor'">
+                        <if condition="ratePurposeEnumId == 'RaprVendor'">
+                            <then>
                                 <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
                                 <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-
-                                <else>
-                                    <set field="timeEntry.invoiceId" from="invoiceId"/>
-                                    <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                </else>
-                            </if>
-                            <entity-update value-field="timeEntry"/>
+                            </then>
+                            <else>
+                                <set field="timeEntry.invoiceId" from="invoiceId"/>
+                                <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                            </else>
                         </if>
+                        <entity-update value-field="timeEntry"/>
                     </iterate>
                 </else>
             </if>
