@@ -21,6 +21,12 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payAmount" type="BigDecimal"/>
             <parameter name="currencyUomId"/>
             <parameter name="salaryFlag"/>
+
+            <parameter name="employment" type="Map"/>
+            <parameter name="emplPosition" type="Map"/>
+            <parameter name="timePeriod" type="Map"/>
+            <parameter name="fromTimestamp" type="Timestamp"/>
+            <parameter name="thruTimestamp" type="Timestamp"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/>
@@ -117,7 +123,6 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
         </actions>
     </service>
-
     <service verb="get" noun="TimePeriodTotalPayAmount">
         <in-parameters><parameter name="timePeriodId" required="true"/></in-parameters>
         <out-parameters>
@@ -134,6 +139,121 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[timePeriodId:timePeriodId, partyRelationshipId:employment.partyRelationshipId]"/>
                 <script>StupidUtilities.addToBigDecimalInMap(payOut.currencyUomId, payOut.payAmount, payAmountByCurrencyUomId)</script>
             </iterate>
+        </actions>
+    </service>
+
+    <service verb="get" noun="EmploymentPayDetail">
+        <in-parameters>
+            <parameter name="partyRelationshipId" required="true"/>
+            <parameter name="timePeriodId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="payAmount" type="BigDecimal"/>
+            <parameter name="currencyUomId"/>
+            <parameter name="salaryFlag"/>
+
+            <parameter name="employment" type="Map"/>
+            <parameter name="emplPosition" type="Map"/>
+            <parameter name="timePeriod" type="Map"/>
+
+            <parameter name="adjustmentList" type="List"/>
+            <parameter name="netPayAmount" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <!-- get the pay amount -->
+            <service-call name="mantle.humanres.PayrollServices.get#EmploymentPayAmount" in-map="context" out-map="context"/>
+
+            <set field="adjustmentList" from="[]"/>
+
+            <entity-find entity-name="mantle.humanres.employment.PayrollAdjustment" list="allPayrollAdjustmentList">
+                <date-filter valid-date="thruTimestamp"/>
+                <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
+            </entity-find>
+
+            <!-- calculate global adjustments (deductions, etc) - deductibleFromTax = Y -->
+            <script>globalDedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
+                    .filterByAnd([partyRelationshipId:null, deductibleFromTax:'Y'])</script>
+            <iterate list="globalDedPayrollAdjustmentList" entry="payrollAdjustment">
+
+            </iterate>
+            <!-- calculate employee adjustments (deductions, etc) - deductibleFromTax = Y -->
+            <script>globalDedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
+                    .filterByAnd([partyRelationshipId:partyRelationshipId, deductibleFromTax:'Y'])</script>
+            <iterate list="emplDedPayrollAdjustmentList" entry="payrollAdjustment">
+
+            </iterate>
+
+            <!-- TODO: calculate taxDeductibleAmount -->
+
+            <!-- calculate global adjustments (deductions, etc) - deductibleFromTax != Y -->
+            <script>globalPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
+                    .filterByAnd([partyRelationshipId:null]).removeByAnd([deductibleFromTax:'Y'])</script>
+            <iterate list="globalPayrollAdjustmentList" entry="payrollAdjustment">
+
+            </iterate>
+            <!-- calculate employee adjustments (deductions, etc) - deductibleFromTax != Y -->
+            <script>globalPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
+                    .filterByAnd([partyRelationshipId:partyRelationshipId]).removeByAnd([deductibleFromTax:'Y'])</script>
+            <iterate list="emplPayrollAdjustmentList" entry="payrollAdjustment">
+
+            </iterate>
+
+            <!-- TODO: handle taxFederalAddtlWithhold and taxStateAddtlWithhold -->
+
+            <!-- calculate netPayAmount -->
+            <set field="netPayAmount" from="payAmount"/>
+            <iterate list="adjustmentList" entry="adjustment">
+                <set field="netPayAmount" from="netPayAmount - adjustment.amount"/></iterate>
+        </actions>
+    </service>
+    <service verb="calculate" noun="PayrollAdjustment">
+        <in-parameters>
+            <parameter name="payrollAdjustmentId" required="true"/>
+            <parameter name="payrollAdjustment" type="Map"/>
+            <parameter name="partyRelationshipId" required="true"/>
+            <parameter name="employment" type="Map"/>
+
+            <parameter name="payAmount" type="BigDecimal" required="true"/>
+            <parameter name="taxDeductibleAmount" type="BigDecimal" required="true"/>
+            <parameter name="ytdIncome" type="BigDecimal" default="0"/>
+
+            <parameter name="homePostalAddress" type="Map"/>
+            <parameter name="workPostalAddress" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="amount" type="BigDecimal"/>
+            <parameter name="payrollAdjustment" type="Map"/>
+        </out-parameters>
+        <actions>
+            <set field="amount" from="0"/>
+            <set field="taxPayAmount" from="payAmount - taxDeductibleAmount"/>
+
+            <if condition="!payrollAdjustment">
+                <entity-find-one entity-name="mantle.humanres.employment.PayrollAdjustment" value-field="payrollAdjustment"/></if>
+            <if condition="!employment">
+                <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/></if>
+
+            <!-- check state and federal filing status constraints, if any; if there are but none match skip it -->
+            <entity-find entity-name="mantle.humanres.employment.PayrollAdjustmentFedStts" list="fedSttsList">
+                <econdition field-name="payrollAdjustmentId" from="payrollAdjustment.payrollAdjustmentId"/></entity-find>
+            <if condition="fedSttsList &amp;&amp; employment.taxFederalStatusEnumId">
+                <filter-map-list list="fedSttsList"><field-map field-name="taxFederalStatusEnumId" from="employment.taxFederalStatusEnumId"/></filter-map-list>
+                <if condition="!fedSttsList"><return/></if>
+            </if>
+            <entity-find entity-name="mantle.humanres.employment.PayrollAdjustmentStateStts" list="stateSttsList">
+                <econdition field-name="payrollAdjustmentId" from="payrollAdjustment.payrollAdjustmentId"/></entity-find>
+            <if condition="stateSttsList &amp;&amp; employment.taxStateStatusEnumId">
+                <filter-map-list list="stateSttsList"><field-map field-name="taxStateStatusEnumId" from="employment.taxStateStatusEnumId"/></filter-map-list>
+                <if condition="!stateSttsList"><return/></if>
+            </if>
+
+            <!-- TODO: Find applicable PayrollStdDeduction, subtract from taxPayAmount -->
+
+
+            <!-- TODO: Find applicable PayrollAllowance, multiply by (taxFederalAllowances or taxStateAllowances) subtract from taxPayAmount -->
+
+
+            <!-- TODO: find applicable PayrollAdjustmentDetail record -->
         </actions>
     </service>
 </services>
