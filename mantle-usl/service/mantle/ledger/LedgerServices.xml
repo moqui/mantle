@@ -257,7 +257,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
             <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot update transaction [${acctgTransId}], already posted."/></if>
             <service-call name="update#mantle.ledger.transaction.AcctgTrans" in-map="context" out-map="context"/>
         </actions>
@@ -273,7 +273,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="acctgTransEntrySeqId"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
             <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot create entry for transaction [${acctgTransId}], already posted."/></if>
             <service-call name="create#mantle.ledger.transaction.AcctgTransEntry" in-map="context" out-map="context"/>
         </actions>
@@ -285,7 +285,7 @@ along with this software (see the LICENSE.md file). If not, see
             <auto-parameters entity-name="mantle.ledger.transaction.AcctgTransEntry" include="nonpk"/>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
             <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot update entry for transaction [${acctgTransId}], already posted."/></if>
             <service-call name="update#mantle.ledger.transaction.AcctgTransEntry" in-map="context"/>
         </actions>
@@ -296,7 +296,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="acctgTransEntrySeqId" required="true"/>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
             <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot delete entry for transaction [${acctgTransId}], already posted."/></if>
             <service-call name="delete#mantle.ledger.transaction.AcctgTransEntry" in-map="context"/>
         </actions>
@@ -339,7 +339,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="verifyOnly" type="Boolean" default-value="false"/>
         </in-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
 
             <!-- make sure the AcctgTrans has not already been posted -->
             <if condition="acctgTrans.isPosted == 'Y'">
@@ -372,7 +372,10 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!timePeriodList">
                 <message error="true">Not posting transaction [${acctgTransId}], could not find time period.</message>
             </if>
-            <iterate entry="timePeriod" list="timePeriodList">
+            <!-- lock each time period and make sure it's not closed -->
+            <iterate entry="timePeriodFromList" list="timePeriodList">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod" for-update="true">
+                    <field-map field-name="timePeriodId" from="timePeriodFromList.timePeriodId"/></entity-find-one>
                 <if condition="timePeriod.isClosed == 'Y'">
                     <message error="true">Not posting transaction [${acctgTransId}], time period closed ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}.</message>
                 </if>
@@ -470,9 +473,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <check-errors/>
 
-            <!-- do the actual posting: set isPosted to Y and postedDate to now on AcctgTrans -->
-            <service-call name="update#mantle.ledger.transaction.AcctgTrans"
-                    in-map="[acctgTransId:acctgTransId, isPosted:'Y', postedDate:ec.user.nowTimestamp]"/>
+            <!-- do the actual posting: set isPosted to Y and postedDate to now on AcctgTrans, use the EntityValue we already found -->
+            <set field="acctgTrans.isPosted" value="Y"/>
+            <set field="acctgTrans.postedDate" from="ec.user.nowTimestamp"/>
+            <entity-update value-field="acctgTrans"/>
         </actions>
     </service>
 
@@ -771,8 +775,14 @@ along with this software (see the LICENSE.md file). If not, see
     -->
     <service verb="post" noun="GlJournal">
         <description>Posts a GL Journal (GlJournal) by posting each transaction (AcctgTrans) in the journal.</description>
-        <in-parameters><parameter name="glJournalId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="glJournalId" required="true"/>
+            <parameter name="closeJournal" type="Boolean" default="false"/>
+        </in-parameters>
         <actions>
+            <!-- lock the Journal first -->
+            <entity-find-one entity-name="mantle.ledger.transaction.GlJournal" value-field="glJournal" for-update="true"/>
+
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
                 <econdition field-name="glJournalId"/><order-by field-name="acctgTransId"/>
             </entity-find>
@@ -786,6 +796,12 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </iterate>
             <message>Posted ${txPostCount} transactions</message>
+
+            <if condition="closeJournal">
+                <set field="glJournal.isPosted" value="Y"/>
+                <set field="glJournal.postedDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="glJournal"/>
+            </if>
         </actions>
     </service>
 </services>
