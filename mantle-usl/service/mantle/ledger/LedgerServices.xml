@@ -771,8 +771,14 @@ along with this software (see the LICENSE.md file). If not, see
     -->
     <service verb="post" noun="GlJournal">
         <description>Posts a GL Journal (GlJournal) by posting each transaction (AcctgTrans) in the journal.</description>
-        <in-parameters><parameter name="glJournalId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="glJournalId" required="true"/>
+            <parameter name="closeJournal" type="Boolean" default="false"/>
+        </in-parameters>
         <actions>
+            <!-- lock the Journal first -->
+            <entity-find-one entity-name="mantle.ledger.transaction.GlJournal" value-field="glJournal" for-update="true"/>
+
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
                 <econdition field-name="glJournalId"/><order-by field-name="acctgTransId"/>
             </entity-find>
@@ -786,6 +792,12 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </iterate>
             <message>Posted ${txPostCount} transactions</message>
+
+            <if condition="closeJournal">
+                <set field="glJournal.isPosted" value="Y"/>
+                <set field="glJournal.postedDate" from="ec.user.nowTimestamp"/>
+                <entity-update value-field="glJournal"/>
+            </if>
         </actions>
     </service>
 </services>
