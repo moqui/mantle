@@ -372,7 +372,10 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!timePeriodList">
                 <message error="true">Not posting transaction [${acctgTransId}], could not find time period.</message>
             </if>
-            <iterate entry="timePeriod" list="timePeriodList">
+            <!-- lock each time period and make sure it's not closed -->
+            <iterate entry="timePeriodFromList" list="timePeriodList">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod" for-update="true">
+                    <field-map field-name="timePeriodId" from="timePeriodFromList.timePeriodId"/></entity-find-one>
                 <if condition="timePeriod.isClosed == 'Y'">
                     <message error="true">Not posting transaction [${acctgTransId}], time period closed ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}.</message>
                 </if>
