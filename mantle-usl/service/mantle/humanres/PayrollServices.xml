@@ -156,7 +156,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="emplPosition" type="Map"/>
             <parameter name="timePeriod" type="Map"/>
 
-            <parameter name="adjustmentList" type="List"/>
+            <parameter name="adjustmentList" type="List">
+                <description>List of Maps with out parameters from calculate#PayrollAdjustment</description></parameter>
             <parameter name="netPayAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
@@ -217,17 +218,27 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="thruTimestamp" type="Timestamp"/>
             <parameter name="payAmount" type="BigDecimal" required="true"/>
             <parameter name="taxDeductibleAmount" type="BigDecimal" required="true"/>
-            <parameter name="ytdIncome" type="BigDecimal" default="0"/>
+            <parameter name="priorYtdIncome" type="BigDecimal" default="0"/>
 
             <parameter name="homePostalAddress" type="Map"/>
         </in-parameters>
         <out-parameters>
+            <parameter name="adjustmentApplies" type="Boolean"/>
             <parameter name="amount" type="BigDecimal"/>
             <parameter name="netPayAmount" type="BigDecimal"/>
+            <parameter name="stdDeductionAmount" type="BigDecimal"/>
+            <parameter name="allowanceDeductionAmount" type="BigDecimal"/>
+            <parameter name="allowanceExemptionAmount" type="BigDecimal"/>
             <parameter name="payrollAdjustment" type="Map"/>
         </out-parameters>
         <actions>
+            <set field="adjustmentApplies" from="false"/>
+
             <set field="amount" from="0"/>
+            <set field="stdDeductionAmount" from="0"/>
+            <set field="allowanceDeductionAmount" from="0"/>
+            <set field="allowanceExemptionAmount" from="0"/>
+
             <set field="netPayAmount" from="payAmount"/>
 
             <if condition="!payrollAdjustment">
@@ -237,13 +248,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- check state and federal filing status constraints, if any; if there are but none match skip it -->
             <entity-find entity-name="mantle.humanres.employment.PayrollAdjustmentFedStts" list="fedSttsList">
-                <econdition field-name="payrollAdjustmentId" from="payrollAdjustment.payrollAdjustmentId"/></entity-find>
+                <econdition field-name="payrollAdjustmentId"/></entity-find>
             <if condition="fedSttsList &amp;&amp; employment.taxFederalStatusEnumId">
                 <filter-map-list list="fedSttsList"><field-map field-name="taxFederalStatusEnumId" from="employment.taxFederalStatusEnumId"/></filter-map-list>
                 <if condition="!fedSttsList"><return/></if>
             </if>
             <entity-find entity-name="mantle.humanres.employment.PayrollAdjustmentStateStts" list="stateSttsList">
-                <econdition field-name="payrollAdjustmentId" from="payrollAdjustment.payrollAdjustmentId"/></entity-find>
+                <econdition field-name="payrollAdjustmentId"/></entity-find>
             <if condition="stateSttsList &amp;&amp; employment.taxStateStatusEnumId">
                 <filter-map-list list="stateSttsList"><field-map field-name="taxStateStatusEnumId" from="employment.taxStateStatusEnumId"/></filter-map-list>
                 <if condition="!stateSttsList"><return/></if>
@@ -251,13 +262,25 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="payrollAdjustment.isTax == 'Y'">
                 <set field="netPayAmount" from="netPayAmount - taxDeductibleAmount"/>
-
-                <!-- TODO: see if employee home is in jurisdiction, if not skip this adjustment (return) -->
-
                 <entity-find-one entity-name="mantle.other.tax.TaxAuthority" value-field="taxAuthority">
                     <field-map field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/></entity-find-one>
 
-                <!-- TODO: Find applicable PayrollStdDeduction, subtract from taxPayAmount -->
+                <!-- see if employee home is in jurisdiction, if not skip this adjustment (return); also set applicable taxAllowances -->
+                <if condition="taxAuthority.taxAuthorityTypeEnumId == 'TatFederal'">
+                    <then>
+                        <if condition="homePostalAddress.countryGeoId != taxAuthority.taxAuthGeoId"><return/></if>
+                        <set field="taxAllowances" from="employment.taxFederalAllowances"/>
+                    </then>
+                    <else-if condition="taxAuthority.taxAuthorityTypeEnumId == 'TatState'">
+                        <if condition="homePostalAddress.stateProvinceGeoId != taxAuthority.taxAuthGeoId"><return/></if>
+                        <set field="taxAllowances" from="employment.taxStateAllowances"/>
+                    </else-if>
+                    <else>
+                        <set field="taxAllowances" from="0"/>
+                    </else>
+                </if>
+
+                <!-- Find applicable PayrollStdDeduction, subtract from netPayAmount -->
                 <entity-find entity-name="mantle.humanres.employment.PayrollStdDeduction" list="stdDeductionList">
                     <date-filter valid-date="thruTimestamp"/>
                     <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
@@ -266,20 +289,74 @@ along with this software (see the LICENSE.md file). If not, see
                             ignore="taxAuthority.taxAuthorityTypeEnumId != 'TatFederal'"/>
                     <econdition field-name="taxStateStatusEnumId" from="employment.taxStateStatusEnumId"
                             ignore="taxAuthority.taxAuthorityTypeEnumId != 'TatState'"/>
-                    <!-- TODO -->
-                    <econdition field-name="minAllowances" operator="less-equals" from="" or-null="true"/>
-                    <econdition field-name="maxAllowances" or-null="true"/>
+                    <econdition field-name="minAllowances" operator="less-equals" from="taxAllowances" or-null="true"/>
+                    <econdition field-name="maxAllowances" operator="greater-equals" from="taxAllowances" or-null="true"/>
                 </entity-find>
+                <if condition="stdDeductionList">
+                    <set field="stdDeduction" from="stdDeductionList[0]"/>
+                    <set field="stdDeductionAmount" from="stdDeduction.amount"/>
+                    <set field="netPayAmount" from="netPayAmount - stdDeductionAmount"/>
+                </if>
 
-
-                <!-- TODO: Find applicable PayrollAllowance, multiply by (taxFederalAllowances or taxStateAllowances) subtract from taxPayAmount -->
-                <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceList">
-                    <date-filter valid-date="thruTimestamp"/>
-                </entity-find>
+                <!-- Find applicable PayrollAllowance Deductions, multiply by (taxFederalAllowances or taxStateAllowances)
+                    subtract from netPayAmount -->
+                <if condition="taxAllowances">
+                    <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceList">
+                        <date-filter valid-date="thruTimestamp"/>
+                        <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
+                        <econdition field-name="timePeriodTypeId"/>
+                        <econdition field-name="amountTypeEnumId" value="PaatDeduction"/>
+                    </entity-find>
+                    <if condition="allowanceList">
+                        <set field="allowance" from="allowanceList[0]"/>
+                        <set field="allowanceDeductionAmount" from="allowance.amount * taxAllowances"/>
+                        <set field="netPayAmount" from="netPayAmount - allowanceDeductionAmount"/>
+                        <if condition="netPayAmount &lt; 0"><set field="netPayAmount" from="0"/></if>
+                    </if>
+                </if>
             </if>
 
+            <!-- Find the applicable PayrollAdjustmentDetail record -->
+            <set field="ytdIncome" from="priorYtdIncome + netPayAmount"/>
+            <entity-find entity-name="mantle.humanres.employment.PayrollAdjustmentDetail" list="payrollAdjustmentDetailList">
+                <econdition field-name="payrollAdjustmentId"/>
+                <econdition field-name="ytdMin" operator="less-equals" from="ytdIncome" or-null="true"/>
+                <econdition field-name="ytdMax" operator="greater" from="ytdIncome" or-null="true"/>
+                <econdition field-name="periodMin" operator="less-equals" from="netPayAmount" or-null="true"/>
+                <econdition field-name="periodMax" operator="greater" from="netPayAmount" or-null="true"/>
+                <order-by field-name="-percentage,-flatAmount"/><!-- should always be one record, but just in case take the highest -->
+            </entity-find>
+            <!-- calculate adjustment amount -->
+            <if condition="payrollAdjustmentDetailList">
+                <set field="adjustmentDetail" from="payrollAdjustmentDetailList[0]"/>
 
-            <!-- TODO: find applicable PayrollAdjustmentDetail record -->
+                <set field="percentageBasis" from="netPayAmount"/>
+                <if condition="adjustmentDetail.percAfterYtdMin == 'Y'">
+                    <set field="percentageBasis" from="percentageBasis - adjustmentDetail.ytdMin"/></if>
+                <if condition="adjustmentDetail.percAfterPeriodMin == 'Y'">
+                    <set field="percentageBasis" from="percentageBasis - adjustmentDetail.periodMin"/></if>
+                <set field="amount" from="(adjustmentDetail.flatAmount ?: 0) + ((adjustmentDetail.percentage ?: 0) * percentageBasis)"/>
+                <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+
+                <set field="adjustmentApplies" from="true"/>
+            </if>
+
+            <!-- Find applicable PayrollAllowance Exemptions, multiply by (taxFederalAllowances or taxStateAllowances)
+                subtract from adjustment amount, make sure amount is at least zero -->
+            <if condition="payrollAdjustment.isTax == 'Y' &amp;&amp; taxAllowances">
+                <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceExmList">
+                    <date-filter valid-date="thruTimestamp"/>
+                    <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
+                    <econdition field-name="timePeriodTypeId"/>
+                    <econdition field-name="amountTypeEnumId" value="PaatExemption"/>
+                </entity-find>
+                <if condition="allowanceExmList">
+                    <set field="allowance" from="allowanceExmList[0]"/>
+                    <set field="allowanceExemptionAmount" from="allowance.amount * taxAllowances"/>
+                    <set field="amount" from="amount - allowanceExemptionAmount"/>
+                    <if condition="amount &lt; 0"><set field="amount" from="0"/></if>
+                </if>
+            </if>
         </actions>
     </service>
 </services>
