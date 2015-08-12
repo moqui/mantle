@@ -171,30 +171,30 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
             </entity-find>
 
-            <!-- calculate global adjustments (deductions, etc) - deductibleFromTax = Y -->
+            <!-- calculate global adjustments (deductions, etc) - isTaxable = Y -->
             <script>globalDedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:null, deductibleFromTax:'Y'])</script>
+                    .filterByAnd([partyRelationshipId:null, isTaxable:'Y'])</script>
             <iterate list="globalDedPayrollAdjustmentList" entry="payrollAdjustment">
 
             </iterate>
-            <!-- calculate employee adjustments (deductions, etc) - deductibleFromTax = Y -->
+            <!-- calculate employee adjustments (deductions, etc) - isTaxable = Y -->
             <script>globalDedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:partyRelationshipId, deductibleFromTax:'Y'])</script>
+                    .filterByAnd([partyRelationshipId:partyRelationshipId, isTaxable:'Y'])</script>
             <iterate list="emplDedPayrollAdjustmentList" entry="payrollAdjustment">
 
             </iterate>
 
             <!-- TODO: calculate taxDeductibleAmount -->
 
-            <!-- calculate global adjustments (deductions, etc) - deductibleFromTax != Y -->
+            <!-- calculate global adjustments (deductions, etc) - isTaxable != Y -->
             <script>globalPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:null]).removeByAnd([deductibleFromTax:'Y'])</script>
+                    .filterByAnd([partyRelationshipId:null]).removeByAnd([isTaxable:'Y'])</script>
             <iterate list="globalPayrollAdjustmentList" entry="payrollAdjustment">
 
             </iterate>
-            <!-- calculate employee adjustments (deductions, etc) - deductibleFromTax != Y -->
+            <!-- calculate employee adjustments (deductions, etc) - isTaxable != Y -->
             <script>globalPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:partyRelationshipId]).removeByAnd([deductibleFromTax:'Y'])</script>
+                    .filterByAnd([partyRelationshipId:partyRelationshipId]).removeByAnd([isTaxable:'Y'])</script>
             <iterate list="emplPayrollAdjustmentList" entry="payrollAdjustment">
 
             </iterate>
@@ -216,9 +216,14 @@ along with this software (see the LICENSE.md file). If not, see
 
             <parameter name="timePeriodTypeId" required="true"/>
             <parameter name="thruTimestamp" type="Timestamp"/>
+
             <parameter name="payAmount" type="BigDecimal" required="true"/>
-            <parameter name="taxDeductibleAmount" type="BigDecimal" required="true"/>
-            <parameter name="priorYtdIncome" type="BigDecimal" default="0"/>
+            <parameter name="taxablePayAmount" type="BigDecimal" required="true"/>
+            <parameter name="socialTaxablePayAmount" type="BigDecimal" required="true"/>
+            <parameter name="medicalTaxablePayAmount" type="BigDecimal" required="true"/>
+            <parameter name="taxableYtdIncome" type="BigDecimal" default="0"/>
+            <parameter name="socialTaxableYtdIncome" type="BigDecimal" default="0"/>
+            <parameter name="medicalTaxableYtdIncome" type="BigDecimal" default="0"/>
 
             <parameter name="homePostalAddress" type="Map"/>
         </in-parameters>
@@ -239,12 +244,17 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="allowanceDeductionAmount" from="0"/>
             <set field="allowanceExemptionAmount" from="0"/>
 
-            <set field="netPayAmount" from="payAmount"/>
-
             <if condition="!payrollAdjustment">
                 <entity-find-one entity-name="mantle.humanres.employment.PayrollAdjustment" value-field="payrollAdjustment"/></if>
             <if condition="!employment">
                 <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/></if>
+
+            <if condition="payrollAdjustment.isTax == 'Y'">
+                <then><set field="netPayAmount" from="taxablePayAmount"/></then>
+                <else-if condition="payrollAdjustment.isSocialTax == 'Y'"><set field="netPayAmount" from="socialTaxablePayAmount"/></else-if>
+                <else-if condition="payrollAdjustment.isMedicalTax == 'Y'"><set field="netPayAmount" from="medicalTaxablePayAmount"/></else-if>
+                <else><set field="netPayAmount" from="payAmount"/></else>
+            </if>
 
             <!-- check state and federal filing status constraints, if any; if there are but none match skip it -->
             <entity-find entity-name="mantle.humanres.employment.PayrollAdjustmentFedStts" list="fedSttsList">
@@ -260,8 +270,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="!stateSttsList"><return/></if>
             </if>
 
-            <if condition="payrollAdjustment.isTax == 'Y'">
-                <set field="netPayAmount" from="netPayAmount - taxDeductibleAmount"/>
+            <if condition="payrollAdjustment.isTax == 'Y' || payrollAdjustment.isSocialTax == 'Y' || payrollAdjustment.isMedicalTax == 'Y'">
                 <entity-find-one entity-name="mantle.other.tax.TaxAuthority" value-field="taxAuthority">
                     <field-map field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/></entity-find-one>
 
@@ -281,26 +290,28 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
 
                 <!-- Find applicable PayrollStdDeduction, subtract from netPayAmount -->
-                <entity-find entity-name="mantle.humanres.employment.PayrollStdDeduction" list="stdDeductionList">
-                    <date-filter valid-date="thruTimestamp"/>
-                    <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
-                    <econdition field-name="timePeriodTypeId"/>
-                    <econdition field-name="taxFederalStatusEnumId" from="employment.taxFederalStatusEnumId"
-                            ignore="taxAuthority.taxAuthorityTypeEnumId != 'TatFederal'"/>
-                    <econdition field-name="taxStateStatusEnumId" from="employment.taxStateStatusEnumId"
-                            ignore="taxAuthority.taxAuthorityTypeEnumId != 'TatState'"/>
-                    <econdition field-name="minAllowances" operator="less-equals" from="taxAllowances" or-null="true"/>
-                    <econdition field-name="maxAllowances" operator="greater-equals" from="taxAllowances" or-null="true"/>
-                </entity-find>
-                <if condition="stdDeductionList">
-                    <set field="stdDeduction" from="stdDeductionList[0]"/>
-                    <set field="stdDeductionAmount" from="stdDeduction.amount"/>
-                    <set field="netPayAmount" from="netPayAmount - stdDeductionAmount"/>
+                <if condition="payrollAdjustment.applyStdDeduction == 'Y'">
+                    <entity-find entity-name="mantle.humanres.employment.PayrollStdDeduction" list="stdDeductionList">
+                        <date-filter valid-date="thruTimestamp"/>
+                        <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
+                        <econdition field-name="timePeriodTypeId"/>
+                        <econdition field-name="taxFederalStatusEnumId" from="employment.taxFederalStatusEnumId"
+                                ignore="taxAuthority.taxAuthorityTypeEnumId != 'TatFederal'"/>
+                        <econdition field-name="taxStateStatusEnumId" from="employment.taxStateStatusEnumId"
+                                ignore="taxAuthority.taxAuthorityTypeEnumId != 'TatState'"/>
+                        <econdition field-name="minAllowances" operator="less-equals" from="taxAllowances" or-null="true"/>
+                        <econdition field-name="maxAllowances" operator="greater-equals" from="taxAllowances" or-null="true"/>
+                    </entity-find>
+                    <if condition="stdDeductionList">
+                        <set field="stdDeduction" from="stdDeductionList[0]"/>
+                        <set field="stdDeductionAmount" from="stdDeduction.amount"/>
+                        <set field="netPayAmount" from="netPayAmount - stdDeductionAmount"/>
+                    </if>
                 </if>
 
                 <!-- Find applicable PayrollAllowance Deductions, multiply by (taxFederalAllowances or taxStateAllowances)
                     subtract from netPayAmount -->
-                <if condition="taxAllowances">
+                <if condition="payrollAdjustment.applyAllowanceDeduction == 'Y' &amp;&amp; taxAllowances">
                     <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceList">
                         <date-filter valid-date="thruTimestamp"/>
                         <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
@@ -317,7 +328,6 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <!-- Find the applicable PayrollAdjustmentDetail record -->
-            <set field="ytdIncome" from="priorYtdIncome + netPayAmount"/>
             <entity-find entity-name="mantle.humanres.employment.PayrollAdjustmentDetail" list="payrollAdjustmentDetailList">
                 <econdition field-name="payrollAdjustmentId"/>
                 <econdition field-name="ytdMin" operator="less-equals" from="ytdIncome" or-null="true"/>
@@ -343,7 +353,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- Find applicable PayrollAllowance Exemptions, multiply by (taxFederalAllowances or taxStateAllowances)
                 subtract from adjustment amount, make sure amount is at least zero -->
-            <if condition="payrollAdjustment.isTax == 'Y' &amp;&amp; taxAllowances">
+            <if condition="payrollAdjustment.applyAllowanceExemption == 'Y' &amp;&amp; taxAllowances">
                 <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceExmList">
                     <date-filter valid-date="thruTimestamp"/>
                     <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
