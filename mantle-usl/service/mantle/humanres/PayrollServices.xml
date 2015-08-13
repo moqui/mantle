@@ -12,7 +12,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
-    <service verb="process" noun="TimePeriodPay">
+    <service verb="process" noun="TimePeriodPay" transaction-timeout="600">
         <in-parameters>
             <parameter name="timePeriodId" required="true"/>
             <parameter name="payDate" type="Date"><description>Defaults to TimePeriod.thruDate</description></parameter>
@@ -20,17 +20,39 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="invoiceIdByPartyRelationshipId" type="Map"/>
             <parameter name="payDate" type="Date"/>
+            <parameter name="totalPayAmount" type="BigDecimal"/>
+            <parameter name="totalNetPayAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
+            <!-- lock the TimePeriod, will close later -->
+            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod" for-update="true"/>
+
+            <if condition="timePeriod.isClosed == 'Y'">
+                <message error="true">Not processing pay for period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, already closed.</message></if>
+            <if condition="ec.user.nowTimestamp.before(timePeriod.thruDate)">
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, period has not ended (ends on ${timePeriod.thruDate}).</message></if>
+
+            <!-- get all relevant employments -->
             <service-call name="mantle.humanres.PayrollServices.get#TimePeriodEmployments" in-map="context" out-map="context"/>
             <if condition="!payDate"><set field="payDate" from="timePeriod.thruDate"/></if>
 
+            <!-- process pay for each employment -->
             <set field="invoiceIdByPartyRelationshipId" from="[:]"/>
+            <set field="totalPayAmount" from="0"/>
+            <set field="totalNetPayAmount" from="0"/>
             <iterate list="employmentList" entry="employment">
                 <service-call name="mantle.humanres.PayrollServices.process#EmploymentPay" out-map="payOut"
                         in-map="[partyRelationshipId:employment.partyRelationshipId, timePeriodId:timePeriodId]"/>
                 <script>invoiceIdByPartyRelationshipId.put(employment.partyRelationshipId, payOut.invoiceId)</script>
+                <set field="totalPayAmount" from="totalPayAmount + payOut.payAmount"/>
+                <set field="totalNetPayAmount" from="totalNetPayAmount + payOut.netPayAmount"/>
             </iterate>
+
+            <!-- close the TimePeriod -->
+            <set field="timePeriod.isClosed" value="Y"/>
+            <entity-update value-field="timePeriod"/>
+
+            <message>Processed pay for period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}: ${employmentList.size} employees, gross pay total: ${totalPayAmount}, net pay total: ${totalNetPayAmount}</message>
         </actions>
     </service>
 
@@ -43,6 +65,8 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="invoiceId"/>
             <parameter name="payDate" type="Date"/>
+            <parameter name="payAmount" type="BigDecimal"/>
+            <parameter name="netPayAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <!-- make sure there is no EmploymentPayHistory record for partyRelationshipId and timePeriodId -->
