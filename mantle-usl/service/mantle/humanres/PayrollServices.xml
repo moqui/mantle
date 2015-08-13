@@ -50,7 +50,10 @@ along with this software (see the LICENSE.md file). If not, see
                             payrollAdjustmentId:adjustment.payrollAdjustmentId]"/>
             </iterate>
 
-            <!-- TODO as a validation calc total for Invoice and compare with netPayAmount -->
+            <!-- as a validation calc total for Invoice and compare with netPayAmount -->
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="totalOut"/>
+            <if condition="netPayAmount != totalOut.invoiceTotal">
+                <return error="true" message="Invoice total [${totalOut.invoiceTotal}] did not match net pay [${netPayAmount}]"/></if>
 
             <!-- create EmploymentPayHistory record -->
             <service-call name="create#mantle.humanres.employment.EmploymentPayHistory"
@@ -59,7 +62,11 @@ along with this software (see the LICENSE.md file). If not, see
                         payAmount:payAmount, taxablePayAmount:taxablePayAmount, socialTaxablePayAmount:socialTaxablePayAmount,
                         medicalTaxablePayAmount:medicalTaxablePayAmount, netPayAmount:netPayAmount]"/>
 
-            <!-- TODO set TimeEntry.vendorInvoiceId on all in timeEntryList -->
+            <!-- set TimeEntry.vendorInvoiceId on all in timeEntryList -->
+            <iterate list="timeEntryList" entry="timeEntry">
+                <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
+                <entity-update value-field="timeEntry"/><!-- do direct update, was selected with for-update -->
+            </iterate>
         </actions>
     </service>
 
@@ -138,7 +145,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </then>
                 <else>
-                    <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList">
+                    <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList" for-update="true">
                         <econdition field-name="partyId" from="employment.fromPartyId"/>
                         <econdition field-name="clientPartyId" from="employment.toPartyId"/>
                         <econdition field-name="thruDate" operator="greater-equals" from="fromTimestamp"/>
