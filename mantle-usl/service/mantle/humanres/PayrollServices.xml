@@ -22,6 +22,9 @@ along with this software (see the LICENSE.md file). If not, see
 
         </out-parameters>
         <actions>
+            <!-- get the pay detail data -->
+            <service-call name="mantle.humanres.PayrollServices.get#EmploymentPayDetail" in-map="context" out-map="context"/>
+
             <!-- TODO create Invoice -->
 
             <!-- TODO create EmploymentPayHistory record -->
@@ -189,7 +192,23 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="socialTaxablePayAmount" from="payAmount"/>
             <set field="medicalTaxablePayAmount" from="payAmount"/>
 
-            <!-- TODO calc taxableYtdIncome, socialTaxableYtdIncome, medicalTaxableYtdIncome -->
+            <!-- calc taxableYtdIncome, socialTaxableYtdIncome, medicalTaxableYtdIncome -->
+            <set field="taxableYtdIncome" from="0"/>
+            <set field="socialTaxableYtdIncome" from="0"/>
+            <set field="medicalTaxableYtdIncome" from="0"/>
+            <set field="thisYearList" from="ec.user.getPeriodRange('year', '0')"/>
+            <set field="yearStart" from="new java.sql.Date(thisYearList[0].time)"/>
+            <set field="yearEnd" from="new java.sql.Date(thisYearList[1].time)"/>
+            <entity-find entity-name="mantle.humanres.employment.EmploymentPayHistory" list="payHistoryList">
+                <econdition field-name="partyRelationshipId"/>
+                <econdition field-name="payDate" operator="greater-equals" from="yearStart"/>
+                <econdition field-name="payDate" operator="less" from="yearEnd"/>
+            </entity-find>
+            <iterate list="payHistoryList" entry="payHistory">
+                <set field="taxableYtdIncome" from="taxableYtdIncome + payHistory.taxablePayAmount"/>
+                <set field="socialTaxableYtdIncome" from="socialTaxableYtdIncome + payHistory.socialTaxablePayAmount"/>
+                <set field="medicalTaxableYtdIncome" from="medicalTaxableYtdIncome + payHistory.medicalTaxablePayAmount"/>
+            </iterate>
 
             <!-- get homePostalAddress -->
             <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="homePostalAddress">
@@ -219,9 +238,20 @@ along with this software (see the LICENSE.md file). If not, see
                         medicalTaxableYtdIncome:medicalTaxableYtdIncome,
                         homePostalAddress:homePostalAddress]"/>
                 <script>adjustmentList.add(calcOut)</script>
-                <!-- TODO: update taxablePayAmount, socialTaxablePayAmount, medicalTaxablePayAmount -->
-                <!-- TODO: update taxableYtdIncome, socialTaxableYtdIncome, medicalTaxableYtdIncome -->
+
+                <!-- update taxablePayAmount, socialTaxablePayAmount, medicalTaxablePayAmount -->
+                <if condition="payrollAdjustment.isTaxable == 'Y'">
+                    <set field="taxablePayAmount" from="taxablePayAmount + calcOut.amount"/></if>
+                <if condition="payrollAdjustment.isSocialTaxable == 'Y'">
+                    <set field="socialTaxablePayAmount" from="socialTaxablePayAmount + calcOut.amount"/></if>
+                <if condition="payrollAdjustment.isMedicalTaxable == 'Y'">
+                    <set field="medicalTaxablePayAmount" from="medicalTaxablePayAmount + calcOut.amount"/></if>
             </iterate>
+
+            <!-- update taxableYtdIncome, socialTaxableYtdIncome, medicalTaxableYtdIncome -->
+            <set field="taxableYtdIncome" from="taxableYtdIncome + taxablePayAmount"/>
+            <set field="socialTaxableYtdIncome" from="socialTaxableYtdIncome + socialTaxablePayAmount"/>
+            <set field="medicalTaxableYtdIncome" from="medicalTaxableYtdIncome + medicalTaxablePayAmount"/>
 
             <!-- calculate global and employee adjustments (deductions, etc) - not taxable -->
             <set field="partyRelCondition" from="ec.entity.conditionFactory.makeCondition(
