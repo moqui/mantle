@@ -16,18 +16,50 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="partyRelationshipId" required="true"/>
             <parameter name="timePeriodId" required="true"/>
+            <parameter name="payDate" type="Date"><description>Defaults to TimePeriod.thruDate</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
-
         </out-parameters>
         <actions>
-            <!-- get the pay detail data -->
+            <!-- make sure there is no EmploymentPayHistory record for partyRelationshipId and timePeriodId -->
+            <entity-find entity-name="mantle.humanres.employment.EmploymentPayHistory" list="existingPayHistoryList">
+                <econdition field-name="partyRelationshipId"/><econdition field-name="timePeriodId"/></entity-find>
+            <if condition="existingPayHistoryList"><return message="Employment pay already processed for employment [${partyRelationshipId}], time period [${timePeriodId}]"/></if>
+
+            <!-- get the pay detail data; note that this sets default payDate if not passed in -->
             <service-call name="mantle.humanres.PayrollServices.get#EmploymentPayDetail" in-map="context" out-map="context"/>
 
-            <!-- TODO create Invoice -->
+            <!-- create Invoice -->
+            <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
+                    in-map="[invoiceTypeEnumId:'InvoicePayroll', fromPartyId:employment.fromPartyId, toPartyId:employment.toPartyId,
+                        statusId:'InvoiceReceived', invoiceDate:payDate, currencyUomId:currencyUomId,
+                        partyRelationshipId:partyRelationshipId, timePeriodId:timePeriodId]"/>
 
-            <!-- TODO create EmploymentPayHistory record -->
+            <!-- create InvoiceItem for payAmount -->
+            <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="payIiOut"
+                    in-map="[invoiceId:invoiceId, itemTypeEnumId:(emplPosition.salaryFlag == 'Y' ? 'ItemSalary' : 'ItemHourlyEarnings'),
+                        amount:payAmount, quantity:1, description:emplPosition.description]"/>
+
+            <!-- create InvoiceItem records for each adjustmentList element -->
+            <iterate list="adjustmentList" entry="adjustment">
+                <service-call name="create#mantle.account.invoice.InvoiceItem"
+                        in-map="[invoiceId:invoiceId, itemTypeEnumId:adjustment.payrollAdjustment.itemTypeEnumId,
+                            amount:adjustment.amount, quantity:1, description:adjustment.payrollAdjustment.description,
+                            taxAuthorityId:adjustment.payrollAdjustment.taxAuthorityId,
+                            payrollAdjustmentId:adjustment.payrollAdjustmentId]"/>
+            </iterate>
+
+            <!-- TODO as a validation calc total for Invoice and compare with netPayAmount -->
+
+            <!-- create EmploymentPayHistory record -->
+            <service-call name="create#mantle.humanres.employment.EmploymentPayHistory"
+                    in-map="[partyRelationshipId:partyRelationshipId, payDate:payDate, timePeriodId:timePeriodId,
+                        invoiceId:invoiceId, internalPayroll:'Y',
+                        payAmount:payAmount, taxablePayAmount:taxablePayAmount, socialTaxablePayAmount:socialTaxablePayAmount,
+                        medicalTaxablePayAmount:medicalTaxablePayAmount, netPayAmount:netPayAmount]"/>
+
+            <!-- TODO set TimeEntry.vendorInvoiceId on all in timeEntryList -->
         </actions>
     </service>
 
@@ -40,6 +72,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payAmount" type="BigDecimal"/>
             <parameter name="currencyUomId"/>
             <parameter name="salaryFlag"/>
+            <parameter name="timeEntryList" type="List"/>
 
             <parameter name="employment" type="Map"/>
             <parameter name="emplPosition" type="Map"/>
@@ -165,15 +198,18 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="partyRelationshipId" required="true"/>
             <parameter name="timePeriodId" required="true"/>
+            <parameter name="payDate" type="Date"><description>Defaults to TimePeriod.thruDate</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="payAmount" type="BigDecimal"/>
             <parameter name="currencyUomId"/>
             <parameter name="salaryFlag"/>
+            <parameter name="timeEntryList" type="List"/>
 
             <parameter name="employment" type="Map"/>
             <parameter name="emplPosition" type="Map"/>
             <parameter name="timePeriod" type="Map"/>
+            <parameter name="payDate" type="Date"/>
 
             <parameter name="adjustmentList" type="List">
                 <description>List of Maps with out parameters from calculate#PayrollAdjustment</description></parameter>
@@ -186,6 +222,9 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <!-- get the pay amount and employment, emplPosition, timePeriod, fromTimestamp, thruTimestamp -->
             <service-call name="mantle.humanres.PayrollServices.get#EmploymentPayAmount" in-map="context" out-map="context"/>
+
+            <if condition="!payDate"><set field="payDate" from="timePeriod.thruDate"/></if>
+            <set field="payTimestamp" from="ec.l10n.parseTimestamp(&quot;${payDate} 12:00:00.000&quot;, '')"/>
 
             <!-- set initial taxablePayAmount, socialTaxablePayAmount, medicalTaxablePayAmount -->
             <set field="taxablePayAmount" from="payAmount"/>
@@ -218,7 +257,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="adjustmentList" from="[]"/>
 
             <entity-find entity-name="mantle.humanres.employment.PayrollAdjustment" list="allPayrollAdjustmentList">
-                <date-filter valid-date="thruTimestamp"/>
+                <date-filter valid-date="payTimestamp"/>
                 <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
             </entity-find>
 
@@ -231,12 +270,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
                     in-map="[payrollAdjustmentId:payrollAdjustment.payrollAdjustmentId, payrollAdjustment:payrollAdjustment,
                         partyRelationshipId:partyRelationshipId, employment:employment,
-                        timePeriodTypeId:timePeriod.timePeriodTypeId, thruTimestamp:thruTimestamp,
+                        timePeriodTypeId:timePeriod.timePeriodTypeId, payTimestamp:payTimestamp,
                         payAmount:payAmount, taxablePayAmount:taxablePayAmount,
                         socialTaxablePayAmount:socialTaxablePayAmount, medicalTaxablePayAmount:medicalTaxablePayAmount,
                         taxableYtdIncome:taxableYtdIncome, socialTaxableYtdIncome:socialTaxableYtdIncome,
                         medicalTaxableYtdIncome:medicalTaxableYtdIncome,
                         homePostalAddress:homePostalAddress]"/>
+                <if condition="!calcOut.adjustmentApplies"><continue/></if>
                 <script>adjustmentList.add(calcOut)</script>
 
                 <!-- update taxablePayAmount, socialTaxablePayAmount, medicalTaxablePayAmount -->
@@ -262,12 +302,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
                     in-map="[payrollAdjustmentId:payrollAdjustment.payrollAdjustmentId, payrollAdjustment:payrollAdjustment,
                         partyRelationshipId:partyRelationshipId, employment:employment,
-                        timePeriodTypeId:timePeriod.timePeriodTypeId, thruTimestamp:thruTimestamp,
+                        timePeriodTypeId:timePeriod.timePeriodTypeId, payTimestamp:payTimestamp,
                         payAmount:payAmount, taxablePayAmount:taxablePayAmount,
                         socialTaxablePayAmount:socialTaxablePayAmount, medicalTaxablePayAmount:medicalTaxablePayAmount,
                         taxableYtdIncome:taxableYtdIncome, socialTaxableYtdIncome:socialTaxableYtdIncome,
                         medicalTaxableYtdIncome:medicalTaxableYtdIncome,
                         homePostalAddress:homePostalAddress]"/>
+                <if condition="!calcOut.adjustmentApplies"><continue/></if>
                 <script>adjustmentList.add(calcOut)</script>
             </iterate>
 
@@ -285,7 +326,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="employment" type="Map"/>
 
             <parameter name="timePeriodTypeId" required="true"/>
-            <parameter name="thruTimestamp" type="Timestamp"/>
+            <parameter name="payTimestamp" type="Timestamp"/>
 
             <parameter name="payAmount" type="BigDecimal" required="true"/>
             <parameter name="taxablePayAmount" type="BigDecimal" required="true"/>
@@ -299,12 +340,15 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="adjustmentApplies" type="Boolean"/>
+
+            <parameter name="payrollAdjustmentId" required="true"/>
+            <parameter name="payrollAdjustment" type="Map"/>
+
             <parameter name="amount" type="BigDecimal"/>
             <parameter name="basisPayAmount" type="BigDecimal"/>
             <parameter name="stdDeductionAmount" type="BigDecimal"/>
             <parameter name="allowanceDeductionAmount" type="BigDecimal"/>
             <parameter name="allowanceExemptionAmount" type="BigDecimal"/>
-            <parameter name="payrollAdjustment" type="Map"/>
         </out-parameters>
         <actions>
             <set field="adjustmentApplies" from="false"/>
@@ -362,7 +406,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- Find applicable PayrollStdDeduction, subtract from basisPayAmount -->
                 <if condition="payrollAdjustment.applyStdDeduction == 'Y'">
                     <entity-find entity-name="mantle.humanres.employment.PayrollStdDeduction" list="stdDeductionList">
-                        <date-filter valid-date="thruTimestamp"/>
+                        <date-filter valid-date="payTimestamp"/>
                         <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
                         <econdition field-name="timePeriodTypeId"/>
                         <econdition field-name="taxFederalStatusEnumId" from="employment.taxFederalStatusEnumId"
@@ -383,7 +427,7 @@ along with this software (see the LICENSE.md file). If not, see
                     subtract from basisPayAmount -->
                 <if condition="payrollAdjustment.applyAllowanceDeduction == 'Y' &amp;&amp; taxAllowances">
                     <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceList">
-                        <date-filter valid-date="thruTimestamp"/>
+                        <date-filter valid-date="payTimestamp"/>
                         <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
                         <econdition field-name="timePeriodTypeId"/>
                         <econdition field-name="amountTypeEnumId" value="PaatDeduction"/>
@@ -425,7 +469,7 @@ along with this software (see the LICENSE.md file). If not, see
                 subtract from adjustment amount, make sure amount is at least zero -->
             <if condition="payrollAdjustment.applyAllowanceExemption == 'Y' &amp;&amp; taxAllowances">
                 <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceExmList">
-                    <date-filter valid-date="thruTimestamp"/>
+                    <date-filter valid-date="payTimestamp"/>
                     <econdition field-name="taxAuthorityId" from="payrollAdjustment.taxAuthorityId"/>
                     <econdition field-name="timePeriodTypeId"/>
                     <econdition field-name="amountTypeEnumId" value="PaatExemption"/>
