@@ -312,15 +312,18 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find entity-name="mantle.humanres.employment.PayrollAdjustment" list="allPayrollAdjustmentList">
                 <date-filter valid-date="payTimestamp"/>
-                <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
+                <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId" or-null="true"/>
             </entity-find>
 
             <!-- calculate global and employee adjustments (deductions, etc) - taxable -->
+            <set field="partyRelCondition" from="ec.entity.conditionFactory.makeCondition(
+                [[partyRelationshipId:null], [partyRelationshipId:partyRelationshipId]], 'or', '=', null)"/>
             <set field="taxableCondition" from="ec.entity.conditionFactory.makeCondition(
-                [[partyRelationshipId:null, partyRelationshipId:partyRelationshipId],
-                [isTaxable:'Y', isSocialTaxable:'Y', isMedicalTaxable:'Y']], 'and', '=', 'or')"/>
+                [partyRelCondition, [isTaxable:'Y', isSocialTaxable:'Y', isMedicalTaxable:'Y']], 'and', '=', 'or')"/>
             <script>dedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(taxableCondition, true)</script>
+
             <iterate list="dedPayrollAdjustmentList" entry="payrollAdjustment">
+                <set field="calcOut" from="null"/>
                 <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
                     in-map="[payrollAdjustmentId:payrollAdjustment.payrollAdjustmentId, payrollAdjustment:payrollAdjustment,
                         partyRelationshipId:partyRelationshipId, employment:employment,
@@ -348,11 +351,11 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="medicalTaxableYtdIncome" from="medicalTaxableYtdIncome + medicalTaxablePayAmount"/>
 
             <!-- calculate global and employee adjustments (deductions, etc) - not taxable -->
-            <set field="partyRelCondition" from="ec.entity.conditionFactory.makeCondition(
-                [[partyRelationshipId:null, partyRelationshipId:partyRelationshipId]], 'and', '=', 'or')"/>
             <script>otherPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(partyRelCondition, true)
                     .removeByAnd([isTaxable:'Y']).removeByAnd([isSocialTaxable:'Y']).removeByAnd([isMedicalTaxable:'Y'])</script>
+
             <iterate list="otherPayrollAdjustmentList" entry="payrollAdjustment">
+                <set field="calcOut" from="null"/>
                 <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
                     in-map="[payrollAdjustmentId:payrollAdjustment.payrollAdjustmentId, payrollAdjustment:payrollAdjustment,
                         partyRelationshipId:partyRelationshipId, employment:employment,
@@ -370,6 +373,8 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="netPayAmount" from="payAmount"/>
             <iterate list="adjustmentList" entry="adjustment">
                 <set field="netPayAmount" from="netPayAmount + adjustment.amount"/></iterate>
+
+            <!-- <log message="===== payAmount=${payAmount}, netPayAmount=${netPayAmount}, adjustmentList:\n${adjustmentList}"/> -->
         </actions>
     </service>
     <service verb="calculate" noun="PayrollAdjustment">
@@ -418,10 +423,22 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/></if>
 
             <if condition="payrollAdjustment.isTax == 'Y'">
-                <then><set field="basisPayAmount" from="taxablePayAmount"/></then>
-                <else-if condition="payrollAdjustment.isSocialTax == 'Y'"><set field="basisPayAmount" from="socialTaxablePayAmount"/></else-if>
-                <else-if condition="payrollAdjustment.isMedicalTax == 'Y'"><set field="basisPayAmount" from="medicalTaxablePayAmount"/></else-if>
-                <else><set field="basisPayAmount" from="payAmount"/></else>
+                <then>
+                    <set field="basisPayAmount" from="taxablePayAmount"/>
+                    <set field="ytdIncome" from="taxableYtdIncome"/>
+                </then>
+                <else-if condition="payrollAdjustment.isSocialTax == 'Y'">
+                    <set field="basisPayAmount" from="socialTaxablePayAmount"/>
+                    <set field="ytdIncome" from="socialTaxableYtdIncome"/>
+                </else-if>
+                <else-if condition="payrollAdjustment.isMedicalTax == 'Y'">
+                    <set field="basisPayAmount" from="medicalTaxablePayAmount"/>
+                    <set field="ytdIncome" from="medicalTaxableYtdIncome"/>
+                </else-if>
+                <else>
+                    <set field="basisPayAmount" from="payAmount"/>
+                    <set field="ytdIncome" from="payAmount"/>
+                </else>
             </if>
 
             <!-- check state and federal filing status constraints, if any; if there are but none match skip it -->
@@ -504,6 +521,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="periodMax" operator="greater" from="basisPayAmount" or-null="true"/>
                 <order-by field-name="-percentage,-flatAmount"/><!-- should always be one record, but just in case take the highest -->
             </entity-find>
+
+            <!-- <log message="====== ytdIncome=${ytdIncome}, basisPayAmount=${basisPayAmount}, payrollAdjustmentDetailList:\n${payrollAdjustmentDetailList}"/> -->
+
             <!-- calculate adjustment amount -->
             <if condition="payrollAdjustmentDetailList">
                 <set field="adjustmentDetail" from="payrollAdjustmentDetailList[0]"/>
@@ -513,8 +533,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="percentageBasis" from="percentageBasis - adjustmentDetail.ytdMin"/></if>
                 <if condition="adjustmentDetail.percAfterPeriodMin == 'Y'">
                     <set field="percentageBasis" from="percentageBasis - adjustmentDetail.periodMin"/></if>
-                <set field="amount" from="(adjustmentDetail.flatAmount ?: 0) + ((adjustmentDetail.percentage ?: 0) * percentageBasis)"/>
+                <set field="amount" from="(adjustmentDetail.flatAmount ?: 0) + (((adjustmentDetail.percentage ?: 0) / 100) * percentageBasis)" type="BigDecimal"/>
                 <set field="amount" from="amount.setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+                <!-- <log message="=== pre-exemption amount=${amount}"/> -->
 
                 <set field="adjustmentApplies" from="true"/>
             </if>
@@ -531,8 +552,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="allowanceExmList">
                     <set field="allowance" from="allowanceExmList[0]"/>
                     <set field="allowanceExemptionAmount" from="allowance.amount * taxAllowances"/>
-                    <set field="amount" from="amount - allowanceExemptionAmount"/>
-                    <if condition="amount &lt; 0"><set field="amount" from="0"/></if>
+                    <!-- for all taxes amount will be negative (so we have a negative adjustment) but exemption amount
+                        will be positive so ADD instead of subtract -->
+                    <set field="amount" from="amount + allowanceExemptionAmount"/>
+                    <if condition="amount &gt; 0"><set field="amount" from="0"/></if>
                 </if>
             </if>
         </actions>
