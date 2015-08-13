@@ -329,25 +329,35 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== PartyBadge Services ========== -->
     <!-- ========================================= -->
 
-    <service verb="scan" noun="PartyBadge">
-        <in-parameters>
-            <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk"/>
-            <parameter name="scanValue" required="true"/>
-            <parameter name="scanDate" default="ec.user.nowTimestamp"/>
-            <parameter name="scanTime" type="Timestamp" default="ec.user.nowTimestamp"/>
-
-            <!-- parameters for clock in -->
-            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
-            <parameter name="emplPositionClassId"/>
-            <parameter name="workEffortId"/>
-            <!-- parameters for clock out -->
-            <parameter name="breakHours" type="BigDecimal"/>
-            <parameter name="pieceCount" type="BigDecimal"/>
-        </in-parameters>
+    <service verb="get" noun="PartyBadgeInfo">
+        <in-parameters><parameter name="partyBadgeId"/></in-parameters>
         <out-parameters>
-            <parameter name="partyBadgeId"/>
-            <parameter name="partyId"/>
-            <parameter name="organizationPartyId"/>
+            <parameter name="partyBadge" type="Map"/>
+            <parameter name="person" type="Map"/>
+            <parameter name="faceImageLocation"/>
+            <parameter name="logoImageLocation"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge"/>
+            <if condition="partyBadge.partyId">
+                <entity-find-one entity-name="mantle.party.Person" value-field="person">
+                    <field-map field-name="partyId" from="partyBadge.partyId"/></entity-find-one>
+
+                <service-call name="mantle.party.PartyServices.get#PartyContentLocation" out-map="faceOut"
+                    in-map="[partyId:partyBadge.partyId, partyContentTypeEnumIdList:['PcntFaceImage', 'PcntPrimaryImage']]"/>
+                <set field="faceImageLocation" from="faceOut.contentLocation"/>
+            </if>
+            <if condition="partyBadge.organizationPartyId">
+                <service-call name="mantle.party.PartyServices.get#PartyContentLocation" out-map="logoOut"
+                    in-map="[partyId:partyBadge.organizationPartyId, partyContentTypeEnumIdList:['PcntLogoImage', 'PcntPrimaryImage']]"/>
+                <set field="logoImageLocation" from="logoOut.contentLocation"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="lookup" noun="PartyBadge">
+        <in-parameters><parameter name="scanValue"/></in-parameters>
+        <out-parameters>
+            <parameter name="partyBadge" type="Map"/>
         </out-parameters>
         <actions>
             <!-- look up by partyBadgeId, serialNumber, or storedValue -->
@@ -361,6 +371,34 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
                     <field-map field-name="storedValue" from="scanValue"/></entity-find-one>
             </if>
+        </actions>
+    </service>
+    <service verb="scan" noun="PartyBadge">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.PartyBadgeScan" include="nonpk">
+                <exclude field-name="scanResultEnumId"/><exclude field-name="timeEntryId"/></auto-parameters>
+            <parameter name="scanValue" required="true"/>
+            <parameter name="scanDate" default="ec.user.nowTimestamp"/>
+
+            <!-- parameters for clock in -->
+            <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
+            <parameter name="emplPositionClassId"/>
+            <parameter name="workEffortId"/>
+            <!-- parameters for clock out -->
+            <parameter name="breakHours" type="BigDecimal"/>
+            <parameter name="breakMinutes" type="BigDecimal"/>
+            <parameter name="pieceCount" type="BigDecimal"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="partyBadgeId"/>
+            <parameter name="partyId"/>
+            <parameter name="organizationPartyId"/>
+            <parameter name="scanResultEnumId"/>
+            <parameter name="timeEntryId"/>
+            <parameter name="closedTimeEntryId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.party.PartyServices.lookup#PartyBadge" in-map="context" out-map="context"/>
 
             <if condition="!partyBadge">
                 <return error="true" message="No badge found for scan value [${scanValue}]"/></if>
@@ -369,12 +407,12 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="organizationPartyId" from="partyBadge.organizationPartyId"/>
 
             <!-- check valid dates -->
-            <if condition="partyBadge.fromDate &gt; ec.user.nowTimestamp">
+            <if condition="partyBadge.fromDate &amp;&amp; partyBadge.fromDate &gt; ec.user.nowTimestamp">
                 <set field="scanResultEnumId" value="PbsrNotYetValid"/>
                 <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
                 <return error="true" message="Badge not yet valid"/>
             </if>
-            <if condition="partyBadge.thruDate &lt; ec.user.nowTimestamp">
+            <if condition="partyBadge.thruDate &amp;&amp; partyBadge.thruDate &lt; ec.user.nowTimestamp">
                 <set field="scanResultEnumId" value="PbsrExpired"/>
                 <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
                 <return error="true" message="Badge expired"/>
@@ -382,36 +420,44 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- create the PartyBadgeScan record -->
             <set field="scanResultEnumId" value="PbsrSuccess"/>
-            <service-call name="create#mantle.party.PartyBadgeScan" in-map="context" transaction="force-new"/>
+            <service-call name="create#mantle.party.PartyBadgeScan" in-map="context"/>
 
             <!-- handle TimeEntry for clock in and clock out -->
-
-            <set field="clientPartyId" from="partyBadge.organizationPartyId"/>
-            <entity-find entity-name="mantle.work.time.TimeEntry" list="openTimeEntryList">
-                <search-form-inputs default-order-by="-fromDate"/>
-                <econdition field-name="partyId"/>
-                <econdition field-name="thruDate" from="null"/>
-            </entity-find>
-            <set field="openTimeEntry" from="openTimeEntryList ? openTimeEntryList[0] : null"/>
+            <if condition="breakMinutes"><set field="breakHours" from="(breakHours ?: 0) + (breakMinutes / 60)"/></if>
+            <if condition="scanPurposeEnumId in ['PbspClockIn', 'PbspClockOut']">
+                <set field="clientPartyId" from="partyBadge.organizationPartyId"/>
+                <entity-find entity-name="mantle.work.time.TimeEntry" list="openTimeEntryList">
+                    <econdition field-name="partyId"/>
+                    <econdition field-name="thruDate" from="null"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <set field="openTimeEntry" from="openTimeEntryList ? openTimeEntryList[0] : null"/>
+            </if>
             <if condition="scanPurposeEnumId == 'PbspClockIn'">
                 <then>
                     <!-- If scanPurposeEnumId=PbspClockIn call mantle.work.TimeServices.create#TimeEntryClockIn
                         If there is an open TimeEntry call mantle.work.TimeServices.store#TimeEntry first -->
                     <if condition="openTimeEntry">
                         <service-call name="mantle.work.TimeServices.store#TimeEntry"
-                                in-map="openTimeEntry + [thruDate:scanTime, breakHours:breakHours, pieceCount:pieceCount]"/>
+                                in-map="openTimeEntry + [thruDate:scanDate, breakHours:breakHours, pieceCount:pieceCount]"/>
+                        <set field="closedTimeEntryId" from="openTimeEntry.timeEntryId"/>
                     </if>
 
-                    <set field="fromDate" from="scanTime"/>
-                    <service-call name="mantle.work.TimeServices.create#TimeEntryClockIn" in-map="context"/>
+                    <set field="fromDate" from="scanDate"/>
+                    <service-call name="mantle.work.TimeServices.create#TimeEntryClockIn" in-map="context" out-map="context"/>
+                    <service-call name="update#mantle.party.PartyBadgeScan"
+                            in-map="[partyBadgeId:partyBadgeId, scanDate:scanDate, timeEntryId:timeEntryId]"/>
                 </then>
                 <else-if condition="scanPurposeEnumId == 'PbspClockOut'">
                     <!-- If scanPurposeEnumId=PbspClockOut call mantle.work.TimeServices.store#TimeEntry -->
                     <if condition="openTimeEntry">
                         <service-call name="mantle.work.TimeServices.store#TimeEntry"
-                                in-map="openTimeEntry + [thruDate:scanTime, breakHours:breakHours, pieceCount:pieceCount]"/>
+                                in-map="openTimeEntry + [thruDate:scanDate, breakHours:breakHours, pieceCount:pieceCount]"/>
+                        <set field="closedTimeEntryId" from="openTimeEntry.timeEntryId"/>
+                        <service-call name="update#mantle.party.PartyBadgeScan"
+                                in-map="[partyBadgeId:partyBadgeId, scanDate:scanDate, timeEntryId:closedTimeEntryId]"/>
 
-                        <else><return error="true" message="Cannot clock out, no open time entry found"/></else>
+                        <else><return message="Scan succeeded but cannot clock out, no open time entry found"/></else>
                     </if>
                 </else-if>
             </if>
@@ -421,6 +467,29 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- =========================================== -->
     <!-- ========== PartyContent Services ========== -->
     <!-- =========================================== -->
+
+    <service verb="get" noun="PartyContentLocation">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+            <parameter name="partyContentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="partyContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="partyContentTypeEnumIdList" entry="partyContentTypeEnumId">
+                <entity-find entity-name="mantle.party.PartyContent" list="partyContentList">
+                    <econdition field-name="partyId"/><econdition field-name="partyContentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="partyContentList">
+                    <set field="partyContent" from="partyContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="partyContent ? partyContent.contentLocation : null"/>
+        </actions>
+    </service>
 
     <service verb="create" noun="PartyContent">
         <in-parameters>
