@@ -52,7 +52,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="timePeriod.isClosed" value="Y"/>
             <entity-update value-field="timePeriod"/>
 
-            <message>Processed pay for period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}: ${employmentList.size} employees, gross pay total: ${totalPayAmount}, net pay total: ${totalNetPayAmount}</message>
+            <message>Processed pay for period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}: ${employmentList.size()} employees, gross pay total: ${totalPayAmount}, net pay total: ${totalNetPayAmount}</message>
         </actions>
     </service>
 
@@ -319,7 +319,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="taxableCondition" from="ec.entity.conditionFactory.makeCondition(
                 [[partyRelationshipId:null, partyRelationshipId:partyRelationshipId],
                 [isTaxable:'Y', isSocialTaxable:'Y', isMedicalTaxable:'Y']], 'and', '=', 'or')"/>
-            <script>dedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(taxableCondition)</script>
+            <script>dedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(taxableCondition, true)</script>
             <iterate list="dedPayrollAdjustmentList" entry="payrollAdjustment">
                 <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
                     in-map="[payrollAdjustmentId:payrollAdjustment.payrollAdjustmentId, payrollAdjustment:payrollAdjustment,
@@ -350,7 +350,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- calculate global and employee adjustments (deductions, etc) - not taxable -->
             <set field="partyRelCondition" from="ec.entity.conditionFactory.makeCondition(
                 [[partyRelationshipId:null, partyRelationshipId:partyRelationshipId]], 'and', '=', 'or')"/>
-            <script>otherPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(partyRelCondition)
+            <script>otherPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(partyRelCondition, true)
                     .removeByAnd([isTaxable:'Y']).removeByAnd([isSocialTaxable:'Y']).removeByAnd([isMedicalTaxable:'Y'])</script>
             <iterate list="otherPayrollAdjustmentList" entry="payrollAdjustment">
                 <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
