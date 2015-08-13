@@ -12,6 +12,22 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+    <service verb="process" noun="EmploymentPay">
+        <in-parameters>
+            <parameter name="partyRelationshipId" required="true"/>
+            <parameter name="timePeriodId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="invoiceId"/>
+
+        </out-parameters>
+        <actions>
+            <!-- TODO create Invoice -->
+
+            <!-- TODO create EmploymentPayHistory record -->
+        </actions>
+    </service>
+
     <service verb="get" noun="EmploymentPayAmount">
         <in-parameters>
             <parameter name="partyRelationshipId" required="true"/>
@@ -159,11 +175,27 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="adjustmentList" type="List">
                 <description>List of Maps with out parameters from calculate#PayrollAdjustment</description></parameter>
             <parameter name="netPayAmount" type="BigDecimal"/>
+
+            <parameter name="taxablePayAmount" type="BigDecimal"/>
+            <parameter name="socialTaxablePayAmount" type="BigDecimal"/>
+            <parameter name="medicalTaxablePayAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
-            <!-- get the pay amount -->
+            <!-- get the pay amount and employment, emplPosition, timePeriod, fromTimestamp, thruTimestamp -->
             <service-call name="mantle.humanres.PayrollServices.get#EmploymentPayAmount" in-map="context" out-map="context"/>
 
+            <!-- set initial taxablePayAmount, socialTaxablePayAmount, medicalTaxablePayAmount -->
+            <set field="taxablePayAmount" from="payAmount"/>
+            <set field="socialTaxablePayAmount" from="payAmount"/>
+            <set field="medicalTaxablePayAmount" from="payAmount"/>
+
+            <!-- TODO calc taxableYtdIncome, socialTaxableYtdIncome, medicalTaxableYtdIncome -->
+
+            <!-- get homePostalAddress -->
+            <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="homePostalAddress">
+                <field-map field-name="contactMechId" from="employment.taxHomeContactMechId"/></entity-find-one>
+
+            <!-- calculate the adjustments -->
             <set field="adjustmentList" from="[]"/>
 
             <entity-find entity-name="mantle.humanres.employment.PayrollAdjustment" list="allPayrollAdjustmentList">
@@ -171,40 +203,48 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
             </entity-find>
 
-            <!-- calculate global adjustments (deductions, etc) - isTaxable = Y -->
-            <script>globalDedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:null, isTaxable:'Y'])</script>
-            <iterate list="globalDedPayrollAdjustmentList" entry="payrollAdjustment">
-
-            </iterate>
-            <!-- calculate employee adjustments (deductions, etc) - isTaxable = Y -->
-            <script>globalDedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:partyRelationshipId, isTaxable:'Y'])</script>
-            <iterate list="emplDedPayrollAdjustmentList" entry="payrollAdjustment">
-
-            </iterate>
-
-            <!-- TODO: calculate taxDeductibleAmount -->
-
-            <!-- calculate global adjustments (deductions, etc) - isTaxable != Y -->
-            <script>globalPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:null]).removeByAnd([isTaxable:'Y'])</script>
-            <iterate list="globalPayrollAdjustmentList" entry="payrollAdjustment">
-
-            </iterate>
-            <!-- calculate employee adjustments (deductions, etc) - isTaxable != Y -->
-            <script>globalPayrollAdjustmentList = allPayrollAdjustmentList.cloneList()
-                    .filterByAnd([partyRelationshipId:partyRelationshipId]).removeByAnd([isTaxable:'Y'])</script>
-            <iterate list="emplPayrollAdjustmentList" entry="payrollAdjustment">
-
+            <!-- calculate global and employee adjustments (deductions, etc) - taxable -->
+            <set field="taxableCondition" from="ec.entity.conditionFactory.makeCondition(
+                [[partyRelationshipId:null, partyRelationshipId:partyRelationshipId],
+                [isTaxable:'Y', isSocialTaxable:'Y', isMedicalTaxable:'Y']], 'and', '=', 'or')"/>
+            <script>dedPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(taxableCondition)</script>
+            <iterate list="dedPayrollAdjustmentList" entry="payrollAdjustment">
+                <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
+                    in-map="[payrollAdjustmentId:payrollAdjustment.payrollAdjustmentId, payrollAdjustment:payrollAdjustment,
+                        partyRelationshipId:partyRelationshipId, employment:employment,
+                        timePeriodTypeId:timePeriod.timePeriodTypeId, thruTimestamp:thruTimestamp,
+                        payAmount:payAmount, taxablePayAmount:taxablePayAmount,
+                        socialTaxablePayAmount:socialTaxablePayAmount, medicalTaxablePayAmount:medicalTaxablePayAmount,
+                        taxableYtdIncome:taxableYtdIncome, socialTaxableYtdIncome:socialTaxableYtdIncome,
+                        medicalTaxableYtdIncome:medicalTaxableYtdIncome,
+                        homePostalAddress:homePostalAddress]"/>
+                <script>adjustmentList.add(calcOut)</script>
+                <!-- TODO: update taxablePayAmount, socialTaxablePayAmount, medicalTaxablePayAmount -->
+                <!-- TODO: update taxableYtdIncome, socialTaxableYtdIncome, medicalTaxableYtdIncome -->
             </iterate>
 
-            <!-- TODO: handle taxFederalAddtlWithhold and taxStateAddtlWithhold -->
+            <!-- calculate global and employee adjustments (deductions, etc) - not taxable -->
+            <set field="partyRelCondition" from="ec.entity.conditionFactory.makeCondition(
+                [[partyRelationshipId:null, partyRelationshipId:partyRelationshipId]], 'and', '=', 'or')"/>
+            <script>otherPayrollAdjustmentList = allPayrollAdjustmentList.cloneList().filterByCondition(partyRelCondition)
+                    .removeByAnd([isTaxable:'Y']).removeByAnd([isSocialTaxable:'Y']).removeByAnd([isMedicalTaxable:'Y'])</script>
+            <iterate list="otherPayrollAdjustmentList" entry="payrollAdjustment">
+                <service-call name="mantle.humanres.PayrollServices.calculate#PayrollAdjustment" out-map="calcOut"
+                    in-map="[payrollAdjustmentId:payrollAdjustment.payrollAdjustmentId, payrollAdjustment:payrollAdjustment,
+                        partyRelationshipId:partyRelationshipId, employment:employment,
+                        timePeriodTypeId:timePeriod.timePeriodTypeId, thruTimestamp:thruTimestamp,
+                        payAmount:payAmount, taxablePayAmount:taxablePayAmount,
+                        socialTaxablePayAmount:socialTaxablePayAmount, medicalTaxablePayAmount:medicalTaxablePayAmount,
+                        taxableYtdIncome:taxableYtdIncome, socialTaxableYtdIncome:socialTaxableYtdIncome,
+                        medicalTaxableYtdIncome:medicalTaxableYtdIncome,
+                        homePostalAddress:homePostalAddress]"/>
+                <script>adjustmentList.add(calcOut)</script>
+            </iterate>
 
             <!-- calculate netPayAmount -->
             <set field="netPayAmount" from="payAmount"/>
             <iterate list="adjustmentList" entry="adjustment">
-                <set field="netPayAmount" from="netPayAmount - adjustment.amount"/></iterate>
+                <set field="netPayAmount" from="netPayAmount + adjustment.amount"/></iterate>
         </actions>
     </service>
     <service verb="calculate" noun="PayrollAdjustment">
@@ -221,16 +261,16 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="taxablePayAmount" type="BigDecimal" required="true"/>
             <parameter name="socialTaxablePayAmount" type="BigDecimal" required="true"/>
             <parameter name="medicalTaxablePayAmount" type="BigDecimal" required="true"/>
-            <parameter name="taxableYtdIncome" type="BigDecimal" default="0"/>
-            <parameter name="socialTaxableYtdIncome" type="BigDecimal" default="0"/>
-            <parameter name="medicalTaxableYtdIncome" type="BigDecimal" default="0"/>
+            <parameter name="taxableYtdIncome" type="BigDecimal" required="true"/>
+            <parameter name="socialTaxableYtdIncome" type="BigDecimal" required="true"/>
+            <parameter name="medicalTaxableYtdIncome" type="BigDecimal" required="true"/>
 
             <parameter name="homePostalAddress" type="Map"/>
         </in-parameters>
         <out-parameters>
             <parameter name="adjustmentApplies" type="Boolean"/>
             <parameter name="amount" type="BigDecimal"/>
-            <parameter name="netPayAmount" type="BigDecimal"/>
+            <parameter name="basisPayAmount" type="BigDecimal"/>
             <parameter name="stdDeductionAmount" type="BigDecimal"/>
             <parameter name="allowanceDeductionAmount" type="BigDecimal"/>
             <parameter name="allowanceExemptionAmount" type="BigDecimal"/>
@@ -250,10 +290,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/></if>
 
             <if condition="payrollAdjustment.isTax == 'Y'">
-                <then><set field="netPayAmount" from="taxablePayAmount"/></then>
-                <else-if condition="payrollAdjustment.isSocialTax == 'Y'"><set field="netPayAmount" from="socialTaxablePayAmount"/></else-if>
-                <else-if condition="payrollAdjustment.isMedicalTax == 'Y'"><set field="netPayAmount" from="medicalTaxablePayAmount"/></else-if>
-                <else><set field="netPayAmount" from="payAmount"/></else>
+                <then><set field="basisPayAmount" from="taxablePayAmount"/></then>
+                <else-if condition="payrollAdjustment.isSocialTax == 'Y'"><set field="basisPayAmount" from="socialTaxablePayAmount"/></else-if>
+                <else-if condition="payrollAdjustment.isMedicalTax == 'Y'"><set field="basisPayAmount" from="medicalTaxablePayAmount"/></else-if>
+                <else><set field="basisPayAmount" from="payAmount"/></else>
             </if>
 
             <!-- check state and federal filing status constraints, if any; if there are but none match skip it -->
@@ -289,7 +329,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </else>
                 </if>
 
-                <!-- Find applicable PayrollStdDeduction, subtract from netPayAmount -->
+                <!-- Find applicable PayrollStdDeduction, subtract from basisPayAmount -->
                 <if condition="payrollAdjustment.applyStdDeduction == 'Y'">
                     <entity-find entity-name="mantle.humanres.employment.PayrollStdDeduction" list="stdDeductionList">
                         <date-filter valid-date="thruTimestamp"/>
@@ -305,12 +345,12 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="stdDeductionList">
                         <set field="stdDeduction" from="stdDeductionList[0]"/>
                         <set field="stdDeductionAmount" from="stdDeduction.amount"/>
-                        <set field="netPayAmount" from="netPayAmount - stdDeductionAmount"/>
+                        <set field="basisPayAmount" from="basisPayAmount - stdDeductionAmount"/>
                     </if>
                 </if>
 
                 <!-- Find applicable PayrollAllowance Deductions, multiply by (taxFederalAllowances or taxStateAllowances)
-                    subtract from netPayAmount -->
+                    subtract from basisPayAmount -->
                 <if condition="payrollAdjustment.applyAllowanceDeduction == 'Y' &amp;&amp; taxAllowances">
                     <entity-find entity-name="mantle.humanres.employment.PayrollAllowance" list="allowanceList">
                         <date-filter valid-date="thruTimestamp"/>
@@ -321,8 +361,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="allowanceList">
                         <set field="allowance" from="allowanceList[0]"/>
                         <set field="allowanceDeductionAmount" from="allowance.amount * taxAllowances"/>
-                        <set field="netPayAmount" from="netPayAmount - allowanceDeductionAmount"/>
-                        <if condition="netPayAmount &lt; 0"><set field="netPayAmount" from="0"/></if>
+                        <set field="basisPayAmount" from="basisPayAmount - allowanceDeductionAmount"/>
+                        <if condition="basisPayAmount &lt; 0"><set field="basisPayAmount" from="0"/></if>
                     </if>
                 </if>
             </if>
@@ -332,15 +372,15 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="payrollAdjustmentId"/>
                 <econdition field-name="ytdMin" operator="less-equals" from="ytdIncome" or-null="true"/>
                 <econdition field-name="ytdMax" operator="greater" from="ytdIncome" or-null="true"/>
-                <econdition field-name="periodMin" operator="less-equals" from="netPayAmount" or-null="true"/>
-                <econdition field-name="periodMax" operator="greater" from="netPayAmount" or-null="true"/>
+                <econdition field-name="periodMin" operator="less-equals" from="basisPayAmount" or-null="true"/>
+                <econdition field-name="periodMax" operator="greater" from="basisPayAmount" or-null="true"/>
                 <order-by field-name="-percentage,-flatAmount"/><!-- should always be one record, but just in case take the highest -->
             </entity-find>
             <!-- calculate adjustment amount -->
             <if condition="payrollAdjustmentDetailList">
                 <set field="adjustmentDetail" from="payrollAdjustmentDetailList[0]"/>
 
-                <set field="percentageBasis" from="netPayAmount"/>
+                <set field="percentageBasis" from="basisPayAmount"/>
                 <if condition="adjustmentDetail.percAfterYtdMin == 'Y'">
                     <set field="percentageBasis" from="percentageBasis - adjustmentDetail.ytdMin"/></if>
                 <if condition="adjustmentDetail.percAfterPeriodMin == 'Y'">
