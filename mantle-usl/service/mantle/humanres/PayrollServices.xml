@@ -12,6 +12,28 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+    <service verb="process" noun="TimePeriodPay">
+        <in-parameters>
+            <parameter name="timePeriodId" required="true"/>
+            <parameter name="payDate" type="Date"><description>Defaults to TimePeriod.thruDate</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="invoiceIdByPartyRelationshipId" type="Map"/>
+            <parameter name="payDate" type="Date"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.humanres.PayrollServices.get#TimePeriodEmployments" in-map="context" out-map="context"/>
+            <if condition="!payDate"><set field="payDate" from="timePeriod.thruDate"/></if>
+
+            <set field="invoiceIdByPartyRelationshipId" from="[:]"/>
+            <iterate list="employmentList" entry="employment">
+                <service-call name="mantle.humanres.PayrollServices.process#EmploymentPay" out-map="payOut"
+                        in-map="[partyRelationshipId:employment.partyRelationshipId, timePeriodId:timePeriodId]"/>
+                <script>invoiceIdByPartyRelationshipId.put(employment.partyRelationshipId, payOut.invoiceId)</script>
+            </iterate>
+        </actions>
+    </service>
+
     <service verb="process" noun="EmploymentPay">
         <in-parameters>
             <parameter name="partyRelationshipId" required="true"/>
@@ -20,6 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="invoiceId"/>
+            <parameter name="payDate" type="Date"/>
         </out-parameters>
         <actions>
             <!-- make sure there is no EmploymentPayHistory record for partyRelationshipId and timePeriodId -->
@@ -53,7 +76,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- as a validation calc total for Invoice and compare with netPayAmount -->
             <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="totalOut"/>
             <if condition="netPayAmount != totalOut.invoiceTotal">
-                <return error="true" message="Invoice total [${totalOut.invoiceTotal}] did not match net pay [${netPayAmount}]"/></if>
+                <return error="true" message="For employment [${partyRelationshipId}] invoice total [${totalOut.invoiceTotal}] did not match net pay [${netPayAmount}]"/></if>
 
             <!-- create EmploymentPayHistory record -->
             <service-call name="create#mantle.humanres.employment.EmploymentPayHistory"
