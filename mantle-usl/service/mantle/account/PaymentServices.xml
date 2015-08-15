@@ -276,13 +276,16 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="invoiceId" required="true"/>
+            <auto-parameters entity-name="mantle.account.payment.Payment" include="nonpk">
+                <exclude field-name="overrideGlAccountId"/></auto-parameters>
+            <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
             <parameter name="statusId" default-value="PmntDelivered"/>
-            <parameter name="amountUomId"/>
-            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="amount" type="BigDecimal"><description>Defaults to invoice unpaid total</description></parameter>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
             <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="paymentRefNum"/>
             <parameter name="comments"/>
+            <parameter name="visitId" default="ec.user.visitId"/>
             <parameter name="paymentOverrideGlAccountId"/>
             <parameter name="applicationOverrideGlAccountId"/>
         </in-parameters>
@@ -295,15 +298,17 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
 
+            <if condition="!amount">
+                <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="totalOut"/>
+                <set field="amount" from="totalOut.unpaidTotal"/>
+            </if>
+            <if condition="!amountUomId"><set field="amountUomId" from="invoice.currencyUomId"/></if>
+
             <set field="initialStatusId" from="statusId == 'PmntProposed' ? statusId : 'PmntPromised'"/>
 
-            <if condition="!amountUomId"><set field="amountUomId" from="invoice.currencyUomId"/></if>
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
-                    in-map="[paymentTypeEnumId:'PtInvoicePayment', fromPartyId:invoice.toPartyId,
-                        toPartyId:invoice.fromPartyId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
-                        statusId:initialStatusId, effectiveDate:effectiveDate, paymentRefNum:paymentRefNum,
-                        amountUomId:amountUomId, amount:amount, comments:comments,
-                        overrideGlAccountId:paymentOverrideGlAccountId, visitId:ec.user.visitId]"/>
+                    in-map="context + [fromPartyId:invoice.toPartyId, toPartyId:invoice.fromPartyId,
+                        statusId:initialStatusId, overrideGlAccountId:paymentOverrideGlAccountId]"/>
 
             <service-call name="mantle.account.PaymentServices.apply#InvoicePayment" out-map="context"
                     in-map="[paymentId:paymentId, invoiceId:invoiceId, amount:amount,
