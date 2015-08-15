@@ -73,17 +73,18 @@ along with this software (see the LICENSE.md file). If not, see
                     </fo:table-row></fo:table-body></fo:table>
 
                     <#if paymentInfo.invoiceList?has_content>
-                        <fo:table table-layout="fixed" width="7.5in">
-                            <fo:table-header font-size="9pt" font-weight="bold" border-bottom="solid black">
-                                <fo:table-cell width="1.3in" padding="${cellPadding}"><fo:block text-align="left">Our Ref #</fo:block></fo:table-cell>
-                                <fo:table-cell width="1.3in" padding="${cellPadding}"><fo:block text-align="left">Your Ref #</fo:block></fo:table-cell>
-                                <fo:table-cell width="1.7in" padding="${cellPadding}"><fo:block text-align="left">Invoice Date</fo:block></fo:table-cell>
-                                <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Invoice Amount</fo:block></fo:table-cell>
-                                <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Amount Paid</fo:block></fo:table-cell>
-                            </fo:table-header>
-                            <fo:table-body>
-                                <#list paymentInfo.invoiceList as invoice>
-                                    <#assign invoiceTotals = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal").parameter("invoiceId", invoice.invoiceId).call()>
+                        <#list paymentInfo.invoiceList as invoice>
+                            <#assign invoiceItemList = ec.entity.find("mantle.account.invoice.InvoiceItem").condition("invoiceId", invoice.invoiceId).list()>
+                            <#assign invoiceTotals = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal").parameter("invoiceId", invoice.invoiceId).call()>
+                            <fo:table table-layout="fixed" width="7.5in">
+                                <fo:table-header font-size="9pt" font-weight="bold" border-bottom="solid black">
+                                    <fo:table-cell width="1.3in" padding="${cellPadding}"><fo:block text-align="left">Our Ref #</fo:block></fo:table-cell>
+                                    <fo:table-cell width="1.3in" padding="${cellPadding}"><fo:block text-align="left">Your Ref #</fo:block></fo:table-cell>
+                                    <fo:table-cell width="1.7in" padding="${cellPadding}"><fo:block text-align="left">Invoice Date</fo:block></fo:table-cell>
+                                    <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Invoice Amount</fo:block></fo:table-cell>
+                                    <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Amount Paid</fo:block></fo:table-cell>
+                                </fo:table-header>
+                                <fo:table-body>
                                     <fo:table-row font-size="${tableFontSize}" border-bottom="thin solid black">
                                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${invoice.invoiceId}</fo:block></fo:table-cell>
                                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${invoice.referenceNumber!""}</fo:block></fo:table-cell>
@@ -91,9 +92,29 @@ along with this software (see the LICENSE.md file). If not, see
                                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="right" font-family="Courier, monospace">${ec.l10n.formatCurrency(invoiceTotals.invoiceTotal, invoice.currencyUomId, 2)}</fo:block></fo:table-cell>
                                         <fo:table-cell padding="${cellPadding}"><fo:block text-align="right" font-family="Courier, monospace">${ec.l10n.formatCurrency(invoice.amountApplied, invoice.currencyUomId, 2)}</fo:block></fo:table-cell>
                                     </fo:table-row>
-                                </#list>
-                            </fo:table-body>
-                        </fo:table>
+                                </fo:table-body>
+                            </fo:table>
+                            <fo:table table-layout="fixed" width="7.5in">
+                                <fo:table-header font-size="9pt" font-weight="bold" border-bottom="solid black" border-top="solid black">
+                                    <fo:table-cell width="0.3in" padding="${cellPadding}"><fo:block text-align="left">Item</fo:block></fo:table-cell>
+                                    <fo:table-cell width="3.3in" padding="${cellPadding}"><fo:block text-align="left">Description</fo:block></fo:table-cell>
+                                    <fo:table-cell width="0.7in" padding="${cellPadding}"><fo:block text-align="right">Qty</fo:block></fo:table-cell>
+                                    <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Amount</fo:block></fo:table-cell>
+                                    <fo:table-cell width="1.6in" padding="${cellPadding}"><fo:block text-align="right">Total</fo:block></fo:table-cell>
+                                </fo:table-header>
+                                <fo:table-body>
+                                    <#list invoiceItemList as invoiceItem>
+                                        <fo:table-row font-size="${tableFontSize}">
+                                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${invoiceItem.invoiceItemSeqId}</fo:block></fo:table-cell>
+                                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="left">${invoiceItem.description!""}</fo:block></fo:table-cell>
+                                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="right">${invoiceItem.quantity!"1"}</fo:block></fo:table-cell>
+                                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="right" font-family="Courier, monospace">${ec.l10n.formatCurrency(invoiceItem.amount, invoice.currencyUomId, 3)}</fo:block></fo:table-cell>
+                                            <fo:table-cell padding="${cellPadding}"><fo:block text-align="right" font-family="Courier, monospace">${ec.l10n.formatCurrency(((invoiceItem.quantity!1) * (invoiceItem.amount!0)), invoice.currencyUomId, 3)}</fo:block></fo:table-cell>
+                                        </fo:table-row>
+                                    </#list>
+                                </fo:table-body>
+                            </fo:table>
+                        </#list>
                     </#if>
 
                     <#if paymentInfo.financialAccountTrans??>
