@@ -69,14 +69,20 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="create" noun="PeriodPayments">
-        <in-parameters><parameter name="timePeriodId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="timePeriodId" required="true"/>
+            <parameter name="statusId" default-value="PmntAuthorized"/>
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
         <actions>
             <entity-find entity-name="mantle.account.invoice.Invoice" list="invoiceList">
                 <econdition field-name="timePeriodId"/>
                 <econdition field-name="statusId" value="InvoiceApproved"/>
             </entity-find>
             <iterate list="invoiceList" entry="invoice">
-                <!-- TODO -->
+                <service-call name="mantle.account.PaymentServices.create#InvoicePayment" out-map="paymentOut"
+                    in-map="context + [invoiceId:invoice.invoiceId, partyRelationshipId:invoice.partyRelationshipId]"/>
             </iterate>
         </actions>
     </service>
