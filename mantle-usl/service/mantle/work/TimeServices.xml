@@ -221,7 +221,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="pieceRateAmountId">
                         <then>
                             <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                <field-map field-name="pieceRateAmountId"/></entity-find-one>
+                                <field-map field-name="rateAmountId" from="pieceRateAmountId"/></entity-find-one>
                         </then>
                         <else>
                             <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
@@ -239,7 +239,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <set field="pieceAmount" from="pieceRateAmount.rateAmount"/>
                         <set field="pieceAmountTotal" from="pieceCount * pieceAmount"/>
 
-                        <else><message error="true">No piece rate amount found for time entry [${timeEntryId}]</message></else>
+                        <else><message>No piece rate amount found for time entry [${timeEntryId}]</message></else>
                     </if>
                 </then>
                 <else>
@@ -426,6 +426,35 @@ along with this software (see the LICENSE.md file). If not, see
                 <filter-map-list list="rateAmountList" to-list="partyList">
                     <field-map field-name="partyId" from="timeEntry.partyId"/></filter-map-list>
                 <if condition="partyList"><set field="raListToUse" from="partyList"/></if>
+            </if>
+
+            <!-- if still no rate find relevant Employment record -->
+            <if condition="!raListToUse">
+                <entity-find entity-name="mantle.humanres.employment.EmploymentAndRelationship" list="employmentList">
+                    <date-filter valid-date="timeEntry.thruDate"/>
+                    <econdition field-name="fromPartyId" from="timeEntry.partyId"/>
+                    <econdition field-name="toPartyId" from="timeEntry.clientPartyId"/>
+                </entity-find>
+                <set field="employment" from="employmentList ? employmentList[0] : null"/>
+                <if condition="employment?.emplPositionId">
+                    <entity-find-one entity-name="mantle.humanres.position.EmplPosition" value-field="emplPosition">
+                        <field-map field-name="emplPositionId" from="employment.emplPositionId"/></entity-find-one>
+                </if>
+            </if>
+
+            <!-- no rate yet? look by Employment.payGradeId and timeEntry.emplPositionClassId -->
+            <if condition="!raListToUse &amp;&amp; emplPosition?.payGradeId">
+                <filter-map-list list="rateAmountList" to-list="gradeAndEmplPositionClassList">
+                    <field-map field-name="emplPositionClassId" from="timeEntry.emplPositionClassId"/>
+                    <field-map field-name="payGradeId" from="emplPosition.payGradeId"/>
+                </filter-map-list>
+                <if condition="gradeAndEmplPositionClassList"><set field="raListToUse" from="gradeAndEmplPositionClassList"/></if>
+            </if>
+            <!-- no rate yet? look by just Employment.payGradeId -->
+            <if condition="!raListToUse &amp;&amp; emplPosition?.payGradeId">
+                <filter-map-list list="rateAmountList" to-list="gradeRateList">
+                    <field-map field-name="payGradeId" from="emplPosition.payGradeId"/></filter-map-list>
+                <if condition="gradeRateList"><set field="raListToUse" from="gradeRateList"/></if>
             </if>
 
             <!-- no rate yet? get the default rate for the EmplPositionClass -->
