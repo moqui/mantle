@@ -200,4 +200,85 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+
+    <!-- =========================================== -->
+    <!-- ========== WorkEffortContent Services ========== -->
+    <!-- =========================================== -->
+
+    <service verb="get" noun="WorkEffortContentLocation">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="contentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="workEffortContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="contentTypeEnumIdList" entry="contentTypeEnumId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortContent" list="workEffortContentList">
+                    <econdition field-name="workEffortId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="workEffortContentList">
+                    <set field="workEffortContent" from="workEffortContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="workEffortContent ? workEffortContent.contentLocation : null"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="WorkEffortContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffortContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.work.effort.WorkEffortContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.work.WorkEffortServices.save#WorkEffortContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="WorkEffortContent">
+        <in-parameters>
+            <parameter name="workEffortContentId" required="true"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffortContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.work.effort.WorkEffortContent" value-field="workEffortContent"/>
+                <service-call name="mantle.work.WorkEffortServices.save#WorkEffortContentFile" out-map="context"
+                        in-map="context + [workEffortId:workEffortContent.workEffortId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.work.effort.WorkEffortContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="WorkEffortContentFile">
+        <in-parameters>
+            <parameter name="workEffortContentId" required="true"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/work/${workEffortId}/content_${workEffortContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.work.effort.WorkEffortContent"
+                    in-map="[workEffortContentId:workEffortContentId, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
 </services>
