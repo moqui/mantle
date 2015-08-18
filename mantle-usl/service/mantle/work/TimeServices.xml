@@ -176,6 +176,27 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="store#mantle.work.effort.WorkEffort" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="store" noun="WorkEffortPartyTime">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffortParty" include="all"/>
+            <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="partyId" required="true"/>
+            <parameter name="roleTypeId" default-value="_NA_"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+
+            <if condition="!emplPositionClassId"><set field="emplPositionClassId" from="workEffort.emplPositionClassId"/></if>
+            <if condition="!fromDate"><set field="fromDate" from="workEffort.actualStartDate"/></if>
+            <if condition="!hours"><set field="hours" from="workEffort.actualWorkTime"/></if>
+            <if condition="!breakHours"><set field="breakHours" from="workEffort.actualBreakTime"/></if>
+
+            <service-call name="store#mantle.work.effort.WorkEffortParty" in-map="context" out-map="context"/>
+            <service-call name="mantle.work.TimeServices.store#TimeEntry" in-map="context" out-map="context"/>
+        </actions>
+    </service>
 
     <!-- ========== Time Entry Rate and Amount Services ========== -->
     <service verb="get" noun="TimeEntryAmount">
