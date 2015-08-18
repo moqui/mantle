@@ -160,6 +160,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========== Bulk Time Entry WorkEffort Services ========== -->
     <service verb="store" noun="TimeEntryWorkEffort">
+        <description>Store a WorkEffort record used for bulk time entry, has the required fields for the time entries</description>
         <in-parameters>
             <parameter name="workEffortId"/>
             <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
@@ -170,13 +171,18 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="statusId" default-value="WeComplete"/>
             <parameter name="resolutionEnumId" default-value="WerUnresolved"/>
             <parameter name="timeUomId" default-value="TF_hr"/>
+            <parameter name="clientPartyId" required="true"/>
         </in-parameters>
         <out-parameters><parameter name="workEffortId"/></out-parameters>
         <actions>
             <service-call name="store#mantle.work.effort.WorkEffort" in-map="context" out-map="context"/>
+            <service-call name="mantle.work.WorkEffortServices.replace#WorkEffortParty"
+                    in-map="[workEffortId:workEffortId, roleTypeId:'CustomerBillTo', newPartyId:clientPartyId]"/>
         </actions>
     </service>
     <service verb="store" noun="WorkEffortPartyTime">
+        <description>Create a TimeEntry for a WorkEffort with various fields defaulting to values from the WorkEffort.
+            Call the store#TimeEntryWorkEffort service first to make sure needed values are in place.</description>
         <in-parameters>
             <parameter name="timeEntryId"><description>If specified updates, if not creates</description></parameter>
             <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk"/>
@@ -198,6 +204,14 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!fromDate"><set field="fromDate" from="workEffort.actualStartDate"/></if>
             <if condition="!hours"><set field="hours" from="workEffort.actualWorkDuration"/></if>
             <if condition="!breakHours"><set field="breakHours" from="workEffort.actualBreakDuration"/></if>
+            <if condition="!clientPartyId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="clientWepList">
+                    <econdition field-name="workEffortId"/>
+                    <econdition field-name="roleTypeId" value="CustomerBillTo"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="clientWepList"><set field="clientPartyId" from="clientWepList[0].partyId"/></if>
+            </if>
 
             <service-call name="mantle.work.TimeServices.store#TimeEntry" in-map="context" out-map="context"/>
         </actions>
