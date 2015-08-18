@@ -13,8 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
-
     <service verb="get" noun="InvoiceDisplayInfo">
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <out-parameters>
@@ -801,6 +799,87 @@ along with this software (see the LICENSE.md file). If not, see
                                 quantity:originalInvoiceItem.quantity]"/>
                 </if>
             </iterate>
+        </actions>
+    </service>
+
+    <!-- ================================================ -->
+    <!-- ========== InvoiceContent Services ========== -->
+    <!-- ================================================ -->
+
+    <service verb="get" noun="InvoiceContentLocation">
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="contentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="invoiceContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="contentTypeEnumIdList" entry="contentTypeEnumId">
+                <entity-find entity-name="mantle.account.invoice.InvoiceContent" list="invoiceContentList">
+                    <econdition field-name="invoiceId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="invoiceContentList">
+                    <set field="invoiceContent" from="invoiceContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="invoiceContent ? invoiceContent.contentLocation : null"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="InvoiceContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.invoice.InvoiceContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="invoiceContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.account.invoice.InvoiceContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.account.InvoiceServices.save#InvoiceContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="InvoiceContent">
+        <in-parameters>
+            <parameter name="invoiceContentId" required="true"/>
+            <auto-parameters entity-name="mantle.account.invoice.InvoiceContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.account.invoice.InvoiceContent" value-field="invoiceContent"/>
+                <service-call name="mantle.account.InvoiceServices.save#InvoiceContentFile" out-map="context"
+                        in-map="context + [invoiceId:invoiceContent.invoiceId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.account.invoice.InvoiceContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="InvoiceContentFile">
+        <in-parameters>
+            <parameter name="invoiceContentId" required="true"/>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/invoice/${invoiceId}/content_${invoiceContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.account.invoice.InvoiceContent"
+                    in-map="[invoiceContentId:invoiceContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
 </services>
