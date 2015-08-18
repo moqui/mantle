@@ -47,7 +47,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="startTs" from="ec.l10n.parseTimestamp(start.toString() + ' 00:00:00.000', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
             <set field="endTs" from="ec.l10n.parseTimestamp(end.toString() + ' 23:59:59.999', 'yyyy-MM-dd HH:mm:ss.SSS')"/>
             -->
-            <!-- start/end are coming in as seconds since epoch -->
+            <!-- start/end are coming in as seconds since epoch so add '000' to make milliseconds -->
             <set field="startTs" from="ec.l10n.parseTimestamp(start + '000', null)"/>
             <set field="endTs" from="ec.l10n.parseTimestamp(end + '000', null)"/>
 
@@ -81,19 +81,12 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="workEffortList" entry="workEffortDef">
                 <set field="workEffort" from="workEffortDef"/><!-- put it in the context -->
                 <set field="title" from="ec.resource.expand(titleGString, '')"/>
-                <set field="start" from="ec.l10n.format(workEffort.estimatedStartDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
-                <if condition="workEffort.estimatedCompletionDate">
-                    <set field="end" from="ec.l10n.format(workEffort.estimatedCompletionDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
-                    <else>
-                        <set field="estMinutes" from="((workEffort.estimatedWorkTime ?: 1) * 60) as int"/>
-                        <script>
-                            Calendar endCal = ec.user.getCalendarSafe()
-                            endCal.setTimeInMillis(workEffort.estimatedStartDate.time)
-                            endCal.add(Calendar.MINUTE, estMinutes)
-                            end = ec.l10n.format(new Timestamp(endCal.getTimeInMillis()), 'yyyy-MM-dd\'T\'HH:mm:ss')
-                        </script>
-                    </else>
-                </if>
+
+                <service-call name="mantle.work.WorkEffortServices.get#WorkEffortStartEnd" out-map="startEndOut"
+                        in-map="[workEffortId:workEffort.workEffortId, workEffort:workEffort]"/>
+                <set field="start" from="ec.l10n.format(startEndOut.startDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
+                <set field="end" from="ec.l10n.format(startEndOut.endDate, 'yyyy-MM-dd\'T\'HH:mm:ss')"/>
+
                 <if condition="urlGString">
                     <set field="url" from="ec.resource.expand(urlGString, '')"/>
                     <else><set field="url" value=""/></else>
