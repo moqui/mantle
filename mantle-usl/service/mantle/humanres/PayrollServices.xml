@@ -40,12 +40,46 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="invoiceIdByPartyRelationshipId" from="[:]"/>
             <set field="totalPayAmount" from="0"/>
             <set field="totalNetPayAmount" from="0"/>
+            <set field="totalAmountByPayrollAdjustmentId" from="[:]"/>
             <iterate list="employmentList" entry="employment">
-                <service-call name="mantle.humanres.PayrollServices.process#EmploymentPay" out-map="payOut"
+                <service-call name="mantle.humanres.PayrollServices.process#EmploymentPay" out-map="payOut" out-map-add-to-existing="false"
                         in-map="[partyRelationshipId:employment.partyRelationshipId, timePeriodId:timePeriodId]"/>
                 <script>invoiceIdByPartyRelationshipId.put(employment.partyRelationshipId, payOut.invoiceId)</script>
                 <set field="totalPayAmount" from="totalPayAmount + payOut.payAmount"/>
                 <set field="totalNetPayAmount" from="totalNetPayAmount + payOut.netPayAmount"/>
+                <!-- calculate the total amount across all employees for each adjustment (for invoice from tax authority to employer) -->
+                <iterate list="payOut.amountByPayrollAdjustmentId" entry="adjAmount" key="payrollAdjustmentId">
+                    <script>StupidUtilities.addToBigDecimalInMap(payrollAdjustmentId, adjAmount, totalAmountByPayrollAdjustmentId)</script>
+                </iterate>
+            </iterate>
+
+            <!-- create tax liability invoices (from tax authority to employer) as applicable -->
+            <set field="amountByAdjustmentIdByTaxAuthorityId" from="[:]"/>
+            <iterate list="totalAmountByPayrollAdjustmentId" entry="totalAmount" key="payrollAdjustmentId">
+                <entity-find-one entity-name="mantle.humanres.employment.PayrollAdjustment" value-field="payrollAdjustment"/>
+                <if condition="!payrollAdjustment.taxAuthorityId"><continue/></if>
+                <script>StupidUtilities.addToMapInMap(payrollAdjustment.taxAuthorityId, payrollAdjustmentId, totalAmount, amountByAdjustmentIdByTaxAuthorityId)</script>
+            </iterate>
+            <iterate list="amountByAdjustmentIdByTaxAuthorityId" entry="amountByAdjustmentId" key="taxAuthorityId">
+                <entity-find-one entity-name="mantle.other.tax.TaxAuthority" value-field="taxAuthority">
+                    <field-map field-name="taxAuthorityId"/></entity-find-one>
+
+                <!-- create Invoice -->
+                <service-call name="create#mantle.account.invoice.Invoice" out-map="invoiceOut" out-map-add-to-existing="false"
+                        in-map="[invoiceTypeEnumId:'InvoiceTax', fromPartyId:taxAuthority.taxAuthPartyId,
+                            toPartyId:timePeriod.partyId, statusId:'InvoiceReceived', invoiceDate:payDate,
+                            currencyUomId:currencyUomId, timePeriodId:timePeriodId]"/>
+                <set field="taxInvoiceId" from="invoiceOut.invoiceId"/>
+
+                <iterate list="amountByAdjustmentId" entry="totalAmount" key="payrollAdjustmentId">
+                    <entity-find-one entity-name="mantle.humanres.employment.PayrollAdjustment" value-field="payrollAdjustment"/>
+
+                    <!-- create InvoiceItem records for each adjustment -->
+                    <service-call name="create#mantle.account.invoice.InvoiceItem"
+                            in-map="[invoiceId:taxInvoiceId, itemTypeEnumId:payrollAdjustment.itemTypeEnumId,
+                                amount:totalAmount, quantity:1, description:payrollAdjustment.description,
+                                taxAuthorityId:taxAuthorityId, payrollAdjustmentId:payrollAdjustmentId]"/>
+                </iterate>
             </iterate>
 
             <!-- close the TimePeriod -->
@@ -60,6 +94,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find entity-name="mantle.account.invoice.Invoice" list="invoiceList">
                 <econdition field-name="timePeriodId"/>
+                <econdition field-name="invoiceTypeEnumId" value="InvoicePayroll"/>
                 <econdition field-name="statusId" value="InvoiceReceived"/>
             </entity-find>
             <iterate list="invoiceList" entry="invoice">
@@ -78,6 +113,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find entity-name="mantle.account.invoice.Invoice" list="invoiceList">
                 <econdition field-name="timePeriodId"/>
+                <econdition field-name="invoiceTypeEnumId" value="InvoicePayroll"/>
                 <econdition field-name="statusId" value="InvoiceApproved"/>
             </entity-find>
             <iterate list="invoiceList" entry="invoice">
@@ -98,6 +134,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payDate" type="Date"/>
             <parameter name="payAmount" type="BigDecimal"/>
             <parameter name="netPayAmount" type="BigDecimal"/>
+            <parameter name="amountByPayrollAdjustmentId" type="Map"/>
         </out-parameters>
         <actions>
             <!-- make sure there is no EmploymentPayHistory record for partyRelationshipId and timePeriodId -->
@@ -121,12 +158,15 @@ along with this software (see the LICENSE.md file). If not, see
                         description:ec.resource.expand('PayrollInvoicePayDescription', '', [emplPosition:emplPosition, timePeriod:timePeriod])]"/>
 
             <!-- create InvoiceItem records for each adjustmentList element -->
+            <set field="amountByPayrollAdjustmentId" from="[:]"/>
             <iterate list="adjustmentList" entry="adjustment">
                 <service-call name="create#mantle.account.invoice.InvoiceItem"
                         in-map="[invoiceId:invoiceId, itemTypeEnumId:adjustment.payrollAdjustment.itemTypeEnumId,
                             amount:adjustment.amount, quantity:1, description:adjustment.payrollAdjustment.description,
                             taxAuthorityId:adjustment.payrollAdjustment.taxAuthorityId,
                             payrollAdjustmentId:adjustment.payrollAdjustmentId]"/>
+                <!-- add the amount for the adjustment, negated here so we get a positive total -->
+                <script>StupidUtilities.addToBigDecimalInMap(adjustment.payrollAdjustmentId, -adjustment.amount, amountByPayrollAdjustmentId)</script>
             </iterate>
 
             <!-- as a validation calc total for Invoice and compare with netPayAmount -->
