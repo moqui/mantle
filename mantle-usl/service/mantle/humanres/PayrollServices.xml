@@ -160,11 +160,14 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- create InvoiceItem records for each adjustmentList element -->
             <set field="amountByPayrollAdjustmentId" from="[:]"/>
             <iterate list="adjustmentList" entry="adjustment">
-                <service-call name="create#mantle.account.invoice.InvoiceItem"
-                        in-map="[invoiceId:invoiceId, itemTypeEnumId:adjustment.payrollAdjustment.itemTypeEnumId,
-                            amount:adjustment.amount, quantity:1, description:adjustment.payrollAdjustment.description,
-                            taxAuthorityId:adjustment.payrollAdjustment.taxAuthorityId,
-                            payrollAdjustmentId:adjustment.payrollAdjustmentId]"/>
+                <!-- only add to employee invoice if not employer paid -->
+                <if condition="adjustment.payrollAdjustment.isEmployerPaid != 'Y'">
+                    <service-call name="create#mantle.account.invoice.InvoiceItem"
+                            in-map="[invoiceId:invoiceId, itemTypeEnumId:adjustment.payrollAdjustment.itemTypeEnumId,
+                                amount:adjustment.amount, quantity:1, description:adjustment.payrollAdjustment.description,
+                                taxAuthorityId:adjustment.payrollAdjustment.taxAuthorityId,
+                                payrollAdjustmentId:adjustment.payrollAdjustmentId]"/>
+                </if>
                 <!-- add the amount for the adjustment, negated here so we get a positive total -->
                 <script>StupidUtilities.addToBigDecimalInMap(adjustment.payrollAdjustmentId, -adjustment.amount, amountByPayrollAdjustmentId)</script>
             </iterate>
@@ -409,11 +412,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>adjustmentList.add(calcOut)</script>
 
                 <!-- update taxablePayAmount, socialTaxablePayAmount, medicalTaxablePayAmount -->
-                <if condition="payrollAdjustment.isTaxable == 'Y'">
+                <if condition="payrollAdjustment.isTaxable == 'Y' &amp;&amp; payrollAdjustment.isEmployerPaid != 'Y'">
                     <set field="taxablePayAmount" from="taxablePayAmount + calcOut.amount"/></if>
-                <if condition="payrollAdjustment.isSocialTaxable == 'Y'">
+                <if condition="payrollAdjustment.isSocialTaxable == 'Y' &amp;&amp; payrollAdjustment.isEmployerPaid != 'Y'">
                     <set field="socialTaxablePayAmount" from="socialTaxablePayAmount + calcOut.amount"/></if>
-                <if condition="payrollAdjustment.isMedicalTaxable == 'Y'">
+                <if condition="payrollAdjustment.isMedicalTaxable == 'Y' &amp;&amp; payrollAdjustment.isEmployerPaid != 'Y'">
                     <set field="medicalTaxablePayAmount" from="medicalTaxablePayAmount + calcOut.amount"/></if>
             </iterate>
 
@@ -444,7 +447,9 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- calculate netPayAmount -->
             <set field="netPayAmount" from="payAmount"/>
             <iterate list="adjustmentList" entry="adjustment">
-                <set field="netPayAmount" from="netPayAmount + adjustment.amount"/></iterate>
+                <if condition="adjustment.payrollAdjustment.isEmployerPaid != 'Y'">
+                    <set field="netPayAmount" from="netPayAmount + adjustment.amount"/></if>
+            </iterate>
 
             <!-- <log message="===== payAmount=${payAmount}, netPayAmount=${netPayAmount}, adjustmentList:\n${adjustmentList}"/> -->
         </actions>
