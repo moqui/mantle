@@ -21,6 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="invoice" type="EntityValue"/>
             <parameter name="orderHeader" type="EntityValue"/>
             <parameter name="party" type="EntityValue"/>
+            <parameter name="partyBadge" type="EntityValue"/>
             <parameter name="payment" type="EntityValue"/>
             <parameter name="product" type="EntityValue"/>
             <parameter name="shipment" type="EntityValue"/>
@@ -32,6 +33,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="invoiceId"/>
             <parameter name="orderHeaderId"/>
             <parameter name="partyId"/>
+            <parameter name="partyBadgeId"/>
             <parameter name="paymentId"/>
             <parameter name="productId"/>
             <parameter name="shipmentId"/>
@@ -42,15 +44,21 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="assetId" from="lookupId"/><set field="containerId" from="lookupId"/>
             <set field="facilityId" from="lookupId"/><set field="invoiceId" from="lookupId"/><set field="orderId" from="lookupId"/>
-            <set field="partyId" from="lookupId"/><set field="paymentId" from="lookupId"/>
+            <set field="partyId" from="lookupId"/><set field="partyBadgeId" from="lookupId"/><set field="paymentId" from="lookupId"/>
             <set field="productId" from="lookupId"/><set field="shipmentId" from="lookupId"/><set field="workEffortId" from="lookupId"/>
 
+            <!-- Asset -->
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+            <!-- Container -->
             <entity-find-one entity-name="mantle.product.asset.Container" value-field="container"/>
+            <!-- Facility -->
             <entity-find-one entity-name="mantle.facility.Facility" value-field="facility"/>
+            <!-- Invoice -->
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <!-- OrderHeader -->
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
 
+            <!-- Party -->
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party"/>
             <if condition="!party">
                 <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party">
@@ -66,8 +74,28 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </if>
 
+            <!-- PartyBadge -->
+            <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge"/>
+            <if condition="!partyBadge">
+                <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                    <field-map field-name="serialNumber" from="lookupId"/></entity-find-one>
+                <set field="partyBadgeId" from="partyBadge?.partyBadgeId"/>
+            </if>
+            <if condition="!partyBadge">
+                <entity-find-one entity-name="mantle.party.PartyBadge" value-field="partyBadge">
+                    <field-map field-name="storedValue" from="lookupId"/></entity-find-one>
+                <set field="partyBadgeId" from="partyBadge?.partyBadgeId"/>
+            </if>
+            <if condition="!party &amp;&amp; partyBadge?.partyId">
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party">
+                    <field-map field-name="partyId" from="partyBadge.partyId"/></entity-find-one>
+                <set field="partyId" from="party?.partyId"/>
+            </if>
+
+            <!-- Payment -->
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
 
+            <!-- Product -->
             <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
             <if condition="!product">
                 <entity-find-one entity-name="mantle.product.Product" value-field="product">
@@ -83,7 +111,9 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </if>
 
+            <!-- Shipment -->
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <!-- WorkEffort -->
             <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
         </actions>
     </service>

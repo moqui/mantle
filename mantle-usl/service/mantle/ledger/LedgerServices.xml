@@ -481,11 +481,16 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="post" noun="ReverseAcctgTrans">
         <description>Create a new transaction that is the reverse of the original (for each entry debits to credit and
-            vice versa, transaction date set to now, etc).</description>
+            vice versa, transaction date set to now, etc).Clones the original transaction so new one will be associated
+            with the same invoice, payment, etc.</description>
         <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId" required="true"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+
+            <if condition="acctgTrans.isPosted != 'Y'">
+                <return error="true" message="Not reversing transaction [${acctgTransId}], transaction is not posted"/></if>
+
             <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
                 <econdition field-name="acctgTransId"/>
                 <order-by field-name="acctgTransEntrySeqId"/>
@@ -527,6 +532,57 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:reverseAcctgTransId]"/>
                 </else>
             </if>
+
+            <set field="acctgTransId" from="reverseAcctgTransId"/>
+        </actions>
+    </service>
+    <service verb="move" noun="AcctgTransEntry">
+        <description>Move a transaction entry from one account to another by posting a transaction reversing the original
+            for just the given entry and redoing the original transaction in the other account. Clones the original
+            transaction so new one will be associated with the same invoice, payment, etc.</description>
+        <in-parameters>
+            <parameter name="acctgTransId" required="true"/>
+            <parameter name="acctgTransEntrySeqId" required="true"/>
+            <parameter name="glAccountId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId" required="true"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="acctgTransEntry"/>
+
+            <if condition="acctgTrans.isPosted != 'Y'">
+                <return error="true" message="Not moving transaction entry [${acctgTransId}:${acctgTransEntrySeqId}], transaction is not posted"/></if>
+            <if condition="acctgTransEntry.glAccountId == glAccountId">
+                <return message="Not moving transaction entry [${acctgTransId}:${acctgTransEntrySeqId}], entry is already posted to account ${glAccountId}"/></if>
+
+            <set field="reverseAcctgTrans" from="acctgTrans.clone()"/>
+            <set field="reverseAcctgTrans.acctgTransId" from="null"/>
+            <entity-sequenced-id-primary value-field="reverseAcctgTrans"/>
+            <set field="reverseAcctgTrans.transactionDate" from="ec.user.nowTimestamp"/>
+            <set field="reverseAcctgTrans.isPosted" value="N"/>
+            <entity-create value-field="reverseAcctgTrans"/>
+
+            <set field="reverseAcctgTransId" from="reverseAcctgTrans.acctgTransId"/>
+
+            <!-- reverse the original entry -->
+            <set field="reverseAcctgTransEntry" from="acctgTransEntry.clone()"/>
+            <set field="reverseAcctgTransEntry.acctgTransId" from="reverseAcctgTransId"/>
+            <set field="reverseAcctgTransEntry.reconcileStatusId" value="AES_NOT_RECONCILED"/>
+            <set field="reverseAcctgTransEntry.debitCreditFlag"
+                    from="reverseAcctgTransEntry.debitCreditFlag == 'C' ? 'D' : 'C'"/>
+            <entity-create value-field="reverseAcctgTransEntry"/>
+
+            <!-- create new entry in new account -->
+            <set field="newAcctgTransEntry" from="acctgTransEntry.clone()"/>
+            <set field="newAcctgTransEntry.acctgTransId" from="reverseAcctgTransId"/>
+            <set field="newAcctgTransEntry.reconcileStatusId" value="AES_NOT_RECONCILED"/>
+            <set field="newAcctgTransEntry.glAccountId" from="glAccountId"/>
+            <set field="newAcctgTransEntry.acctgTransEntrySeqId" from="null"/>
+            <entity-sequenced-id-secondary value-field="newAcctgTransEntry"/>
+            <entity-create value-field="newAcctgTransEntry"/>
+
+            <!-- call the post service -->
+            <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:reverseAcctgTransId]"/>
 
             <set field="acctgTransId" from="reverseAcctgTransId"/>
         </actions>

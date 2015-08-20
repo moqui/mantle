@@ -76,9 +76,9 @@ along with this software (see the LICENSE.md file). If not, see
                             <fo:block font-weight="bold">Est. Start</fo:block>
                             <fo:block>${ec.l10n.format(workEffort.estimatedStartDate, dateTimeFormat)}</fo:block>
                         </#if>
-                        <#if workEffort.estimatedWorkTime?exists>
+                        <#if workEffort.estimatedWorkDuration?exists>
                             <fo:block font-weight="bold">Est. Hours</fo:block>
-                            <fo:block>${workEffort.estimatedWorkTime}</fo:block>
+                            <fo:block>${workEffort.estimatedWorkDuration}</fo:block>
                         </#if>
                     </fo:table-cell>
                     <fo:table-cell padding="3pt" width="3in">

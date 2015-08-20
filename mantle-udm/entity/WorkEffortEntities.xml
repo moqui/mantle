@@ -42,6 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="purposeEnumId" type="id"/>
         <field name="visibilityEnumId" type="id"/>
         <field name="resolutionEnumId" type="id"/>
+        <field name="emplPositionClassId" type="id"/>
 
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="statusFlowId" type="id-long"/>
@@ -63,12 +64,19 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="actualStartDate" type="date-time"/>
         <field name="actualCompletionDate" type="date-time"/>
 
-        <field name="estimatedWorkTime" type="number-decimal"/>
-        <field name="estimatedSetupTime" type="number-decimal"/>
-        <field name="remainingWorkTime" type="number-decimal"/>
-        <field name="actualWorkTime" type="number-decimal"/>
-        <field name="actualSetupTime" type="number-decimal"/>
-        <field name="totalTimeAllowed" type="number-decimal"/>
+        <field name="estimatedWorkTime" type="number-decimal"><description>Total estimated work time across all parties</description></field>
+        <field name="estimatedSetupTime" type="number-decimal"><description>Total estimated setup time across all parties</description></field>
+        <field name="remainingWorkTime" type="number-decimal"><description>Total remaining work time across all parties</description></field>
+        <field name="actualWorkTime" type="number-decimal"><description>Total actual work time across all parties</description></field>
+        <field name="actualSetupTime" type="number-decimal"><description>Total actual setup time across all parties</description></field>
+        <field name="totalTimeAllowed" type="number-decimal"><description>Total work time allowed (budgeted) across all parties</description></field>
+
+        <field name="estimatedWorkDuration" type="number-decimal">
+            <description>Estimated work duration in calendar time (see actualWorkTime for total worked time across parties)</description></field>
+        <field name="actualWorkDuration" type="number-decimal">
+            <description>Actual work duration in calendar time (see actualWorkTime for total worked time across parties)</description></field>
+        <field name="actualBreakDuration" type="number-decimal">
+            <description>Actual break duration in calendar time</description></field>
         <field name="timeUomId" type="id"/>
 
         <!-- something to consider for future: <field name="estimatedCost" type="currency-amount"/> -->
@@ -92,6 +100,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="visibilityEnumId"/></relationship>
         <relationship type="one" title="WorkEffortResolution" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="resolutionEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.humanres.position.EmplPositionClass"/>
         <relationship type="one" title="WorkEffort" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" related-entity-name="mantle.facility.Facility"/>
         <relationship type="one" title="Time" related-entity-name="moqui.basic.Uom">
@@ -302,11 +311,13 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related-entity-name="mantle.party.contact.TelecomNumber"/>
     </entity>
     <entity entity-name="WorkEffortContent" package-name="mantle.work.effort">
-        <field name="workEffortId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="contentTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
+        <field name="workEffortContentId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="contentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
         <relationship type="one" title="WorkEffortContentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="contentTypeEnumId"/></relationship>

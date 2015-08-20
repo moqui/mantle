@@ -66,11 +66,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- ==== create the main tx record(s) ==== -->
 
             <if condition="fromPartyAcctgPreference">
-                <!-- org is to party and is sales invoice, so this is a sale -->
+                <!-- org is from party and is sales invoice, so this is a sale -->
                 <if condition="invoice.invoiceTypeEnumId == 'InvoiceSales'"><set field="acctgTransTypeEnumId" value="AttSalesInvoice"/></if>
                 <!-- org is from party and is return invoice, so this is a vendor return -->
                 <if condition="invoice.invoiceTypeEnumId == 'InvoiceReturn'"><set field="acctgTransTypeEnumId" value="AttVendRtnInvoice"/></if>
                 <!-- TODO (as needed, future): handle other invoice types -->
+
+                <if condition="!acctgTransTypeEnumId"><return error="true" message="Cannot post invoice [${invoiceId}], no accounting transaction type for invoice type ${invoice.invoiceTypeEnumId}"/></if>
 
                 <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="fromAcctgTrans"
                         map="[acctgTransTypeEnumId:acctgTransTypeEnumId, organizationPartyId:invoice.fromPartyId,
@@ -85,7 +87,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="invoice.invoiceTypeEnumId == 'InvoiceSales'"><set field="acctgTransTypeEnumId" value="AttPurchaseInvoice"/></if>
                 <!-- org is to party and is return invoice, so this is a customer return -->
                 <if condition="invoice.invoiceTypeEnumId == 'InvoiceReturn'"><set field="acctgTransTypeEnumId" value="AttCustRtnInvoice"/></if>
+                <!-- org is to party and is payroll invoice, so this is payroll pay -->
+                <if condition="invoice.invoiceTypeEnumId == 'InvoicePayroll'"><set field="acctgTransTypeEnumId" value="AttPayrollInvoice"/></if>
                 <!-- TODO (as needed, future): handle other invoice types -->
+
+                <if condition="!acctgTransTypeEnumId"><return error="true" message="Cannot post invoice [${invoiceId}], no accounting transaction type for invoice type ${invoice.invoiceTypeEnumId}"/></if>
 
                 <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="toAcctgTrans"
                         map="[acctgTransTypeEnumId:acctgTransTypeEnumId, organizationPartyId:invoice.toPartyId,
@@ -121,7 +127,7 @@ along with this software (see the LICENSE.md file). If not, see
                                     organizationPartyId:fromAcctgTrans.organizationPartyId,
                                     otherPartyId:fromAcctgTrans.otherPartyId, itemTypeEnumId:invoiceItem.itemTypeEnumId,
                                     productId:invoiceItem.productId, assetId:invoiceItem.assetId, direction:'O']"
-                                out-map="invoiceItemGlAccountOut"/>
+                                out-map="invoiceItemGlAccountOut" out-map-add-to-existing="false"/>
                         <set field="itemGlAccountId" from="invoiceItemGlAccountOut?.glAccountId"/>
                         <set field="itemGlAccountTypeEnumId" from="invoiceItemGlAccountOut?.glAccountTypeEnumId"/>
 
@@ -150,7 +156,7 @@ along with this software (see the LICENSE.md file). If not, see
                                     organizationPartyId:toAcctgTrans.organizationPartyId,
                                     otherPartyId:toAcctgTrans.otherPartyId, itemTypeEnumId:invoiceItem.itemTypeEnumId,
                                     productId:invoiceItem.productId, assetId:invoiceItem.assetId, direction:'I']"
-                                out-map="invoiceItemGlAccountOut"/>
+                                out-map="invoiceItemGlAccountOut" out-map-add-to-existing="false"/>
                         <set field="itemGlAccountId" from="invoiceItemGlAccountOut?.glAccountId"/>
                         <set field="itemGlAccountTypeEnumId" from="invoiceItemGlAccountOut?.glAccountTypeEnumId"/>
 
