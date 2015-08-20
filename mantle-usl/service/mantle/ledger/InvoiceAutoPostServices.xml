@@ -115,8 +115,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="invoiceTotal" from="invoiceTotal + itemTotal"/>
 
                 <set field="entryCommonMap" from="[invoiceItemSeqId:invoiceItem.invoiceItemSeqId, amount:itemTotal,
-                        productId:invoiceItem.productId, assetId:invoiceItem.assetId,
-                        reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+                        productId:invoiceItem.productId, assetId:invoiceItem.assetId]"/>
 
                 <!-- entry for from Party -->
                 <if condition="fromPartyAcctgPreference">
@@ -140,11 +139,9 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                     <if condition="!itemGlAccountId"><set field="useErrorJournal" from="true"/></if>
 
-                    <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="fromAcctgTransEntry"
-                            map="entryCommonMap + [acctgTransId:fromAcctgTrans.acctgTransId, debitCreditFlag:'C',
-                                glAccountTypeEnumId:itemGlAccountTypeEnumId, glAccountId:itemGlAccountId]"/>
-                    <entity-sequenced-id-secondary value-field="fromAcctgTransEntry"/>
-                    <entity-create value-field="fromAcctgTransEntry"/>
+                    <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                            in-map="entryCommonMap + [acctgTransId:fromAcctgTrans.acctgTransId, acctgTrans:fromAcctgTrans,
+                                debitCreditFlag:'C', glAccountTypeEnumId:itemGlAccountTypeEnumId, glAccountId:itemGlAccountId]"/>
                 </if>
 
                 <!-- entry for to Party -->
@@ -169,17 +166,13 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                     <if condition="!itemGlAccountId"><set field="useErrorJournal" from="true"/></if>
 
-                    <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="toAcctgTransEntry"
-                            map="entryCommonMap + [acctgTransId:toAcctgTrans.acctgTransId, debitCreditFlag:'D',
-                                glAccountTypeEnumId:itemGlAccountTypeEnumId, glAccountId:itemGlAccountId]"/>
-                    <entity-sequenced-id-secondary value-field="toAcctgTransEntry"/>
-                    <entity-create value-field="toAcctgTransEntry"/>
+                    <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                            in-map="entryCommonMap + [acctgTransId:toAcctgTrans.acctgTransId, acctgTrans:toAcctgTrans,
+                                debitCreditFlag:'D', glAccountTypeEnumId:itemGlAccountTypeEnumId, glAccountId:itemGlAccountId]"/>
                 </if>
             </iterate>
 
             <!-- ==== create balancing entry ==== -->
-
-            <set field="balanceCommonMap" from="[amount:invoiceTotal, reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
 
             <!-- balancing entry for from Party -->
             <if condition="fromPartyAcctgPreference">
@@ -190,11 +183,9 @@ along with this software (see the LICENSE.md file). If not, see
                             organizationPartyId:fromAcctgTrans.organizationPartyId, otherPartyId:fromAcctgTrans.otherPartyId]"/>
                 <if condition="!invoiceBalanceGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
 
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="fromBalanceAcctgTransEntry"
-                        map="balanceCommonMap + [acctgTransId:fromAcctgTrans.acctgTransId, debitCreditFlag:'D',
-                            glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:invoiceBalanceGlAccountOut.glAccountId]"/>
-                <entity-sequenced-id-secondary value-field="fromBalanceAcctgTransEntry"/>
-                <entity-create value-field="fromBalanceAcctgTransEntry"/>
+                <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                        in-map="[amount:invoiceTotal, acctgTransId:fromAcctgTrans.acctgTransId, acctgTrans:fromAcctgTrans,
+                            debitCreditFlag:'D', glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:invoiceBalanceGlAccountOut.glAccountId]"/>
             </if>
 
             <!-- balancing entry for to Party -->
@@ -206,11 +197,9 @@ along with this software (see the LICENSE.md file). If not, see
                             organizationPartyId:toAcctgTrans.organizationPartyId, otherPartyId:toAcctgTrans.otherPartyId]"/>
                 <if condition="!invoiceBalanceGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
 
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="toBalanceAcctgTransEntry"
-                        map="balanceCommonMap + [acctgTransId:toAcctgTrans.acctgTransId, debitCreditFlag:'C',
-                            glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:invoiceBalanceGlAccountOut.glAccountId]"/>
-                <entity-sequenced-id-secondary value-field="toBalanceAcctgTransEntry"/>
-                <entity-create value-field="toBalanceAcctgTransEntry"/>
+                <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                        in-map="[amount:invoiceTotal, acctgTransId:toAcctgTrans.acctgTransId, acctgTrans:toAcctgTrans,
+                            debitCreditFlag:'C', glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:invoiceBalanceGlAccountOut.glAccountId]"/>
             </if>
 
             <!-- ==== post the tx ==== -->

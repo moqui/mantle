@@ -81,47 +81,39 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="isWithdraw" from="financialAccountTrans.amount &lt; 0"/>
             <set field="amount" from="isWithdraw ? -financialAccountTrans.amount : financialAccountTrans.amount"/>
 
-            <set field="transMap" from="[acctgTransId:acctgTrans.acctgTransId,
+            <set field="transMap" from="[acctgTransId:acctgTrans.acctgTransId, acctgTrans:acctgTrans,
                     glAccountTypeEnumId:transOut.glAccountTypeEnumId, glAccountId:transOut.glAccountId,
-                    amount:amount, reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
-            <set field="accountMap" from="[acctgTransId:acctgTrans.acctgTransId,
+                    amount:amount]"/>
+            <set field="accountMap" from="[acctgTransId:acctgTrans.acctgTransId, acctgTrans:acctgTrans,
                     glAccountTypeEnumId:accountOut.glAccountTypeEnumId, glAccountId:accountOut.glAccountId,
-                    amount:amount, reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+                    amount:amount]"/>
 
             <if condition="isWithdraw">
-                <!-- withdrawal or negative adjustment -->
+                <then>
+                    <!-- withdrawal or negative adjustment -->
 
-                <!-- create the credit entry for the financial transaction side, for deposits an expense (decrease
-                    balance) or in transit liability (increase balance) account for incoming funds -->
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="debitAcctgTransEntry"
-                        map="transMap + [debitCreditFlag:'C']"/>
-                <entity-sequenced-id-secondary value-field="debitAcctgTransEntry"/>
-                <entity-create value-field="debitAcctgTransEntry"/>
+                    <!-- create the credit entry for the financial transaction side, for deposits an expense (decrease
+                        balance) or in transit liability (increase balance) account for incoming funds -->
+                    <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                            in-map="transMap + [debitCreditFlag:'C']"/>
 
-                <!-- create the debit entry for the financial account side, for deposits (decrease balance)
-                    of the GL account representing financial account liability -->
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="creditAcctgTransEntry"
-                        map="accountMap + [debitCreditFlag:'D']"/>
-                <entity-sequenced-id-secondary value-field="creditAcctgTransEntry"/>
-                <entity-create value-field="creditAcctgTransEntry"/>
-
-
+                    <!-- create the debit entry for the financial account side, for deposits (decrease balance)
+                        of the GL account representing financial account liability -->
+                    <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                            in-map="accountMap + [debitCreditFlag:'D']"/>
+                </then>
                 <else>
                     <!-- otherwise deposit or positive adjustment -->
 
                     <!-- create the debit entry for the financial transaction side, for deposits an expense (increase
                         balance) or in transit liability (decrease balance) account for incoming funds -->
-                    <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="debitAcctgTransEntry"
-                            map="transMap + [debitCreditFlag:'D']"/>
-                    <entity-sequenced-id-secondary value-field="debitAcctgTransEntry"/>
-                    <entity-create value-field="debitAcctgTransEntry"/>
+                    <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                            in-map="transMap + [debitCreditFlag:'D']"/>
 
                     <!-- create the credit entry for the financial account side, for deposits (increasing balance)
                         of the GL account representing financial account liability -->
-                    <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="creditAcctgTransEntry"
-                            map="accountMap + [debitCreditFlag:'C']"/>
-                    <entity-sequenced-id-secondary value-field="creditAcctgTransEntry"/>
-                    <entity-create value-field="creditAcctgTransEntry"/>
+                    <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                            in-map="accountMap + [debitCreditFlag:'C']"/>
                 </else>
             </if>
 
