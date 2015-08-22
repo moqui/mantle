@@ -48,6 +48,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>invoiceIdByPartyRelationshipId.put(employment.partyRelationshipId, payOut.invoiceId)</script>
                 <set field="totalPayAmount" from="totalPayAmount + payOut.payAmount"/>
                 <set field="totalNetPayAmount" from="totalNetPayAmount + payOut.netPayAmount"/>
+
+                <!-- TODO: right now assumes currency the same for all employees (from EmploymentSalary and RateAmount),
+                    to support multiple currencies will need more than one invoice or conversion to currency of TaxAuthority -->
+                <set field="currencyUomId" from="payOut.currencyUomId"/>
+
                 <!-- calculate the total amount across all employees for each adjustment (for invoice from tax authority to employer) -->
                 <iterate list="payOut.amountByPayrollAdjustmentId" entry="adjAmount" key="payrollAdjustmentId">
                     <script>StupidUtilities.addToBigDecimalInMap(payrollAdjustmentId, adjAmount, totalAmountByPayrollAdjustmentId)</script>
@@ -125,7 +130,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                     <service-call name="create#mantle.account.invoice.InvoiceItem"
                             in-map="[invoiceId:garnishInvoiceId, itemTypeEnumId:payrollAdjustment.itemTypeEnumId,
-                                amount:garnishAdjustment.amount, quantity:1, description:description,
+                                amount:-garnishAdjustment.amount, quantity:1, description:description,
                                 payrollAdjustmentId:garnishAdjustment.payrollAdjustmentId]"/>
                 </iterate>
             </iterate>
@@ -182,6 +187,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payDate" type="Date"/>
             <parameter name="payAmount" type="BigDecimal"/>
             <parameter name="netPayAmount" type="BigDecimal"/>
+            <parameter name="currencyUomId"/>
 
             <parameter name="adjustmentList" type="List"/>
             <parameter name="amountByPayrollAdjustmentId" type="Map"/>
@@ -328,6 +334,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <service-call name="mantle.work.TimeServices.get#TimeEntryAmount" out-map="getTeaOut"
                                 in-map="[timeEntryId:timeEntry.timeEntryId, timeEntry:timeEntry, ratePurposeEnumId:ratePurposeEnumId]"/>
                         <set field="payAmount" from="payAmount + getTeaOut.amountTotal"/>
+                        <set field="currencyUomId" from="getTeaOut.currencyUomId"/>
                     </iterate>
                 </else>
             </if>
