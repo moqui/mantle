@@ -393,6 +393,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="timeEntryList" type="List"/>
 
             <parameter name="employment" type="Map"/>
+            <parameter name="homePostalAddress" type="Map"/>
             <parameter name="emplPosition" type="Map"/>
             <parameter name="timePeriod" type="Map"/>
             <parameter name="payDate" type="Date"/>
@@ -502,16 +503,69 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>adjustmentList.add(calcOut)</script>
             </iterate>
 
-            <!-- calculate netPayAmount, disposablePayAmount -->
-            <set field="netPayAmount" from="payAmount"/>
+            <!-- calculate disposablePayAmount -->
             <set field="disposablePayAmount" from="payAmount"/>
             <iterate list="adjustmentList" entry="adjustment">
-                <if condition="adjustment.payrollAdjustment.isEmployerPaid != 'Y'">
-                    <set field="netPayAmount" from="netPayAmount + adjustment.amount"/></if>
                 <if condition="adjustment.payrollAdjustment.deductFromDisposable == 'Y' &amp;&amp; payrollAdjustment.isEmployerPaid != 'Y'">
                     <set field="disposablePayAmount" from="disposablePayAmount + adjustment.amount"/></if>
             </iterate>
-            <!-- TODO adjust garnishments for disposable income limit (using garnishDisposablePercent, garnishPriority) -->
+
+            <!-- find applicable garnish minimum wage -->
+            <entity-find entity-name="mantle.humanres.employment.PayrollGarnishMinWage" list="garnishMinWageList">
+                <date-filter/><econdition field-name="stateOrCountryGeoId" from="homePostalAddress.stateProvinceGeoId"/>
+                <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
+            </entity-find>
+            <if condition="!garnishMinWageList">
+                <entity-find entity-name="mantle.humanres.employment.PayrollGarnishMinWage" list="garnishMinWageList">
+                    <date-filter/><econdition field-name="stateOrCountryGeoId" from="homePostalAddress.countryGeoId"/>
+                    <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
+                </entity-find>
+            </if>
+            <if condition="garnishMinWageList"><set field="garnishMinWage" from="garnishMinWageList[0]"/></if>
+
+            <!-- adjust garnishments for disposable income limit (using garnishDisposablePercent, garnishPriority) -->
+            <set field="disposableRemaining" from="disposablePayAmount"/>
+            <order-map-list list="adjustmentList"><order-by field-name="garnishPriority"/></order-map-list>
+            <iterate list="adjustmentList" entry="adjustment">
+                <if condition="!adjustment.payrollAdjustment.garnishPartyId"><continue/></if>
+
+                <if condition="adjustment.payrollAdjustment.garnishDisposablePercent">
+                    <then><set field="garnishDisposableRatio" from="adjustment.payrollAdjustment.garnishDisposablePercent / 100"/></then>
+                    <else><set field="garnishDisposableRatio" from="0.25"/><!-- this is a good default for the USA, not necessarily for other places --></else>
+                </if>
+                <!-- calculate max amount from garnishMinWage (if applicable) or garnishDisposableRatio -->
+                <set field="deductionAmount" from="-adjustment.amount"/><!-- negate it so the code is easier to read -->
+                <if condition="adjustment.payrollAdjustment.garnishMinWageApplies == 'Y' &amp;&amp; garnishMinWage">
+                    <then>
+                        <if condition="disposableRemaining &lt;= garnishMinWage.rangeLow">
+                            <then><!-- do nothing, leave deductionAmount as-is --></then>
+                            <else-if condition="disposableRemaining &gt; garnishMinWage.rangeLow &amp;&amp; disposableRemaining &lt; garnishMinWage.rangeHigh">
+                                <set field="deductionAmount" from="disposableRemaining - garnishMinWage.rangeLow"/>
+                            </else-if>
+                            <else>
+                                <set field="maxDedAmount" from="disposablePayAmount * garnishDisposableRatio"/>
+                                <set field="deductionAmount" from="deductionAmount &gt; maxDedAmount ? maxDedAmount : deductionAmount"/>
+                            </else>
+                        </if>
+                    </then>
+                    <else>
+                        <set field="maxDedAmount" from="disposablePayAmount * garnishDisposableRatio"/>
+                        <set field="deductionAmount" from="deductionAmount &gt; maxDedAmount ? maxDedAmount : deductionAmount"/>
+                    </else>
+                </if>
+
+                <!-- ROUND_HALF_DOWN here so the deduction amount is never more than the percentage limit -->
+                <set field="deductionAmount" from="deductionAmount.setScale(2, BigDecimal.ROUND_HALF_DOWN)"/>
+                <set field="adjustment.amount" from="-deductionAmount"/>
+                <set field="disposableRemaining" from="disposableRemaining - deductionAmount"/>
+            </iterate>
+
+            <!-- calculate netPayAmount -->
+            <set field="netPayAmount" from="payAmount"/>
+            <iterate list="adjustmentList" entry="adjustment">
+                <if condition="adjustment.payrollAdjustment.isEmployerPaid != 'Y'">
+                    <set field="netPayAmount" from="netPayAmount + adjustment.amount"/></if>
+            </iterate>
 
             <!-- <log message="===== payAmount=${payAmount}, netPayAmount=${netPayAmount}, adjustmentList:\n${adjustmentList}"/> -->
         </actions>
@@ -542,6 +596,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payrollAdjustmentId" required="true"/>
             <parameter name="payrollAdjustment" type="Map"/>
             <parameter name="employment" type="Map"/>
+            <parameter name="garnishPriority" type="Long"/>
 
             <parameter name="amount" type="BigDecimal"/>
             <parameter name="basisPayAmount" type="BigDecimal"/>
@@ -559,6 +614,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="!payrollAdjustment">
                 <entity-find-one entity-name="mantle.humanres.employment.PayrollAdjustment" value-field="payrollAdjustment"/></if>
+            <set field="garnishPriority" from="payrollAdjustment.garnishPriority"/>
             <if condition="!employment">
                 <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/></if>
 
