@@ -41,6 +41,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="totalPayAmount" from="0"/>
             <set field="totalNetPayAmount" from="0"/>
             <set field="totalAmountByPayrollAdjustmentId" from="[:]"/>
+            <set field="garnishAdjustmentListByPartyId" from="[:]"/>
             <iterate list="employmentList" entry="employment">
                 <service-call name="mantle.humanres.PayrollServices.process#EmploymentPay" out-map="payOut" out-map-add-to-existing="false"
                         in-map="[partyRelationshipId:employment.partyRelationshipId, timePeriodId:timePeriodId]"/>
@@ -51,6 +52,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <iterate list="payOut.amountByPayrollAdjustmentId" entry="adjAmount" key="payrollAdjustmentId">
                     <script>StupidUtilities.addToBigDecimalInMap(payrollAdjustmentId, adjAmount, totalAmountByPayrollAdjustmentId)</script>
                 </iterate>
+                <!-- pull out adjustments with garnishPartyId, add to garnishAdjustmentListByPartyId -->
+                <iterate list="payOut.adjustmentList" entry="adjustment"><if condition="adjustment.payrollAdjustment.garnishPartyId">
+                    <script>StupidUtilities.addToListInMap(adjustment.payrollAdjustment.garnishPartyId, adjustment, garnishAdjustmentListByPartyId)</script>
+                </if></iterate>
             </iterate>
 
             <!-- create tax liability invoices (from tax authority to employer) as applicable -->
@@ -79,6 +84,49 @@ along with this software (see the LICENSE.md file). If not, see
                             in-map="[invoiceId:taxInvoiceId, itemTypeEnumId:payrollAdjustment.itemTypeEnumId,
                                 amount:totalAmount, quantity:1, description:payrollAdjustment.description,
                                 taxAuthorityId:taxAuthorityId, payrollAdjustmentId:payrollAdjustmentId]"/>
+                </iterate>
+            </iterate>
+
+            <!-- create garnishment payable invoices -->
+            <iterate list="garnishAdjustmentListByPartyId" entry="garnishAdjustmentList" key="garnishPartyId">
+                <!-- calc dueDate with lowest garnishDueDays -->
+                <set field="garnishDueDays" from="14L"/>
+                <iterate list="garnishAdjustmentList" entry="garnishAdjustment">
+                    <if condition="garnishAdjustment.payrollAdjustment.garnishDueDays">
+                        <if condition="garnishAdjustment.payrollAdjustment.garnishDueDays &lt; garnishDueDays">
+                            <set field="garnishDueDays" from="garnishAdjustment.payrollAdjustment.garnishDueDays"/></if>
+                    </if>
+                </iterate>
+                <script>
+                    Calendar dueDateCal = ec.user.getCalendarSafe()
+                    dueDateCal.setTime(payDate)
+                    dueDateCal.add(Calendar.DAY_OF_MONTH, garnishDueDays as int)
+                    dueDate = new java.sql.Timestamp(dueDateCal.getTimeInMillis())
+                </script>
+
+                <!-- create the invoice -->
+                <service-call name="create#mantle.account.invoice.Invoice" out-map="invoiceOut" out-map-add-to-existing="false"
+                        in-map="[invoiceTypeEnumId:'InvoiceGarnishment', fromPartyId:garnishPartyId,
+                            toPartyId:timePeriod.partyId, statusId:'InvoiceReceived', invoiceDate:payDate, dueDate:dueDate,
+                            currencyUomId:currencyUomId, timePeriodId:timePeriodId]"/>
+                <set field="garnishInvoiceId" from="invoiceOut.invoiceId"/>
+                <!-- create the invoice items, one for each garnishAdjustment -->
+                <iterate list="garnishAdjustmentList" entry="garnishAdjustment">
+                    <set field="payrollAdjustment" from="garnishAdjustment.payrollAdjustment"/>
+
+                    <!-- make description, lookup PartyDetail, SSN PartyIdentification -->
+                    <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail">
+                        <field-map field-name="partyId" from="garnishAdjustment.employment.fromPartyId"/></entity-find-one>
+                    <entity-find-one entity-name="mantle.party.PartyIdentification" value-field="partySsn">
+                        <field-map field-name="partyId" from="garnishAdjustment.employment.fromPartyId"/>
+                        <field-map field-name="partyIdTypeEnumId" value="PtidSsn"/>
+                    </entity-find-one>
+                    <set field="description" value="${payrollAdjustment.description} for ${partyDetail.firstName?:''} ${partyDetail.lastName?:''}${partyDetail.organizationName?:''} SSN ${partySsn?.idValue ?: 'N/A'} Case ${payrollAdjustment.garnishCaseNumber ?: 'N/A'}"/>
+
+                    <service-call name="create#mantle.account.invoice.InvoiceItem"
+                            in-map="[invoiceId:garnishInvoiceId, itemTypeEnumId:payrollAdjustment.itemTypeEnumId,
+                                amount:garnishAdjustment.amount, quantity:1, description:description,
+                                payrollAdjustmentId:garnishAdjustment.payrollAdjustmentId]"/>
                 </iterate>
             </iterate>
 
@@ -134,6 +182,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payDate" type="Date"/>
             <parameter name="payAmount" type="BigDecimal"/>
             <parameter name="netPayAmount" type="BigDecimal"/>
+
+            <parameter name="adjustmentList" type="List"/>
             <parameter name="amountByPayrollAdjustmentId" type="Map"/>
         </out-parameters>
         <actions>
@@ -180,9 +230,9 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- create EmploymentPayHistory record -->
             <service-call name="create#mantle.humanres.employment.EmploymentPayHistory"
                     in-map="[partyRelationshipId:partyRelationshipId, payDate:payDate, timePeriodId:timePeriodId,
-                        invoiceId:invoiceId, internalPayroll:'Y',
-                        payAmount:payAmount, taxablePayAmount:taxablePayAmount, socialTaxablePayAmount:socialTaxablePayAmount,
-                        medicalTaxablePayAmount:medicalTaxablePayAmount, netPayAmount:netPayAmount]"/>
+                        invoiceId:invoiceId, internalPayroll:'Y', payAmount:payAmount, taxablePayAmount:taxablePayAmount,
+                        socialTaxablePayAmount:socialTaxablePayAmount, medicalTaxablePayAmount:medicalTaxablePayAmount,
+                        netPayAmount:netPayAmount, disposablePayAmount:disposablePayAmount]"/>
 
             <!-- set TimeEntry.vendorInvoiceId on all in timeEntryList -->
             <iterate list="timeEntryList" entry="timeEntry">
@@ -347,6 +397,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="taxablePayAmount" type="BigDecimal"/>
             <parameter name="socialTaxablePayAmount" type="BigDecimal"/>
             <parameter name="medicalTaxablePayAmount" type="BigDecimal"/>
+            <parameter name="disposablePayAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <!-- get the pay amount and employment, emplPosition, timePeriod, fromTimestamp, thruTimestamp -->
@@ -444,12 +495,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>adjustmentList.add(calcOut)</script>
             </iterate>
 
-            <!-- calculate netPayAmount -->
+            <!-- calculate netPayAmount, disposablePayAmount -->
             <set field="netPayAmount" from="payAmount"/>
+            <set field="disposablePayAmount" from="payAmount"/>
             <iterate list="adjustmentList" entry="adjustment">
                 <if condition="adjustment.payrollAdjustment.isEmployerPaid != 'Y'">
                     <set field="netPayAmount" from="netPayAmount + adjustment.amount"/></if>
+                <if condition="adjustment.payrollAdjustment.deductFromDisposable == 'Y' &amp;&amp; payrollAdjustment.isEmployerPaid != 'Y'">
+                    <set field="disposablePayAmount" from="disposablePayAmount + adjustment.amount"/></if>
             </iterate>
+            <!-- TODO adjust garnishments for disposable income limit (using garnishDisposablePercent, garnishPriority) -->
 
             <!-- <log message="===== payAmount=${payAmount}, netPayAmount=${netPayAmount}, adjustmentList:\n${adjustmentList}"/> -->
         </actions>
@@ -479,6 +534,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <parameter name="payrollAdjustmentId" required="true"/>
             <parameter name="payrollAdjustment" type="Map"/>
+            <parameter name="employment" type="Map"/>
 
             <parameter name="amount" type="BigDecimal"/>
             <parameter name="basisPayAmount" type="BigDecimal"/>
