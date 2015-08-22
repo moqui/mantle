@@ -351,23 +351,37 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- make sure the AcctgTrans has not already been posted -->
             <if condition="acctgTrans.isPosted == 'Y'">
-                <message error="true">Not posting transaction [${acctgTransId}], already posted.</message>
+                <return error="true" message="Not posting transaction [${acctgTransId}], already posted."/></if>
+
+            <set field="useErrorJournal" from="false"/>
+
+            <!-- check the scheduled posting date, but only if it's set -->
+            <if condition="acctgTrans.scheduledPostingDate != null &amp;&amp; ec.user.nowTimestamp.before(acctgTrans.scheduledPostingDate)">
+                <message>Not posting transaction [${acctgTransId}], before scheduled posting date.</message>
+                <set field="useErrorJournal" from="true"/>
             </if>
-            <check-errors/>
 
             <!-- check trial balance -->
             <service-call name="mantle.ledger.LedgerServices.calculate#AcctgTransTrialBalance" out-map="context"
                     in-map="[acctgTransId:acctgTransId]"/>
             <if condition="debitTotal != creditTotal">
-                <message error="true">Not posting transaction [${acctgTransId}], credit and debit totals not equal.</message>
+                <message>Not posting transaction [${acctgTransId}], credit and debit totals not equal.</message>
+                <set field="useErrorJournal" from="true"/>
             </if>
 
-            <!-- check the scheduled posting date, but only if it's set -->
-            <if condition="acctgTrans.scheduledPostingDate != null &amp;&amp; ec.user.nowTimestamp.before(acctgTrans.scheduledPostingDate)">
-                <message error="true">Not posting transaction [${acctgTransId}], before scheduled posting date.</message>
-            </if>
+            <if condition="useErrorJournal">
+                <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                        in-map="[organizationPartyId:acctgTrans.organizationPartyId]"/>
+                <if condition="partyAcctgPreference?.errorGlJournalId">
+                    <service-call name="update#mantle.ledger.transaction.AcctgTrans"
+                            in-map="[acctgTransId:acctgTransId, glJournalId:partyAcctgPreference.errorGlJournalId]"/>
+                    <message>Accounting transaction [${acctgTransId}] has been saved in the Error Journal [${partyAcctgPreference.errorGlJournalId}].</message>
+                    <return/>
 
-            <check-errors/>
+                    <!-- if no errorGlJournalId return error -->
+                    <else><return error="true" message="No error journal, returning error instead"/></else>
+                </if>
+            </if>
 
             <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
                 <econdition field-name="acctgTransId"/>
@@ -413,6 +427,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="update#mantle.ledger.transaction.AcctgTrans"
                             in-map="[acctgTransId:acctgTransId, glJournalId:partyAcctgPreference.errorGlJournalId]"/>
                     <message>Accounting transaction [${acctgTransId}] has been saved in the Error Journal [${partyAcctgPreference.errorGlJournalId}].</message>
+                    <script>ec.message.clearErrors()</script>
                     <return/>
 
                     <!-- if not errorGlJournalId return errors -->
