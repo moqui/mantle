@@ -369,6 +369,26 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="useErrorJournal" from="true"/>
             </if>
 
+            <!-- do a for-update query on each GlAccount, make sure accounts allow posting -->
+            <set field="glAccountById" from="[:]"/>
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
+                <econdition field-name="acctgTransId"/>
+                <order-by field-name="acctgTransEntrySeqId"/>
+            </entity-find>
+            <iterate list="acctgTransEntryList" entry="acctgTransEntry">
+                <set field="glAccount" from="glAccountById.get(acctgTransEntry.glAccountId)"/>
+                <if condition="!glAccount">
+                    <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" for-update="true">
+                        <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/></entity-find-one>
+                    <script>glAccountById.put(acctgTransEntry.glAccountId, glAccount)</script>
+                </if>
+
+                <if condition="glAccount.disallowPosting == 'Y'">
+                    <message>GL Account ${glAccount.glAccountId} does not allow posting</message>
+                    <set field="useErrorJournal" from="true"/>
+                </if>
+            </iterate>
+
             <if condition="useErrorJournal">
                 <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
                         in-map="[organizationPartyId:acctgTrans.organizationPartyId]"/>
@@ -382,11 +402,6 @@ along with this software (see the LICENSE.md file). If not, see
                     <else><return error="true" message="No error journal, returning error instead"/></else>
                 </if>
             </if>
-
-            <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
-                <econdition field-name="acctgTransId"/>
-                <order-by field-name="acctgTransEntrySeqId"/>
-            </entity-find>
 
             <!-- get current period(s) and check if closed (also include parent organizations) -->
             <service-call name="mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods" out-map="context"
@@ -437,10 +452,9 @@ along with this software (see the LICENSE.md file). If not, see
 
 
             <!-- for each entry update posted balance -->
-            <iterate entry="acctgTransEntry" list="acctgTransEntryList">
-                <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" for-update="true">
-                    <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/>
-                </entity-find-one>
+            <iterate list="acctgTransEntryList" entry="acctgTransEntry">
+                <!-- have already iterated through the entry list once, all GlAccount records should be there -->
+                <set field="glAccount" from="glAccountById.get(acctgTransEntry.glAccountId)"/>
 
                 <entity-find-one entity-name="mantle.ledger.account.GlAccountOrganization" value-field="glAccountOrganization" for-update="true">
                     <field-map field-name="glAccountId" from="acctgTransEntry.glAccountId"/>
