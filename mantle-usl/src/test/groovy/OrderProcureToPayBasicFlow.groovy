@@ -350,10 +350,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55400"
                 assetReceiptId="55400"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="1,200" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
+                amount="1,200" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="1,200" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
+                amount="1,200" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55401" acctgTransTypeEnumId="AttInventoryReceipt"
@@ -361,10 +361,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55401"
                 assetReceiptId="55401"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="450" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
+                amount="450" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
+                amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
             <!-- NOTE: no inventory transaction for an Equipment Asset -->
@@ -469,19 +469,19 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="ZiddlemanInc" invoiceId="55400"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="1200" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="1200" glAccountId="501000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="450" glAccountId="501000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="03" debitCreditFlag="D"
-                amount="10,000" glAccountTypeEnumId="FIXED_ASSET" glAccountId="171000"
+                amount="10,000" glAccountTypeEnumId="FIXED_ASSET" glAccountId="171000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="03"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="04" debitCreditFlag="D"
-                amount="145" glAccountTypeEnumId="" glAccountId="509000" reconcileStatusId="AES_NOT_RECONCILED"
+                amount="145" glAccountTypeEnumId="" glAccountId="509000000" reconcileStatusId="AES_NOT_RECONCILED"
                 isSummary="N" invoiceItemSeqId="04"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="05" debitCreditFlag="C"
-                amount="11795" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000"
+                amount="11795" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
@@ -525,9 +525,9 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="ZiddlemanInc" paymentId="${setInfoOut.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="11795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="11795" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="11795" glAccountId="111100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
@@ -545,9 +545,9 @@ class OrderProcureToPayBasicFlow extends Specification {
                 otherPartyId="ZiddlemanInc" paymentId="${setInfoOut.paymentId}"
                 paymentApplicationId="${sendPmtResult.paymentApplicationId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="11795" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="11795" glAccountId="210000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="11795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
