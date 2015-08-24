@@ -388,7 +388,7 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="04" debitCreditFlag="C"
                 amount="5" glAccountId="731200000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="05" debitCreditFlag="D"
-                amount="145.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000000"
+                amount="145.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="121000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
@@ -416,7 +416,7 @@ class OrderToCashBasicFlow extends Specification {
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 paymentId="${setInfoOut.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55503" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="145.68" glAccountId="120000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="145.68" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55503" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="145.68" glAccountId="122000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()

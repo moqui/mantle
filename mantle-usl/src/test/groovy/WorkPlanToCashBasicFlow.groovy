@@ -30,7 +30,7 @@ class WorkPlanToCashBasicFlow extends Specification {
     @Shared
     Map vendorResult, workerResult, clientRateResult, vendorRateResult, clientResult, expInvResult, clientInvResult
     @Shared
-    long effectiveTime = System.currentTimeMillis()
+    long effectiveTime
     @Shared
     Timestamp effectiveThruDate
 
@@ -39,9 +39,10 @@ class WorkPlanToCashBasicFlow extends Specification {
         // init the framework, get the ec
         ec = Moqui.getExecutionContext()
         ec.user.loginUser("john.doe", "moqui", null)
-        // set an effective date so data check works, etc
-        ec.user.setEffectiveTime(new Timestamp(effectiveTime))
         effectiveThruDate = ec.l10n.parseTimestamp(ec.l10n.format(ec.user.nowTimestamp, 'yyyy-MM-dd HH:mm'), 'yyyy-MM-dd HH:mm')
+        // set an effective date so data check works, etc
+        ec.user.setEffectiveTime(effectiveThruDate)
+        effectiveTime = effectiveThruDate.time
 
         ec.entity.tempSetSequencedIdPrimary("moqui.security.UserAccount", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.party.Party", 55900, 10)
@@ -123,10 +124,10 @@ class WorkPlanToCashBasicFlow extends Specification {
                 invoiceSequenceEnumId="InvSqStandard" orderSequenceEnumId="OrdSqStandard"
                 errorGlJournalId="${vendorResult.partyId}Error"/>
             <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="ACCOUNTS_RECEIVABLE"
-                organizationPartyId="${vendorResult.partyId}" glAccountId="120000000"/>
+                organizationPartyId="${vendorResult.partyId}" glAccountId="121000000"/>
             <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="ACCOUNTS_PAYABLE"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="210000000"/>
-            <mantle.ledger.config.PaymentMethodTypeGlAccount paymentMethodTypeEnumId="PmtCompanyCheck"
+            <mantle.ledger.config.PaymentMethodTypeGlAccount paymentMethodTypeEnumId="PmtCompanyCheck" isPayable="E"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="111100000"/>
             <mantle.ledger.config.ItemTypeGlAccount glAccountId="402000000" direction="O" itemTypeEnumId="ItemTimeEntry"
                 organizationPartyId="${vendorResult.partyId}"/>
@@ -134,10 +135,10 @@ class WorkPlanToCashBasicFlow extends Specification {
                 organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpTravAir" direction="E" glAccountId="681000000"
                 organizationPartyId="${vendorResult.partyId}"/>
-            <mantle.ledger.account.GlAccountOrganization glAccountId="120000000" organizationPartyId="${vendorResult.partyId}"/>
+            <mantle.ledger.account.GlAccountOrganization glAccountId="121000000" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.account.GlAccountOrganization glAccountId="210000000" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.config.PaymentTypeGlAccount paymentTypeEnumId="PtInvoicePayment"
-                organizationPartyId="${vendorResult.partyId}" isPayable="N" isApplied="Y" glAccountId="120000000"/>
+                organizationPartyId="${vendorResult.partyId}" isPayable="N" isApplied="Y" glAccountId="121000000"/>
             <mantle.ledger.config.PaymentTypeGlAccount paymentTypeEnumId="PtInvoicePayment"
                 organizationPartyId="${vendorResult.partyId}" isPayable="Y" isApplied="Y" glAccountId="210000000"/>
 
@@ -717,7 +718,7 @@ class WorkPlanToCashBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.invoice.Invoice invoiceId="${clientInvResult.invoiceId}" invoiceTypeEnumId="InvoiceSales"
                 fromPartyId="${vendorResult.partyId}" toPartyId="${clientResult.partyId}" statusId="InvoiceFinalized" invoiceDate="${effectiveTime}"
-                description="Invoice for projectTest Project [TEST] " currencyUomId="USD"/>
+                currencyUomId="USD"/><!-- varies based on settings: description="Invoice for project Test Project [TEST]" -->
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"
                 itemTypeEnumId="ItemTimeEntry" quantity="6" amount="60" itemDate="${effectiveThruDate.time-(6*60*60*1000)}"/>
             <mantle.work.time.TimeEntry timeEntryId="55900" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"/>
@@ -750,7 +751,7 @@ class WorkPlanToCashBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="05" debitCreditFlag="C"
                 amount="123.45" glAccountId="681000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="06" debitCreditFlag="D"
-                amount="1,039.12" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="1,039.12" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
 
             <moqui.entity.EntityAuditLog auditHistorySeqId="55943" changedEntityName="mantle.account.invoice.Invoice"
                 changedFieldName="statusId" pkPrimaryValue="${clientInvResult.invoiceId}" newValueText="InvoiceInProcess"
@@ -795,7 +796,7 @@ class WorkPlanToCashBasicFlow extends Specification {
                 organizationPartyId="${vendorResult.partyId}" transactionDate="${effectiveTime}" isPosted="Y" postedDate="${effectiveTime}"
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="${clientResult.partyId}" paymentId="${clientPmtResult.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55903" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="1,039.12" glAccountId="120000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="1,039.12" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55903" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="1,039.12" glAccountId="111100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
 

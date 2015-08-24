@@ -159,7 +159,7 @@ class OrderTenantAccess extends Specification {
                 amount="29.97" glAccountId="401000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_TNT" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55600" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="29.97" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="120000000"
+                amount="29.97" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="121000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Invoice Accounting Transaction data check results: " + dataCheckErrors)
@@ -187,7 +187,7 @@ class OrderTenantAccess extends Specification {
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 paymentId="${setInfoOut.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55601" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="29.97" glAccountId="120000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="29.97" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55601" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="29.97" glAccountId="122000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
