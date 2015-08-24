@@ -701,7 +701,9 @@ class WorkPlanToCashBasicFlow extends Specification {
                 changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
 
         </entity-facade-xml>""").check()
-        logger.info("create Worker Time and Expense Invoice and record Payment data check results: " + dataCheckErrors)
+        logger.info("create Worker Time and Expense Invoice and record Payment data check results: ")
+        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+
         then:
         dataCheckErrors.size() == 0
     }
@@ -770,7 +772,8 @@ class WorkPlanToCashBasicFlow extends Specification {
                 changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
 
         </entity-facade-xml>""").check()
-        logger.info("create Client Time and Expense Invoice and Finalize data check results: " + dataCheckErrors)
+        logger.info("create Client Time and Expense Invoice and Finalize data check results: ")
+        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
 
         then:
         dataCheckErrors.size() == 0

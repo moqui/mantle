@@ -192,7 +192,8 @@ class OrderToCashBasicFlow extends Specification {
             <mantle.product.asset.AssetDetail assetDetailId="55502" assetId="55500" effectiveDate="${effectiveTime}"
                 availableToPromiseDiff="-7" assetReservationId="55502" productId="DEMO_2_1"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Asset Reservation data check results: " + dataCheckErrors)
+        logger.info("validate Asset Reservation data check results: ")
+        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
 
         then:
         dataCheckErrors.size() == 0

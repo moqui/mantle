@@ -335,7 +335,8 @@ class OrderProcureToPayBasicFlow extends Specification {
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Assets Received data check results: " + dataCheckErrors)
+        logger.info("validate Assets Received data check results: ")
+        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
 
         then:
         dataCheckErrors.size() == 0
