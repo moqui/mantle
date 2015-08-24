@@ -484,12 +484,14 @@ class WorkPlanToCashBasicFlow extends Specification {
             <mantle.work.time.TimeEntry timeEntryId="55900" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
                 rateAmountId="${clientRateResult.rateAmountId}" vendorRateAmountId="${vendorRateResult.rateAmountId}"
                 fromDate="${effectiveThruDate.time-(6*60*60*1000)}" thruDate="${effectiveThruDate.time}" hours="6" workEffortId="TEST-001"/>
+
             <mantle.work.effort.WorkEffort workEffortId="TEST-001A" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="2" remainingWorkTime="0.5" actualWorkTime="1.5"/>
             <mantle.work.time.TimeEntry timeEntryId="55901" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
                 rateAmountId="${clientRateResult.rateAmountId}" vendorRateAmountId="${vendorRateResult.rateAmountId}"
                 fromDate="${effectiveThruDate.time-(2*60*60*1000)}" thruDate="${effectiveThruDate.time}" hours="1.5"
                 breakHours="0.5" workEffortId="TEST-001A"/>
+
             <mantle.work.effort.WorkEffort workEffortId="TEST-001B" resolutionEnumId="WerCompleted" statusId="WeComplete"
                 estimatedWorkTime="2" remainingWorkTime="0" actualWorkTime="2"/>
             <mantle.work.time.TimeEntry timeEntryId="55902" partyId="${workerResult.partyId}" rateTypeEnumId="RatpStandard"
@@ -624,14 +626,15 @@ class WorkPlanToCashBasicFlow extends Specification {
                 quantity="1" amount="345.67" description="United SFO-LAX" itemDate="1383368400000"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="02" itemTypeEnumId="ItemExpTravLodging"
                 quantity="1" amount="123.45" description="Fleabag Inn 2 nights" itemDate="1383544800000"/>
+
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="03" itemTypeEnumId="ItemTimeEntry"
-                quantity="6" amount="40" itemDate="${effectiveThruDate.time-(6*60*60*1000)}"/>
+                quantity="6" amount="40" itemDate="${effectiveThruDate.time}"/>
             <mantle.work.time.TimeEntry timeEntryId="55900" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="03"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="04" itemTypeEnumId="ItemTimeEntry"
-                quantity="1.5" amount="40" itemDate="${effectiveThruDate.time-(2*60*60*1000)}"/>
+                quantity="1.5" amount="40" itemDate="${effectiveThruDate.time}"/>
             <mantle.work.time.TimeEntry timeEntryId="55901" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="04"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${expInvResult.invoiceId}" invoiceItemSeqId="05" itemTypeEnumId="ItemTimeEntry"
-                quantity="2" amount="40" itemDate="1383501600000"/>
+                quantity="2" amount="40" itemDate="1383512400000"/>
             <mantle.work.time.TimeEntry timeEntryId="55902" vendorInvoiceId="${expInvResult.invoiceId}" vendorInvoiceItemSeqId="05"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55900" acctgTransTypeEnumId="AttPurchaseInvoice"
@@ -722,13 +725,13 @@ class WorkPlanToCashBasicFlow extends Specification {
                 fromPartyId="${vendorResult.partyId}" toPartyId="${clientResult.partyId}" statusId="InvoiceFinalized" invoiceDate="${effectiveTime}"
                 currencyUomId="USD"/><!-- varies based on settings: description="Invoice for project Test Project [TEST]" -->
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"
-                itemTypeEnumId="ItemTimeEntry" quantity="6" amount="60" itemDate="${effectiveThruDate.time-(6*60*60*1000)}"/>
+                itemTypeEnumId="ItemTimeEntry" quantity="6" amount="60" itemDate="${effectiveThruDate.time}"/>
             <mantle.work.time.TimeEntry timeEntryId="55900" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="01"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="02"
-                itemTypeEnumId="ItemTimeEntry" quantity="1.5" amount="60" itemDate="${effectiveThruDate.time-(2*60*60*1000)}"/>
+                itemTypeEnumId="ItemTimeEntry" quantity="1.5" amount="60" itemDate="${effectiveThruDate.time}"/>
             <mantle.work.time.TimeEntry timeEntryId="55901" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="02"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="03"
-                itemTypeEnumId="ItemTimeEntry" quantity="2" amount="60" itemDate="1383501600000"/>
+                itemTypeEnumId="ItemTimeEntry" quantity="2" amount="60" itemDate="1383512400000"/>
             <mantle.work.time.TimeEntry timeEntryId="55902" invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="03"/>
             <mantle.account.invoice.InvoiceItem invoiceId="${clientInvResult.invoiceId}" invoiceItemSeqId="04"
                 itemTypeEnumId="ItemExpTravAir" quantity="1" amount="345.67" description="United SFO-LAX" itemDate="1383368400000"/>
