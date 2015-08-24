@@ -163,15 +163,15 @@ class OrderToCashBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Asset created, issued, changed record in detail -->
 
-            <mantle.product.asset.Asset assetId="DEMO_1_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
-                ownerPartyId="ORG_ZIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y"
-                quantityOnHandTotal="100" availableToPromiseTotal="99" receivedDate="1265184000000"
-                facilityId="ORG_ZIZI_RETAIL_WH"/>
-            <mantle.product.issuance.AssetReservation assetReservationId="55500" assetId="DEMO_1_1A" productId="DEMO_1_1"
-                orderId="${cartOrderId}" orderItemSeqId="01" reservationOrderEnumId="AsResOrdFifoRec" quantity="1"
-                reservedDate="${effectiveTime}" sequenceNum="0"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55500" assetId="DEMO_1_1A" effectiveDate="${effectiveTime}"
-                availableToPromiseDiff="-1" assetReservationId="55500" productId="DEMO_1_1"/>
+            <mantle.product.asset.Asset assetId="55400" acquireCost="8" acquireCostUomId="USD" productId="DEMO_1_1"
+                statusId="AstAvailable" assetTypeEnumId="AstTpInventory" originalQuantity="400" quantityOnHandTotal="400"
+                availableToPromiseTotal="199" facilityId="ORG_ZIZI_RETAIL_WH" ownerPartyId="ORG_ZIZI_RETAIL"
+                hasQuantity="Y" assetName="Demo Product One-One"/>
+            <mantle.product.issuance.AssetReservation assetReservationId="55500" assetId="55400" orderId="${cartOrderId}"
+                orderItemSeqId="01" reservedDate="${effectiveTime}" quantity="1" productId="DEMO_1_1" sequenceNum="1"
+                quantityNotIssued="1" quantityNotAvailable="0" reservationOrderEnumId="AsResOrdFifoRec"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55500" assetId="55400" productId="DEMO_1_1"
+                assetReservationId="55500" availableToPromiseDiff="-1" effectiveDate="${effectiveTime}"/>
 
             <mantle.product.asset.Asset assetId="DEMO_3_1A" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_ZIZI_RETAIL" productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="5"
@@ -264,11 +264,11 @@ class OrderToCashBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Asset created, issued, change recorded in detail -->
 
-            <mantle.product.asset.Asset assetId="DEMO_1_1A" quantityOnHandTotal="99" availableToPromiseTotal="99"/>
-            <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="DEMO_1_1A" assetReservationId="55500"
-                orderId="${cartOrderId}" orderItemSeqId="01" shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1"
-                quantity="1"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55503" assetId="DEMO_1_1A" effectiveDate="${effectiveTime}"
+            <mantle.product.asset.Asset assetId="55400" quantityOnHandTotal="399" availableToPromiseTotal="199"/>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55500" assetId="55400" orderId="${cartOrderId}"
+                orderItemSeqId="01" issuedDate="${effectiveTime}" quantity="1" productId="DEMO_1_1"
+                assetReservationId="55500" shipmentId="${shipResult.shipmentId}"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55503" assetId="55400" effectiveDate="${effectiveTime}"
                 quantityOnHandDiff="-1" assetReservationId="55500" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetIssuanceId="55500"/>
 
@@ -289,7 +289,8 @@ class OrderToCashBasicFlow extends Specification {
                 quantityOnHandDiff="-7" assetReservationId="55502" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_2_1" assetIssuanceId="55502"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Asset Issuance data check results: " + dataCheckErrors)
+        logger.info("validate Asset Issuance data check results: ")
+        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
 
         then:
         dataCheckErrors.size() == 0
@@ -301,13 +302,13 @@ class OrderToCashBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55500" acctgTransTypeEnumId="AttInventoryIssuance"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
-                postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_1_1A"
+                postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55400"
                 assetIssuanceId="55500"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="7.5" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
+                amount="8" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="7.5" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
+                amount="8" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttInventoryIssuance"
@@ -324,7 +325,8 @@ class OrderToCashBasicFlow extends Specification {
             <!-- NOTE: there is no AcctgTrans for assetId 55500, productId DEMO_2_1 because it is auto-created and has
                 no acquireCost. -->
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+        logger.info("validate Shipment Invoice Accounting Transaction data check results: ")
+        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
 
         then:
         dataCheckErrors.size() == 0
@@ -392,7 +394,8 @@ class OrderToCashBasicFlow extends Specification {
                 amount="145.68" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="121000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+        logger.info("validate Shipment Invoice Accounting Transaction data check results: ")
+        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
 
         then:
         dataCheckErrors.size() == 0
