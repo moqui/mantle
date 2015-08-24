@@ -233,12 +233,23 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="netPayAmount != totalOut.invoiceTotal">
                 <return error="true" message="For employment [${partyRelationshipId}] invoice total [${totalOut.invoiceTotal}] did not match net pay [${netPayAmount}]"/></if>
 
-            <!-- create EmploymentPayHistory record -->
+            <!-- create EmploymentPayHistory and EmploymentPayDetail records -->
             <service-call name="create#mantle.humanres.employment.EmploymentPayHistory"
                     in-map="[partyRelationshipId:partyRelationshipId, payDate:payDate, timePeriodId:timePeriodId,
                         invoiceId:invoiceId, internalPayroll:'Y', payAmount:payAmount, taxablePayAmount:taxablePayAmount,
                         socialTaxablePayAmount:socialTaxablePayAmount, medicalTaxablePayAmount:medicalTaxablePayAmount,
-                        netPayAmount:netPayAmount, disposablePayAmount:disposablePayAmount]"/>
+                        netPayAmount:netPayAmount, disposablePayAmount:disposablePayAmount, taxableYtdIncome:taxableYtdIncome,
+                        socialTaxableYtdIncome:socialTaxableYtdIncome, medicalTaxableYtdIncome:medicalTaxableYtdIncome]"/>
+            <iterate list="adjustmentList" entry="adjustment">
+                <!-- add records for all adjustments, including employer paid (this is the only detail record we have of employer paid) -->
+                <service-call name="create#mantle.humanres.employment.EmploymentPayDetail"
+                        in-map="[partyRelationshipId:partyRelationshipId, payDate:payDate,
+                            payrollAdjustmentId:adjustment.payrollAdjustmentId, amount:adjustment.amount,
+                            isEmployerPaid:adjustment.payrollAdjustment.isEmployerPaid,
+                            taxAuthorityId:adjustment.payrollAdjustment.taxAuthorityId,
+                            garnishPartyId:adjustment.payrollAdjustment.garnishPartyId,
+                            garnishCaseNumber:adjustment.payrollAdjustment.garnishCaseNumber]"/>
+            </iterate>
 
             <!-- set TimeEntry.vendorInvoiceId on all in timeEntryList -->
             <iterate list="timeEntryList" entry="timeEntry">
@@ -406,6 +417,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="socialTaxablePayAmount" type="BigDecimal"/>
             <parameter name="medicalTaxablePayAmount" type="BigDecimal"/>
             <parameter name="disposablePayAmount" type="BigDecimal"/>
+            <parameter name="taxableYtdIncome" type="BigDecimal"/>
+            <parameter name="socialTaxableYtdIncome" type="BigDecimal"/>
+            <parameter name="medicalTaxableYtdIncome" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <!-- get the pay amount and employment, emplPosition, timePeriod, fromTimestamp, thruTimestamp -->
