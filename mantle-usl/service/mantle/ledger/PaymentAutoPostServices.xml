@@ -13,8 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
-
     <service verb="post" noun="Payment">
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
@@ -42,22 +40,16 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- ==== create the main tx record(s) ==== -->
 
             <if condition="fromPartyAcctgPreference">
-                <set field="acctgTransTypeEnumId" value="AttOutgoingPayment"/>
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="fromAcctgTrans"
-                        map="[acctgTransTypeEnumId:acctgTransTypeEnumId, organizationPartyId:payment.fromPartyId,
-                            transactionDate:ec.user.nowTimestamp, isPosted:'N', glFiscalTypeEnumId:'GLFT_ACTUAL',
+                <service-call name="mantle.ledger.LedgerServices.create#AcctgTrans" out-map="context"
+                        in-map="[acctgTransTypeEnumId:'AttOutgoingPayment', organizationPartyId:payment.fromPartyId,
                             otherPartyId:payment.toPartyId, amountUomId:payment.amountUomId, paymentId:payment.paymentId]"/>
-                <entity-sequenced-id-primary value-field="fromAcctgTrans"/>
-                <entity-create value-field="fromAcctgTrans"/>
+                <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="fromAcctgTrans"/>
             </if>
             <if condition="toPartyAcctgPreference">
-                <set field="acctgTransTypeEnumId" value="AttIncomingPayment"/>
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="toAcctgTrans"
-                        map="[acctgTransTypeEnumId:acctgTransTypeEnumId, organizationPartyId:payment.toPartyId,
-                            transactionDate:ec.user.nowTimestamp, isPosted:'N', glFiscalTypeEnumId:'GLFT_ACTUAL',
+                <service-call name="mantle.ledger.LedgerServices.create#AcctgTrans" out-map="context"
+                        in-map="[acctgTransTypeEnumId:'AttIncomingPayment', organizationPartyId:payment.toPartyId,
                             otherPartyId:payment.fromPartyId, amountUomId:payment.amountUomId, paymentId:payment.paymentId]"/>
-                <entity-sequenced-id-primary value-field="toAcctgTrans"/>
-                <entity-create value-field="toAcctgTrans"/>
+                <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="toAcctgTrans"/>
             </if>
 
             <!--
@@ -253,12 +245,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="paymentGlAccountTypeEnumId" from="paymentGlAccountOut?.glAccountTypeEnumId"/>
             <if condition="!paymentGlAccountId"><set field="useErrorJournal" from="true"/></if>
 
-            <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="acctgTransEntry"
-                    map="[acctgTransId:acctgTrans.acctgTransId, debitCreditFlag:debitCreditFlag,
-                        glAccountTypeEnumId:paymentGlAccountTypeEnumId, glAccountId:paymentGlAccountId, amount:amount,
-                        reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
-            <entity-sequenced-id-secondary value-field="acctgTransEntry"/>
-            <entity-create value-field="acctgTransEntry"/>
+            <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                    in-map="[acctgTransId:acctgTrans.acctgTransId, acctgTrans:acctgTrans, debitCreditFlag:debitCreditFlag,
+                        glAccountTypeEnumId:paymentGlAccountTypeEnumId, glAccountId:paymentGlAccountId, amount:amount]"/>
         </actions>
     </service>
 
@@ -386,24 +375,18 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- ==== create the main tx record(s) ==== -->
 
             <if condition="fromPartyAcctgPreference">
-                <set field="acctgTransTypeEnumId" value="AttOutgoingPaymentAp"/>
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="fromAcctgTrans"
-                        map="[acctgTransTypeEnumId:acctgTransTypeEnumId, organizationPartyId:payment.fromPartyId,
-                            transactionDate:ec.user.nowTimestamp, isPosted:'N', glFiscalTypeEnumId:'GLFT_ACTUAL',
+                <service-call name="mantle.ledger.LedgerServices.create#AcctgTrans" out-map="context"
+                        in-map="[acctgTransTypeEnumId:'AttOutgoingPaymentAp', organizationPartyId:payment.fromPartyId,
                             otherPartyId:payment.toPartyId, amountUomId:payment.amountUomId,
                             paymentId:payment.paymentId, paymentApplicationId:paymentApplicationId]"/>
-                <entity-sequenced-id-primary value-field="fromAcctgTrans"/>
-                <entity-create value-field="fromAcctgTrans"/>
+                <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="fromAcctgTrans"/>
             </if>
             <if condition="toPartyAcctgPreference">
-                <set field="acctgTransTypeEnumId" value="AttIncomingPaymentAp"/>
-                <entity-make-value entity-name="mantle.ledger.transaction.AcctgTrans" value-field="toAcctgTrans"
-                        map="[acctgTransTypeEnumId:acctgTransTypeEnumId, organizationPartyId:payment.toPartyId,
-                            transactionDate:ec.user.nowTimestamp, isPosted:'N', glFiscalTypeEnumId:'GLFT_ACTUAL',
+                <service-call name="mantle.ledger.LedgerServices.create#AcctgTrans" out-map="context"
+                        in-map="[acctgTransTypeEnumId:'AttIncomingPaymentAp', organizationPartyId:payment.toPartyId,
                             otherPartyId:payment.fromPartyId, amountUomId:payment.amountUomId,
                             paymentId:payment.paymentId, paymentApplicationId:paymentApplicationId]"/>
-                <entity-sequenced-id-primary value-field="toAcctgTrans"/>
-                <entity-create value-field="toAcctgTrans"/>
+                <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="toAcctgTrans"/>
             </if>
 
             <!-- keep track of if we should put in the error journal or post -->
