@@ -12,6 +12,9 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- ========== Payroll Processing Services ========== -->
+
     <service verb="process" noun="TimePeriodPay" transaction-timeout="600">
         <in-parameters>
             <parameter name="timePeriodId" required="true"/>
@@ -259,6 +262,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ========== Payroll Calculation Services ========== -->
+
     <service verb="get" noun="EmploymentPayAmount">
         <in-parameters>
             <parameter name="partyRelationshipId" required="true"/>
@@ -452,8 +457,10 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
 
             <!-- get homePostalAddress -->
-            <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="homePostalAddress">
-                <field-map field-name="contactMechId" from="employment.taxHomeContactMechId"/></entity-find-one>
+            <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="employeeHomeContactInfo"
+                    in-map="[partyId:employment.toPartyId, postalContactMechId:employment.taxHomeContactMechId,
+                        postalContactMechPurposeId:'PostalHome']"/>
+            <set field="homePostalAddress" from="employeeHomeContactInfo.postalAddress"/>
 
             <!-- calculate the adjustments -->
             <set field="adjustmentList" from="[]"/>
@@ -767,6 +774,249 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="amount" from="amount + allowanceExemptionAmount"/>
                     <if condition="amount &gt; 0"><set field="amount" from="0"/></if>
                 </if>
+            </if>
+        </actions>
+    </service>
+
+    <!-- ========== Payroll Tax Reporting Services ========== -->
+
+    <service verb="get" noun="EmploymentWageAndTaxInfo">
+        <in-parameters>
+            <parameter name="timePeriodId" required="true"><description>Should be a period for a Tax Year/Quarter/etc</description></parameter>
+            <parameter name="partyRelationshipId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="timePeriod" type="Map"/>
+            <parameter name="employment" type="Map"/>
+
+            <parameter name="employeeFirstName"/>
+            <parameter name="employeeLastName"/>
+            <parameter name="employeeSuffix"/>
+            <parameter name="employeeSsn"/>
+            <parameter name="employeeHomeContactInfo" type="Map"/>
+            <parameter name="employeeHomeStreetString"/>
+            <parameter name="employeeHomeCszString "/>
+            <parameter name="employeeHomeString"/>
+
+            <parameter name="employerName"/>
+            <parameter name="employerEin"/>
+            <parameter name="employerContactInfo" type="Map"/>
+            <parameter name="employerAddressString"/>
+            <parameter name="employerPhoneString"/>
+
+            <parameter name="taxablePayAmount" type="BigDecimal"/>
+            <parameter name="socialTaxablePayAmount" type="BigDecimal"/>
+            <parameter name="medicalTaxablePayAmount" type="BigDecimal"/>
+
+            <parameter name="wageAndTaxInfoByTaxAuthorityId" type="Map"> <description>contains Map with: taxAuthority,
+                taxAuthorityGeo, incomeTaxWithheldAmount, socialTaxWithheldAmount, medicalTaxWithheldAmount</description></parameter>
+
+            <parameter name="federalTaxAuthorityIdList" type="List"/>
+            <parameter name="stateTaxAuthorityIdList" type="List"/>
+            <parameter name="localTaxAuthorityIdList" type="List"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+            <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/>
+
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="employeeDetail">
+                <field-map field-name="partyId" from="employment.fromPartyId"/></entity-find-one>
+            <set field="employeeFirstName" from="employment.taxName ?: (employeeDetail.firstName + (employeeDetail.middleName ? ' ' + employeeDetail.middleName : ''))"/>
+            <set field="employeeLastName" from="employment.taxLastName ?: employeeDetail.lastName"/>
+            <set field="employeeSuffix" from="employeeDetail.suffix"/>
+            <entity-find-one entity-name="mantle.party.PartyIdentification" value-field="employeeSsnPi">
+                <field-map field-name="partyId" from="employment.fromPartyId"/>
+                <field-map field-name="partyIdTypeEnumId" value="PtidSsn"/>
+            </entity-find-one>
+            <set field="employeeSsn" from="employeeSsnPi.idValue"/>
+            <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="employeeHomeContactInfo"
+                    in-map="[partyId:employment.toPartyId, postalContactMechId:employment.taxHomeContactMechId,
+                        postalContactMechPurposeId:'PostalHome']"/>
+            <script>employeeHomeStreetString = """${employeeHomeContactInfo?.postalAddress?.address1 ? employeeHomeContactInfo.postalAddress.address1 + (employeeHomeContactInfo.postalAddress.unitNumber ? ' #' + employeeHomeContactInfo.postalAddress.unitNumber : '') : ''}${employeeHomeContactInfo?.postalAddress?.address2 ? '\n' + employeeHomeContactInfo.postalAddress.address2 : ''}"""</script>
+            <script>employeeHomeCszString = """${employeeHomeContactInfo?.postalAddress ? (employeeHomeContactInfo.postalAddress.city ?: '') + (employeeHomeContactInfo.postalAddressStateGeo?.geoCodeAlpha2 ? ', ' + employeeHomeContactInfo.postalAddressStateGeo.geoCodeAlpha2 : '') + ' ' + (employeeHomeContactInfo.postalAddress.postalCode ?: '') + (employeeHomeContactInfo.postalAddress.postalCodeExt ? '-' + employeeHomeContactInfo.postalAddress.postalCodeExt : '') + (employeeHomeContactInfo.postalAddressCountryGeo?.geoCodeAlpha3 ? ' ' + employeeHomeContactInfo.postalAddressCountryGeo.geoCodeAlpha3 : '') : ''}"""</script>
+            <script>employeeHomeString = """${employeeHomeStreetString}\n${employeeHomeCszString}"""</script>
+
+            <entity-find-one entity-name="mantle.party.PartyDetail" value-field="employerDetail">
+                <field-map field-name="partyId" from="employment.toPartyId"/></entity-find-one>
+            <set field="employerName" value="${employerDetail.organizationName?:''}${employerDetail.firstName?:''}${employerDetail.lastName ? ' ' + employerDetail.lastName : ''}"/>
+            <entity-find-one entity-name="mantle.party.PartyIdentification" value-field="employerEinPi">
+                <field-map field-name="partyId" from="employment.toPartyId"/>
+                <field-map field-name="partyIdTypeEnumId" value="PtidFein"/>
+            </entity-find-one>
+            <set field="employerEin" from="employerEinPi.idValue"/>
+            <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="employerContactInfo"
+                    in-map="[partyId:employment.toPartyId, postalContactMechPurposeId:'PostalTax',
+                        telecomContactMechPurposeId:'PhoneTax']"/>
+            <script>employerAddressString = """${employerContactInfo?.postalAddress?.address1 ? employerContactInfo.postalAddress.address1 + (employerContactInfo.postalAddress.unitNumber ? ' #' + employerContactInfo.postalAddress.unitNumber : '') + '\n' : ''}${employerContactInfo?.postalAddress?.address2 ? employerContactInfo.postalAddress.address2 + '\n' : ''}${employerContactInfo?.postalAddress ? (employerContactInfo.postalAddress.city ?: '') + (employerContactInfo.postalAddressStateGeo?.geoCodeAlpha2 ? ', ' + employerContactInfo.postalAddressStateGeo.geoCodeAlpha2 : '') + ' ' + (employerContactInfo.postalAddress.postalCode ?: '') + (employerContactInfo.postalAddress.postalCodeExt ? '-' + employerContactInfo.postalAddress.postalCodeExt : '') + (employerContactInfo.postalAddressCountryGeo?.geoCodeAlpha3 ? ' ' + employerContactInfo.postalAddressCountryGeo.geoCodeAlpha3 : '') : ''}"""</script>
+            <script>employerPhoneString = """${employerContactInfo?.telecomNumber ? (employerContactInfo.telecomNumber.countryCode ? employerContactInfo.telecomNumber.countryCode + '-' : '') + (employerContactInfo.telecomNumber.areaCode ? employerContactInfo.telecomNumber.areaCode + '-' : '') + (employerContactInfo.telecomNumber.contactNumber ?: '') : ''}"""</script>
+
+            <entity-find entity-name="mantle.humanres.employment.EmploymentPayHistory" list="payHistoryList">
+                <econdition field-name="partyRelationshipId"/>
+                <econdition field-name="payDate" operator="greater-equals" from="timePeriod.fromDate"/>
+                <econdition field-name="payDate" operator="less-equals" from="timePeriod.thruDate"/>
+                <econdition field-name="internalPayroll" value="Y"/>
+            </entity-find>
+            <set field="taxablePayAmount" from="0"/>
+            <set field="socialTaxablePayAmount" from="0"/>
+            <set field="medicalTaxablePayAmount" from="0"/>
+            <iterate list="payHistoryList" entry="payHistory">
+                <set field="taxablePayAmount" from="taxablePayAmount + payHistory.taxablePayAmount"/>
+                <set field="socialTaxablePayAmount" from="socialTaxablePayAmount + payHistory.socialTaxablePayAmount"/>
+                <set field="medicalTaxablePayAmount" from="medicalTaxablePayAmount + payHistory.medicalTaxablePayAmount"/>
+            </iterate>
+
+            <entity-find entity-name="mantle.humanres.employment.EmploymentPayDetail" list="payDetailList">
+                <econdition field-name="partyRelationshipId"/>
+                <econdition field-name="payDate" operator="greater-equals" from="timePeriod.fromDate"/>
+                <econdition field-name="payDate" operator="less-equals" from="timePeriod.thruDate"/>
+                <econdition field-name="isEmployerPaid" operator="not-equals" value="Y" or-null="true"/>
+            </entity-find>
+            <set field="wageAndTaxInfoByTaxAuthorityId" from="[:]"/>
+            <iterate list="payDetailList" entry="payDetail">
+                <if condition="!payDetail.taxAuthorityId"><continue/></if>
+                <set field="taxAuthorityId" from="payDetail.taxAuthorityId"/>
+                <entity-find-one entity-name="mantle.humanres.employment.PayrollAdjustment" value-field="payrollAdjustment">
+                    <field-map field-name="payrollAdjustmentId" from="payDetail.payrollAdjustmentId"/></entity-find-one>
+
+                <set field="wageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(taxAuthorityId)"/>
+                <if condition="!wageAndTaxInfo">
+                    <entity-find-one entity-name="mantle.other.tax.TaxAuthority" value-field="taxAuthority"/>
+                    <entity-find-one entity-name="moqui.basic.Geo" value-field="taxAuthorityGeo">
+                        <field-map field-name="geoId" from="taxAuthority.taxAuthGeoId"/></entity-find-one>
+                    <set field="wageAndTaxInfo" from="[taxAuthority:taxAuthority, taxAuthorityGeo:taxAuthorityGeo]"/>
+                    <script>wageAndTaxInfoByTaxAuthorityId.put(taxAuthorityId, wageAndTaxInfo)</script>
+                </if>
+                <script>
+                    if (payrollAdjustment.isTax == 'Y') {
+                        StupidUtilities.addToBigDecimalInMap('incomeTaxWithheldAmount', payDetail.amount, wageAndTaxInfo)
+                    } else if (payrollAdjustment.isSocialTax == 'Y') {
+                        StupidUtilities.addToBigDecimalInMap('socialTaxWithheldAmount', payDetail.amount, wageAndTaxInfo)
+                    } else if (payrollAdjustment.isMedicalTax == 'Y') {
+                        StupidUtilities.addToBigDecimalInMap('medicalTaxWithheldAmount', payDetail.amount, wageAndTaxInfo)
+                    }
+                </script>
+            </iterate>
+
+            <set field="federalTaxAuthorityIdList" from="[]"/>
+            <set field="stateTaxAuthorityIdList" from="[]"/>
+            <set field="localTaxAuthorityIdList" from="[]"/>
+            <iterate list="wageAndTaxInfoByTaxAuthorityId" entry="wageAndTaxInfo" key="taxAuthorityId">
+                <if condition="wageAndTaxInfo.taxAuthority.taxAuthorityTypeEnumId == 'TatFederal'">
+                    <then><script>federalTaxAuthorityIdList.add(taxAuthorityId)</script></then>
+                    <else-if condition="wageAndTaxInfo.taxAuthority.taxAuthorityTypeEnumId == 'TatState'">
+                        <script>stateTaxAuthorityIdList.add(taxAuthorityId)</script></else-if>
+                    <else-if condition="wageAndTaxInfo.taxAuthority.taxAuthorityTypeEnumId == 'TatLocal'">
+                        <script>localTaxAuthorityIdList.add(taxAuthorityId)</script></else-if>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="get" noun="UsaIrsW2FormData">
+        <!-- NOTE: currently supports only one federal, state, and local tax authority; to support multiple states with
+            different wage/etc amounts other payroll services/etc would also need to be changed -->
+        <!-- NOTE: currently uses FEIN for Employer's state ID -->
+        <!-- TODO: support multiple tax authorities at each level by making sure the state is related to
+            federalTaxAuthorityId, and match local with state -->
+        <in-parameters>
+            <parameter name="timePeriodId" required="true"><description>Should be a period for a Tax Year/Quarter/etc</description></parameter>
+            <parameter name="partyRelationshipId" required="true"/>
+            <parameter name="federalTaxAuthorityId" default-value="UsaIrs"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="w2_a"/><parameter name="w2_b"/><parameter name="w2_c"/>
+            <parameter name="w2_e1"/><parameter name="w2_e2"/><parameter name="w2_e3"/><parameter name="w2_f"/>
+            <parameter name="w2_01"/><parameter name="w2_02"/><parameter name="w2_03"/><parameter name="w2_04"/>
+            <parameter name="w2_05"/><parameter name="w2_06"/>
+            <parameter name="w2_15as"/><parameter name="w2_15ae"/><parameter name="w2_16a"/><parameter name="w2_17a"/>
+            <parameter name="w2_18a"/><parameter name="w2_19a"/><parameter name="w2_20a"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.humanres.PayrollServices.get#EmploymentWageAndTaxInfo" in-map="context" out-map="context"/>
+
+            <set field="w2_a" from="employeeSsn"/>
+            <set field="w2_b" from="employerEin"/>
+            <set field="w2_c" value="${employerName}\n${employerAddressString}"/>
+            <set field="w2_e1" from="employeeFirstName"/>
+            <set field="w2_e2" from="employeeLastName"/>
+            <set field="w2_e3" from="employeeSuffix"/>
+            <set field="w2_f" from="employeeHomeString"/>
+
+            <set field="w2_01" from="taxablePayAmount"/>
+            <set field="w2_03" from="socialTaxablePayAmount"/>
+            <set field="w2_05" from="medicalTaxablePayAmount"/>
+
+            <set field="federalWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(federalTaxAuthorityId)"/>
+            <set field="w2_02" from="federalWageAndTaxInfo?.incomeTaxWithheldAmount"/>
+            <set field="w2_04" from="federalWageAndTaxInfo?.socialTaxWithheldAmount"/>
+            <set field="w2_06" from="federalWageAndTaxInfo?.medicalTaxWithheldAmount"/>
+
+            <set field="stateTaxAuthorityId" from="stateTaxAuthorityIdList ? stateTaxAuthorityIdList[0] : 0"/>
+            <set field="stateWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(stateTaxAuthorityId)"/>
+            <if condition="stateWageAndTaxInfo">
+                <set field="w2_15as" from="stateWageAndTaxInfo.taxAuthorityGeo?.geoCodeAlpha2"/>
+                <set field="w2_15ae" from="employerEin"/>
+                <set field="w2_16a" from="taxablePayAmount"/>
+                <set field="w2_17a" from="stateWageAndTaxInfo.incomeTaxWithheldAmount"/>
+            </if>
+
+            <set field="localTaxAuthorityId" from="localTaxAuthorityIdList ? localTaxAuthorityIdList[0] : 0"/>
+            <set field="localWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(localTaxAuthorityId)"/>
+            <if condition="localWageAndTaxInfo">
+                <set field="w2_18a" from="taxablePayAmount"/>
+                <set field="w2_19a" from="localWageAndTaxInfo.incomeTaxWithheldAmount"/>
+                <!-- TODO: this may need to be shortened to fit in printed form field -->
+                <set field="w2_20a" from="localWageAndTaxInfo.taxAuthorityGeo.geoName"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="get" noun="UsaIrs1099MiscFormData">
+        <!-- NOTE: currently supports only one federal and state; to support multiple states with
+            different wage/etc amounts other payroll services/etc would also need to be changed -->
+        <!-- NOTE: currently uses FEIN for Employer's state ID -->
+        <!-- TODO: support multiple state tax authorities by making sure the state is related to federalTaxAuthorityId -->
+        <in-parameters>
+            <parameter name="timePeriodId" required="true"><description>Should be a period for a Tax Year/Quarter/etc</description></parameter>
+            <parameter name="partyRelationshipId" required="true"/>
+            <parameter name="federalTaxAuthorityId" default-value="UsaIrs"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="w2_a"/><parameter name="w2_b"/><parameter name="w2_c"/>
+            <parameter name="w2_e1"/><parameter name="w2_e2"/><parameter name="w2_e3"/><parameter name="w2_f"/>
+            <parameter name="w2_01"/><parameter name="w2_02"/><parameter name="w2_03"/><parameter name="w2_04"/>
+            <parameter name="w2_05"/><parameter name="w2_06"/>
+            <parameter name="w2_15as"/><parameter name="w2_15ae"/><parameter name="w2_16a"/><parameter name="w2_17a"/>
+            <parameter name="w2_18a"/><parameter name="w2_19a"/><parameter name="w2_20a"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.humanres.PayrollServices.get#EmploymentWageAndTaxInfo" in-map="context" out-map="context"/>
+
+            <set field="1099m_a" value="${employerName}\n${employerAddressString}\n${employerPhoneString}"/>
+            <set field="1099m_b" from="employerEin"/>
+            <set field="1099m_c" from="employeeSsn"/>
+
+
+            <set field="1099m_d1" value="${employeeFirstName?:''} ${employeeLastName?:''} ${employeeSuffix?:''}"/>
+            <set field="1099m_d2" from="employeeHomeStreetString"/>
+            <set field="1099m_d3" from="employeeHomeCszString"/>
+
+            <set field="federalWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(federalTaxAuthorityId)"/>
+            <if condition="federalWageAndTaxInfo?.incomeTaxWithheldAmount">
+                <then>
+                    <set field="1099m_03" from="taxablePayAmount"/>
+                    <set field="1099m_04" from="federalWageAndTaxInfo?.incomeTaxWithheldAmount"/>
+                </then>
+                <else>
+                    <set field="1099m_07" from="taxablePayAmount"/>
+                </else>
+            </if>
+
+            <set field="stateTaxAuthorityId" from="stateTaxAuthorityIdList ? stateTaxAuthorityIdList[0] : 0"/>
+            <set field="stateWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(stateTaxAuthorityId)"/>
+            <if condition="stateWageAndTaxInfo">
+                <set field="1099m_16a" from="stateWageAndTaxInfo.incomeTaxWithheldAmount"/>
+                <set field="1099m_17a" value="${stateWageAndTaxInfo.taxAuthorityGeo?.geoCodeAlpha2} ${employerEin}"/>
+                <set field="1099m_18a" from="taxablePayAmount"/>
             </if>
         </actions>
     </service>
