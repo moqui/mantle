@@ -242,7 +242,8 @@ along with this software (see the LICENSE.md file). If not, see
                         invoiceId:invoiceId, internalPayroll:'Y', payAmount:payAmount, taxablePayAmount:taxablePayAmount,
                         socialTaxablePayAmount:socialTaxablePayAmount, medicalTaxablePayAmount:medicalTaxablePayAmount,
                         netPayAmount:netPayAmount, disposablePayAmount:disposablePayAmount, taxableYtdIncome:taxableYtdIncome,
-                        socialTaxableYtdIncome:socialTaxableYtdIncome, medicalTaxableYtdIncome:medicalTaxableYtdIncome]"/>
+                        socialTaxableYtdIncome:socialTaxableYtdIncome, medicalTaxableYtdIncome:medicalTaxableYtdIncome,
+                        currencyUomId:currencyUomId]"/>
             <iterate list="adjustmentList" entry="adjustment">
                 <!-- add records for all adjustments, including employer paid (this is the only detail record we have of employer paid) -->
                 <service-call name="create#mantle.humanres.employment.EmploymentPayDetail"
@@ -358,7 +359,10 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="get" noun="TimePeriodEmployments">
-        <in-parameters><parameter name="timePeriodId" required="true"/></in-parameters>
+        <in-parameters>
+            <parameter name="timePeriodId" required="true"/>
+            <parameter name="ignoreType" type="Boolean" default="false"/>
+        </in-parameters>
         <out-parameters>
             <parameter name="employmentList" type="List"/>
             <parameter name="timePeriod" type="Map"/>
@@ -371,7 +375,7 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find entity-name="mantle.humanres.employment.EmploymentFromDetail" list="employmentList">
                 <search-form-inputs default-order-by="pseudoId"/>
                 <econdition field-name="toPartyId" from="timePeriod.partyId"/>
-                <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
+                <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId" ignore="ignoreType"/>
                 <econdition field-name="fromDate" operator="less-equals" from="thruTimestamp" or-null="true"/>
                 <econdition field-name="thruDate" operator="greater-equals" from="fromTimestamp" or-null="true"/>
             </entity-find>
@@ -807,6 +811,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="taxablePayAmount" type="BigDecimal"/>
             <parameter name="socialTaxablePayAmount" type="BigDecimal"/>
             <parameter name="medicalTaxablePayAmount" type="BigDecimal"/>
+            <parameter name="currencyUomId"/>
 
             <parameter name="wageAndTaxInfoByTaxAuthorityId" type="Map"> <description>contains Map with: taxAuthority,
                 taxAuthorityGeo, incomeTaxWithheldAmount, socialTaxWithheldAmount, medicalTaxWithheldAmount</description></parameter>
@@ -828,7 +833,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="partyId" from="employment.fromPartyId"/>
                 <field-map field-name="partyIdTypeEnumId" value="PtidSsn"/>
             </entity-find-one>
-            <set field="employeeSsn" from="employeeSsnPi.idValue"/>
+            <set field="employeeSsn" from="employeeSsnPi?.idValue"/>
             <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="employeeHomeContactInfo"
                     in-map="[partyId:employment.toPartyId, postalContactMechId:employment.taxHomeContactMechId,
                         postalContactMechPurposeId:'PostalHome']"/>
@@ -843,7 +848,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="partyId" from="employment.toPartyId"/>
                 <field-map field-name="partyIdTypeEnumId" value="PtidFein"/>
             </entity-find-one>
-            <set field="employerEin" from="employerEinPi.idValue"/>
+            <set field="employerEin" from="employerEinPi?.idValue"/>
             <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="employerContactInfo"
                     in-map="[partyId:employment.toPartyId, postalContactMechPurposeId:'PostalTax',
                         telecomContactMechPurposeId:'PhoneTax']"/>
@@ -863,6 +868,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="taxablePayAmount" from="taxablePayAmount + payHistory.taxablePayAmount"/>
                 <set field="socialTaxablePayAmount" from="socialTaxablePayAmount + payHistory.socialTaxablePayAmount"/>
                 <set field="medicalTaxablePayAmount" from="medicalTaxablePayAmount + payHistory.medicalTaxablePayAmount"/>
+                <set field="currencyUomId" from="payHistory.currencyUomId"/><!-- NOTE: assumes all have same currency -->
             </iterate>
 
             <entity-find entity-name="mantle.humanres.employment.EmploymentPayDetail" list="payDetailList">
