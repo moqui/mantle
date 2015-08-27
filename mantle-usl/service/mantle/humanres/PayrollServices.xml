@@ -602,6 +602,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payrollAdjustment" type="Map"/>
             <parameter name="partyRelationshipId" required="true"/>
             <parameter name="employment" type="Map"/>
+            <parameter name="emplPosition" type="Map"/>
 
             <parameter name="timePeriodTypeId" required="true"/>
             <parameter name="payTimestamp" type="Timestamp"/>
@@ -622,6 +623,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="payrollAdjustmentId" required="true"/>
             <parameter name="payrollAdjustment" type="Map"/>
             <parameter name="employment" type="Map"/>
+            <parameter name="emplPosition" type="Map"/>
             <parameter name="garnishPriority" type="Long"/>
 
             <parameter name="amount" type="BigDecimal"/>
@@ -643,6 +645,15 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="garnishPriority" from="payrollAdjustment.garnishPriority"/>
             <if condition="!employment">
                 <entity-find-one entity-name="mantle.humanres.employment.EmploymentAndRelationship" value-field="employment"/></if>
+            <if condition="!emplPosition">
+                <entity-find-one entity-name="mantle.humanres.position.EmplPosition" value-field="emplPosition">
+                    <field-map field-name="emplPositionId" from="employment.emplPositionId"/></entity-find-one>
+            </if>
+
+            <if condition="emplPosition.exemptFlag == 'Y' &amp;&amp;
+                    (payrollAdjustment.isTax == 'Y' || payrollAdjustment.isSocialTax == 'Y' || payrollAdjustment.isMedicalTax == 'Y')">
+                <return/><!-- adjustmentApplies=false so adjustment won't be added -->
+            </if>
 
             <if condition="payrollAdjustment.isTax == 'Y'">
                 <then>
