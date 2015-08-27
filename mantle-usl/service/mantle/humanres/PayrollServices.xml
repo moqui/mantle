@@ -895,11 +895,11 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
                 <script>
                     if (payrollAdjustment.isTax == 'Y') {
-                        StupidUtilities.addToBigDecimalInMap('incomeTaxWithheldAmount', payDetail.amount, wageAndTaxInfo)
+                        StupidUtilities.addToBigDecimalInMap('incomeTaxWithheldAmount', -payDetail.amount, wageAndTaxInfo)
                     } else if (payrollAdjustment.isSocialTax == 'Y') {
-                        StupidUtilities.addToBigDecimalInMap('socialTaxWithheldAmount', payDetail.amount, wageAndTaxInfo)
+                        StupidUtilities.addToBigDecimalInMap('socialTaxWithheldAmount', -payDetail.amount, wageAndTaxInfo)
                     } else if (payrollAdjustment.isMedicalTax == 'Y') {
-                        StupidUtilities.addToBigDecimalInMap('medicalTaxWithheldAmount', payDetail.amount, wageAndTaxInfo)
+                        StupidUtilities.addToBigDecimalInMap('medicalTaxWithheldAmount', -payDetail.amount, wageAndTaxInfo)
                     }
                 </script>
             </iterate>
@@ -929,8 +929,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="timePeriod.isClosed == 'Y'">
                 <message error="true">Not creating wage and text records for period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, already closed.</message></if>
+            <!-- TODO: uncomment this, commented for testing only
             <if condition="ec.user.nowTimestamp.before(timePeriod.thruDate)">
                 <message error="true">Not creating wage and text records or closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, period has not ended (ends on ${timePeriod.thruDate}).</message></if>
+            -->
 
             <service-call name="mantle.humanres.PayrollServices.get#TimePeriodEmployments"
                     in-map="[timePeriodId:timePeriodId, ignoreType:true]" out-map="context"/>
@@ -1001,29 +1003,29 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="formMap.w2_e3" from="employeeSuffix"/>
             <set field="formMap.w2_f" from="employeeHomeString"/>
 
-            <set field="formMap.w2_01" from="taxablePayAmount"/>
-            <set field="formMap.w2_03" from="socialTaxablePayAmount"/>
-            <set field="formMap.w2_05" from="medicalTaxablePayAmount"/>
+            <set field="formMap.w2_01" from="ec.l10n.format(taxablePayAmount, '#,##0.00')"/>
+            <set field="formMap.w2_03" from="ec.l10n.format(socialTaxablePayAmount, '#,##0.00')"/>
+            <set field="formMap.w2_05" from="ec.l10n.format(medicalTaxablePayAmount, '#,##0.00')"/>
 
             <set field="federalWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(federalTaxAuthorityId)"/>
-            <set field="formMap.w2_02" from="federalWageAndTaxInfo?.incomeTaxWithheldAmount"/>
-            <set field="formMap.w2_04" from="federalWageAndTaxInfo?.socialTaxWithheldAmount"/>
-            <set field="formMap.w2_06" from="federalWageAndTaxInfo?.medicalTaxWithheldAmount"/>
+            <set field="formMap.w2_02" from="ec.l10n.format(federalWageAndTaxInfo?.incomeTaxWithheldAmount, '#,##0.00')"/>
+            <set field="formMap.w2_04" from="ec.l10n.format(federalWageAndTaxInfo?.socialTaxWithheldAmount, '#,##0.00')"/>
+            <set field="formMap.w2_06" from="ec.l10n.format(federalWageAndTaxInfo?.medicalTaxWithheldAmount, '#,##0.00')"/>
 
             <set field="stateTaxAuthorityId" from="stateTaxAuthorityIdList ? stateTaxAuthorityIdList[0] : 0"/>
             <set field="stateWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(stateTaxAuthorityId)"/>
             <if condition="stateWageAndTaxInfo">
                 <set field="formMap.w2_15as" from="stateWageAndTaxInfo.taxAuthorityGeo?.geoCodeAlpha2"/>
                 <set field="formMap.w2_15ae" from="employerEin"/>
-                <set field="formMap.w2_16a" from="taxablePayAmount"/>
-                <set field="formMap.w2_17a" from="stateWageAndTaxInfo.incomeTaxWithheldAmount"/>
+                <set field="formMap.w2_16a" from="ec.l10n.format(taxablePayAmount, '#,##0.00')"/>
+                <set field="formMap.w2_17a" from="ec.l10n.format(stateWageAndTaxInfo.incomeTaxWithheldAmount, '#,##0.00')"/>
             </if>
 
             <set field="localTaxAuthorityId" from="localTaxAuthorityIdList ? localTaxAuthorityIdList[0] : 0"/>
             <set field="localWageAndTaxInfo" from="wageAndTaxInfoByTaxAuthorityId.get(localTaxAuthorityId)"/>
             <if condition="localWageAndTaxInfo">
-                <set field="formMap.w2_18a" from="taxablePayAmount"/>
-                <set field="formMap.w2_19a" from="localWageAndTaxInfo.incomeTaxWithheldAmount"/>
+                <set field="formMap.w2_18a" from="ec.l10n.format(taxablePayAmount, '#,##0.00')"/>
+                <set field="formMap.w2_19a" from="ec.l10n.format(localWageAndTaxInfo.incomeTaxWithheldAmount, '#,##0.00')"/>
                 <!-- TODO: this may need to be shortened to fit in printed form field -->
                 <set field="formMap.w2_20a" from="localWageAndTaxInfo.taxAuthorityGeo.geoName"/>
             </if>
