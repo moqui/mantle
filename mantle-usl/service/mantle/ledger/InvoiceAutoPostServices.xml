@@ -166,28 +166,38 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="fromPartyAcctgPreference">
                 <set field="glAccountTypeEnumId" value="ACCOUNTS_RECEIVABLE"/>
 
-                <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="invoiceBalanceGlAccountOut"
-                        in-map="[glAccountTypeEnumId:glAccountTypeEnumId, acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
-                            organizationPartyId:fromAcctgTrans.organizationPartyId, otherPartyId:fromAcctgTrans.otherPartyId]"/>
-                <if condition="!invoiceBalanceGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
+                <set field="glAccountId" from="fromInvoiceTypeTransTypeOut.glAccountId"/>
+                <if condition="!glAccountId">
+                    <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType"
+                            out-map="invoiceBalanceGlAccountOut" out-map-add-to-existing="false"
+                            in-map="[glAccountTypeEnumId:glAccountTypeEnumId, acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
+                                organizationPartyId:fromAcctgTrans.organizationPartyId, otherPartyId:fromAcctgTrans.otherPartyId]"/>
+                    <set field="glAccountId" from="invoiceBalanceGlAccountOut.glAccountId"/>
+                </if>
+                <if condition="!glAccountId"><set field="useErrorJournal" from="true"/></if>
 
                 <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
                         in-map="[amount:invoiceTotal, acctgTransId:fromAcctgTrans.acctgTransId, acctgTrans:fromAcctgTrans,
-                            debitCreditFlag:'D', glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:invoiceBalanceGlAccountOut.glAccountId]"/>
+                            debitCreditFlag:'D', glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:glAccountId]"/>
             </if>
 
             <!-- balancing entry for to Party -->
             <if condition="toPartyAcctgPreference">
                 <set field="glAccountTypeEnumId" value="ACCOUNTS_PAYABLE"/>
 
-                <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="invoiceBalanceGlAccountOut"
-                        in-map="[glAccountTypeEnumId:glAccountTypeEnumId, acctgTransTypeEnumId:toAcctgTrans.acctgTransTypeEnumId,
-                            organizationPartyId:toAcctgTrans.organizationPartyId, otherPartyId:toAcctgTrans.otherPartyId]"/>
-                <if condition="!invoiceBalanceGlAccountOut.glAccountId"><set field="useErrorJournal" from="true"/></if>
+                <set field="glAccountId" from="toInvoiceTypeTransTypeOut.glAccountId"/>
+                <if condition="!glAccountId">
+                    <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType"
+                            out-map="invoiceBalanceGlAccountOut" out-map-add-to-existing="false"
+                            in-map="[glAccountTypeEnumId:glAccountTypeEnumId, acctgTransTypeEnumId:toAcctgTrans.acctgTransTypeEnumId,
+                                organizationPartyId:toAcctgTrans.organizationPartyId, otherPartyId:toAcctgTrans.otherPartyId]"/>
+                    <set field="glAccountId" from="invoiceBalanceGlAccountOut.glAccountId"/>
+                </if>
+                <if condition="!glAccountId"><set field="useErrorJournal" from="true"/></if>
 
                 <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
                         in-map="[amount:invoiceTotal, acctgTransId:toAcctgTrans.acctgTransId, acctgTrans:toAcctgTrans,
-                            debitCreditFlag:'C', glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:invoiceBalanceGlAccountOut.glAccountId]"/>
+                            debitCreditFlag:'C', glAccountTypeEnumId:glAccountTypeEnumId, glAccountId:glAccountId]"/>
             </if>
 
             <!-- ==== post the tx ==== -->
