@@ -14,7 +14,9 @@ along with this software (see the LICENSE.md file). If not, see
 <entities xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/entity-definition-1.5.xsd">
 
+    <!-- ========================================================= -->
     <!-- mantle.ledger.account -->
+    <!-- ========================================================= -->
 
     <view-entity entity-name="GlAccountAndOrganization" package-name="mantle.ledger.account">
         <member-entity entity-alias="GLAO" entity-name="mantle.ledger.account.GlAccountOrganization"/>
@@ -27,7 +29,9 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="ORG"/>
     </view-entity>
 
+    <!-- ========================================================= -->
     <!-- mantle.ledger.config -->
+    <!-- ========================================================= -->
     
     <view-entity entity-name="GlAccountAndTypeDefault" package-name="mantle.ledger.config">
         <member-entity entity-alias="GATD" entity-name="mantle.ledger.config.GlAccountTypeDefault"/>
@@ -36,6 +40,19 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="GATD"/>
         <alias-all entity-alias="GLA"><exclude field="glAccountTypeEnumId"/></alias-all>
         <alias name="accountGlAccountTypeEnumId" entity-alias="GLA" field="glAccountTypeEnumId"/>
+    </view-entity>
+    <view-entity entity-name="InvoiceTypeTransTypeDetail" package-name="mantle.ledger.config">
+        <member-entity entity-alias="ITTT" entity-name="mantle.ledger.config.InvoiceTypeTransType"/>
+        <member-entity entity-alias="ITEN" entity-name="moqui.basic.Enumeration" join-from-alias="ITTT">
+            <key-map field-name="invoiceTypeEnumId" related-field-name="enumId"/></member-entity>
+        <member-entity entity-alias="ATTEN" entity-name="moqui.basic.Enumeration" join-from-alias="ITTT" join-optional="true">
+            <key-map field-name="acctgTransTypeEnumId" related-field-name="enumId"/></member-entity>
+        <member-entity entity-alias="GLA" entity-name="mantle.ledger.account.GlAccount" join-from-alias="ITTT" join-optional="true">
+            <key-map field-name="glAccountId"/></member-entity>
+        <alias-all entity-alias="ITTT"/>
+        <alias-all entity-alias="GLA"/>
+        <alias name="invoiceTypeDescription" entity-alias="ITEN" field="description"/>
+        <alias name="acctgTransTypeDescription" entity-alias="ATTEN" field="description"/>
     </view-entity>
     <view-entity entity-name="ItemTypeAndGlAccount" package-name="mantle.ledger.config">
         <member-entity entity-alias="ITGA" entity-name="mantle.ledger.config.ItemTypeGlAccount"/>
@@ -84,16 +101,33 @@ along with this software (see the LICENSE.md file). If not, see
         <alias-all entity-alias="FATGA"/>
         <alias-all entity-alias="GLA"/>
     </view-entity>
+    <view-entity entity-name="FinancialAccountReasonAndGlAccount" package-name="mantle.ledger.config">
+        <member-entity entity-alias="FARGA" entity-name="mantle.ledger.config.FinancialAccountReasonGlAccount"/>
+        <member-entity entity-alias="GLA" entity-name="mantle.ledger.account.GlAccount" join-from-alias="FARGA">
+            <key-map field-name="glAccountId"/></member-entity>
+        <alias-all entity-alias="FARGA"/>
+        <alias-all entity-alias="GLA"/>
+    </view-entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.ledger.transaction -->
+    <!-- ========================================================= -->
 
     <view-entity entity-name="AcctgTransAndEntry" package-name="mantle.ledger.transaction">
         <member-entity entity-alias="ATX" entity-name="mantle.ledger.transaction.AcctgTrans"/>
         <member-entity entity-alias="ATE" entity-name="mantle.ledger.transaction.AcctgTransEntry" join-from-alias="ATX">
             <key-map field-name="acctgTransId"/></member-entity>
-        <alias-all entity-alias="ATX"/>
+        <alias-all entity-alias="ATX"><exclude field="description"/><exclude field="voucherRef"/>
+            <exclude field="assetId"/></alias-all>
         <alias-all entity-alias="ATE"/>
+        <alias entity-alias="ATX" name="txDescription" field="description"/>
+        <alias entity-alias="ATX" name="txVoucherRef" field="voucherRef"/>
+        <alias entity-alias="ATX" name="txAssetId" field="assetId"/>
     </view-entity>
 
+    <!-- ========================================================= -->
     <!-- mantle.ledger.report -->
+    <!-- ========================================================= -->
 
     <view-entity entity-name="PostedAmountSummary" package-name="mantle.ledger.report">
         <member-entity entity-alias="GLA" entity-name="mantle.ledger.account.GlAccount"/>

@@ -117,8 +117,6 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <!-- create balancing entry for PaymentMethod -->
-            <set field="paymentGlAccountId" from="payment.overrideGlAccountId"/>
-
             <if condition="payment.paymentMethodTypeEnumId == 'PmtCreditCard'">
                 <entity-find-related-one value-field="payment" relationship-name="mantle.account.method.CreditCard"
                         to-value-field="creditCard"/>
@@ -284,6 +282,11 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
             </if>
             <set field="glAccountId" from="paymentTypeGlAccountList.first?.glAccountId"/>
+            <if condition="glAccountId">
+                <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" cache="true">
+                    <field-map field-name="glAccountId"/></entity-find-one>
+                <set field="glAccountTypeEnumId" from="glAccount?.glAccountTypeEnumId"/>
+            </if>
         </actions>
     </service>
     <service verb="get" noun="PaymentMethodGlAccount">
@@ -300,19 +303,21 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
-            <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
-                    in-map="[organizationPartyId:organizationPartyId]"/>
             <set field="isPayable" from="organizationPartyId == payment.fromPartyId ? 'Y' : 'N'"/>
             <set field="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
+            <set field="glAccountId" from="payment.overrideGlAccountId"/>
 
-            <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
+            <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+
+            <if condition="!glAccountId &amp;&amp; paymentMethodTypeEnumId == 'PmtCreditCard'">
                 <entity-find entity-name="mantle.ledger.config.CreditCardTypeGlAccount" list="creditCardTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
                     <econdition field-name="creditCardTypeEnumId"/>
                 </entity-find>
                 <set field="glAccountId" from="creditCardTypeGlAccountList.first?.glAccountId"/>
             </if>
-            <if condition="paymentMethodTypeEnumId == 'PmtFinancialAccount'">
+            <if condition="!glAccountId &amp;&amp; paymentMethodTypeEnumId == 'PmtFinancialAccount'">
                 <entity-find entity-name="mantle.ledger.config.FinancialAccountTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
                     <econdition field-name="finAccountTypeId"/><econdition field-name="isPayable"/>
@@ -340,6 +345,12 @@ along with this software (see the LICENSE.md file). If not, see
                     </entity-find>
                 </if>
                 <set field="glAccountId" from="paymentMethodTypeGlAccountList.first?.glAccountId"/>
+            </if>
+
+            <if condition="glAccountId">
+                <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" cache="true">
+                    <field-map field-name="glAccountId"/></entity-find-one>
+                <set field="glAccountTypeEnumId" from="glAccount?.glAccountTypeEnumId"/>
             </if>
         </actions>
     </service>

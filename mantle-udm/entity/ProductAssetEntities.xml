@@ -80,6 +80,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="salvageValue" type="currency-amount"/>
         <field name="depreciation" type="currency-amount"/>
         <field name="depreciationTypeEnumId" type="id"/>
+        <field name="taxDepreciation" type="currency-amount"/>
+        <field name="taxDepreciationTypeEnumId" type="id"/>
 
         <relationship type="one" title="Parent" related-entity-name="mantle.product.asset.Asset">
             <key-map field-name="parentAssetId" related-field-name="assetId"/></relationship>
@@ -116,11 +118,15 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="acquireCostUomId"/></relationship>
         <relationship type="one" title="DepreciationType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="depreciationTypeEnumId"/></relationship>
+        <relationship type="one" title="TaxDepreciationType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxDepreciationTypeEnumId"/></relationship>
+
         <index name="INVITEM_SN"><index-field name="serialNumber"/></index>
         <!-- might be useful in some cases:
             <index name="INVITEM_SOFID" unique="true"><index-field name="softIdentifier"/></index>
             <index name="INVITEM_ACTNM" unique="true"><index-field name="activationNumber"/></index>
         -->
+
         <seed-data>
             <!-- Asset Type -->
             <moqui.basic.EnumerationType description="Asset Type" enumTypeId="AssetType"/>
@@ -218,13 +224,19 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstInStorage" toStatusId="AstInTransfer" transitionName="Start Transfer"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstInTransfer" toStatusId="AstInStorage" transitionName="Transfer Complete (Store)"/>
 
+            <!-- Depreciation Type -->
+            <moqui.basic.EnumerationType description="Depreciation Type" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Straight Line" enumId="DtpStraightLine" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Double Declining Balance" enumId="DtpDoubleDeclining" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Sum of Years Digits" enumId="DtpSumYearsDigits" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Units of Production" enumId="DtpUnitsProduction" enumTypeId="DepreciationType"/>
 
-            <!-- Depreciation Formulae -->
-            <!-- TODO: model these some other way, perhaps as Enumerations
-            <CustomMethodType customMethodTypeId="DEPRECIATION_FORMULA" description="Formula for calculating depreciation for fixed asset"/>
-            <CustomMethod customMethodId="STR_LINE_DEP_FORMULA" customMethodTypeId="DEPRECIATION_FORMULA" customMethodName="straightLineDepreciation" description="Straight Line depreciatiion algorithm for fixed asset((purchaseCost - salvageCost)/expectedLifeInYears)"/>
-            <CustomMethod customMethodId="DBL_DECL_DEP_FORMULA" customMethodTypeId="DEPRECIATION_FORMULA" customMethodName="doubleDecliningBalanceDepreciation" description="Double decline depreciatiion algorithm for fixed asset((NetBookValue - salvageCost)*2/remainingLifeInYears)"/>
-            -->
+            <!-- Tax Depreciation Type -->
+            <!-- NOTE: there are many variations, especially for USA MACRS ADS; future effort to model all of them -->
+            <!-- For a summary of USA IRS MACRS deprecations see: https://en.wikipedia.org/wiki/MACRS -->
+            <moqui.basic.EnumerationType description="Tax Depreciation Type" enumTypeId="TaxDepreciationType"/>
+            <moqui.basic.Enumeration description="MACRS GDS 5 Year" enumId="TdtpUnitsProduction" enumTypeId="TaxDepreciationType"/>
+            <moqui.basic.Enumeration description="MACRS GDS 7 Year" enumId="TdtpUnitsProduction" enumTypeId="TaxDepreciationType"/>
         </seed-data>
     </entity>
     <entity entity-name="AssetDetail" package-name="mantle.product.asset" create-only="true">
