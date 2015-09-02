@@ -354,7 +354,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 amount="3200" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="3200" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
+                amount="3200" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55401" acctgTransTypeEnumId="AttInventoryReceipt"
@@ -365,7 +365,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 amount="450" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
+                amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
             <!-- NOTE: no inventory transaction for an Equipment Asset -->
