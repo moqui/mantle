@@ -182,12 +182,11 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Customer" enumId="CUSTOMER_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Supplier" enumId="SUPPLIER_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Product" enumId="PRODUCT_ACCOUNT" enumTypeId="GlAccountType"/>
+
             <moqui.basic.Enumeration description="Inventory" enumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Inventory Adjustment from Average Cost" enumId="INV_ADJ_AVG_COST" parentEnumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Inventory Item Value Adjustment" enumId="INV_ADJ_VAL" enumTypeId="GlAccountType"/>
-            <moqui.basic.Enumeration description="Raw Materials Inventory" enumId="RAWMAT_INVENTORY" enumTypeId="GlAccountType"/>
-            <moqui.basic.Enumeration description="Work In Progress Inventory" enumId="WIP_INVENTORY" enumTypeId="GlAccountType"/>
-            <moqui.basic.Enumeration description="Finished Good Inventory" enumId="FG_INVENTORY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Unreceived Inventory" enumId="UNRECEIVED_INVENTORY" enumTypeId="GlAccountType"/>
 
             <moqui.basic.Enumeration description="Tax" enumId="TAX_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Profit Loss" enumId="PROFIT_LOSS_ACCOUNT" enumTypeId="GlAccountType"/>
@@ -342,21 +341,45 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <entity entity-name="AssetTypeGlAccount" package-name="mantle.ledger.config">
+        <description>Found by assetId, then by assetTypeEnumId and classEnumId, then by just assetTypeEnumId</description>
+        <!--
+        Inventory Purchase: credit Accounts Payable, debit Unreceived Inventory
+        Inventory Receipt: credit Unreceived Inventory, debit Inventory
+        Inventory Sale: credit Sales, debit Accounts Receivable
+        Inventory Issuance: credit Inventory, debit COGS
+
+        Fixed Asset Purchase: credit Accounts Payable, debit Unreceived Asset
+        Fixed Asset Receipt: credit Unreceived Asset, debit Asset (fixed assets)
+        Fixed Asset Sale (profit): credit Profit/Gain on Sale/Disposal, debit Accounts Receivable
+        Fixed Asset Sale (loss): credit Accounts Payable, debit Loss on Sale/Disposal
+        Fixed Asset Issuance: credit Asset, debit Accumulated Depreciation (do only this for removal of fully depreciated asset)
+        NOTE: can fixed asset sale always be isolated for asset issuance? do Asset and Accumulated Depreciation amounts always match? (they should)
+        -->
         <field name="assetTypeGlAccountId" type="id" is-pk="true"/>
         <field name="assetTypeEnumId" type="id"/>
         <field name="classEnumId" type="id"/>
         <field name="assetId" type="id"/>
         <field name="organizationPartyId" type="id"/>
-        <field name="assetGlAccountId" type="id">
-            <description>The (debit) account for the initial asset value (purchase cost)</description></field>
-        <field name="accDepGlAccountId" type="id">
-            <description>The (credit) account for the accumulated depreciation</description></field>
-        <field name="depGlAccountId" type="id">
-            <description>The (debit) account for the depreciation expense (matches the accDepGlAccountId)</description></field>
-        <field name="profitGlAccountId" type="id">
-            <description>The (credit) account for the eventual profit derived from the sale of the asset</description></field>
+        <field name="assetGlAccountId" type="id"><description>
+            The debit account for the asset value (purchase cost) on receipt and credit account on issuance;
+            for inventory assets this is the inventory value account (INVENTORY_ACCOUNT);
+            for fixed assets this is a fixed asset value account (FIXED_ASSET);
+            for supplies this is an expense account (EXPENSE or OPERATING_EXPENSE)
+        </description></field>
+        <field name="receiptGlAccountId" type="id">
+            <description>The credit account on receipt (Unreceived Inventory, Unreceived Asset, etc)</description></field>
+        <field name="issuanceGlAccountId" type="id"><description>
+            The debit account on issuance AND credit account for accumulated depreciation for fixed assets;
+            for inventory assets this is the COGS account (COGS_ACCOUNT);
+            for fixed assets this is the Accumulated Depreciation account (ACCUM_DEPRECIATION);
+        </description></field>
+        <field name="depreciationGlAccountId" type="id">
+            <description>The debit account for the depreciation expense for fixed assets (paired with issuanceGlAccountId)</description></field>
+        <field name="profitGlAccountId" type="id"><description>The credit account for the eventual profit/gain derived
+            from the sale of the asset; for inventory assets this is a Sales account;
+            for fixed assets this is a profit/gain on sale/disposal account</description></field>
         <field name="lossGlAccountId" type="id">
-            <description>The (debit) account for the eventual loss derived from the sale of the asset</description></field>
+            <description>The debit account for the loss derived from the disposal of the asset</description></field>
 
         <relationship type="one" title="AssetType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="assetTypeEnumId"/></relationship>
@@ -367,10 +390,12 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="organizationPartyId"/></relationship>
         <relationship type="one" title="Asset" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="assetGlAccountId"/></relationship>
-        <relationship type="one" title="AccumulatedDepreciation" related-entity-name="mantle.ledger.account.GlAccount">
-            <key-map field-name="accDepGlAccountId"/></relationship>
+        <relationship type="one" title="Receipt" related-entity-name="mantle.ledger.account.GlAccount">
+            <key-map field-name="receiptGlAccountId"/></relationship>
+        <relationship type="one" title="Issuance" related-entity-name="mantle.ledger.account.GlAccount">
+            <key-map field-name="issuanceGlAccountId"/></relationship>
         <relationship type="one" title="Depreciation" related-entity-name="mantle.ledger.account.GlAccount">
-            <key-map field-name="depGlAccountId"/></relationship>
+            <key-map field-name="depreciationGlAccountId"/></relationship>
         <relationship type="one" title="Profit" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="profitGlAccountId"/></relationship>
         <relationship type="one" title="Loss" related-entity-name="mantle.ledger.account.GlAccount">
