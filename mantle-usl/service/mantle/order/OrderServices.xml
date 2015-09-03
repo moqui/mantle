@@ -807,11 +807,8 @@ h2. General Order Placement and eCommerce Usage
             <iterate list="orderItemList" entry="orderItem"><if condition="orderItem.productId">
                 <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true">
                     <field-map field-name="productId" from="orderItem.productId"/></entity-find-one>
-                <set field="productTypeEnum" from="product.'ProductType#moqui.basic.Enumeration'"/>
 
-                <if condition="product.productTypeEnumId in ['PtDigital', 'PtDigPhysGood']">
-                    <!-- TODO future: check other digital fulfillment? -->
-
+                <if condition="product.productTypeEnumId in ['PtDigital', 'PtDigitalAsset']">
                     <entity-find entity-name="mantle.product.subscription.ProductSubscriptionResource"
                             list="productSubscriptionResourceList" cache="true">
                         <econdition field-name="productId" from="product.productId"/></entity-find>
@@ -826,8 +823,7 @@ h2. General Order Placement and eCommerce Usage
                         </if>
                     </iterate>
                 </if>
-                <!-- all physical product types, including PtDigPhysGood, have this parentEnumId -->
-                <if condition="productTypeEnum.parentEnumId == 'PtPhysical'">
+                <if condition="product.productTypeEnumId in ['PtAsset', 'PtDigitalAsset']">
                     <filter-map-list list="existingAssetIssuanceList" to-list="currentAssetIssuanceList">
                         <field-map field-name="orderItemSeqId" from="orderItem.orderItemSeqId"/></filter-map-list>
                     <filter-map-list list="existingAssetReceiptList" to-list="currentAssetReceiptList">

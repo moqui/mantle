@@ -495,9 +495,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <!-- see if Product is a physical item -->
                     <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true">
                         <field-map field-name="productId" from="orderItem.productId"/></entity-find-one>
-                    <set field="productTypeEnum" from="product.'ProductType#moqui.basic.Enumeration'"/>
 
-                    <if condition="productTypeEnum.parentEnumId == 'PtPhysical'">
+                    <if condition="product.productTypeEnumId in ['PtAsset', 'PtDigitalAsset', 'PtAssetUse']">
                         <service-call name="create#mantle.shipment.ShipmentItem"
                                 in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
                         <service-call name="create#mantle.shipment.ShipmentItemSource"
@@ -929,9 +928,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true"/>
-            <entity-find-related-one value-field="product" relationship-name="ProductType#moqui.basic.Enumeration"
-                    to-value-field="productTypeEnum" cache="true"/>
-            <if condition="productTypeEnum.parentEnumId != 'PtPhysical' &amp;&amp; productTypeEnum.enumId != 'PtPhysical'">
+            <if condition="!(product.productTypeEnumId in ['PtAsset', 'PtDigitalAsset', 'PtAssetUse'])">
                 <log level="info" message="Not packing Product [${productId}], type ${productTypeEnum.description} [${productTypeEnum.enumId}] is not a physical product."/>
                 <return/>
             </if>
