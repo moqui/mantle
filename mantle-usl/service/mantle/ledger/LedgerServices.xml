@@ -380,7 +380,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.ledger.LedgerServices.calculate#AcctgTransTrialBalance" out-map="context"
                     in-map="[acctgTransId:acctgTransId]"/>
             <if condition="debitTotal != creditTotal">
-                <message>Not posting transaction [${acctgTransId}], credit and debit totals not equal.</message>
+                <message>Not posting transaction [${acctgTransId}], credit total (${creditTotal}) and debit total (${debitTotal}) not equal.</message>
                 <set field="useErrorJournal" from="true"/>
             </if>
 
@@ -820,6 +820,20 @@ along with this software (see the LICENSE.md file). If not, see
                     <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, child period ${ec.resource.expand('TimePeriodNameTemplate','',childTimePeriod)} not closed.</message>
                 </if>
             </iterate>
+
+            <!-- make sure there are no unposted transactions within the time period -->
+            <set field="fromTimestamp" from="ec.l10n.parseTimestamp(&quot;${timePeriod.fromDate} 00:00:00.000&quot;, '')"/>
+            <set field="thruTimestamp" from="ec.l10n.parseTimestamp(&quot;${timePeriod.thruDate} 23:59:59.999&quot;, '')"/>
+            <entity-find-count entity-name="mantle.ledger.transaction.AcctgTrans" count-field="unpostedTransCount">
+                <econdition field-name="isPosted" operator="not-equals" value="Y" or-null="true"/>
+                <econdition field-name="transactionDate" operator="greater-equals" from="fromTimestamp"/>
+                <econdition field-name="transactionDate" operator="less-equals" from="thruTimestamp"/>
+            </entity-find-count>
+            <if condition="unpostedTransCount &gt; 0">
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, found ${unpostedTransCount} in period.</message>
+            </if>
+
+            <!-- check errors before continuing -->
             <check-errors/>
 
             <!-- first close the TimePeriod to avoid further postings -->
