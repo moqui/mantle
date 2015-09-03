@@ -825,12 +825,19 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
             <entity-find-one entity-name="mantle.facility.Facility" value-field="facility"/>
 
+            <!-- set type and class from product if not passed in -->
+            <set field="assetTypeEnumId" from="assetTypeEnumId ?: product.assetTypeEnumId"/>
+            <set field="classEnumId" from="classEnumId ?: product.assetClassEnumId"/>
+
+            <!-- get ownerPartyId from OrderPart if needed -->
             <if condition="!ownerPartyId &amp;&amp; orderItem">
                 <set field="orderPart" from="orderItem?.'mantle.order.OrderPart'"/>
                 <set field="ownerPartyId" from="orderPart?.customerPartyId"/>
             </if>
+            <!-- get ownerPartyId from Facility if needed -->
             <if condition="!ownerPartyId"><set field="ownerPartyId" from="facility?.ownerPartyId"/></if>
 
+            <!-- set default status, receivedDate, hasQuantity, and assetName -->
             <if condition="!statusId"><set field="statusId" from="assetTypeEnumId == 'AstTpInventory' ? 'AstAvailable' : 'AstInStorage'"/></if>
             <if condition="!receivedDate &amp;&amp; statusId != 'AstIncoming'"><set field="receivedDate" from="ec.user.nowTimestamp"/></if>
             <set field="hasQuantity" from="!serialNumber &amp;&amp; quantity > 1 ? 'Y' : 'N'"/>
@@ -846,10 +853,6 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- have originalQuantity default to quantity received -->
             <set field="originalQuantity" from="originalQuantity ?: quantity"/>
-
-            <!-- set type and class from product if not passed in -->
-            <set field="assetTypeEnumId" from="assetTypeEnumId ?: product.assetTypeEnumId"/>
-            <set field="classEnumId" from="classEnumId ?: product.assetClassEnumId"/>
 
             <!-- create or update the Asset record -->
             <if condition="!assetId">
