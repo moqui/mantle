@@ -351,10 +351,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55400"
                 assetReceiptId="55400"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="3200" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149000000"
+                amount="3200" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="3200" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141000000"
+                amount="3200" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55401" acctgTransTypeEnumId="AttInventoryReceipt"
@@ -362,10 +362,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55401"
                 assetReceiptId="55401"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="450" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149000000"
+                amount="450" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141000000"
+                amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
             <!-- TODO: add receipt transaction for Equipment Asset -->
@@ -471,10 +471,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="ZiddlemanInc" invoiceId="55400"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="3200" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149000000"
+                amount="3200" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149000000"
+                amount="450" glAccountTypeEnumId="UNRECEIVED_INVENTORY" glAccountId="149300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1" invoiceItemSeqId="02"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="03" debitCreditFlag="D"
                 amount="10,000" glAccountTypeEnumId="UNRECEIVED_FIXED_ASSET" glAccountId="139100000"
