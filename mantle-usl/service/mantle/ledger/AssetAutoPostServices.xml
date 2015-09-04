@@ -13,7 +13,7 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
+    <!-- ========== Asset Receipt and Issuance Postings Services ========== -->
 
     <service verb="post" noun="AssetReceipt">
         <description>This is for posting Inventory/COGS transaction and runs when assetTypeEnumId == AstTpInventory only.</description>
@@ -252,6 +252,63 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+    <service verb="revert" noun="AssetIssuanceOnCancel">
+        <in-parameters>
+            <parameter name="assetIssuanceId" required="true"/>
+            <parameter name="cancelledQuantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="assetIssuanceId"/>
+                <econdition field-name="acctgTransTypeEnumId" value="AttInventoryIssuance"/>
+            </entity-find>
+            <if condition="acctgTransList">
+                <if condition="acctgTransList.size() == 1">
+                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
+                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
+
+                    <else><return error="true" message="Found more than one accounting transaction for Asset Issuance ${assetIssuanceId}, may already be reversed, not posting reverse transaction."/></else>
+                </if>
+                <else><return error="true" message="No accounting transaction found for Asset Issuance ${assetIssuanceId}, not posting reverse transaction."/></else>
+            </if>
+        </actions>
+    </service>
+
+    <!-- TODO ========== Fixed Asset Depreciation Services ========== -->
+
+    <!-- ========== Asset Adjustment Services ========== -->
+
+    <service verb="post" noun="AssetCostChange">
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="assetDetailSeqId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+    <service verb="post" noun="AssetOwnerChange">
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="oldOwnerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+    <service verb="post" noun="PhysicalInventoryVariance">
+        <in-parameters><parameter name="physicalInventoryId" required="true"/></in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+
+    <!-- ========== Config/Misc Services ========== -->
 
     <service verb="get" noun="AssetTypeGlAccount">
         <in-parameters>
@@ -304,78 +361,4 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
-
-    <service verb="revert" noun="AssetIssuanceOnCancel">
-        <in-parameters>
-            <parameter name="assetIssuanceId" required="true"/>
-            <parameter name="cancelledQuantity" type="BigDecimal" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
-            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
-                <econdition field-name="assetIssuanceId"/>
-                <econdition field-name="acctgTransTypeEnumId" value="AttInventoryIssuance"/>
-            </entity-find>
-            <if condition="acctgTransList">
-                <if condition="acctgTransList.size() == 1">
-                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
-                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
-
-                    <else><return error="true" message="Found more than one accounting transaction for Asset Issuance ${assetIssuanceId}, may already be reversed, not posting reverse transaction."/></else>
-                </if>
-                <else><return error="true" message="No accounting transaction found for Asset Issuance ${assetIssuanceId}, not posting reverse transaction."/></else>
-            </if>
-        </actions>
-    </service>
-    <service verb="post" noun="AssetCostChange">
-        <in-parameters>
-            <parameter name="assetId" required="true"/>
-            <parameter name="assetDetailSeqId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <service verb="post" noun="AssetOwnerChange">
-        <in-parameters>
-            <parameter name="assetId" required="true"/>
-            <parameter name="oldOwnerPartyId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <service verb="post" noun="PhysicalInventoryVariance">
-        <in-parameters><parameter name="physicalInventoryId" required="true"/></in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <!-- not needed, just use post#AssetIssuance
-    <service verb="post" noun="WorkEffortAssetIssuance">
-        <in-parameters>
-            <parameter name="workEffortId" required="true"/>
-            <parameter name="assetId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions></actions>
-    </service>
-    <service verb="post" noun="WorkEffortInventoryProduced">
-        <in-parameters>
-            <parameter name="workEffortId" required="true"/>
-            <parameter name="assetId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions></actions>
-    </service>
-    <service verb="post" noun="AssetMaintenanceIssuance">
-        <in-parameters><parameter name="assetIssuanceId" required="true"/></in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions></actions>
-    </service>
-    -->
 </services>
