@@ -305,10 +305,10 @@ class OrderToCashBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55400"
                 assetIssuanceId="55500"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="8" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
+                amount="8" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="8" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
+                amount="8" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="502000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttInventoryIssuance"
@@ -316,10 +316,10 @@ class OrderToCashBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="DEMO_3_1A"
                 assetIssuanceId="55501"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="20" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000000"
+                amount="20" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="20" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000000"
+                amount="20" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="502000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
             <!-- NOTE: there is no AcctgTrans for assetId 55500, productId DEMO_2_1 because it is auto-created and has

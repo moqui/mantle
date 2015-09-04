@@ -783,8 +783,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="productId" required="true" default="defaultProductId"/>
             <parameter name="defaultProductId"><description>Field for special forms, if passed can be used as a default for the productId parameter.</description></parameter>
             <parameter name="quantity" type="BigDecimal" default-value="1"/>
-            <parameter name="assetTypeEnumId" default-value="AstTpInventory"/>
-            <parameter name="classEnumId"/>
+            <parameter name="assetTypeEnumId"><description>Defaults to Product.assetTypeEnumId</description></parameter>
+            <parameter name="classEnumId"><description>Defaults to Product.assetClassEnumId</description></parameter>
             <parameter name="statusId"><description>If assetTypeEnumId == AstTpInventory then defaults to AstAvailable,
                 otherwise defaults to AstInStorage.</description></parameter>
             <parameter name="receivedDate"><description>If statusId == AstIncoming then defaults to null, otherwise defaults to now.</description></parameter>
@@ -820,15 +820,24 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="assetDetailId"/>
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
             <entity-find-one entity-name="mantle.facility.Facility" value-field="facility"/>
+
+            <!-- set type and class from product if not passed in -->
+            <set field="assetTypeEnumId" from="assetTypeEnumId ?: (product.assetTypeEnumId ?: 'AstTpInventory')"/>
+            <set field="classEnumId" from="classEnumId ?: product.assetClassEnumId"/>
+
+            <!-- get ownerPartyId from OrderPart if needed -->
             <if condition="!ownerPartyId &amp;&amp; orderItem">
                 <set field="orderPart" from="orderItem?.'mantle.order.OrderPart'"/>
                 <set field="ownerPartyId" from="orderPart?.customerPartyId"/>
             </if>
+            <!-- get ownerPartyId from Facility if needed -->
             <if condition="!ownerPartyId"><set field="ownerPartyId" from="facility?.ownerPartyId"/></if>
 
+            <!-- set default status, receivedDate, hasQuantity, and assetName -->
             <if condition="!statusId"><set field="statusId" from="assetTypeEnumId == 'AstTpInventory' ? 'AstAvailable' : 'AstInStorage'"/></if>
             <if condition="!receivedDate &amp;&amp; statusId != 'AstIncoming'"><set field="receivedDate" from="ec.user.nowTimestamp"/></if>
             <set field="hasQuantity" from="!serialNumber &amp;&amp; quantity > 1 ? 'Y' : 'N'"/>
@@ -847,15 +856,16 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- create or update the Asset record -->
             <if condition="!assetId">
-                <!-- TODO: if this has a workEffortId and not an orderId get acquireCost from WorkEffort somehow? -->
-                <service-call name="create#mantle.product.asset.Asset" out-map="context" 
-                        in-map="context + [quantityOnHandTotal:0, availableToPromiseTotal:0,
-                            acquiredDate:(orderHeader?.placedDate ?: ec.user.nowTimestamp),
-                            acquireOrderId:orderId, acquireOrderItemSeqId:orderItemSeqId,
-                            acquireShipmentId:shipmentId, acquireCost:orderItem?.unitAmount,
-                            acquireCostUomId:orderHeader?.currencyUomId, acquireWorkEffortId:workEffortId,
-                            containerId:containerId]"/>
-
+                <then>
+                    <!-- TODO: if this has a workEffortId and not an orderId get acquireCost from WorkEffort somehow? -->
+                    <service-call name="create#mantle.product.asset.Asset" out-map="context"
+                            in-map="context + [quantityOnHandTotal:0, availableToPromiseTotal:0,
+                                acquiredDate:(orderHeader?.placedDate ?: ec.user.nowTimestamp),
+                                acquireOrderId:orderId, acquireOrderItemSeqId:orderItemSeqId,
+                                acquireShipmentId:shipmentId, acquireCost:orderItem?.unitAmount,
+                                acquireCostUomId:orderHeader?.currencyUomId, acquireWorkEffortId:workEffortId,
+                                containerId:containerId]"/>
+                </then>
                 <else>
                     <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
                     <set field="asset.originalQuantity" from="(asset.originalQuantity ?: 0) + originalQuantity"/>
@@ -909,7 +919,6 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
                 <if condition="!produceProductList">
                     <if condition="noProduceProduct == 'error'">
-                        <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
                         <message error="true">Not issuing Asset [${assetId}], Product ${ec.resource.expand('ProductNameTemplate','',product)} is not a product to produce</message>
                         <else-if condition="noProduceProduct != 'ignore'">
                             <service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="[workEffortId:workEffortId,

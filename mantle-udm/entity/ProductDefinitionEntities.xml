@@ -31,6 +31,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="pseudoId" type="id" default="productId"/>
         <field name="productTypeEnumId" type="id"/>
         <field name="productClassEnumId" type="id"/>
+        <field name="assetTypeEnumId" type="id"/>
+        <field name="assetClassEnumId" type="id"/>
         <field name="statusId" type="id"/>
 
         <field name="productName" type="text-medium"/>
@@ -63,6 +65,10 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="productTypeEnumId"/></relationship>
         <relationship type="one" title="ProductClass" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="productClassEnumId"/></relationship>
+        <relationship type="one" title="AssetType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="assetTypeEnumId"/></relationship>
+        <relationship type="one" title="AssetClass" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="assetClassEnumId"/></relationship>
         <relationship type="one" title="Product" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" title="RequirementMethod" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="requirementMethodEnumId"/></relationship>
@@ -82,22 +88,26 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- Product Type -->
             <moqui.basic.EnumerationType description="Product Type" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Service" enumId="PtService" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Digital Product" enumId="PtDigital" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Virtual Product" enumId="PtVirtual" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Asset (Good)" enumId="PtAsset" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Digital and Asset" enumId="PtDigitalAsset" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Digital (download)" enumId="PtDigital" enumTypeId="ProductType"/>
             <moqui.basic.Enumeration description="Asset Use" enumId="PtAssetUse" enumTypeId="ProductType"/>
             <moqui.basic.Enumeration description="Facility Use" enumId="PtFacilityUse" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Physical Good" enumId="PtPhysical" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Digital and Physical Good" parentEnumId="PtPhysical" enumId="PtDigPhysGood" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Raw Material" parentEnumId="PtPhysical" enumId="PtRawMaterial" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Sub-assembly" parentEnumId="PtPhysical" enumId="PtSubAssembly" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Finished Good" parentEnumId="PtPhysical" enumId="PtFinishedGood" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Marketing Package: Manufactured" parentEnumId="PtPhysical" enumId="PtMktPkgManufactured" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Marketing Package: Pick Assembly" parentEnumId="PtPhysical" enumId="PtMktPkgPickAssembly" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Configurable Good" parentEnumId="PtPhysical" enumId="PtConfigurableGood" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Biological" parentEnumId="PtPhysical" enumId="PtBiological" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Bearer Biological" parentEnumId="PtPhysical" enumId="PtBearerBiological" enumTypeId="ProductType"/>
-            <moqui.basic.Enumeration description="Equipment" parentEnumId="PtPhysical" enumId="PtEquipment" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Service" enumId="PtService" enumTypeId="ProductType"/>
+
+            <moqui.basic.Enumeration description="Virtual (with variants)" enumId="PtVirtual" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Pick Assembly" enumId="PtPickAssembly" enumTypeId="ProductType"/>
+            <moqui.basic.Enumeration description="Configurable Good" enumId="PtConfigurable" enumTypeId="ProductType"/>
+
+            <!-- instead of PtPhysical references now use PtAsset, PtDigitalAsset, and sometimes PtAssetUse (for shipping, not for issuance) -->
+            <!-- instead of PtRawMaterial, PtSubAssembly, PtFinishedGood use PtAsset with assetTypeEnumId = AstTpInventory
+                and assetClassEnumId = AsClsInventoryRaw, AsClsInventorySub, AsClsInventoryFin -->
+            <!-- instead of PtDigPhysGood use PtDigitalAsset -->
+            <!-- instead of PtEquipment use PtAsset with assetTypeEnumId = AstTpEquipment, assetClassEnumId as applicable -->
+            <!-- instead of PtBiological use PtAsset with assetTypeEnumId = AstTpBiological, assetClassEnumId as applicable -->
+            <!-- instead of PtBearerBiological use PtAsset with assetTypeEnumId = AstTpBearerBiological, assetClassEnumId as applicable -->
+            <!-- instead of PtMktPkgManufactured use PtAsset with assetTypeEnumId = AstTpInventory and ProductAssoc
+                records for BOM to replenish through production runs -->
 
             <!-- Product Status -->
             <moqui.basic.StatusType description="Product" statusTypeId="Product"/>

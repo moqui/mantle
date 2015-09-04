@@ -174,6 +174,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Merchant Account Settlement" enumId="MRCH_STLMNT_ACCOUNT" parentEnumId="ACCOUNTS_RECEIVABLE" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Current Asset" enumId="CURRENT_ASSET" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Fixed Asset" enumId="FIXED_ASSET" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Unreceived Fixed Asset" enumId="UNRECEIVED_FIXED_ASSET" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Unissued Fixed Asset" enumId="UNISSUED_FIXED_ASSET" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Fixed Asset Maintenance" enumId="FIXED_ASSET_MAINT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Other Asset" enumId="OTHER_ASSET" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Credit Card" enumId="CREDIT_CARD" enumTypeId="GlAccountType"/>
@@ -182,12 +184,11 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Customer" enumId="CUSTOMER_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Supplier" enumId="SUPPLIER_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Product" enumId="PRODUCT_ACCOUNT" enumTypeId="GlAccountType"/>
+
             <moqui.basic.Enumeration description="Inventory" enumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Inventory Adjustment from Average Cost" enumId="INV_ADJ_AVG_COST" parentEnumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Inventory Item Value Adjustment" enumId="INV_ADJ_VAL" enumTypeId="GlAccountType"/>
-            <moqui.basic.Enumeration description="Raw Materials Inventory" enumId="RAWMAT_INVENTORY" enumTypeId="GlAccountType"/>
-            <moqui.basic.Enumeration description="Work In Progress Inventory" enumId="WIP_INVENTORY" enumTypeId="GlAccountType"/>
-            <moqui.basic.Enumeration description="Finished Good Inventory" enumId="FG_INVENTORY" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="Unreceived Inventory" enumId="UNRECEIVED_INVENTORY" enumTypeId="GlAccountType"/>
 
             <moqui.basic.Enumeration description="Tax" enumId="TAX_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Profit Loss" enumId="PROFIT_LOSS_ACCOUNT" enumTypeId="GlAccountType"/>
@@ -342,21 +343,70 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================================= -->
 
     <entity entity-name="AssetTypeGlAccount" package-name="mantle.ledger.config">
+        <description>Found by assetId, then by assetTypeEnumId and classEnumId, then by just assetTypeEnumId</description>
+        <!--
+        - Inventory Purchase: credit Accounts Payable, debit Unreceived Inventory
+        - Inventory Receipt: credit Unreceived Inventory, debit Inventory
+
+        - Inventory Run Consume (issuance): credit Raw Material Inventory (or Finished Good?), debit Work In Progress Inventory
+        - Inventory Run Produce (receipt): credit Work In Progress Inventory, debit Finished Good Inventory (or Raw Material if sub-assembly)
+
+        - Inventory Sale: credit Sales, debit Accounts Receivable
+        - Inventory Issuance: credit Inventory, debit COGS
+
+
+        - Fixed Asset Purchase: credit Accounts Payable, debit Unreceived Asset
+        - Fixed Asset Receipt: credit Unreceived Asset, debit Asset (fixed assets)
+
+        - Fixed Asset Depreciate: debit Depreciation Expense, credit Accumulated Depreciation
+
+        - Fixed Asset Sale (profit: (sale amount - (acquireCost - depreciation)) > 0):
+            credit Profit/Gain on Sale/Disposal (sale amount - (acquireCost - depreciation)),
+            credit Unissued Asset (acquireCost),
+            debit Accounts Receivable (sale amount),
+            debit Accumulated Depreciation (depreciation)
+        - Fixed Asset Sale (loss: (sale amount - (acquireCost - depreciation)) < 0):
+            debit Loss on Sale/Disposal (sale amount - (acquireCost - depreciation)),
+            credit Unissued Asset (acquireCost),
+            debit Accounts Receivable (sale amount),
+            debit Accumulated Depreciation (depreciation)
+        - Fixed Asset Write Off or Remove (no invoice, do as part of create issuance with no invoice):
+            debit Loss on Sale/Disposal (acquireCost - depreciation; if 0, fully depreciated, skip this),
+            credit Unissued Asset (acquireCost),
+            debit Accumulated Depreciation (depreciation)
+
+        - Fixed Asset Issuance: credit Asset, debit Unissued Asset
+        -->
         <field name="assetTypeGlAccountId" type="id" is-pk="true"/>
         <field name="assetTypeEnumId" type="id"/>
         <field name="classEnumId" type="id"/>
         <field name="assetId" type="id"/>
         <field name="organizationPartyId" type="id"/>
-        <field name="assetGlAccountId" type="id">
-            <description>The (debit) account for the initial asset value (purchase cost)</description></field>
-        <field name="accDepGlAccountId" type="id">
-            <description>The (credit) account for the accumulated depreciation</description></field>
-        <field name="depGlAccountId" type="id">
-            <description>The (debit) account for the depreciation expense (matches the accDepGlAccountId)</description></field>
-        <field name="profitGlAccountId" type="id">
-            <description>The (credit) account for the eventual profit derived from the sale of the asset</description></field>
+        <field name="assetGlAccountId" type="id"><description>
+            The debit account for the asset value (purchase cost) on receipt and credit account on issuance;
+            for inventory assets this is the inventory value account (INVENTORY_ACCOUNT);
+            for fixed assets this is a fixed asset value account (FIXED_ASSET);
+            for supplies this is an expense account (EXPENSE or OPERATING_EXPENSE)
+        </description></field>
+        <field name="receiptGlAccountId" type="id">
+            <description>The credit account on receipt (Unreceived Inventory, Unreceived Asset, etc)</description></field>
+        <field name="issuanceGlAccountId" type="id"><description>
+            The debit account on issuance AND credit account for accumulated depreciation for fixed assets;
+            for inventory assets this is the COGS account (COGS_ACCOUNT);
+            for fixed assets this is the Unissued Asset account (UNISSUED_FIXED_ASSET)
+        </description></field>
+        <field name="accDepreciationGlAccountId" type="id">
+            <description>The credit account for the depreciation expense for Fixed Assets (paired with depreciationGlAccountId);
+                A debit account for Fixed Asset sale or write off</description></field>
+        <field name="depreciationGlAccountId" type="id">
+            <description>The debit account for the depreciation expense for Fixed Assets (paired with accDepreciationGlAccountId)</description></field>
+        <field name="profitGlAccountId" type="id"><description>The credit account for the eventual profit/gain derived
+            from the sale of the asset; for inventory assets this is a Sales account;
+            for fixed assets this is a profit/gain on sale/disposal account</description></field>
         <field name="lossGlAccountId" type="id">
-            <description>The (debit) account for the eventual loss derived from the sale of the asset</description></field>
+            <description>The debit account for the loss derived from the disposal of the asset</description></field>
+        <field name="receiptTransTypeEnumId" type="id"/>
+        <field name="issuanceTransTypeEnumId" type="id"/>
 
         <relationship type="one" title="AssetType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="assetTypeEnumId"/></relationship>
@@ -367,14 +417,22 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="organizationPartyId"/></relationship>
         <relationship type="one" title="Asset" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="assetGlAccountId"/></relationship>
-        <relationship type="one" title="AccumulatedDepreciation" related-entity-name="mantle.ledger.account.GlAccount">
-            <key-map field-name="accDepGlAccountId"/></relationship>
+        <relationship type="one" title="Receipt" related-entity-name="mantle.ledger.account.GlAccount">
+            <key-map field-name="receiptGlAccountId"/></relationship>
+        <relationship type="one" title="Issuance" related-entity-name="mantle.ledger.account.GlAccount">
+            <key-map field-name="issuanceGlAccountId"/></relationship>
         <relationship type="one" title="Depreciation" related-entity-name="mantle.ledger.account.GlAccount">
-            <key-map field-name="depGlAccountId"/></relationship>
+            <key-map field-name="depreciationGlAccountId"/></relationship>
         <relationship type="one" title="Profit" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="profitGlAccountId"/></relationship>
         <relationship type="one" title="Loss" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="lossGlAccountId"/></relationship>
+        <relationship type="one" title="ReceiptTransType" related-entity-name="moqui.basic.Enumeration">
+            <!-- NOTE: enumTypeId=AcctgTransType, different from title -->
+            <key-map field-name="receiptTransTypeEnumId"/></relationship>
+        <relationship type="one" title="IssuanceTransType" related-entity-name="moqui.basic.Enumeration">
+            <!-- NOTE: enumTypeId=AcctgTransType, different from title -->
+            <key-map field-name="issuanceTransTypeEnumId"/></relationship>
     </entity>
     <entity entity-name="CreditCardTypeGlAccount" package-name="mantle.ledger.config">
         <field name="creditCardTypeEnumId" type="id" is-pk="true"/>
@@ -718,15 +776,13 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- Accounting Transaction Type -->
             <moqui.basic.EnumerationType description="Accounting Transaction Type" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttInternal" description="Internal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttAmortization" description="Internal - Amortization" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttDepreciation" description="Internal - Depreciation" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttCapitalization" description="Internal - Capitalization" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttInventoryReceipt" description="Internal - Inventory Receipt" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttInventoryIssuance" description="Internal - Inventory Issuance" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttInventoryVariance" description="Internal - Inventory Item Variance" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttOtherInternal" description="Internal - Other Internal" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
-            <moqui.basic.Enumeration enumId="AttPeriodClosing" description="Internal - Period Closing" parentEnumId="AttInternal" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttAmortization" description="Amortization" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttDepreciation" description="Depreciation" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttCapitalization" description="Capitalization" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttInventoryReceipt" description="Inventory Receipt" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttInventoryIssuance" description="Inventory Issuance" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttInventoryVariance" description="Inventory Item Variance" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttPeriodClosing" description="Period Closing" enumTypeId="AcctgTransType"/>
 
             <moqui.basic.Enumeration enumId="AttExternal" description="External" enumTypeId="AcctgTransType"/>
 
@@ -752,7 +808,8 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="AttGarnishmentInvoice" description="Garnishment Invoice" parentEnumId="AttObligation" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttCommissionInvoice" description="Commission Invoice" parentEnumId="AttObligation" enumTypeId="AcctgTransType"/>
 
-            <moqui.basic.Enumeration enumId="AttAssetReceipt" description="Asset Receipt" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttAssetReceipt" description="Fixed Asset Receipt" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
+            <moqui.basic.Enumeration enumId="AttAssetIssuance" description="Fixed Asset Issuance" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttSalesInventory" description="Sales Inventory" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttReturnInventory" description="Return Inventory" parentEnumId="AttExternal" enumTypeId="AcctgTransType"/>
             <moqui.basic.Enumeration enumId="AttManufacturing" description="Manufacturing" enumTypeId="AcctgTransType"/>
