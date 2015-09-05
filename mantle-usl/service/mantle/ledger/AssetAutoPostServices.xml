@@ -279,21 +279,113 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== Fixed Asset Depreciation Services ========== -->
 
     <service verb="calculate" noun="FixedAssetDepreciation">
-        <in-parameters><parameter name="assetId"/></in-parameters>
+        <in-parameters><parameter name="assetId" required="true"/></in-parameters>
         <out-parameters>
+            <parameter name="usefulLifeYears" type="Integer"/>
+            <parameter name="yearsRemaining" type="Integer"/>
             <parameter name="annualDepreciation" type="BigDecimal"/>
-            <parameter name="monthlyDepreciation" type="BigDecimal"><description>Calculated yearDepreciation divided by 12</description></parameter>
+            <parameter name="monthlyDepreciation" type="BigDecimal"><description>Calculated yearDepreciation divided by 12;
+                never greater than net book value (acquireCost - salvageValue - depreciation)</description></parameter>
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
 
+            <if condition="!asset.depreciationTypeEnumId">
+                <log level="trace" message="Not calculating depreciation for Asset [${assetId}], has no depreciation type"/>
+                <return/>
+            </if>
+
+            <if condition="!asset.acquireCost"><message error="true">Asset [${assetId}] has no Acquire Cost, not calculating depreciation</message></if>
+            <if condition="!asset.acquiredDate"><message error="true">Asset [${assetId}] has no Acquired Date, not calculating depreciation</message></if>
+            <if condition="!asset.expectedEndOfLife"><message error="true">Asset [${assetId}] has no Expected End of Life, not calculating depreciation</message></if>
+            <check-errors/>
+
+            <script><![CDATA[
+                Calendar acquiredCal = ec.user.nowCalendar
+                acquiredCal.setTime(asset.acquiredDate)
+                Calendar expectedEndOfLifeCal = ec.user.nowCalendar
+                expectedEndOfLifeCal.setTime(asset.expectedEndOfLife)
+
+                usefulLifeYears = expectedEndOfLifeCal.get(Calendar.YEAR) - acquiredCal.get(Calendar.YEAR)
+                /* use integer number of years, partial year depreciation is not common and should be needed (may cause issues)
+                int days = expectedEndOfLifeCal.get(Calendar.DAY_OF_YEAR) - acquiredCal.get(Calendar.DAY_OF_YEAR)
+                // NOTE: using 365 days isn't always correct, should use number of days in expectedEndOfLife year, but shouldn't matter much
+                int daysInYear = 365
+                if (days < 0) { yearsInt = yearsInt - 1; days = daysInYear + days }
+                usefulLifeYears = (yearsInt as BigDecimal) + days/daysInYear
+                */
+
+                Calendar nowCal = ec.user.nowCalendar
+                yearsRemaining = expectedEndOfLifeCal.get(Calendar.YEAR) - nowCal.get(Calendar.YEAR)
+                // if we are before the day in the year of end of life, add 1 year (we haven't gone to the next year for this asset)
+                if (nowCal.get(Calendar.DAY_OF_YEAR) < expectedEndOfLifeCal.get(Calendar.DAY_OF_YEAR)) yearsRemaining = yearsRemaining + 1I
+            ]]></script>
+
+            <set field="netBookValue" from="asset.acquireCost - (asset.salvageValue ?: 0) - (asset.depreciation ?: 0)"/>
+
+            <if condition="netBookValue == 0">
+                <log level="trace" message="Asset [${assetId}], is fully depreciated (net book value is zero)"/>
+                <set field="annualDepreciation" from="0"/>
+                <set field="monthlyDepreciation" from="0"/>
+                <return/>
+            </if>
+
+            <if condition="asset.depreciationTypeEnumId == 'DtpStraightLine'">
+                <then>
+                    <!-- require acquireCost, acquiredDate, expectedEndOfLife; optional salvageValue, depreciation (both default to 0) -->
+                    <set field="annualDepreciation" from="(asset.acquireCost - (asset.salvageValue ?: 0)) / usefulLifeYears"/>
+                </then>
+                <else-if condition="asset.depreciationTypeEnumId == 'DtpDoubleDeclining'">
+                    <!-- require acquireCost, acquiredDate, expectedEndOfLife; optional salvageValue, depreciation (both default to 0) -->
+                    <if condition="yearsRemaining == 1">
+                        <!-- handle last year where full net book value should be used -->
+                        <then><set field="annualDepreciation" from="netBookValue"/></then>
+                        <else><set field="annualDepreciation" from="netBookValue * (2 / usefulLifeYears)"/></else>
+                    </if>
+                </else-if>
+                <else-if condition="asset.depreciationTypeEnumId == 'DtpSumYearsDigits'">
+                    <script><![CDATA[
+                        sumOfYearsDigits = 0I
+                        for (int i = usefulLifeYears; i > 0; i--) sumOfYearsDigits += i
+                    ]]></script>
+                    <set field="annualDepreciation" from="(asset.acquireCost - (asset.salvageValue ?: 0)) * (yearsRemaining / sumOfYearsDigits)"/>
+                </else-if>
+                <!-- TODO support DtpUnitsProduction (specify a meter to use for the calculation?)
+                <else-if condition="asset.depreciationTypeEnumId == 'DtpUnitsProduction'">
+
+                </else-if>
+                -->
+                <else>
+                    <return error="true" message="Not calculating depreciation for Asset [${assetId}], depreciation type [${asset.depreciationTypeEnumId}] not supported"/>
+                </else>
+            </if>
+
+            <if condition="annualDepreciation">
+                <set field="annualDepreciation" from="((BigDecimal) annualDepreciation).setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+                <set field="monthlyDepreciation" from="(annualDepreciation / 12).setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+                <if condition="monthlyDepreciation &gt; netBookValue"><set field="monthlyDepreciation" from="netBookValue"/></if>
+            </if>
         </actions>
     </service>
     <service verb="post" noun="FixedAssetDepreciation">
-        <description>Calculate and post monthly fixed asset depreciation, update Asset.depreciation and
+        <description>Post monthly fixed asset depreciation, update Asset.depreciation and
             Asset.yearBeginDepreciation for last period in a year</description>
         <in-parameters>
-            <parameter name="assetId"/>
-            <parameter name="isLastYearPeriod"/>
+            <parameter name="assetId" required="true"/>
+            <parameter name="depreciationAmount" type="BigDecimal" required="true"/>
+            <parameter name="isLastYearPeriod" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO -->
+        </actions>
+    </service>
+    <service verb="calculateAndPost" noun="FixedAssetDepreciation">
+        <description>Calculate and post monthly fixed asset depreciation, uses the calculate#FixedAssetDepreciation and
+            post#FixedAssetDepreciation services</description>
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="isLastYearPeriod" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
