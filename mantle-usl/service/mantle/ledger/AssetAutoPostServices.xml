@@ -176,7 +176,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- TODO: handle supplies issuance -->
                 <else>
                     <set field="acctgTransTypeEnumId" from="assetTypeGlAccount?.issuanceTransTypeEnumId ?: 'AttAssetIssuance'"/>
-                    <set field="issuanceGlAccountTypeEnumId" value="ACCUM_DEPRECIATION"/>
+                    <set field="issuanceGlAccountTypeEnumId" value="UNISSUED_FIXED_ASSET"/>
                     <set field="assetGlAccountTypeEnumId" value="FIXED_ASSET"/>
                     <!-- don't need to do this, is the default anyway:
                     <entity-find-one entity-name="moqui.basic.Enumeration" value-field="assetTypeEnum">
@@ -387,7 +387,29 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="assetId" required="true"/>
             <parameter name="isLastYearPeriod" type="Boolean" default="false"/>
         </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <out-parameters>
+            <parameter name="depreciationAmount" type="BigDecimal"/>
+            <parameter name="acctgTransId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.ledger.AssetAutoPostServices.calculate#FixedAssetDepreciation"
+                    in-map="context" out-map="calcOut"/>
+            <set field="depreciationAmount" from="calcOut.monthlyDepreciation"/>
+            <if condition="depreciationAmount">
+                <service-call name="mantle.ledger.AssetAutoPostServices.post#FixedAssetDepreciation"
+                        in-map="context" out-map="context"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="calculateAndPost" noun="AllFixedAssetDepreciations">
+        <description>Calculate and post monthly depreciation for all applicable fixed assets, uses the
+            calculateAndPost#FixedAssetDepreciation service</description>
+        <in-parameters>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="acctgTransId"/>
+        </out-parameters>
         <actions>
             <!-- TODO -->
         </actions>
