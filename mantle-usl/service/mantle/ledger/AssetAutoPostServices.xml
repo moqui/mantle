@@ -399,13 +399,15 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="post" noun="FixedAssetDepreciation">
         <description>Post monthly fixed asset depreciation, update Asset.depreciation and
-            Asset.yearBeginDepreciation for last period in a year</description>
+            for last period in a year also updates Asset.yearBeginDepreciation</description>
         <in-parameters>
             <parameter name="assetId" required="true"/>
             <parameter name="timePeriodId" required="true"/>
             <parameter name="transactionDate" type="Timestamp"/>
-            <parameter name="annualDepreciation" type="BigDecimal" required="true"/>
-            <parameter name="monthlyDepreciation" type="BigDecimal" required="true"/>
+            <parameter name="annualDepreciation" type="BigDecimal" required="true">
+                <description>Used to update Asset.yearBeginDepreciation and stored on AssetDepreciation history record</description></parameter>
+            <parameter name="monthlyDepreciation" type="BigDecimal" required="true"><description>Used as the amount on
+                TX entries and stored on the AssetDepreciation history record</description></parameter>
             <parameter name="isLastYearPeriod" type="Boolean" default="false"/>
             <parameter name="usefulLifeYears" type="Integer"><description>Used only to store on AssetDepreciation history record</description></parameter>
             <parameter name="yearsRemaining" type="Integer"><description>Used only to store on AssetDepreciation history record</description></parameter>
@@ -435,7 +437,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- if no transactionDate set from TimePeriod.thruDate -->
             <if condition="!transactionDate">
                 <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
-                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + '12:00:00', '')"/>
+                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/>
             </if>
 
             <!-- make sure no depreciation already posted for this financial period -->
@@ -485,7 +487,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.ledger.LedgerServices.create#AcctgTrans" out-map="context"
                     in-map="[acctgTransTypeEnumId:'AttInventoryIssuance', organizationPartyId:organizationPartyId,
                         otherPartyId:null, amountUomId:asset.acquireCostUomId, assetIssuanceId:assetIssuanceId,
-                        assetId:asset.assetId]"/>
+                        assetId:asset.assetId, transactionDate:transactionDate]"/>
             <!-- note: could populate invoiceId, etc... but should we? for now no -->
 
             <set field="useErrorJournal" from="false"/>
@@ -523,7 +525,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- create the AssetDepreciation history record -->
             <service-call name="create#mantle.product.asset.AssetDepreciation" in-map="[assetId:assetId,
                     timePeriodId:timePeriodId, monthlyDepreciation:monthlyDepreciation, annualDepreciation:annualDepreciation,
-                    isLastYearPeriod:isLastYearPeriod, yearBeginDepreciation:asset.yearBeginDepreciation,
+                    isLastYearPeriod:(isLastYearPeriod ? 'Y' : 'N'), yearBeginDepreciation:asset.yearBeginDepreciation,
                     usefulLifeYears:usefulLifeYears, yearsRemaining:yearsRemaining, acctgTransId:acctgTransId]"/>
         </actions>
     </service>
@@ -546,11 +548,13 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <!-- lock the Asset record -->
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
+            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
             <!-- if no transactionDate set from TimePeriod.thruDate -->
             <if condition="!transactionDate">
-                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
-                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + '12:00:00', '')"/>
+                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/>
             </if>
+            <if condition="timePeriod.timePeriodTypeId != 'FiscalMonth'">
+                <return error="true" message="Can only post fixed asset depreciation to Fiscal Month periods"/></if>
 
             <service-call name="mantle.ledger.AssetAutoPostServices.calculate#FixedAssetDepreciation"
                     in-map="context" out-map="context"/>
@@ -570,7 +574,9 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
             <if condition="!transactionDate">
-                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + '12:00:00', '')"/></if>
+                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/></if>
+            <if condition="timePeriod.timePeriodTypeId != 'FiscalMonth'">
+                <return error="true" message="Can only post fixed asset depreciation to Fiscal Month periods"/></if>
 
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
                 <econdition field-name="ownerPartyId" from="timePeriod.partyId"/>
