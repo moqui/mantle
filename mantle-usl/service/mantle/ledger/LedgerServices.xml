@@ -193,8 +193,11 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters><parameter name="timePeriodList" type="List"/></out-parameters>
         <actions>
             <!-- NOTE: this one is not recursive, should really have TimePeriod associated with root parent org so just one will match -->
+            <set field="filterSqlDate" from="filterDate ? new java.sql.Date(filterDate.time) : null"/>
             <entity-find entity-name="mantle.party.time.TimePeriodAndType" list="timePeriodList">
-                <date-filter valid-date="filterDate" ignore-if-empty="true"/>
+                <!-- doesn't work as needed with date fields (only date-time): <date-filter valid-date="filterSqlDate" ignore-if-empty="true"/> -->
+                <econdition field-name="fromDate" operator="less-equals" from="filterSqlDate"/>
+                <econdition field-name="thruDate" operator="greater-equals" from="filterSqlDate"/>
                 <econdition field-name="periodPurposeEnumId" value="Fiscal"/>
                 <econdition field-name="partyId" from="organizationPartyId"/>
                 <econdition field-name="timePeriodTypeId" ignore-if-empty="true"/>
@@ -258,7 +261,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
             <parameter name="acctgTransTypeEnumId" required="true"/>
             <parameter name="organizationPartyId" required="true"/>
-            <parameter name="transactionDate" default="ec.user.nowTimestamp"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="amountUomId" default-value="USD"/>
             <parameter name="glFiscalTypeEnumId" default-value="GLFT_ACTUAL"/>
         </in-parameters>
