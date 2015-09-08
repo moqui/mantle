@@ -42,7 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="WEFF" entity-name="mantle.work.effort.WorkEffort" join-from-alias="WEFF_ROOT">
             <key-map field-name="workEffortId" related-field-name="rootWorkEffortId"/></member-entity>
         <alias-all entity-alias="WEFF_ROOT" prefix="root"><exclude field="workEffortId"/></alias-all>
-        <alias-all entity-alias="WEFF"/>
+        <alias-all entity-alias="WEFF"><exclude field="emplPositionClassId"/></alias-all>
         <alias-all entity-alias="WEP"><exclude field="statusId"/></alias-all>
         <alias entity-alias="WEP" name="wepStatusId" field="statusId"/>
     </view-entity>
@@ -145,7 +145,7 @@ along with this software (see the LICENSE.md file). If not, see
         <member-entity entity-alias="WEFF" entity-name="mantle.work.effort.WorkEffort"/>
         <member-entity entity-alias="WEP" entity-name="mantle.work.effort.WorkEffortParty" join-from-alias="WEFF">
             <key-map field-name="workEffortId"/></member-entity>
-        <alias-all entity-alias="WEFF"/>
+        <alias-all entity-alias="WEFF"><exclude field="emplPositionClassId"/></alias-all>
         <alias-all entity-alias="WEP"><exclude field="statusId"/></alias-all>
         <alias name="partyStatusId" entity-alias="WEP" field="statusId"/>
     </view-entity>
@@ -181,7 +181,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="workEffortId"/></member-entity>
         <member-entity entity-alias="WEAA" entity-name="mantle.work.effort.WorkEffortAssetAssign" join-from-alias="WEFF">
             <key-map field-name="workEffortId"/></member-entity>
-        <alias-all entity-alias="WEFF"/>
+        <alias-all entity-alias="WEFF"><exclude field="emplPositionClassId"/></alias-all>
         <alias-all entity-alias="WEP"><exclude field="fromDate"/><exclude field="thruDate"/><exclude field="statusId"/></alias-all>
         <alias-all entity-alias="WEAA"><exclude field="fromDate"/><exclude field="thruDate"/><exclude field="statusId"/>
             <exclude field="comments"/></alias-all>
@@ -308,6 +308,22 @@ along with this software (see the LICENSE.md file). If not, see
         <alias name="otherFacilityOwnerLastName" entity-alias="WEFAPER" field="lastName"/>
     </view-entity>
 
+    <view-entity entity-name="WorkEffortProductMeasurementAndType" package-name="mantle.work.effort">
+        <member-entity entity-alias="WEP" entity-name="mantle.work.effort.WorkEffortProduct"/>
+        <member-entity entity-alias="PROD" entity-name="mantle.product.Product" join-from-alias="WEP">
+            <key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="WMM" entity-name="mantle.work.measurement.Measurement" join-from-alias="WEP">
+            <key-map field-name="workEffortId"/><key-map field-name="productId"/></member-entity>
+        <member-entity entity-alias="WMMT" entity-name="mantle.work.measurement.MeasurementType" join-from-alias="WMM" join-optional="true">
+            <key-map field-name="measurementTypeId"/></member-entity>
+        <alias-all entity-alias="WEP"/>
+        <alias-all entity-alias="PROD"><exclude field="statusId"/></alias-all>
+        <alias-all entity-alias="WMM"/>
+        <alias-all entity-alias="WMMT"><exclude field="description"/></alias-all>
+        <alias name="productStatusId" entity-alias="PROD" field="statusId"/>
+        <alias name="productMeasurementTypeDescription" entity-alias="WMMT" field="description"/>
+    </view-entity>
+
     <!-- ========================================================= -->
     <!-- mantle.work.estimate -->
     <!-- ========================================================= -->
@@ -338,6 +354,29 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="VRA" name="vendorRateAmount" field="rateAmount"/>
         <alias entity-alias="VRA" name="vendorRateCurrencyUomId" field="rateCurrencyUomId"/>
     </view-entity>
+    <view-entity entity-name="TimeEntryAndEmployment" package-name="mantle.work.time">
+        <member-entity entity-alias="TENT" entity-name="mantle.work.time.TimeEntry"/>
+        <member-entity entity-alias="PREL" entity-name="mantle.party.PartyRelationship" join-from-alias="TENT">
+            <key-map field-name="partyId" related-field-name="fromPartyId"/></member-entity>
+        <member-entity entity-alias="EMPL" entity-name="mantle.humanres.employment.Employment" join-from-alias="PREL">
+            <key-map field-name="partyRelationshipId"/></member-entity>
+        <alias-all entity-alias="TENT"/>
+        <alias-all entity-alias="PREL" prefix="rel"/>
+        <alias-all entity-alias="EMPL"/>
+    </view-entity>
+    <view-entity entity-name="TimeEntryAndPartyDetail" package-name="mantle.work.time">
+        <member-entity entity-alias="TENT" entity-name="mantle.work.time.TimeEntry"/>
+        <member-entity entity-alias="PTY" entity-name="mantle.party.Party" join-from-alias="TENT">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="ORG" entity-name="mantle.party.Organization" join-from-alias="TENT" join-optional="true">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="PER" entity-name="mantle.party.Person" join-from-alias="TENT" join-optional="true">
+            <key-map field-name="partyId"/></member-entity>
+        <alias-all entity-alias="TENT"/>
+        <alias-all entity-alias="PTY"><exclude field="comments"/></alias-all>
+        <alias-all entity-alias="PER"/>
+        <alias-all entity-alias="ORG"/>
+    </view-entity>
     <view-entity entity-name="TimeEntrySummary" package-name="mantle.work.time">
         <member-entity entity-alias="TENT" entity-name="mantle.work.time.TimeEntry"/>
         <alias entity-alias="TENT" name="workEffortId"/>
@@ -354,5 +393,21 @@ along with this software (see the LICENSE.md file). If not, see
         <alias entity-alias="WEFF" name="remainingWorkTime" function="sum"/>
         <alias entity-alias="WEFF" name="actualCost" function="sum"/>
         <alias entity-alias="WEFF" name="actualClientCost" function="sum"/>
+    </view-entity>
+    <view-entity entity-name="WorkEffortPartyAndTimeEntry" package-name="mantle.work.time">
+        <member-entity entity-alias="WEP" entity-name="mantle.work.effort.WorkEffortParty"/>
+        <member-entity entity-alias="PTY" entity-name="mantle.party.Party" join-from-alias="WEP">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="ORG" entity-name="mantle.party.Organization" join-from-alias="WEP" join-optional="true">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="PER" entity-name="mantle.party.Person" join-from-alias="WEP" join-optional="true">
+            <key-map field-name="partyId"/></member-entity>
+        <member-entity entity-alias="TENT" entity-name="mantle.work.time.TimeEntry" join-from-alias="WEP" join-optional="true">
+            <key-map field-name="partyId"/><key-map field-name="workEffortId"/></member-entity>
+        <alias-all entity-alias="WEP"/>
+        <alias-all entity-alias="TENT" prefix="te"/>
+        <alias-all entity-alias="PTY"><exclude field="comments"/></alias-all>
+        <alias-all entity-alias="PER"/>
+        <alias-all entity-alias="ORG"/>
     </view-entity>
 </entities>

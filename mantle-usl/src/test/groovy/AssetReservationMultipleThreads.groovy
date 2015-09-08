@@ -75,7 +75,7 @@ class AssetReservationMultipleThreads extends Specification {
                 }
             }
         }
-        latch.await(10, TimeUnit.SECONDS)
+        latch.await(20, TimeUnit.SECONDS)
         EntityValue asset = gec.entity.find("mantle.product.asset.Asset").condition("assetId","DEMO_1_1A").one()
         logger.info("ATP of DEMO_1_1A is " + asset.availableToPromiseTotal)
 
@@ -103,7 +103,7 @@ class AssetReservationMultipleThreads extends Specification {
         String customerPartyId = ec.user.userAccount.partyId
 
         Map addOut1 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
-                .parameters([productId: 'DEMO_1_1', quantity: 90, customerPartyId: customerPartyId,
+                .parameters([productId: 'DEMO_1_1', quantity: 60, customerPartyId: customerPartyId,
                              currencyUomId: currencyUomId, productStoreId: productStoreId]).call()
 
         String cartOrderId = addOut1.orderId

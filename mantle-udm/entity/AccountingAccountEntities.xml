@@ -300,6 +300,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="overrideOrgPartyId" type="id"><description>Used to specify the organization override rather than
             using the fromPartyId and/or toPartyId (depending on which is an internal org).</description></field>
 
+        <field name="partyRelationshipId" type="id"><description>For Payroll invoices, points to Employment record</description></field>
+        <field name="timePeriodId" type="id"><description>For Payroll invoices, points to Payroll TimePeriod</description></field>
+
         <relationship type="one" title="InvoiceType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="invoiceTypeEnumId"/></relationship>
         <relationship type="one" title="From" related-entity-name="mantle.party.Party">
@@ -314,29 +317,19 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="OverrideOrg" related-entity-name="mantle.party.Party">
             <key-map field-name="overrideOrgPartyId"/></relationship>
 
+        <relationship type="one" related-entity-name="mantle.humanres.employment.Employment"/>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriod"/>
+
         <seed-data>
             <!-- Invoice Type -->
             <moqui.basic.EnumerationType description="Invoice Type" enumTypeId="InvoiceType"/>
             <moqui.basic.Enumeration description="Sales" enumId="InvoiceSales" enumTypeId="InvoiceType"/>
             <moqui.basic.Enumeration description="Return" enumId="InvoiceReturn" enumTypeId="InvoiceType"/>
             <moqui.basic.Enumeration description="Payroll" enumId="InvoicePayroll" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Tax" enumId="InvoiceTax" enumTypeId="InvoiceType"/>
+            <moqui.basic.Enumeration description="Garnishment" enumId="InvoiceGarnishment" enumTypeId="InvoiceType"/>
             <moqui.basic.Enumeration description="Commission" enumId="InvoiceCommission" enumTypeId="InvoiceType"/>
             <moqui.basic.Enumeration description="Template" enumId="InvoiceTemplate" enumTypeId="InvoiceType"/>
-            <!-- the old approach, not from/to Party sensitive:
-            <moqui.basic.Enumeration description="Payable Invoice" enumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Purchase Invoice" enumId="PURCHASE_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Customer Return" enumId="CUST_RTN_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Commission" enumId="COMMISSION_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Payroll" enumId="PAYROLL_INVOICE" parentEnumId="IT_PAYABLE" enumTypeId="InvoiceType"/>
-
-            <moqui.basic.Enumeration description="Receivable Invoice" enumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Sales Invoice" enumId="SALES_INVOICE" parentEnumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Vendor Return" enumId="VEND_RTN_INVOICE" parentEnumId="IT_RECEIVABLE" enumTypeId="InvoiceType"/>
-
-            <moqui.basic.Enumeration description="Invoice Template" enumId="TEMPLATE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Sales Invoice Template" enumId="SALES_INV_TEMPLATE" parentEnumId="TEMPLATE" enumTypeId="InvoiceType"/>
-            <moqui.basic.Enumeration description="Purchase Invoice Template" enumId="PUR_INV_TEMPLATE" parentEnumId="TEMPLATE" enumTypeId="InvoiceType"/>
-            -->
 
             <!-- Invoice Status -->
             <moqui.basic.StatusType description="Invoice Status" statusTypeId="Invoice"/>
@@ -408,6 +401,25 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related-entity-name="mantle.party.contact.PostalAddress"/>
         <relationship type="one-nofk" related-entity-name="mantle.party.contact.TelecomNumber"/>
     </entity>
+    <entity entity-name="InvoiceContent" package-name="mantle.account.invoice">
+        <field name="invoiceContentId" type="id" is-pk="true"/>
+        <field name="invoiceId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="contentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
+        <relationship type="one" related-entity-name="mantle.account.invoice.Invoice"/>
+        <relationship type="one" title="InvoiceContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="contentTypeEnumId"/></relationship>
+        <seed-data>
+            <!-- Invoice Content Type -->
+            <moqui.basic.EnumerationType description="Invoice Content Type" enumTypeId="InvoiceContentType"/>
+            <moqui.basic.Enumeration enumId="IctInvoiceDocument" description="Invoice Document" enumTypeId="InvoiceContentType"/>
+            <moqui.basic.Enumeration enumId="IctReceipt" description="Receipt" enumTypeId="InvoiceContentType"/>
+            <moqui.basic.Enumeration enumId="IctItemImage" description="Item Image" enumTypeId="InvoiceContentType"/>
+        </seed-data>
+    </entity>
     <entity entity-name="InvoiceItem" package-name="mantle.account.invoice">
         <field name="invoiceId" type="id" is-pk="true"/>
         <field name="invoiceItemSeqId" type="id" is-pk="true"/>
@@ -415,7 +427,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="overrideGlAccountId" type="id"><description>The override or actual glAccountId used for the
             AcctgTransEntry based on the InvoiceItem. If empty the glAccountId will be determined based on configuration
             or custom code.</description></field>
-        <field name="assetId" type="id"/>
+        <field name="assetId" type="id"><description>For sale of a particular asset, required for fixed assets</description></field>
         <field name="productId" type="id"/>
         <field name="parentInvoiceId" type="id"/>
         <field name="parentInvoiceItemSeqId" type="id"/>
@@ -426,11 +438,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="itemDate" type="date-time"/>
         <field name="salesOpportunityId" type="id"/>
-        <!-- really needed?
-        <field name="taxAuthPartyId" type="id"/>
-        <field name="taxAuthGeoId" type="id"/>
-        <field name="taxAuthorityRateId" type="id"/>
-        -->
+        <field name="taxAuthorityId" type="id"/>
+        <field name="payrollAdjustmentId" type="id"/>
 
         <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="itemTypeEnumId"/></relationship>
@@ -446,13 +455,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="Quantity" related-entity-name="moqui.basic.Uom">
             <key-map field-name="quantityUomId"/></relationship>
         <relationship type="one" related-entity-name="SalesOpportunity"/>
-        <!-- really needed?
-        <relationship type="one" title="TaxAuthority" related-entity-name="Party">
-            <key-map field-name="taxAuthPartyId"/></relationship>
-        <relationship type="one" title="Tax" related-entity-name="Geo">
-            <key-map field-name="taxAuthGeoId"/></relationship>
-        <relationship type="one" related-entity-name="TaxAuthorityRate"/>
-        -->
+        <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
+        <relationship type="one" related-entity-name="mantle.humanres.employment.PayrollAdjustment"/>
     </entity>
     <entity entity-name="InvoiceItemAssoc" package-name="mantle.account.invoice">
         <field name="invoiceItemAssocId" type="id" is-pk="true"/>
@@ -811,6 +815,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="overrideOrgPartyId" type="id"><description>Used to specify the organization override rather than
             using the fromPartyId and/or toPartyId (depending on which is an internal org).</description></field>
 
+        <field name="partyRelationshipId" type="id"><description>For Payroll payments, points to Employment record</description></field>
+        <field name="timePeriodId" type="id"><description>For Payroll payments, points to Payroll TimePeriod</description></field>
+
         <!-- The Original Currency amount and uomId are for the values coming from the bank (if known) and are to be used for reconciliation and such later, and not for PaymentApplication. -->
         <field name="originalCurrencyAmount" type="currency-amount"/>
         <field name="originalCurrencyUomId" type="id"/>
@@ -834,11 +841,10 @@ along with this software (see the LICENSE.md file). If not, see
 
         <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
             <key-map field-name="amountUomId"/></relationship>
-        <relationship type="one" title="OriginalCurrency" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="originalCurrencyUomId"/></relationship>
         <relationship type="one" title="From" related-entity-name="mantle.party.Party"><key-map field-name="fromPartyId"/></relationship>
         <relationship type="one" title="To" related-entity-name="mantle.party.Party"><key-map field-name="toPartyId"/></relationship>
         <relationship type="one" title="Payment" related-entity-name="moqui.basic.StatusItem"/>
+
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccount"/>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountAuth"/>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountTrans"/>
@@ -846,6 +852,12 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="overrideGlAccountId"/></relationship>
         <relationship type="one" title="OverrideOrg" related-entity-name="mantle.party.Party">
             <key-map field-name="overrideOrgPartyId"/></relationship>
+
+        <relationship type="one" related-entity-name="mantle.humanres.employment.Employment"/>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriod"/>
+
+        <relationship type="one" title="OriginalCurrency" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="originalCurrencyUomId"/></relationship>
         <relationship type="one" related-entity-name="moqui.server.Visit"/>
 
         <seed-data>
@@ -945,5 +957,24 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.other.budget.BudgetItem">
             <key-map field-name="budgetId"/><key-map field-name="budgetItemSeqId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
+    </entity>
+    <entity entity-name="PaymentContent" package-name="mantle.account.payment">
+        <field name="paymentContentId" type="id" is-pk="true"/>
+        <field name="paymentId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="contentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
+        <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
+        <relationship type="one" title="PaymentContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="contentTypeEnumId"/></relationship>
+        <seed-data>
+            <!-- Payment Content Type -->
+            <moqui.basic.EnumerationType description="Payment Content Type" enumTypeId="PaymentContentType"/>
+            <moqui.basic.Enumeration enumId="IctPaymentDocument" description="Payment Document" enumTypeId="PaymentContentType"/>
+            <moqui.basic.Enumeration enumId="IctReceipt" description="Receipt" enumTypeId="PaymentContentType"/>
+            <moqui.basic.Enumeration enumId="IctCheckImage" description="Check Image" enumTypeId="PaymentContentType"/>
+        </seed-data>
     </entity>
 </entities>

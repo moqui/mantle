@@ -11,48 +11,101 @@ release.
 
 Mantle 1.1.0 is based on Moqui Framework TODO.
 
-NOTE: This version requires an update to existing databases to add the
-isPayable field as a PK field for the PaymentMethodTypeGlAccount entity.
+The most significant new features are expanded time entry, human resources,
+and payroll functionality. There are now entities and services in place to
+handle salary and hourly/piece employees (contract and permanent, etc), and
+all employee and tax authority details to calculate payroll taxes and
+create and pay payroll invoices and payments.
 
-NOTE: The PK of ProductDimension has the new dimensionTypeId field instead
-of the dimensionTypeEnumId field.
+There is new functionality for Financial Accounts to better support
+deposits and withdrawals and related GL postings.
 
-NOTE: The ProductContent and PartyContent entities have been changed to use
-a single sequenced primary key field.
+Improved Inventory and Fixed Asset GL postings and account mapping
+configuration options based on asset type and class.
+
+There are a number of improvements to the Product data model with more
+options for structured data and content across a variety of product
+classes.
+
+Non Backward Compatible Changes:
+
+- This version requires an update to existing databases to add the
+  isPayable field as a PK field for the PaymentMethodTypeGlAccount entity.
+- The demo GL Accounts have been restructured and expanded (see notes in
+  ZaaGlAccountsDemoData.xml).
+- Item Types (order, invoice, etc) have been simplified for easier invoice
+  entry (removed ItemAsset variations) and expanded for payroll, etc.
+- Added assetTypeEnumId and assetClassEnumId to Product entity and
+  simplified ProductType enumerations (productTypeEnumId); some changes
+  to data and code may be necessary to populate properly, see the notes
+  in the comments under the Product entity in ProductDefinitionEntities.xml
+- The PK of ProductDimension has the new dimensionTypeId field instead
+  of the dimensionTypeEnumId field.
+- The ProductContent, PartyContent, and WorkEffortContent entities have
+  been changed to use a single sequenced primary key field and restructured
+  for consistency.
+- The AssetTypeGlAccount entity now uses a single PK, added classEnumId.
 
 New Features:
 
-- Expanded PartyContent entity, added upload/etc services, changed to
-  single PK field
-- Significant enhancements and cleanups for Human Resources entities
-  related to employment and payroll (including payroll adjustments for tax
-  and other withholdings, pay grade and salary, and much more)
-- Improved TimeEntry for piece counts, various service enhancements
-- Added time entry screens in MyAccount app (general and for task)
+- Added Travis CI configuration for continuous integration testing, now
+  setup for the moqui/mantle project with a badge reporting status
 - New XSL-FO templates and data prep services for Printed Checks (based on
   Payment records), Financial Account Statements, Order, Shipment Pick,
   Shipment Pack, Shipment Load Pick, Shipment Load Picklist and Pack Sheets
-- Removed Picklist entity, using Shipment Load/Ship purpose WorkEffort
-  instead to combine picklist management with shipping scheduling
+- Expanded PartyContent and other *Content entities, added upload/etc
+  services, changed to single PK field
 - Various new view entities and cleanups
 - Added various name/ID templates for DB configurable formatting using the
   L10nFacade with the new "default" locale (universal fallback)
-- GL posting for Financial Account Transactions
-- GL Account cleanups and reorg so that third-party holdings accounts are
-  under a new class under current liability and not under accounts payable
-- GL posting for payment method types (PaymentMethodTypeGlAccount) can now
-  vary by payable/receivable with the new isPayable field (Y for payable,
-  N for receivable, E for either); this is a PK field, modifying the PK of
-  this entity and requiring an update to existing databases
-- New ProductDimensionType entity so that unitTypeEnumId can be specified
-- New ProductClass concept with Product.productClassEnumId field and the
-  ProductClassDimension and ProductClassFeature entities to specify which
-  dimensions and features apply to a given product class
+- Removed Picklist entity, using Shipment Load/Ship purpose WorkEffort
+  instead to combine picklist management with shipping scheduling
+- HR and Payroll
+  - Significant enhancements and cleanups for Human Resources entities
+    related to employment and payroll (including payroll adjustments for
+    tax and other withholdings, pay grade and salary, and much more)
+  - Services for payroll including calculating salary and hourly/piece pay
+    amounts for a payroll period, calculating payroll adjustments
+    (including bonuses, garnishments, income/FICA/other from multiple tax
+    authorities), creating payroll invoices (and closing a payroll period),
+    and authorizing payroll invoices then creating payments; with check
+    printing payroll checks with details is also supported
+- Work
+  - Improved TimeEntry for piece counts, various service enhancements
+  - Added time entry screens in MyAccount app (general and for task)
+  - Added duration fields to WorkEffort, used for calendar time as opposed to
+    existing time fields which are total across all parties for cost and
+    budgeting purposes; changed various services to use these
+- Ledger
+  - GL posting for Financial Account Transactions
+  - GL Account cleanups and reorg so that third-party holdings accounts are
+    under a new class under current liability and not accounts payable
+  - GL posting for payment method types (PaymentMethodTypeGlAccount) can
+    vary by payable/receivable with the new isPayable field (Y for payable,
+    N for receivable, E for either); this is a PK field, modifying the PK
+    of this entity and requiring an update to existing databases
+- Product
+  - New ProductDimensionType entity so that unitTypeEnumId can be specified
+  - New ProductClass concept with Product.productClassEnumId field and the
+    ProductClassDimension and ProductClassFeature entities to specify which
+    dimensions and features apply to a given product class
+  - Added Product.assetTypeEnumId and assetClassEnumId fields, set in demo
+    data, used when creating Assets (in receive#Asset) for products,
+    cleaned up product types and used asset types and classes to simplify
+    code and resolve some issues
+- Asset
+  - Significant enhancements in accounting for fixed and inventory assets,
+    including some corrections of inventory posting and more flexible
+    configuration of posting for classes of inventory assets
+  - Fixed asset depreciation calculation and GL postings
+  - Fixed asset purchase and sale/disposal support
 
 Bug Fixes:
 
 - Fixed issue with conflicting use of enumId CURRENT_LIABILITY for both GL
   account class and type
+- Fixed concurrency issue when reserving inventory for the same product
+  from multiple threads running at the same time, plus test case to verify
 
 ===========================================================================
 Release 1.0.1 - 2 May 2015

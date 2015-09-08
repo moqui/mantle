@@ -495,9 +495,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <!-- see if Product is a physical item -->
                     <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true">
                         <field-map field-name="productId" from="orderItem.productId"/></entity-find-one>
-                    <set field="productTypeEnum" from="product.'ProductType#moqui.basic.Enumeration'"/>
 
-                    <if condition="productTypeEnum.parentEnumId == 'PtPhysical'">
+                    <if condition="product.productTypeEnumId in ['PtAsset', 'PtDigitalAsset', 'PtAssetUse']">
                         <service-call name="create#mantle.shipment.ShipmentItem"
                                 in-map="[shipmentId:shipmentId, productId:orderItem.productId, quantity:orderItem.quantity]"/>
                         <service-call name="create#mantle.shipment.ShipmentItemSource"
@@ -924,13 +923,12 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="shipmentId" required="true"/>
             <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="packDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="assetId"><description>Specify to pack a certain asset, may or may not be reserved.</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.Product" value-field="product" cache="true"/>
-            <entity-find-related-one value-field="product" relationship-name="ProductType#moqui.basic.Enumeration"
-                    to-value-field="productTypeEnum" cache="true"/>
-            <if condition="productTypeEnum.parentEnumId != 'PtPhysical' &amp;&amp; productTypeEnum.enumId != 'PtPhysical'">
+            <if condition="!(product.productTypeEnumId in ['PtAsset', 'PtDigitalAsset', 'PtAssetUse'])">
                 <log level="info" message="Not packing Product [${productId}], type ${productTypeEnum.description} [${productTypeEnum.enumId}] is not a physical product."/>
                 <return/>
             </if>
@@ -946,8 +944,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="quantityRemaining" from="quantityRemaining > shipmentItemSource.quantityNotHandled ?
                         quantityRemaining - shipmentItemSource.quantityNotHandled : 0"/>
                 <service-call name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"
-                        in-map="[shipmentItemSourceId:shipmentItemSource.shipmentItemSourceId,
-                            shipmentPackageSeqId:shipmentPackageSeqId, quantity:quantityToPack, assetId:assetId]"/>
+                        in-map="[shipmentItemSourceId:shipmentItemSource.shipmentItemSourceId, assetId:assetId,
+                            shipmentPackageSeqId:shipmentPackageSeqId, packDate:packDate, quantity:quantityToPack]"/>
             </iterate>
         </actions>
     </service>
@@ -957,6 +955,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="shipmentItemSourceId" required="true"/>
             <parameter name="shipmentPackageSeqId"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
+            <parameter name="packDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="assetReservationId"><description>Specify to pack for a single reservation. If specified assetId is ignored.</description></parameter>
             <parameter name="assetId"><description>Specify to pack a certain asset, may or may not be reserved. Packing
                 a specific quantity of an asset assumes physical presence of the asset so other reservations are moved
@@ -1018,7 +1017,7 @@ along with this software (see the LICENSE.md file). If not, see
                         (quantityRemaining - assetReservation.quantityNotIssued) : 0"/>
                     <service-call name="mantle.product.AssetServices.issue#AssetReservation"
                             in-map="[assetReservation:assetReservation, shipmentId:shipmentItemSource.shipmentId,
-                                quantity:quantityToIssue]"/>
+                                issuedDate:packDate, quantity:quantityToIssue]"/>
 
                     <!-- if the asset has a shipmentBoxTypeId it is already packaged, so create a package just for it -->
                     <!-- TODO: do something similar if Product is set as already packaged -->
@@ -1036,8 +1035,8 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="quantityRemaining">
                 <!-- do a non-reservation asset issuance -->
                 <service-call name="mantle.product.AssetServices.issue#Asset"
-                        in-map="[shipmentId:shipmentItemSource.shipmentId, quantity:quantityRemaining, assetId:assetId,
-                                orderId:shipmentItemSource.orderId, orderItemSeqId:shipmentItemSource.orderItemSeqId]"/>
+                        in-map="[shipmentId:shipmentItemSource.shipmentId, quantity:quantityRemaining, issuedDate:packDate,
+                            assetId:assetId, orderId:shipmentItemSource.orderId, orderItemSeqId:shipmentItemSource.orderItemSeqId]"/>
             </if>
 
             <!-- if no shipmentPackageSeqId find the first package -->

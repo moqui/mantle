@@ -80,6 +80,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="salvageValue" type="currency-amount"/>
         <field name="depreciation" type="currency-amount"/>
         <field name="depreciationTypeEnumId" type="id"/>
+        <field name="taxDepreciation" type="currency-amount"/>
+        <field name="taxDepreciationTypeEnumId" type="id"/>
 
         <relationship type="one" title="Parent" related-entity-name="mantle.product.asset.Asset">
             <key-map field-name="parentAssetId" related-field-name="assetId"/></relationship>
@@ -116,28 +118,40 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="acquireCostUomId"/></relationship>
         <relationship type="one" title="DepreciationType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="depreciationTypeEnumId"/></relationship>
+        <relationship type="one" title="TaxDepreciationType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="taxDepreciationTypeEnumId"/></relationship>
+
         <index name="INVITEM_SN"><index-field name="serialNumber"/></index>
         <!-- might be useful in some cases:
             <index name="INVITEM_SOFID" unique="true"><index-field name="softIdentifier"/></index>
             <index name="INVITEM_ACTNM" unique="true"><index-field name="activationNumber"/></index>
         -->
+
         <seed-data>
             <!-- Asset Type -->
             <moqui.basic.EnumerationType description="Asset Type" enumTypeId="AssetType"/>
             <moqui.basic.Enumeration description="Inventory" enumId="AstTpInventory" enumTypeId="AssetType"/><!-- IAS 2 -->
-            <moqui.basic.Enumeration description="Other Asset" enumId="AstTpOther" enumTypeId="AssetType"/><!-- IAS? -->
-            <moqui.basic.Enumeration description="Equipment" enumId="AstTpEquipment" enumTypeId="AssetType"/><!-- IAS 16 -->
-            <moqui.basic.Enumeration description="Real Estate" enumId="AstTpRealEstate" enumTypeId="AssetType"/><!-- IAS 16 -->
-            <moqui.basic.Enumeration description="Investment Real Estate" enumId="AstTpInvRealEstate" enumTypeId="AssetType"/><!-- IAS 40 -->
-            <moqui.basic.Enumeration description="Property" enumId="AstTpProperty" enumTypeId="AssetType"/><!-- IAS 16 -->
+            <moqui.basic.Enumeration description="Supplies" enumId="AstTpSupplies" enumTypeId="AssetType"/><!-- IAS? -->
+
+            <moqui.basic.Enumeration description="Fixed Asset" enumId="AstTpFixed" enumTypeId="AssetType"/><!-- IAS 16 -->
+            <moqui.basic.Enumeration description="Equipment" enumId="AstTpEquipment" parentEnumId="AstTpFixed" enumTypeId="AssetType"/><!-- IAS 16 -->
+            <moqui.basic.Enumeration description="Rental Equipment Asset" enumId="AstTpRental" parentEnumId="AstTpFixed" enumTypeId="AssetType"/><!-- IAS? -->
+            <moqui.basic.Enumeration description="Real Estate" enumId="AstTpRealEstate" parentEnumId="AstTpFixed" enumTypeId="AssetType"/><!-- IAS 16 -->
+            <moqui.basic.Enumeration description="Investment Real Estate" enumId="AstTpInvRealEstate" parentEnumId="AstTpFixed" enumTypeId="AssetType"/><!-- IAS 40 -->
+            <moqui.basic.Enumeration description="Bearer Biological" enumId="AstTpBearerBiological" parentEnumId="AstTpFixed" enumTypeId="AssetType"/><!-- IAS 16 -->
             <moqui.basic.Enumeration description="Biological" enumId="AstTpBiological" enumTypeId="AssetType"/><!-- IAS 41 -->
-            <moqui.basic.Enumeration description="Bearer Biological" enumId="AstTpBearerBiological" enumTypeId="AssetType"/><!-- IAS 16 -->
-            <moqui.basic.Enumeration description="Rental Asset" enumId="AstTpRental" enumTypeId="AssetType"/><!-- IAS? -->
-            <!-- needed or use Equipment? <moqui.basic.Enumeration description="Production Equipment (operation routing)" enumId="AstTpEquipProduction" enumTypeId="AssetType"/> -->
-            <!-- needed? <moqui.basic.Enumeration description="Group of Equipment (task and routing definition)" enumId="AstTpEquipGroup" enumTypeId="AssetType"/> -->
 
             <!-- Asset Class -->
             <moqui.basic.EnumerationType description="Asset Class" enumTypeId="AssetClass"/>
+
+            <moqui.basic.Enumeration description="Inventory" enumId="AsClsInventory" enumTypeId="AssetClass"/>
+            <moqui.basic.Enumeration description="Inventory - Raw Material" enumId="AsClsInventoryRaw"
+                    parentEnumId="AsClsInventory" enumTypeId="AssetClass"/>
+            <moqui.basic.Enumeration description="Inventory - Sub-assembly" enumId="AsClsInventorySub"
+                    parentEnumId="AsClsInventory" enumTypeId="AssetClass"/>
+            <moqui.basic.Enumeration description="Inventory - Finished Good" enumId="AsClsInventoryFin"
+                    parentEnumId="AsClsInventory" enumTypeId="AssetClass"/>
+
             <moqui.basic.Enumeration description="Boat" enumId="AsClsBoat" enumTypeId="AssetClass"/>
             <moqui.basic.Enumeration description="Forklift" enumId="AsClsForklift" enumTypeId="AssetClass"/>
             <moqui.basic.Enumeration description="Digger" enumId="AsClsDigger" enumTypeId="AssetClass"/>
@@ -218,13 +232,19 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstInStorage" toStatusId="AstInTransfer" transitionName="Start Transfer"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstInTransfer" toStatusId="AstInStorage" transitionName="Transfer Complete (Store)"/>
 
+            <!-- Depreciation Type -->
+            <moqui.basic.EnumerationType description="Depreciation Type" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Straight Line" enumId="DtpStraightLine" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Double Declining Balance" enumId="DtpDoubleDeclining" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Sum of Years Digits" enumId="DtpSumYearsDigits" enumTypeId="DepreciationType"/>
+            <moqui.basic.Enumeration description="Units of Production" enumId="DtpUnitsProduction" enumTypeId="DepreciationType"/>
 
-            <!-- Depreciation Formulae -->
-            <!-- TODO: model these some other way, perhaps as Enumerations
-            <CustomMethodType customMethodTypeId="DEPRECIATION_FORMULA" description="Formula for calculating depreciation for fixed asset"/>
-            <CustomMethod customMethodId="STR_LINE_DEP_FORMULA" customMethodTypeId="DEPRECIATION_FORMULA" customMethodName="straightLineDepreciation" description="Straight Line depreciatiion algorithm for fixed asset((purchaseCost - salvageCost)/expectedLifeInYears)"/>
-            <CustomMethod customMethodId="DBL_DECL_DEP_FORMULA" customMethodTypeId="DEPRECIATION_FORMULA" customMethodName="doubleDecliningBalanceDepreciation" description="Double decline depreciatiion algorithm for fixed asset((NetBookValue - salvageCost)*2/remainingLifeInYears)"/>
-            -->
+            <!-- Tax Depreciation Type -->
+            <!-- NOTE: there are many variations, especially for USA MACRS ADS; future effort to model all of them -->
+            <!-- For a summary of USA IRS MACRS deprecations see: https://en.wikipedia.org/wiki/MACRS -->
+            <moqui.basic.EnumerationType description="Tax Depreciation Type" enumTypeId="TaxDepreciationType"/>
+            <moqui.basic.Enumeration description="MACRS GDS 5 Year" enumId="TdtpUnitsProduction" enumTypeId="TaxDepreciationType"/>
+            <moqui.basic.Enumeration description="MACRS GDS 7 Year" enumId="TdtpUnitsProduction" enumTypeId="TaxDepreciationType"/>
         </seed-data>
     </entity>
     <entity entity-name="AssetDetail" package-name="mantle.product.asset" create-only="true">
@@ -541,6 +561,7 @@ along with this software (see the LICENSE.md file). If not, see
         </relationship>
     </entity>
     <entity entity-name="AssetMeter" package-name="mantle.product.maintenance">
+        <!-- TODO: deprecate this, use mantle.work.measurement.Measurement instead -->
         <field name="assetId" type="id" is-pk="true"/>
         <field name="readingDate" type="date-time" is-pk="true"/>
         <field name="productMeterTypeId" type="id"/>

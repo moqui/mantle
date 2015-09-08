@@ -13,7 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
     <service verb="get" noun="PaymentDisplayInfo">
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters>
@@ -150,9 +149,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <field-map field-name="partyId" from="payment.toPartyId"/></entity-find-one>
 
                 <service-call name="mantle.party.ContactServices.get#PartyDefaultBilling" out-map="toBillingOut"
-                        in-map="[partyId:payment.toPartyId]"/>
+                        in-map="[partyId:payment.toPartyId]" out-map-add-to-existing="false"/>
                 <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="toBillingContactInfo"
-                        in-map="toBillingOut + [partyId:payment.toPartyId]"/>
+                        in-map="toBillingOut + [partyId:payment.toPartyId]" out-map-add-to-existing="false"/>
 
                 <entity-find entity-name="mantle.party.PartyContent" list="primarySignatureList">
                     <econdition field-name="partyId" from="payment.fromPartyId"/>
@@ -199,6 +198,8 @@ along with this software (see the LICENSE.md file). If not, see
                     paymentInfoList.add(paymentInfo)
                 </script>
             </iterate>
+
+            <!-- <log message="paymentInfoList:${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(paymentInfoList))}"/> -->
         </actions>
     </service>
 
@@ -276,13 +277,16 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="invoiceId" required="true"/>
+            <auto-parameters entity-name="mantle.account.payment.Payment" include="nonpk">
+                <exclude field-name="overrideGlAccountId"/></auto-parameters>
+            <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
             <parameter name="statusId" default-value="PmntDelivered"/>
-            <parameter name="amountUomId"/>
-            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="amount" type="BigDecimal"><description>Defaults to invoice unpaid total</description></parameter>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
             <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="paymentRefNum"/>
             <parameter name="comments"/>
+            <parameter name="visitId" default="ec.user.visitId"/>
             <parameter name="paymentOverrideGlAccountId"/>
             <parameter name="applicationOverrideGlAccountId"/>
         </in-parameters>
@@ -295,15 +299,17 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
 
+            <if condition="!amount">
+                <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="totalOut"/>
+                <set field="amount" from="totalOut.unpaidTotal"/>
+            </if>
+            <if condition="!amountUomId"><set field="amountUomId" from="invoice.currencyUomId"/></if>
+
             <set field="initialStatusId" from="statusId == 'PmntProposed' ? statusId : 'PmntPromised'"/>
 
-            <if condition="!amountUomId"><set field="amountUomId" from="invoice.currencyUomId"/></if>
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
-                    in-map="[paymentTypeEnumId:'PtInvoicePayment', fromPartyId:invoice.toPartyId,
-                        toPartyId:invoice.fromPartyId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
-                        statusId:initialStatusId, effectiveDate:effectiveDate, paymentRefNum:paymentRefNum,
-                        amountUomId:amountUomId, amount:amount, comments:comments,
-                        overrideGlAccountId:paymentOverrideGlAccountId, visitId:ec.user.visitId]"/>
+                    in-map="context + [fromPartyId:invoice.toPartyId, toPartyId:invoice.fromPartyId,
+                        statusId:initialStatusId, overrideGlAccountId:paymentOverrideGlAccountId]"/>
 
             <service-call name="mantle.account.PaymentServices.apply#InvoicePayment" out-map="context"
                     in-map="[paymentId:paymentId, invoiceId:invoiceId, amount:amount,
@@ -854,6 +860,87 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="paymentGatewayResponse?.resultSuccess == 'Y'">
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntRefunded']"/>
             </if>
+        </actions>
+    </service>
+
+    <!-- ================================================ -->
+    <!-- ========== PaymentContent Services ========== -->
+    <!-- ================================================ -->
+
+    <service verb="get" noun="PaymentContentLocation">
+        <in-parameters>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="contentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="paymentContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="contentTypeEnumIdList" entry="contentTypeEnumId">
+                <entity-find entity-name="mantle.account.payment.PaymentContent" list="paymentContentList">
+                    <econdition field-name="paymentId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="paymentContentList">
+                    <set field="paymentContent" from="paymentContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="paymentContent ? paymentContent.contentLocation : null"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="PaymentContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.payment.PaymentContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.account.payment.PaymentContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.account.PaymentServices.save#PaymentContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="PaymentContent">
+        <in-parameters>
+            <parameter name="paymentContentId" required="true"/>
+            <auto-parameters entity-name="mantle.account.payment.PaymentContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.account.payment.PaymentContent" value-field="paymentContent"/>
+                <service-call name="mantle.account.PaymentServices.save#PaymentContentFile" out-map="context"
+                        in-map="context + [paymentId:paymentContent.paymentId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.account.payment.PaymentContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="PaymentContentFile">
+        <in-parameters>
+            <parameter name="paymentContentId" required="true"/>
+            <parameter name="paymentId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/payment/${paymentId}/content_${paymentContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.account.payment.PaymentContent"
+                    in-map="[paymentContentId:paymentContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
 </services>

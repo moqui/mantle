@@ -42,6 +42,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="purposeEnumId" type="id"/>
         <field name="visibilityEnumId" type="id"/>
         <field name="resolutionEnumId" type="id"/>
+        <field name="emplPositionClassId" type="id"/>
 
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="statusFlowId" type="id-long"/>
@@ -63,12 +64,19 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="actualStartDate" type="date-time"/>
         <field name="actualCompletionDate" type="date-time"/>
 
-        <field name="estimatedWorkTime" type="number-decimal"/>
-        <field name="estimatedSetupTime" type="number-decimal"/>
-        <field name="remainingWorkTime" type="number-decimal"/>
-        <field name="actualWorkTime" type="number-decimal"/>
-        <field name="actualSetupTime" type="number-decimal"/>
-        <field name="totalTimeAllowed" type="number-decimal"/>
+        <field name="estimatedWorkTime" type="number-decimal"><description>Total estimated work time across all parties</description></field>
+        <field name="estimatedSetupTime" type="number-decimal"><description>Total estimated setup time across all parties</description></field>
+        <field name="remainingWorkTime" type="number-decimal"><description>Total remaining work time across all parties</description></field>
+        <field name="actualWorkTime" type="number-decimal"><description>Total actual work time across all parties</description></field>
+        <field name="actualSetupTime" type="number-decimal"><description>Total actual setup time across all parties</description></field>
+        <field name="totalTimeAllowed" type="number-decimal"><description>Total work time allowed (budgeted) across all parties</description></field>
+
+        <field name="estimatedWorkDuration" type="number-decimal">
+            <description>Estimated work duration in calendar time (see actualWorkTime for total worked time across parties)</description></field>
+        <field name="actualWorkDuration" type="number-decimal">
+            <description>Actual work duration in calendar time (see actualWorkTime for total worked time across parties)</description></field>
+        <field name="actualBreakDuration" type="number-decimal">
+            <description>Actual break duration in calendar time</description></field>
         <field name="timeUomId" type="id"/>
 
         <!-- something to consider for future: <field name="estimatedCost" type="currency-amount"/> -->
@@ -92,6 +100,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="visibilityEnumId"/></relationship>
         <relationship type="one" title="WorkEffortResolution" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="resolutionEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.humanres.position.EmplPositionClass"/>
         <relationship type="one" title="WorkEffort" related-entity-name="moqui.basic.StatusItem"/>
         <relationship type="one" related-entity-name="mantle.facility.Facility"/>
         <relationship type="one" title="Time" related-entity-name="moqui.basic.Uom">
@@ -302,11 +311,13 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related-entity-name="mantle.party.contact.TelecomNumber"/>
     </entity>
     <entity entity-name="WorkEffortContent" package-name="mantle.work.effort">
-        <field name="workEffortId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="contentTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
+        <field name="workEffortContentId" type="id" is-pk="true"/>
+        <field name="workEffortId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="contentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
         <relationship type="one" title="WorkEffortContentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="contentTypeEnumId"/></relationship>
@@ -548,7 +559,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="timeEntryId" type="id" is-pk="true"/>
         <field name="timesheetId" type="id"/>
         <field name="partyId" type="id"/>
-        <field name="clientPartyId" type="id"><description>Optional, may get through timesheetId or workEffortId</description></field>
+        <field name="clientPartyId" type="id"><description>Should always be set, may get through timesheetId or workEffortId</description></field>
         <field name="rateTypeEnumId" type="id"/>
         <field name="emplPositionClassId" type="id"/>
         <field name="rateAmountId" type="id"/>
@@ -624,5 +635,100 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.work.time.Timesheet"/>
         <relationship type="one" related-entity-name="mantle.party.Party"/>
         <relationship type="one" related-entity-name="mantle.party.RoleType"/>
+    </entity>
+
+    <!-- ========================================================= -->
+    <!-- mantle.work.measurement -->
+    <!-- ========================================================= -->
+
+    <entity entity-name="Measurement" package-name="mantle.work.measurement">
+        <field name="measurementId" type="id" is-pk="true"/>
+        <field name="measurementTypeId" type="id"/>
+        <field name="measurementDate" type="date-time"/>
+        <field name="measurementValue" type="number-decimal"/>
+        <field name="measurementUomId" type="id"/>
+        <field name="measurementEnumId" type="id"/>
+
+        <field name="workEffortId" type="id"/>
+        <field name="assetId" type="id"/>
+        <field name="facilityId" type="id"/>
+        <field name="productId" type="id"/>
+        <field name="reasonEnumId" type="id"/>
+        <field name="productMeterId" type="id"/>
+        <field name="assetMaintenanceId" type="id"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
+
+        <relationship type="one" related-entity-name="mantle.work.measurement.MeasurementType"/>
+        <relationship type="one" title="Measurement" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="measurementUomId"/></relationship>
+        <relationship type="one" title="Measurement" related-entity-name="moqui.basic.Enumeration">
+            <!-- The title won't match the enumTypeId for this field -->
+            <key-map field-name="measurementEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" title="MeasurementReason" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="reasonEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.product.maintenance.AssetMaintenance"/>
+        <relationship type="one" related-entity-name="mantle.product.maintenance.ProductMeter"/>
+        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
+
+        <!-- Measurement Reason -->
+        <seed-data>
+            <moqui.basic.EnumerationType description="Measurement Reason" enumTypeId="MeasurementReason"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="MeasurementType" package-name="mantle.work.measurement">
+        <field name="measurementTypeId" type="id" is-pk="true"/>
+        <field name="description" type="text-medium"/>
+        <field name="hasValue" type="text-indicator"/>
+        <field name="uomTypeEnumId" type="id"/>
+        <field name="enumTypeId" type="id-long"/>
+        <field name="productMeterTypeId" type="id"/>
+
+        <relationship type="one" title="UomType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="uomTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="moqui.basic.EnumerationType"/>
+        <relationship type="one" related-entity-name="mantle.product.maintenance.ProductMeterType"/>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Sixteen Point Compass" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="North (0°)" enumCode="N" enumId="SPC_N" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="North Northeast (22.5°)" enumCode="NNW" enumId="SPC_NNW" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="Northeast (45°)" enumCode="NE" enumId="SPC_NE" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="East Northeast (67.5°)" enumCode="ENE" enumId="SPC_ENE" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="East (90°)" enumCode="E" enumId="SPC_E" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="East Southeast (112.5°)" enumCode="SSE" enumId="SPC_ESE" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="Southeast (135°)" enumCode="SE" enumId="SPC_SE" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="South Southeast (157.5°)" enumCode="SSE" enumId="SPC_SSE" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="South (180°)" enumCode="S" enumId="SPC_S" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="South Southwest (202.5°)" enumCode="SSW" enumId="SPC_SSW" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="Southwest (225°)" enumCode="SW" enumId="SPC_SW" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="West Southwest (247.5°)" enumCode="WSW" enumId="SPC_WSW" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="West (270°)" enumCode="W" enumId="SPC_W" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="West Northwest (292.5°)" enumCode="WNW" enumId="SPC_WNW" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="Northwest (315°)" enumCode="NW" enumId="SPC_NW" enumTypeId="SixteenPointCompass"/>
+            <moqui.basic.Enumeration description="North Northwest (337.5°)" enumCode="NNW" enumId="SPC_NNW" enumTypeId="SixteenPointCompass"/>
+
+            <mantle.work.measurement.MeasurementType measurementTypeId="Temperature" description="Temperature"
+                    hasValue="Y" uomTypeEnumId="UT_TEMP_MEASURE"/>
+            <mantle.work.measurement.MeasurementType measurementTypeId="TemperatureFeelsLike" description="Temperature Feels Like"
+                    hasValue="Y" uomTypeEnumId="UT_TEMP_MEASURE"/>
+            <mantle.work.measurement.MeasurementType measurementTypeId="WindSpeed" description="Wind Speed"
+                    hasValue="Y" uomTypeEnumId="UT_VELOCITY_MEASURE"/>
+            <mantle.work.measurement.MeasurementType measurementTypeId="WindDirection" description="Wind Direction (Degrees)"
+                    hasValue="Y" uomTypeEnumId="" enumTypeId="SixteenPointCompass"/>
+            <mantle.work.measurement.MeasurementType measurementTypeId="AtmosphericPressure" description="Atmospheric Pressure"
+                    hasValue="Y" uomTypeEnumId="UT_PRESSURE_MEASURE"/>
+            <mantle.work.measurement.MeasurementType measurementTypeId="Precipitation" description="Precipitation"
+                    hasValue="Y" uomTypeEnumId="UT_LENGTH_MEASURE"/>
+            <mantle.work.measurement.MeasurementType measurementTypeId="Humidity" description="Humidity (Percentage)"
+                    hasValue="Y" uomTypeEnumId=""/>
+            <mantle.work.measurement.MeasurementType measurementTypeId="CloudCover" description="Cloud Cover (Percentage)"
+                    hasValue="Y" uomTypeEnumId=""/>
+
+            <mantle.work.measurement.MeasurementType measurementTypeId="pH" description="pH"
+                    hasValue="Y" uomTypeEnumId=""/>
+        </seed-data>
     </entity>
 </entities>

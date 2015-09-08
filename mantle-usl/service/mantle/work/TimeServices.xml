@@ -158,7 +158,181 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ========== Bulk Time Entry WorkEffort Services ========== -->
+    <service verb="store" noun="TimeEntryWorkEffort">
+        <description>Store a WorkEffort record used for bulk time entry, has the required fields for the time entries</description>
+        <in-parameters>
+            <parameter name="workEffortId"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffort" include="nonpk"/>
+            <parameter name="workEffortTypeEnumId" default-value="WetEvent"/>
+            <parameter name="workEffortName" required="true"/>
+            <parameter name="actualStartDate" required="true"/>
+            <parameter name="actualWorkDuration" required="true"/>
+            <parameter name="statusId" default-value="WeComplete"/>
+            <parameter name="resolutionEnumId" default-value="WerUnresolved"/>
+            <parameter name="timeUomId" default-value="TF_hr"/>
+            <parameter name="clientPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <service-call name="store#mantle.work.effort.WorkEffort" in-map="context" out-map="context"/>
+            <service-call name="mantle.work.WorkEffortServices.replace#WorkEffortParty"
+                    in-map="[workEffortId:workEffortId, roleTypeId:'CustomerBillTo', newPartyId:clientPartyId]"/>
+        </actions>
+    </service>
+    <service verb="store" noun="WorkEffortPartyTime">
+        <description>Create a TimeEntry for a WorkEffort with various fields defaulting to values from the WorkEffort.
+            Call the store#TimeEntryWorkEffort service first to make sure needed values are in place.</description>
+        <in-parameters>
+            <parameter name="timeEntryId"><description>If specified updates, if not creates</description></parameter>
+            <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="partyId"><description>For convenience not set as required, but if not passed no TimeEntry
+                will be created.</description></parameter>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortId"/></out-parameters>
+        <actions>
+            <if condition="!partyId"><return/></if>
+
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+
+            <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="wepList">
+                <econdition field-name="workEffortId"/><econdition field-name="partyId"/>
+                <order-by field-name="-fromDate"/>
+            </entity-find>
+            <if condition="wepList"><set field="workEffortParty" from="wepList[0]"/></if>
+
+            <if condition="!emplPositionClassId">
+                <set field="emplPositionClassId" from="workEffortParty?.emplPositionClassId ?: workEffort.emplPositionClassId"/></if>
+            <if condition="!fromDate"><set field="fromDate" from="workEffort.actualStartDate"/></if>
+            <if condition="!hours"><set field="hours" from="workEffort.actualWorkDuration"/></if>
+            <if condition="!breakHours"><set field="breakHours" from="workEffort.actualBreakDuration"/></if>
+            <if condition="!clientPartyId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="clientWepList">
+                    <econdition field-name="workEffortId"/>
+                    <econdition field-name="roleTypeId" value="CustomerBillTo"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="clientWepList"><set field="clientPartyId" from="clientWepList[0].partyId"/></if>
+            </if>
+
+            <service-call name="mantle.work.TimeServices.store#TimeEntry" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <!-- ========== Time Entry Rate and Amount Services ========== -->
+    <service verb="get" noun="TimeEntryAmount">
+        <description>Calculate the amount for a time entry (for worker/vendor or client).</description>
+        <in-parameters>
+            <parameter name="timeEntryId" required="true"/>
+            <parameter name="timeEntry" type="Map"/>
+            <parameter name="ratePurposeEnumId" default-value="RaprVendor"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="amountTotal" type="BigDecimal"/>
+            <parameter name="amount" type="BigDecimal"/>
+            <parameter name="quantity" type="BigDecimal"/>
+            <parameter name="currencyUomId"/>
+
+            <parameter name="hourlyAmountTotal" type="BigDecimal"/>
+            <parameter name="pieceAmountTotal" type="BigDecimal"/>
+            <parameter name="hourlyAmount" type="BigDecimal"/>
+            <parameter name="pieceAmount" type="BigDecimal"/>
+            <parameter name="hours" type="BigDecimal"/>
+            <parameter name="pieceCount" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <if condition="!timeEntry"><entity-find-one entity-name="mantle.work.time.TimeEntry" value-field="timeEntry"/></if>
+
+            <set field="hours" from="timeEntry.hours ?: 0"/>
+            <set field="pieceCount" from="timeEntry.pieceCount ?: 0"/>
+
+            <if condition="hours">
+                <then>
+                    <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+                    <if condition="rateAmountId">
+                        <then>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
+                                <field-map field-name="rateAmountId"/></entity-find-one>
+                        </then>
+                        <else>
+                            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
+                                    in-map="[timeEntryId:timeEntryId]"/>
+                            <!-- set the values in the timeEntry record for use below since the service updates the DB record and we don't want to re-query to get it -->
+                            <set field="timeEntry.rateAmountId" from="getTerOut.rateAmountId"/>
+                            <set field="timeEntry.vendorRateAmountId" from="getTerOut.vendorRateAmountId"/>
+
+                            <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
+                                <field-map field-name="rateAmountId"/></entity-find-one>
+                        </else>
+                    </if>
+                    <if condition="rateAmount">
+                        <set field="hourlyAmount" from="rateAmount.rateAmount"/>
+                        <set field="hourlyAmountTotal" from="hours * hourlyAmount"/>
+                        <set field="currencyUomId" from="rateAmount.rateCurrencyUomId"/>
+
+                        <else><message error="true">No hourly rate amount found for time entry [${timeEntryId}]</message></else>
+                    </if>
+                </then>
+                <else>
+                    <set field="hourlyAmount" from="0"/>
+                    <set field="hourlyAmountTotal" from="0"/>
+                </else>
+            </if>
+            <if condition="pieceCount">
+                <then>
+                    <set field="pieceRateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorPieceRateAmountId : timeEntry.pieceRateAmountId"/>
+                    <if condition="pieceRateAmountId">
+                        <then>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
+                                <field-map field-name="rateAmountId" from="pieceRateAmountId"/></entity-find-one>
+                        </then>
+                        <else>
+                            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
+                                    in-map="[timeEntryId:timeEntryId]"/>
+                            <!-- set the values in the timeEntry record for use below since the service updates the DB record and we don't want to re-query to get it -->
+                            <set field="timeEntry.pieceRateAmountId" from="getTerOut.pieceRateAmountId"/>
+                            <set field="timeEntry.vendorPieceRateAmountId" from="getTerOut.vendorPieceRateAmountId"/>
+
+                            <set field="pieceRateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorPieceRateAmountId : getTerOut.pieceRateAmountId"/>
+                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="pieceRateAmount" cache="true">
+                                <field-map field-name="rateAmountId" from="pieceRateAmountId"/></entity-find-one>
+                        </else>
+                    </if>
+                    <if condition="pieceRateAmount">
+                        <set field="pieceAmount" from="pieceRateAmount.rateAmount"/>
+                        <set field="pieceAmountTotal" from="pieceCount * pieceAmount"/>
+                        <set field="currencyUomId" from="rateAmount.rateCurrencyUomId"/>
+
+                        <else><message>No piece rate amount found for time entry [${timeEntryId}]</message></else>
+                    </if>
+                </then>
+                <else>
+                    <set field="pieceAmount" from="0"/>
+                    <set field="pieceAmountTotal" from="0"/>
+                </else>
+            </if>
+
+            <check-errors/>
+
+            <if condition="hourlyAmountTotal &gt; pieceAmountTotal">
+                <then>
+                    <set field="amountTotal" from="hourlyAmountTotal"/>
+                    <set field="amount" from="hourlyAmount"/>
+                    <set field="quantity" from="hours"/>
+                </then>
+                <else>
+                    <set field="amountTotal" from="pieceAmountTotal"/>
+                    <set field="amount" from="pieceAmount"/>
+                    <set field="quantity" from="pieceCount"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
     <service verb="get" noun="TimeEntryRate">
+        <description>Find the RateAmount records for a TimeEntry. Rate amounts can be calculated from these.</description>
         <in-parameters>
             <parameter name="timeEntryId" required="true"/>
             <!-- TODO: where to get currency... project setting? client or internal org setting? -->
@@ -318,6 +492,35 @@ along with this software (see the LICENSE.md file). If not, see
                 <filter-map-list list="rateAmountList" to-list="partyList">
                     <field-map field-name="partyId" from="timeEntry.partyId"/></filter-map-list>
                 <if condition="partyList"><set field="raListToUse" from="partyList"/></if>
+            </if>
+
+            <!-- if still no rate find relevant Employment record -->
+            <if condition="!raListToUse">
+                <entity-find entity-name="mantle.humanres.employment.EmploymentAndRelationship" list="employmentList">
+                    <date-filter valid-date="timeEntry.thruDate"/>
+                    <econdition field-name="fromPartyId" from="timeEntry.partyId"/>
+                    <econdition field-name="toPartyId" from="timeEntry.clientPartyId"/>
+                </entity-find>
+                <set field="employment" from="employmentList ? employmentList[0] : null"/>
+                <if condition="employment?.emplPositionId">
+                    <entity-find-one entity-name="mantle.humanres.position.EmplPosition" value-field="emplPosition">
+                        <field-map field-name="emplPositionId" from="employment.emplPositionId"/></entity-find-one>
+                </if>
+            </if>
+
+            <!-- no rate yet? look by Employment.payGradeId and timeEntry.emplPositionClassId -->
+            <if condition="!raListToUse &amp;&amp; emplPosition?.payGradeId">
+                <filter-map-list list="rateAmountList" to-list="gradeAndEmplPositionClassList">
+                    <field-map field-name="emplPositionClassId" from="timeEntry.emplPositionClassId"/>
+                    <field-map field-name="payGradeId" from="emplPosition.payGradeId"/>
+                </filter-map-list>
+                <if condition="gradeAndEmplPositionClassList"><set field="raListToUse" from="gradeAndEmplPositionClassList"/></if>
+            </if>
+            <!-- no rate yet? look by just Employment.payGradeId -->
+            <if condition="!raListToUse &amp;&amp; emplPosition?.payGradeId">
+                <filter-map-list list="rateAmountList" to-list="gradeRateList">
+                    <field-map field-name="payGradeId" from="emplPosition.payGradeId"/></filter-map-list>
+                <if condition="gradeRateList"><set field="raListToUse" from="gradeRateList"/></if>
             </if>
 
             <!-- no rate yet? get the default rate for the EmplPositionClass -->
