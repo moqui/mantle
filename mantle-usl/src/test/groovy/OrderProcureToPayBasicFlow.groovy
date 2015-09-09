@@ -13,6 +13,7 @@
 
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityList
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
@@ -43,6 +44,8 @@ class OrderProcureToPayBasicFlow extends Specification {
     long effectiveTime = System.currentTimeMillis()
     @Shared
     java.sql.Date eolDate
+    @Shared
+    String equipAssetId
 
 
     def setupSpec() {
@@ -245,10 +248,11 @@ class OrderProcureToPayBasicFlow extends Specification {
         Calendar eolCal = ec.user.nowCalendar // will be set to effectiveTime, which will be the acquiredDate
         eolCal.add(Calendar.YEAR, 5) // depreciate over 5 years
         eolDate = new java.sql.Date(eolCal.timeInMillis)
-        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
+        Map receiveEquipOut = ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
                 .parameters([shipmentId:shipResult.shipmentId, productId:'EQUIP_1',
                     quantityAccepted:1, facilityId:facilityId, serialNumber:'PB2000AZQRTFP',
                     expectedEndOfLife:(eolDate), salvageValue:1500, depreciationTypeEnumId:'DtpDoubleDeclining']).call()
+        equipAssetId = receiveEquipOut.assetIdList[0]
 
         ec.service.sync().name("update#mantle.shipment.Shipment")
                 .parameters([shipmentId:shipResult.shipmentId, statusId:'ShipDelivered']).call()
@@ -308,16 +312,16 @@ class OrderProcureToPayBasicFlow extends Specification {
                 availableToPromiseDiff="100" shipmentId="${shipResult.shipmentId}" assetReceiptId="55401" unitCost="4.5"
                 effectiveDate="${effectiveTime}" quantityOnHandDiff="100"/>
 
-            <mantle.product.asset.Asset assetId="55402" assetTypeEnumId="AstTpEquipment" statusId="AstInStorage"
+            <mantle.product.asset.Asset assetId="${equipAssetId}" assetTypeEnumId="AstTpEquipment" statusId="AstInStorage"
                 ownerPartyId="ORG_ZIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="1"
                 availableToPromiseTotal="0" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
                 receivedDate="${effectiveTime}" acquiredDate="${effectiveTime}" facilityId="ORG_ZIZI_RETAIL_WH"
                 acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"
                 expectedEndOfLife="${eolDate}" salvageValue="1500" depreciationTypeEnumId="DtpDoubleDeclining"/>
-            <mantle.product.receipt.AssetReceipt assetReceiptId="55402" assetId="55402" productId="EQUIP_1"
+            <mantle.product.receipt.AssetReceipt assetReceiptId="55402" assetId="${equipAssetId}" productId="EQUIP_1"
                 orderId="${purchaseOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}"
                 receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="1"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55410" assetId="55402" productId="EQUIP_1"
+            <mantle.product.asset.AssetDetail assetDetailId="55410" assetId="${equipAssetId}" productId="EQUIP_1"
                 availableToPromiseDiff="0" shipmentId="${shipResult.shipmentId}" assetReceiptId="55402" unitCost="10000"
                 effectiveDate="${effectiveTime}" quantityOnHandDiff="1"/>
 
@@ -379,7 +383,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
             <mantle.ledger.transaction.AcctgTrans postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y"
-                    assetId="55402" acctgTransTypeEnumId="AttAssetReceipt" glFiscalTypeEnumId="GLFT_ACTUAL"
+                    assetId="${equipAssetId}" acctgTransTypeEnumId="AttAssetReceipt" glFiscalTypeEnumId="GLFT_ACTUAL"
                     transactionDate="${effectiveTime}" acctgTransId="55402" assetReceiptId="55402"
                     organizationPartyId="ORG_ZIZI_RETAIL">
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="139100000"
@@ -593,8 +597,8 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([timePeriodId:timePeriod.timePeriodId]).call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.product.asset.Asset assetId="55402" acquireCost="10000" salvageValue="1500" depreciation="283.33"/>
-            <mantle.product.asset.AssetDepreciation assetId="55402" timePeriodId="${timePeriod.timePeriodId}"
+            <mantle.product.asset.Asset assetId="${equipAssetId}" acquireCost="10000" salvageValue="1500" depreciation="283.33"/>
+            <mantle.product.asset.AssetDepreciation assetId="${equipAssetId}" timePeriodId="${timePeriod.timePeriodId}"
                     annualDepreciation="3400" yearsRemaining="5" isLastYearPeriod="N"
                     monthlyDepreciation="283.33" acctgTransId="55406" usefulLifeYears="5"/>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55406" amountUomId="USD" isPosted="Y" postedDate="${effectiveTime}"
@@ -621,6 +625,71 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         then:
         dataCheckErrors.size() == 0
+    }
+
+    def "sell Depreciated Asset"() {
+        when:
+        Map createOrderResult = ec.service.sync().name("mantle.order.OrderServices.create#Order")
+                .parameters([customerPartyId:'CustJqp', vendorPartyId:'ORG_ZIZI_RETAIL', facilityId:'ORG_ZIZI_RETAIL_WH']).call()
+        String orderId = createOrderResult.orderId
+        String firstPartSeqId = createOrderResult.orderPartSeqId
+
+        ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, shippingPostalContactMechId:'CustJqpAddr']).call()
+
+        ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, itemTypeEnumId:'ItemAsset',
+                             productId:'EQUIP_1', quantity:1, unitAmount:9000]).call()
+
+        // place and approve the order
+        ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:orderId]).call()
+        ec.service.sync().name("mantle.order.OrderServices.approve#Order").parameters([orderId:orderId]).call()
+
+        // create a Shipment
+        Map createShipmentOut = ec.service.sync().name("mantle.shipment.ShipmentServices.create#OrderPartShipment")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId]).call()
+        String shipmentId = createShipmentOut.shipmentId
+
+        // set the shipment scheduled, pack the item
+        ec.service.sync().name("update#mantle.shipment.Shipment")
+                .parameters([shipmentId:shipmentId, statusId:'ShipScheduled']).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#ShipmentProduct")
+                .parameters([shipmentId:shipmentId, productId:'EQUIP_1', quantity:1, assetId:equipAssetId]).call()
+
+        // set packed, will generate the invoice, etc; then set shipped
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#Shipment").parameters([shipmentId:shipmentId]).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment").parameters([shipmentId:shipmentId]).call()
+
+        // lookup the invoiceId from ShipmentItemSource
+        EntityList sisList = ec.entity.find("mantle.shipment.ShipmentItemSource").condition([shipmentId:shipmentId]).list()
+        String invoiceId = sisList?.first()?.invoiceId
+
+        // pay the invoice with a new payment
+        Map invTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+        BigDecimal invoiceTotal = invTotalOut.invoiceTotal
+
+        ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
+                .parameters([invoiceId:invoiceId, statusId:'PmntDelivered', amountUomId:'USD', amount:invoiceTotal,
+                             paymentMethodTypeEnumId:'PmtPersonalCheck', effectiveDate:ec.user.nowTimestamp,
+                             paymentRefNum:'123456']).call()
+
+        Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+
+        // TODO: add data to check... some weird stuff happening as of this commit so manually checking first
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        </entity-facade-xml>""").check()
+        if (dataCheckErrors) {
+            logger.info("depreciate Fixed Assets data check results: ")
+            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        }
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+        afterTotalOut.unpaidTotal == 0
+        afterTotalOut.appliedPaymentsTotal == invoiceTotal
     }
 
     // TODO: ===========================
