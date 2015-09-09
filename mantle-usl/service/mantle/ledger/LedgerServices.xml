@@ -132,8 +132,8 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters><parameter name="partyAcctgPreference" type="EntityValue"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference" cache="true">
-                <field-map field-name="organizationPartyId"/>
-            </entity-find-one>
+                <field-map field-name="organizationPartyId"/></entity-find-one>
+
             <if condition="!partyAcctgPreference">
                 <entity-find entity-name="mantle.party.PartyRelationship" list="partyRelationshipList" cache="true">
                     <date-filter/>
@@ -169,6 +169,8 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="organizationPartyId" required="true"/></in-parameters>
         <out-parameters><parameter name="orgPartyIdList" type="List"/></out-parameters>
         <actions>
+            <set field="orgPartyIdList" from="[organizationPartyId]"/>
+
             <entity-find entity-name="mantle.party.PartyRelationship" list="partyRelationshipList" cache="true">
                 <date-filter/>
                 <econdition field-name="fromPartyId" from="organizationPartyId"/>
@@ -176,10 +178,42 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="fromRoleTypeId" value="OrgInternal"/>
                 <econdition field-name="toRoleTypeId" value="OrgInternal"/>
             </entity-find>
-            <set field="orgPartyIdList" from="[organizationPartyId]"/>
             <iterate list="partyRelationshipList" entry="partyRelationship">
                 <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="expandResult"
                         in-map="[organizationPartyId:partyRelationship.toPartyId]"/>
+                <script>orgPartyIdList.addAll(expandResult.orgPartyIdList)</script>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="expand" noun="ChildOrganizationList">
+        <in-parameters>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="onlyWithNoAcctgPreference" type="Boolean" default="false"/>
+        </in-parameters>
+        <out-parameters><parameter name="orgPartyIdList" type="List"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference" cache="true">
+                <field-map field-name="organizationPartyId"/></entity-find-one>
+            <if condition="onlyWithNoAcctgPreference &amp;&amp; partyAcctgPreference">
+                <then><set field="orgPartyIdList" from="[]"/></then>
+                <else><set field="orgPartyIdList" from="[organizationPartyId]"/></else>
+            </if>
+
+            <entity-find entity-name="mantle.party.PartyRelationship" list="partyRelationshipList" cache="true">
+                <date-filter/>
+                <econdition field-name="toPartyId" from="organizationPartyId"/>
+                <econdition field-name="relationshipTypeEnumId" value="PrtOrgRollup"/>
+                <econdition field-name="fromRoleTypeId" value="OrgInternal"/>
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+            </entity-find>
+            <iterate list="partyRelationshipList" entry="partyRelationship">
+                <if condition="onlyWithNoAcctgPreference">
+                    <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference" cache="true">
+                        <field-map field-name="organizationPartyId" from="partyRelationship.fromPartyId"/></entity-find-one>
+                    <if condition="partyAcctgPreference"><continue/></if>
+                </if>
+                <service-call name="mantle.ledger.LedgerServices.expand#ChildOrganizationList" out-map="expandResult"
+                        in-map="[organizationPartyId:partyRelationship.fromPartyId, onlyWithNoAcctgPreference:onlyWithNoAcctgPreference]"/>
                 <script>orgPartyIdList.addAll(expandResult.orgPartyIdList)</script>
             </iterate>
         </actions>
@@ -198,7 +232,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- doesn't work as needed with date fields (only date-time): <date-filter valid-date="filterSqlDate" ignore-if-empty="true"/> -->
                 <econdition field-name="fromDate" operator="less-equals" from="filterSqlDate"/>
                 <econdition field-name="thruDate" operator="greater-equals" from="filterSqlDate"/>
-                <econdition field-name="periodPurposeEnumId" value="Fiscal"/>
+                <econdition field-name="periodPurposeEnumId" value="Fiscal" ignore="timePeriodTypeId"/>
                 <econdition field-name="partyId" from="organizationPartyId"/>
                 <econdition field-name="timePeriodTypeId" ignore-if-empty="true"/>
             </entity-find>
@@ -349,11 +383,8 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="creditTotal" from="0"/>
             <iterate entry="acctgTransEntry" list="acctgTransEntryList">
                 <if condition="acctgTransEntry.debitCreditFlag == 'D'">
-                    <set field="debitTotal" from="debitTotal + acctgTransEntry.amount"/>
-
-                    <else>
-                        <set field="creditTotal" from="creditTotal + acctgTransEntry.amount"/>
-                    </else>
+                    <then><set field="debitTotal" from="debitTotal + acctgTransEntry.amount"/></then>
+                    <else><set field="creditTotal" from="creditTotal + acctgTransEntry.amount"/></else>
                 </if>
             </iterate>
 

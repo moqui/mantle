@@ -485,7 +485,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- create the AcctgTrans -->
             <service-call name="mantle.ledger.LedgerServices.create#AcctgTrans" out-map="context"
-                    in-map="[acctgTransTypeEnumId:'AttInventoryIssuance', organizationPartyId:organizationPartyId,
+                    in-map="[acctgTransTypeEnumId:'AttDepreciation', organizationPartyId:organizationPartyId,
                         otherPartyId:null, amountUomId:asset.acquireCostUomId, assetIssuanceId:assetIssuanceId,
                         assetId:asset.assetId, transactionDate:transactionDate]"/>
             <!-- note: could populate invoiceId, etc... but should we? for now no -->
@@ -571,15 +571,20 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="timePeriodId" required="true"><description>Should be a Fiscal Month period</description></parameter>
             <parameter name="transactionDate" type="Timestamp"><description>If not specified defaults to TimePeriod.thruDate.</description></parameter>
         </in-parameters>
+        <out-parameters>
+            <parameter name="transactionDate" type="Timestamp"/>
+        </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
-            <if condition="!transactionDate">
-                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/></if>
             <if condition="timePeriod.timePeriodTypeId != 'FiscalMonth'">
                 <return error="true" message="Can only post fixed asset depreciation to Fiscal Month periods"/></if>
+            <if condition="!transactionDate">
+                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/></if>
 
+            <service-call name="mantle.ledger.LedgerServices.expand#ChildOrganizationList" out-map="expandResult"
+                    in-map="[organizationPartyId:timePeriod.partyId, onlyWithNoAcctgPreference:true]"/>
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
-                <econdition field-name="ownerPartyId" from="timePeriod.partyId"/>
+                <econdition field-name="ownerPartyId" operator="in" from="expandResult.orgPartyIdList"/>
                 <econdition field-name="depreciationTypeEnumId" operator="not-equals" from="null"/>
             </entity-find>
             <iterate list="assetList" entry="asset">
