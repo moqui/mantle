@@ -41,6 +41,8 @@ class OrderProcureToPayBasicFlow extends Specification {
     String facilityId = 'ORG_ZIZI_RETAIL_WH'
     @Shared
     long effectiveTime = System.currentTimeMillis()
+    @Shared
+    java.sql.Date eolDate
 
 
     def setupSpec() {
@@ -147,7 +149,7 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemExpShipping"
                 itemDescription="Incoming Freight" quantity="1" unitAmount="145.00"/>
         </entity-facade-xml>""").check()
-        logger.info("create Purchase Order data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("create Purchase Order data check results: " + dataCheckErrors)
 
         then:
         priceMap.price == 9.00
@@ -200,7 +202,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 shipmentRouteSegmentSeqId="01"/>
             -->
         </entity-facade-xml>""").check()
-        logger.info("receive Purchase Order data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("receive Purchase Order data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -218,7 +220,7 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipShipped" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
         </entity-facade-xml>""").check()
-        logger.info("set Shipment Shipped data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("set Shipment Shipped data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -238,9 +240,15 @@ class OrderProcureToPayBasicFlow extends Specification {
         ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
                 .parameters([shipmentId:shipResult.shipmentId, productId:'DEMO_3_1',
                     quantityAccepted:100, facilityId:facilityId]).call()
+
+        // receive equipment with depreciation settings, in real use more likely set after receive with an update of the Asset record
+        Calendar eolCal = ec.user.nowCalendar // will be set to effectiveTime, which will be the acquiredDate
+        eolCal.add(Calendar.YEAR, 5) // depreciate over 5 years
+        eolDate = new java.sql.Date(eolCal.timeInMillis)
         ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
                 .parameters([shipmentId:shipResult.shipmentId, productId:'EQUIP_1',
-                    quantityAccepted:1, facilityId:facilityId, serialNumber:'PB2000AZQRTFP']).call()
+                    quantityAccepted:1, facilityId:facilityId, serialNumber:'PB2000AZQRTFP',
+                    expectedEndOfLife:(eolDate), salvageValue:1500, depreciationTypeEnumId:'DtpDoubleDeclining']).call()
 
         ec.service.sync().name("update#mantle.shipment.Shipment")
                 .parameters([shipmentId:shipResult.shipmentId, statusId:'ShipDelivered']).call()
@@ -250,7 +258,7 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipDelivered" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
         </entity-facade-xml>""").check()
-        logger.info("receive Purchase Order data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("receive Purchase Order data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -267,7 +275,7 @@ class OrderProcureToPayBasicFlow extends Specification {
             <!-- OrderHeader status to Completed -->
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" statusId="OrderCompleted"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Purchase Order Complete data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("validate Purchase Order Complete data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -304,7 +312,8 @@ class OrderProcureToPayBasicFlow extends Specification {
                 ownerPartyId="ORG_ZIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="1"
                 availableToPromiseTotal="0" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
                 receivedDate="${effectiveTime}" acquiredDate="${effectiveTime}" facilityId="ORG_ZIZI_RETAIL_WH"
-                acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"/>
+                acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"
+                expectedEndOfLife="${eolDate}" salvageValue="1500" depreciationTypeEnumId="DtpDoubleDeclining"/>
             <mantle.product.receipt.AssetReceipt assetReceiptId="55402" assetId="55402" productId="EQUIP_1"
                 orderId="${purchaseOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}"
                 receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="1"/>
@@ -334,8 +343,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Assets Received data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (dataCheckErrors) {
+            logger.info("validate Assets Received data check results: ")
+            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        }
 
         then:
         dataCheckErrors.size() == 0
@@ -380,8 +391,10 @@ class OrderProcureToPayBasicFlow extends Specification {
             </mantle.ledger.transaction.AcctgTrans>
 
         </entity-facade-xml>""").check()
-        logger.info("validate Assets Received data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (dataCheckErrors) {
+            logger.info("validate Assets Received data check results: ")
+            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        }
 
         then:
         dataCheckErrors.size() == 0
@@ -448,7 +461,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="03"/>
         </entity-facade-xml>""").check()
-        logger.info("process Purchase Invoice data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("process Purchase Invoice data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -464,7 +477,7 @@ class OrderProcureToPayBasicFlow extends Specification {
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.invoice.Invoice invoiceId="55400" statusId="InvoiceApproved"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -495,8 +508,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 amount="13795" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (dataCheckErrors) {
+            logger.info("validate Shipment Invoice Accounting Transaction data check results: ")
+            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        }
 
         then:
         dataCheckErrors.size() == 0
@@ -521,7 +536,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL" statusId="InvoicePmtSent" invoiceDate="${effectiveTime}"
                 currencyUomId="USD"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -541,7 +556,7 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="13795" glAccountId="111100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
 
         then:
         dataCheckErrors.size() == 0
@@ -561,7 +576,48 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="13795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
         </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+        if (dataCheckErrors) logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "depreciate Fixed Assets"() {
+        when:
+        // find the current Fiscal Month for ORG_ZIZI_RETAIL
+        Map fiscalMonthOut = ec.service.sync().name("mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods")
+                .parameters([organizationPartyId:customerPartyId, filterDate:ec.user.nowTimestamp, timePeriodTypeId:'FiscalMonth']).call()
+        Map timePeriod = (Map) fiscalMonthOut.timePeriodList[0]
+
+        Map deprOut = ec.service.sync().name("mantle.ledger.AssetAutoPostServices.calculateAndPost#AllFixedAssetDepreciations")
+                .parameters([timePeriodId:timePeriod.timePeriodId]).call()
+
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.asset.Asset assetId="55402" acquireCost="10000" salvageValue="1500" depreciation="283.33"/>
+            <mantle.product.asset.AssetDepreciation assetId="55402" timePeriodId="${timePeriod.timePeriodId}"
+                    annualDepreciation="3400" yearsRemaining="5" isLastYearPeriod="N"
+                    monthlyDepreciation="283.33" acctgTransId="55406" usefulLifeYears="5"/>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55406" amountUomId="USD" isPosted="Y" postedDate="${effectiveTime}"
+                    acctgTransTypeEnumId="AttDepreciation" glFiscalTypeEnumId="GLFT_ACTUAL" organizationPartyId="ORG_ZIZI_RETAIL"
+                    transactionDate="${deprOut.transactionDate.time}">
+                <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="182000000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="FA_ACCUM_DEPRECIATION"
+                        debitCreditFlag="C" acctgTransEntrySeqId="01"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="672000000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="FA_DEPRECIATION"
+                        debitCreditFlag="D" acctgTransEntrySeqId="02"/>
+            </mantle.ledger.transaction.AcctgTrans>
+
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" organizationPartyId="ORG_ZIZI_RETAIL"
+                    timePeriodId="${timePeriod.timePeriodId}" postedCredits="283.33" endingBalance="283.33"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" organizationPartyId="ORG_ZIZI_RETAIL"
+                    timePeriodId="${timePeriod.timePeriodId}" postedDebits="283.33" endingBalance="283.33"/>
+        </entity-facade-xml>""").check()
+        if (dataCheckErrors) {
+            logger.info("depreciate Fixed Assets data check results: ")
+            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        }
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
