@@ -772,12 +772,12 @@ class OrderProcureToPayBasicFlow extends Specification {
                         quantity="1" productId="EQUIP_1" description="Picker Bot 2000" itemDate="${effectiveTime}" assetId="${equip1AssetId}">
                     <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55404" quantity="1" productId="EQUIP_1"
                             orderId="55401" orderItemSeqId="01" statusId="SisPacked" quantityNotHandled="0" shipmentId="55401"/>
-                    <mantle.order.OrderItemBilling orderItemSeqId="01" amount="9000" quantity="1" orderId="55401"
-                            shipmentId="55401" assetIssuanceId="55400" orderItemBillingId="55405"/>
+                    <mantle.order.OrderItemBilling orderItemBillingId="55405" orderItemSeqId="01" amount="9000"
+                            quantity="1" orderId="55401" shipmentId="55401" assetIssuanceId="55400"/>
                 </mantle.account.invoice.InvoiceItem>
-                <mantle.ledger.transaction.AcctgTrans otherPartyId="CustJqp" postedDate="${effectiveTime}"
+                <mantle.ledger.transaction.AcctgTrans acctgTransId="55410" otherPartyId="CustJqp" postedDate="${effectiveTime}"
                         amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttSalesInvoice" glFiscalTypeEnumId="GLFT_ACTUAL"
-                        transactionDate="${effectiveTime}" acctgTransId="55410" organizationPartyId="ORG_ZIZI_RETAIL">
+                        transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                     <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
                             reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
                             glAccountTypeEnumId="UNISSUED_FIXED_ASSET" debitCreditFlag="C" assetId="${equip1AssetId}" acctgTransEntrySeqId="01"/>
@@ -786,13 +786,122 @@ class OrderProcureToPayBasicFlow extends Specification {
                             glAccountTypeEnumId="FA_ACCUM_DEPRECIATION" debitCreditFlag="D" assetId="${equip1AssetId}" acctgTransEntrySeqId="02"/>
                     <mantle.ledger.transaction.AcctgTransEntry amount="716.67" productId="EQUIP_1" glAccountId="823000000"
                             reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="D"
-                            assetId="55402" acctgTransEntrySeqId="03"/>
+                            assetId="${equip1AssetId}" acctgTransEntrySeqId="03"/>
                     <mantle.ledger.transaction.AcctgTransEntry amount="9000" glAccountId="121000000"
                             reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE"
                             debitCreditFlag="D" acctgTransEntrySeqId="04"/>
                 </mantle.ledger.transaction.AcctgTrans>
                 <mantle.account.payment.PaymentApplication paymentId="55401" amountApplied="9000"
                         appliedDate="${effectiveTime}" paymentApplicationId="55401"/>
+            </mantle.account.invoice.Invoice>
+        </entity-facade-xml>""").check()
+        if (dataCheckErrors) {
+            logger.info("depreciate Fixed Assets data check results: ")
+            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        }
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+        afterTotalOut.unpaidTotal == 0
+        afterTotalOut.appliedPaymentsTotal == invoiceTotal
+    }
+
+    def "sell Depreciated Asset Gain"() {
+        when:
+        Map createOrderResult = ec.service.sync().name("mantle.order.OrderServices.create#Order")
+                .parameters([customerPartyId:'CustJqp', vendorPartyId:'ORG_ZIZI_RETAIL', facilityId:'ORG_ZIZI_RETAIL_WH']).call()
+        String orderId = createOrderResult.orderId
+        String firstPartSeqId = createOrderResult.orderPartSeqId
+
+        ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, shippingPostalContactMechId:'CustJqpAddr']).call()
+
+        ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, itemTypeEnumId:'ItemAsset',
+                             productId:'EQUIP_1', quantity:1, unitAmount:11000]).call()
+
+        // place and approve the order
+        ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:orderId]).call()
+        ec.service.sync().name("mantle.order.OrderServices.approve#Order").parameters([orderId:orderId]).call()
+
+        // create a Shipment
+        Map createShipmentOut = ec.service.sync().name("mantle.shipment.ShipmentServices.create#OrderPartShipment")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId]).call()
+        String shipmentId = createShipmentOut.shipmentId
+
+        // set the shipment scheduled, pack the item
+        ec.service.sync().name("update#mantle.shipment.Shipment")
+                .parameters([shipmentId:shipmentId, statusId:'ShipScheduled']).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#ShipmentProduct")
+                .parameters([shipmentId:shipmentId, productId:'EQUIP_1', quantity:1, assetId:equip2AssetId]).call()
+
+        // set packed, will generate the invoice, etc; then set shipped
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#Shipment").parameters([shipmentId:shipmentId]).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment").parameters([shipmentId:shipmentId]).call()
+
+        // lookup the invoiceId from ShipmentItemSource
+        EntityList sisList = ec.entity.find("mantle.shipment.ShipmentItemSource").condition([shipmentId:shipmentId]).list()
+        String invoiceId = sisList?.first()?.invoiceId
+
+        // pay the invoice with a new payment
+        Map invTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+        BigDecimal invoiceTotal = invTotalOut.invoiceTotal
+
+        ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
+                .parameters([invoiceId:invoiceId, statusId:'PmntDelivered', amountUomId:'USD', amount:invoiceTotal,
+                             paymentMethodTypeEnumId:'PmtPersonalCheck', effectiveDate:ec.user.nowTimestamp,
+                             paymentRefNum:'123456']).call()
+
+        Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+
+        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55401" assetId="${equip2AssetId}" orderId="55402" orderItemSeqId="01"
+                    issuedDate="${effectiveTime}" quantity="1" productId="EQUIP_1" shipmentId="55402">
+                <mantle.product.asset.AssetDetail assetDetailId="55417" assetId="${equip2AssetId}" productId="EQUIP_1"
+                        availableToPromiseDiff="-1" shipmentId="55402" effectiveDate="${effectiveTime}" quantityOnHandDiff="-1"/>
+            </mantle.product.issuance.AssetIssuance>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55412" assetIssuanceId="55401" postedDate="${effectiveTime}"
+                    amountUomId="USD" isPosted="Y" assetId="${equip2AssetId}" acctgTransTypeEnumId="AttInventoryIssuance"
+                    glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="FIXED_ASSET"
+                        debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="UNISSUED_FIXED_ASSET"
+                        debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
+            </mantle.ledger.transaction.AcctgTrans>
+
+            <mantle.account.invoice.Invoice invoiceId="55402" invoiceTypeEnumId="InvoiceSales"
+                    toPartyId="CustJqp" fromPartyId="ORG_ZIZI_RETAIL" description="Invoice for Order 55402 part 01 and Shipment 55402"
+                    invoiceDate="${effectiveTime}" currencyUomId="USD" statusId="InvoicePmtRecvd">
+                <mantle.account.invoice.InvoiceItem invoiceItemSeqId="01" itemTypeEnumId="ItemAsset" amount="11000"
+                        quantity="1" productId="EQUIP_1" description="Picker Bot 2000" itemDate="${effectiveTime}" assetId="${equip2AssetId}">
+                    <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55405" quantity="1" productId="EQUIP_1"
+                            orderId="55402" orderItemSeqId="01" statusId="SisPacked" quantityNotHandled="0" shipmentId="55402"/>
+                    <mantle.order.OrderItemBilling orderItemBillingId="55406" orderItemSeqId="01" amount="11000"
+                            quantity="1" orderId="55402" shipmentId="55402" assetIssuanceId="55401"/>
+                </mantle.account.invoice.InvoiceItem>
+                <mantle.ledger.transaction.AcctgTrans acctgTransId="55413" otherPartyId="CustJqp" postedDate="${effectiveTime}"
+                        amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttSalesInvoice" glFiscalTypeEnumId="GLFT_ACTUAL"
+                        transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                    <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            glAccountTypeEnumId="UNISSUED_FIXED_ASSET" debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="141.67" productId="EQUIP_1" glAccountId="182000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            glAccountTypeEnumId="FA_ACCUM_DEPRECIATION" debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="1141.67" productId="EQUIP_1" glAccountId="814000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="C"
+                            assetId="${equip2AssetId}" acctgTransEntrySeqId="03"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="11000" glAccountId="121000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE"
+                            debitCreditFlag="D" acctgTransEntrySeqId="04"/>
+                </mantle.ledger.transaction.AcctgTrans>
+                <mantle.account.payment.PaymentApplication paymentId="55402" amountApplied="11000"
+                        appliedDate="${effectiveTime}" paymentApplicationId="55402"/>
             </mantle.account.invoice.Invoice>
         </entity-facade-xml>""").check()
         if (dataCheckErrors) {
