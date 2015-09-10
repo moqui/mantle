@@ -374,6 +374,26 @@ along with this software (see the LICENSE.md file). If not, see
                                             invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                             assetIssuanceId:assetIssuance.assetIssuanceId, shipmentId:shipmentId,
                                             amount:orderItem.unitAmount, quantity:assetIssuance.quantity]"/>
+                                <!-- update ShipmentItemSource -->
+                                <if condition="shipmentItemSource.invoiceItemSeqId">
+                                    <then>
+                                        <!-- will have to split the ShipmentItemSource -->
+                                        <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                                        <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                                        <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                                        <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <set field="newShipmentItemSource.quantity" from="assetIssuance.quantity"/>
+                                        <entity-create value-field="newShipmentItemSource"/>
+
+                                        <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetIssuance.quantity"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </then>
+                                    <else>
+                                        <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                                        <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </else>
+                                </if>
 
                                 <set field="quantityNotOnItems" from="quantityNotOnItems - assetIssuance.quantity"/>
                             </iterate>
@@ -401,6 +421,26 @@ along with this software (see the LICENSE.md file). If not, see
                                             invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
                                             assetReceiptId:assetReceipt.assetReceiptId, shipmentId:shipmentId,
                                             amount:orderItem.unitAmount, quantity:assetReceipt.quantityAccepted]"/>
+                                <!-- update ShipmentItemSource -->
+                                <if condition="shipmentItemSource.invoiceItemSeqId">
+                                    <then>
+                                        <!-- will have to split the ShipmentItemSource -->
+                                        <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                                        <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                                        <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                                        <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <set field="newShipmentItemSource.quantity" from="assetReceipt.quantityAccepted"/>
+                                        <entity-create value-field="newShipmentItemSource"/>
+
+                                        <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetReceipt.quantityAccepted"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </then>
+                                    <else>
+                                        <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                                        <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </else>
+                                </if>
 
                                 <set field="quantityNotOnItems" from="quantityNotOnItems - assetReceipt.quantityAccepted"/>
                             </iterate>
@@ -415,12 +455,27 @@ along with this software (see the LICENSE.md file). If not, see
                                         quantity:quantityNotOnItems,
                                         quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
                                         itemDate:orderHeader.placedDate]"/>
-                        </if>
+                            <!-- update ShipmentItemSource -->
+                            <if condition="shipmentItemSource.invoiceItemSeqId">
+                                <then>
+                                    <!-- will have to split the ShipmentItemSource -->
+                                    <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                                    <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                                    <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                                    <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                    <set field="newShipmentItemSource.quantity" from="quantityNotOnItems"/>
+                                    <entity-create value-field="newShipmentItemSource"/>
 
-                        <!-- update ShipmentItemSource -->
-                        <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
-                        <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                        <entity-update value-field="shipmentItemSource"/>
+                                    <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - quantityNotOnItems"/>
+                                    <entity-update value-field="shipmentItemSource"/>
+                                </then>
+                                <else>
+                                    <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                                    <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                    <entity-update value-field="shipmentItemSource"/>
+                                </else>
+                            </if>
+                        </if>
 
                         <!-- also invoice child OrderItems (adjustments, etc) -->
                         <set field="childOrderItemList" from="orderItem.'Child#mantle.order.OrderItem'"/>
