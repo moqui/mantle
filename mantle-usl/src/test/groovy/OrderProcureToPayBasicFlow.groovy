@@ -314,7 +314,7 @@ class OrderProcureToPayBasicFlow extends Specification {
 
             <mantle.product.asset.Asset assetId="${equipAssetId}" assetTypeEnumId="AstTpEquipment" statusId="AstInStorage"
                 ownerPartyId="ORG_ZIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="1"
-                availableToPromiseTotal="0" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
+                availableToPromiseTotal="1" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
                 receivedDate="${effectiveTime}" acquiredDate="${effectiveTime}" facilityId="ORG_ZIZI_RETAIL_WH"
                 acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"
                 expectedEndOfLife="${eolDate}" salvageValue="1500" depreciationTypeEnumId="DtpDoubleDeclining"/>
@@ -322,7 +322,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 orderId="${purchaseOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}"
                 receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="1"/>
             <mantle.product.asset.AssetDetail assetDetailId="55410" assetId="${equipAssetId}" productId="EQUIP_1"
-                availableToPromiseDiff="0" shipmentId="${shipResult.shipmentId}" assetReceiptId="55402" unitCost="10000"
+                availableToPromiseDiff="1" shipmentId="${shipResult.shipmentId}" assetReceiptId="55402" unitCost="10000"
                 effectiveDate="${effectiveTime}" quantityOnHandDiff="1"/>
 
             <!-- verify assetReceiptId set on OrderItemBilling, and that all else is the same -->
