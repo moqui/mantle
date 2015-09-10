@@ -291,6 +291,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="annualDepreciation" type="BigDecimal"/>
             <parameter name="monthlyDepreciation" type="BigDecimal"><description>Calculated yearDepreciation divided by 12;
                 never greater than net book value (acquireCost - salvageValue - depreciation)</description></parameter>
+            <parameter name="netBookValue" type="BigDecimal"/>
+            <parameter name="yearBeginNetBookValue" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
@@ -583,10 +585,15 @@ along with this software (see the LICENSE.md file). If not, see
 
             <service-call name="mantle.ledger.LedgerServices.expand#ChildOrganizationList" out-map="expandResult"
                     in-map="[organizationPartyId:timePeriod.partyId, onlyWithNoAcctgPreference:true]"/>
+            <set field="orgPartyIdList" from="expandResult.orgPartyIdList"/>
+            <if condition="!orgPartyIdList.contains(timePeriod.partyId)">
+                <script>orgPartyIdList.add(timePeriod.partyId)</script></if>
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
                 <econdition field-name="ownerPartyId" operator="in" from="expandResult.orgPartyIdList"/>
                 <econdition field-name="depreciationTypeEnumId" operator="not-equals" from="null"/>
             </entity-find>
+
+            <log level="info" message="Calculating and posting depreciation for organizations: ${expandResult.orgPartyIdList}, assets: ${assetList.assetId}"/>
             <iterate list="assetList" entry="asset">
                 <service-call name="mantle.ledger.AssetAutoPostServices.calculateAndPost#FixedAssetDepreciation"
                         in-map="[assetId:asset.assetId, timePeriodId:timePeriodId, transactionDate:transactionDate]"/>
