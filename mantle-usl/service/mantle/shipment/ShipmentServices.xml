@@ -993,10 +993,14 @@ along with this software (see the LICENSE.md file). If not, see
                                 orderItemSeqId:shipmentItemSource.orderItemSeqId, quantity:quantity]"/>
             </if>
 
-            <!-- create AssetIssuance records based on AssetReservation records if available -->
-            <if condition="assetReservation">
-                <set field="assetReservationList" from="[assetReservation]"/>
+            <!-- start with quantityRemaining = quantity -->
+            <set field="quantityRemaining" from="quantity"/>
 
+            <!-- first issue based on AssetReservation records if available -->
+            <if condition="assetReservation">
+                <then>
+                    <set field="assetReservationList" from="[assetReservation]"/>
+                </then>
                 <else-if condition="!assetReservationList">
                     <entity-find entity-name="mantle.product.issuance.AssetReservation" list="assetReservationList">
                         <econdition field-name="orderId" from="shipmentItemSource.orderId"/>
@@ -1006,8 +1010,6 @@ along with this software (see the LICENSE.md file). If not, see
                     </entity-find>
                 </else-if>
             </if>
-
-            <set field="quantityRemaining" from="quantity"/>
             <if condition="assetReservationList">
                 <!-- issue based on reservations -->
                 <iterate list="assetReservationList" entry="assetReservation">
@@ -1032,11 +1034,22 @@ along with this software (see the LICENSE.md file). If not, see
                 </iterate>
             </if>
 
-            <if condition="quantityRemaining">
+            <!-- no reservation? issue from specified asset (if there is one) -->
+            <if condition="quantityRemaining &amp;&amp; asset">
+                <set field="quantityToIssue" from="asset.quantityOnHandTotal > quantityRemaining ?
+                    quantityRemaining : asset.quantityOnHandTotal"/>
+                <set field="quantityRemaining" from="quantityRemaining > asset.quantityOnHandTotal ?
+                    (quantityRemaining - asset.quantityOnHandTotal) : 0"/>
+
                 <!-- do a non-reservation asset issuance -->
                 <service-call name="mantle.product.AssetServices.issue#Asset"
-                        in-map="[shipmentId:shipmentItemSource.shipmentId, quantity:quantityRemaining, issuedDate:packDate,
+                        in-map="[shipmentId:shipmentItemSource.shipmentId, quantity:quantityToIssue, issuedDate:packDate,
                             assetId:assetId, orderId:shipmentItemSource.orderId, orderItemSeqId:shipmentItemSource.orderItemSeqId]"/>
+            </if>
+
+            <!-- quantityRemaining? something didn't work, wasn't able to get all so return an error and roll back -->
+            <if condition="quantityRemaining">
+                <return error="true" message="Unable to issue ${quantityRemaining} out of quantity specified (${quantity}) for Shipment Item Source [${shipmentItemSourceId}], not packing"/>
             </if>
 
             <!-- if no shipmentPackageSeqId find the first package -->
