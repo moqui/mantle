@@ -903,6 +903,20 @@ class OrderProcureToPayBasicFlow extends Specification {
                 <mantle.account.payment.PaymentApplication paymentId="55402" amountApplied="11000"
                         appliedDate="${effectiveTime}" paymentApplicationId="55402"/>
             </mantle.account.invoice.Invoice>
+
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="100002"
+                    postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="100002"
+                    postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
+
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="100002"
+                    postedCredits="425" postedDebits="425" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="100002"
+                    postedDebits="425" endingBalance="425" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="100002"
+                    postedCredits="1141.67" endingBalance="1141.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="823000000" timePeriodId="100002"
+                    postedDebits="716.67" endingBalance="716.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
         </entity-facade-xml>""").check()
         if (dataCheckErrors) {
             logger.info("depreciate Fixed Assets data check results: ")
