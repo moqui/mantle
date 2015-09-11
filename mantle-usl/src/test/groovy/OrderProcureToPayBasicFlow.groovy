@@ -46,6 +46,8 @@ class OrderProcureToPayBasicFlow extends Specification {
     java.sql.Date eolDate
     @Shared
     String equip1AssetId, equip2AssetId
+    @Shared
+    long totalFieldsChecked = 0
 
 
     def setupSpec() {
@@ -86,6 +88,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         ec.entity.tempResetSequencedIdPrimary("mantle.order.OrderItemBilling")
         ec.entity.tempResetSequencedIdPrimary("moqui.entity.EntityAuditLog")
         ec.destroy()
+
+        logger.info("Order Procure to Pay Basic Flow complete, ${totalFieldsChecked} record fields checked")
     }
 
     def setup() {
@@ -140,7 +144,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         // then the PO is sent to the vendor/supplier
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
                 statusId="OrderApproved" currencyUomId="USD" grandTotal="23795.00"/>
 
@@ -159,8 +164,11 @@ class OrderProcureToPayBasicFlow extends Specification {
                 productId="EQUIP_1" itemDescription="Picker Bot 2000" quantity="2" unitAmount="10000" isModifiedPrice="Y"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemExpShipping"
                 itemDescription="Incoming Freight" quantity="1" unitAmount="145.00"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("create Purchase Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         priceMap.price == 9.00
@@ -180,7 +188,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         // TODO: add PO Shipment Schedule, update status to ShipScheduled
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment created -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipInput" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
@@ -212,8 +221,11 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.shipment.ShipmentPackageRouteSeg shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 shipmentRouteSegmentSeqId="01"/>
             -->
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("receive Purchase Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -226,12 +238,16 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([shipmentId:shipResult.shipmentId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment to Shipped status -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipShipped" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("set Shipment Shipped data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -271,11 +287,15 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([shipmentId:shipResult.shipmentId, statusId:'ShipDelivered']).call()
 
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipDelivered" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("receive Purchase Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -288,11 +308,15 @@ class OrderProcureToPayBasicFlow extends Specification {
         // ec.service.sync().name("mantle.order.OrderServices.complete#OrderPart")
         //        .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- OrderHeader status to Completed -->
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" statusId="OrderCompleted"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("validate Purchase Order Complete data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -300,7 +324,8 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "validate Assets Received"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.asset.Asset assetId="55400" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_ZIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="400"
                 availableToPromiseTotal="200" assetName="Demo Product One-One" receivedDate="${effectiveTime}"
@@ -376,11 +401,11 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55403" shipmentId="${shipResult.shipmentId}"
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="04"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) {
-            logger.info("validate Assets Received data check results: ")
-            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
-        }
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -389,7 +414,8 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "validate Assets Receipt Accounting Transactions"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55400" acctgTransTypeEnumId="AttInventoryReceipt"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55400"
@@ -435,11 +461,11 @@ class OrderProcureToPayBasicFlow extends Specification {
                     debitCreditFlag="D" acctgTransEntrySeqId="02" assetId="${equip2AssetId}"/>
             </mantle.ledger.transaction.AcctgTrans>
 
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) {
-            logger.info("validate Assets Received data check results: ")
-            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
-        }
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -461,7 +487,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         // invoiceId = invResult.invoiceIdList.first
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and received, not yet approved/etc -->
             <mantle.account.invoice.Invoice invoiceId="55400" invoiceTypeEnumId="InvoiceSales"
                 fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL" statusId="InvoiceReceived"
@@ -515,8 +542,11 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55403" shipmentId="${shipResult.shipmentId}"
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="04"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("process Purchase Invoice data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -529,10 +559,14 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([invoiceId:'55400', statusId:'InvoiceApproved']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.invoice.Invoice invoiceId="55400" statusId="InvoiceApproved"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -541,7 +575,8 @@ class OrderProcureToPayBasicFlow extends Specification {
     def "validate Purchase Invoice Accounting Transaction"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Approved Invoice -->
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttPurchaseInvoice"
                     organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
@@ -569,11 +604,11 @@ class OrderProcureToPayBasicFlow extends Specification {
                     reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             </mantle.ledger.transaction.AcctgTrans>
 
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) {
-            logger.info("validate Purchase Invoice Accounting Transaction data check results: ")
-            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
-        }
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -586,7 +621,8 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([invoiceId:'55400', paymentId:setInfoOut.paymentId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.payment.PaymentApplication paymentApplicationId="${sendPmtResult.paymentApplicationId}"
                 paymentId="${setInfoOut.paymentId}" invoiceId="55400" amountApplied="23795.00"
                 appliedDate="${effectiveTime}"/>
@@ -597,8 +633,11 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.account.invoice.Invoice invoiceId="55400" invoiceTypeEnumId="InvoiceSales"
                 fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL" statusId="InvoicePmtSent" invoiceDate="${effectiveTime}"
                 currencyUomId="USD"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -607,7 +646,8 @@ class OrderProcureToPayBasicFlow extends Specification {
     def "validate Purchase Payment Accounting Transaction"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Delivered Payment -->
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55405" acctgTransTypeEnumId="AttOutgoingPayment"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
@@ -617,8 +657,11 @@ class OrderProcureToPayBasicFlow extends Specification {
                 amount="23795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="23795" glAccountId="111100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -627,7 +670,8 @@ class OrderProcureToPayBasicFlow extends Specification {
     def "validate Purchase Payment Application Accounting Transaction"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55406" acctgTransTypeEnumId="AttOutgoingPaymentAp"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
@@ -637,8 +681,11 @@ class OrderProcureToPayBasicFlow extends Specification {
                 amount="23795" glAccountId="210000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55406" acctgTransEntrySeqId="02" debitCreditFlag="C"
                 amount="23795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -654,7 +701,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         Map deprOut = ec.service.sync().name("mantle.ledger.AssetAutoPostServices.calculateAndPost#AllFixedAssetDepreciations")
                 .parameters([timePeriodId:timePeriod.timePeriodId]).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.asset.Asset assetId="${equip1AssetId}" acquireCost="10000" salvageValue="1500" depreciation="283.33"/>
             <mantle.product.asset.AssetDepreciation assetId="${equip1AssetId}" timePeriodId="${timePeriod.timePeriodId}"
                     annualDepreciation="3400" yearsRemaining="5" isLastYearPeriod="N"
@@ -687,11 +735,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                     timePeriodId="${timePeriod.timePeriodId}" postedCredits="425" endingBalance="425"/>
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" organizationPartyId="ORG_ZIZI_RETAIL"
                     timePeriodId="${timePeriod.timePeriodId}" postedDebits="425" endingBalance="425"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) {
-            logger.info("depreciate Fixed Assets data check results: ")
-            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
-        }
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
         if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
@@ -748,7 +795,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
                 .parameters([invoiceId:invoiceId]).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55400" assetId="${equip1AssetId}" orderId="55401" orderItemSeqId="01"
                     issuedDate="${effectiveTime}" quantity="1" productId="EQUIP_1" shipmentId="55401">
                 <mantle.product.asset.AssetDetail assetDetailId="55414" assetId="${equip1AssetId}" productId="EQUIP_1"
@@ -794,11 +842,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 <mantle.account.payment.PaymentApplication paymentId="55401" amountApplied="9000"
                         appliedDate="${effectiveTime}" paymentApplicationId="55401"/>
             </mantle.account.invoice.Invoice>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) {
-            logger.info("depreciate Fixed Assets data check results: ")
-            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
-        }
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
         if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
@@ -919,6 +966,7 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="823000000" timePeriodId="100002"
                     postedDebits="716.67" endingBalance="716.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
         </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
         if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
         if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
