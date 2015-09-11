@@ -857,7 +857,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
                 .parameters([invoiceId:invoiceId]).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55401" assetId="${equip2AssetId}" orderId="55402" orderItemSeqId="01"
                     issuedDate="${effectiveTime}" quantity="1" productId="EQUIP_1" shipmentId="55402">
                 <mantle.product.asset.AssetDetail assetDetailId="55417" assetId="${equip2AssetId}" productId="EQUIP_1"
@@ -917,11 +918,9 @@ class OrderProcureToPayBasicFlow extends Specification {
                     postedCredits="1141.67" endingBalance="1141.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="823000000" timePeriodId="100002"
                     postedDebits="716.67" endingBalance="716.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
-        </entity-facade-xml>""").check()
-        if (dataCheckErrors) {
-            logger.info("depreciate Fixed Assets data check results: ")
-            for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
-        }
+        </entity-facade-xml>""").check(dataCheckErrors)
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
         if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
