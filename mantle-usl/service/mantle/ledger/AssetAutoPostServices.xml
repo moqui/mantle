@@ -13,7 +13,7 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
+    <!-- ========== Asset Receipt and Issuance Postings Services ========== -->
 
     <service verb="post" noun="AssetReceipt">
         <description>This is for posting Inventory/COGS transaction and runs when assetTypeEnumId == AstTpInventory only.</description>
@@ -112,13 +112,13 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!receiptGlAccountId"><set field="useErrorJournal" from="true"/></if>
             <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
                     in-map="[acctgTransId:acctgTransId, debitCreditFlag:'C', glAccountTypeEnumId:receiptGlAccountTypeEnumId,
-                        glAccountId:receiptGlAccountId, amount:amount, productId:asset.productId]"/>
+                        glAccountId:receiptGlAccountId, amount:amount, productId:asset.productId, assetId:asset.assetId]"/>
 
-            <!-- Debit to INVENTORY_ACCOUNT -->
+            <!-- Debit to INVENTORY_ACCOUNT or FIXED_ASSET -->
             <if condition="!assetGlAccountId"><set field="useErrorJournal" from="true"/></if>
             <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
                     in-map="[acctgTransId:acctgTransId, debitCreditFlag:'D', glAccountTypeEnumId:assetGlAccountTypeEnumId,
-                        glAccountId:assetGlAccountId, amount:amount, productId:asset.productId]"/>
+                        glAccountId:assetGlAccountId, amount:amount, productId:asset.productId, assetId:asset.assetId]"/>
 
             <if condition="useErrorJournal">
                 <then>
@@ -176,7 +176,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- TODO: handle supplies issuance -->
                 <else>
                     <set field="acctgTransTypeEnumId" from="assetTypeGlAccount?.issuanceTransTypeEnumId ?: 'AttAssetIssuance'"/>
-                    <set field="issuanceGlAccountTypeEnumId" value="ACCUM_DEPRECIATION"/>
+                    <set field="issuanceGlAccountTypeEnumId" value="UNISSUED_FIXED_ASSET"/>
                     <set field="assetGlAccountTypeEnumId" value="FIXED_ASSET"/>
                     <!-- don't need to do this, is the default anyway:
                     <entity-find-one entity-name="moqui.basic.Enumeration" value-field="assetTypeEnum">
@@ -230,12 +230,12 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!assetGlAccountId"><set field="useErrorJournal" from="true"/></if>
             <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
                     in-map="[acctgTransId:acctgTransId, debitCreditFlag:'C', glAccountTypeEnumId:assetGlAccountTypeEnumId,
-                        glAccountId:assetGlAccountId, amount:amount, productId:asset.productId]"/>
-            <!-- Debit to issuanceGlAccountId (COGS_ACCOUNT, ACCUM_DEPRECIATION, etc) -->
+                        glAccountId:assetGlAccountId, amount:amount, productId:asset.productId, assetId:asset.assetId]"/>
+            <!-- Debit to issuanceGlAccountId (COGS_ACCOUNT, UNISSUED_FIXED_ASSET, etc) -->
             <if condition="!issuanceGlAccountId"><set field="useErrorJournal" from="true"/></if>
             <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
                     in-map="[acctgTransId:acctgTransId, debitCreditFlag:'D', glAccountTypeEnumId:issuanceGlAccountTypeEnumId,
-                        glAccountId:issuanceGlAccountId, amount:amount, productId:asset.productId]"/>
+                        glAccountId:issuanceGlAccountId, amount:amount, productId:asset.productId, assetId:asset.assetId]"/>
 
             <if condition="useErrorJournal">
                 <then>
@@ -252,6 +252,386 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+    <service verb="revert" noun="AssetIssuanceOnCancel">
+        <in-parameters>
+            <parameter name="assetIssuanceId" required="true"/>
+            <parameter name="cancelledQuantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
+            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
+                <econdition field-name="assetIssuanceId"/>
+                <econdition field-name="acctgTransTypeEnumId" value="AttInventoryIssuance"/>
+            </entity-find>
+            <if condition="acctgTransList">
+                <if condition="acctgTransList.size() == 1">
+                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
+                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
+
+                    <else><return error="true" message="Found more than one accounting transaction for Asset Issuance ${assetIssuanceId}, may already be reversed, not posting reverse transaction."/></else>
+                </if>
+                <else><return error="true" message="No accounting transaction found for Asset Issuance ${assetIssuanceId}, not posting reverse transaction."/></else>
+            </if>
+        </actions>
+    </service>
+
+    <!-- ========== Fixed Asset Depreciation Services ========== -->
+
+    <service verb="calculate" noun="FixedAssetDepreciation">
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="transactionDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="transactionDate" type="Timestamp"/>
+            <parameter name="usefulLifeYears" type="Integer"/>
+            <parameter name="yearsRemaining" type="Integer"/>
+            <parameter name="isLastYearPeriod" type="Boolean"/>
+            <parameter name="annualDepreciation" type="BigDecimal"/>
+            <parameter name="monthlyDepreciation" type="BigDecimal"><description>Calculated yearDepreciation divided by 12;
+                never greater than net book value (acquireCost - salvageValue - depreciation)</description></parameter>
+            <parameter name="netBookValue" type="BigDecimal"/>
+            <parameter name="yearBeginNetBookValue" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
+
+            <if condition="!asset.depreciationTypeEnumId">
+                <log level="trace" message="Not calculating depreciation for Asset [${assetId}], has no depreciation type"/>
+                <return/>
+            </if>
+
+            <if condition="!asset.acquireCost"><message error="true">Asset [${assetId}] has no Acquire Cost, not calculating depreciation</message></if>
+            <if condition="!asset.acquiredDate"><message error="true">Asset [${assetId}] has no Acquired Date, not calculating depreciation</message></if>
+            <if condition="!asset.expectedEndOfLife"><message error="true">Asset [${assetId}] has no Expected End of Life, not calculating depreciation</message></if>
+            <check-errors/>
+
+            <script><![CDATA[
+                Calendar nowCalendar = ec.user.nowCalendar
+
+                Calendar acquiredCal = nowCalendar.clone()
+                acquiredCal.setTime(asset.acquiredDate)
+                Calendar expectedEndOfLifeCal = nowCalendar.clone()
+                expectedEndOfLifeCal.setTime(asset.expectedEndOfLife)
+
+                usefulLifeYears = expectedEndOfLifeCal.get(Calendar.YEAR) - acquiredCal.get(Calendar.YEAR)
+                /* use integer number of years, partial year depreciation is not common and should be needed (may cause issues)
+                int days = expectedEndOfLifeCal.get(Calendar.DAY_OF_YEAR) - acquiredCal.get(Calendar.DAY_OF_YEAR)
+                // NOTE: using 365 days isn't always correct, should use number of days in expectedEndOfLife year, but shouldn't matter much
+                int daysInYear = 365
+                if (days < 0) { yearsInt = yearsInt - 1; days = daysInYear + days }
+                usefulLifeYears = (yearsInt as BigDecimal) + days/daysInYear
+                */
+
+                Calendar txCal = nowCalendar.clone()
+                txCal.setTime(transactionDate)
+                yearsRemaining = expectedEndOfLifeCal.get(Calendar.YEAR) -  txCal.get(Calendar.YEAR)
+                // if we are before the day in the year of end of life, add 1 year (we haven't gone to the next year for this asset)
+                boolean txBeforeDayOfYear = false
+                if (txCal.get(Calendar.DAY_OF_YEAR) < expectedEndOfLifeCal.get(Calendar.DAY_OF_YEAR) - 1) {
+                    yearsRemaining = yearsRemaining + 1I
+                    txBeforeDayOfYear = true
+                }
+
+                // see if it is the last period for each depreciation year (based on Asset.expectedEndOfLife)
+                Calendar nextMonthCal =  txCal.clone()
+                nextMonthCal.add(Calendar.MONTH, 1)
+                isLastYearPeriod = (txBeforeDayOfYear && nextMonthCal.get(Calendar.DAY_OF_YEAR) > expectedEndOfLifeCal.get(Calendar.DAY_OF_YEAR))
+            ]]></script>
+
+            <set field="netBookValue" from="asset.acquireCost - (asset.salvageValue ?: 0) - (asset.depreciation ?: 0)"/>
+            <set field="yearBeginNetBookValue" from="asset.acquireCost - (asset.salvageValue ?: 0) - (asset.yearBeginDepreciation ?: 0)"/>
+
+            <if condition="netBookValue == 0">
+                <log level="trace" message="Asset [${assetId}], is fully depreciated (net book value is zero)"/>
+                <set field="annualDepreciation" from="0"/>
+                <set field="monthlyDepreciation" from="0"/>
+                <return/>
+            </if>
+
+            <if condition="asset.depreciationTypeEnumId == 'DtpStraightLine'">
+                <!-- Straight Line -->
+                <then>
+                    <!-- require acquireCost, acquiredDate, expectedEndOfLife; optional salvageValue, depreciation (both default to 0) -->
+                    <set field="annualDepreciation" from="(asset.acquireCost - (asset.salvageValue ?: 0)) / usefulLifeYears"/>
+                </then>
+                <!-- Double Declining -->
+                <else-if condition="asset.depreciationTypeEnumId == 'DtpDoubleDeclining'">
+                    <!-- require acquireCost, acquiredDate, expectedEndOfLife; optional salvageValue, depreciation (both default to 0) -->
+                    <if condition="yearsRemaining == 1">
+                        <!-- handle last year where full net book value should be used -->
+                        <then><set field="annualDepreciation" from="yearBeginNetBookValue"/></then>
+                        <else><set field="annualDepreciation" from="yearBeginNetBookValue * (2 / usefulLifeYears)"/></else>
+                    </if>
+                </else-if>
+                <!-- Sum of Years Digits -->
+                <else-if condition="asset.depreciationTypeEnumId == 'DtpSumYearsDigits'">
+                    <script><![CDATA[
+                        sumOfYearsDigits = 0I
+                        for (int i = usefulLifeYears; i > 0; i--) sumOfYearsDigits += i
+                    ]]></script>
+                    <set field="annualDepreciation" from="(asset.acquireCost - (asset.salvageValue ?: 0)) * (yearsRemaining / sumOfYearsDigits)"/>
+                </else-if>
+                <!-- TODO support DtpUnitsProduction (specify a meter to use for the calculation?)
+                <else-if condition="asset.depreciationTypeEnumId == 'DtpUnitsProduction'">
+
+                </else-if>
+                -->
+                <else>
+                    <return error="true" message="Not calculating depreciation for Asset [${assetId}], depreciation type [${asset.depreciationTypeEnumId}] not supported"/>
+                </else>
+            </if>
+
+            <if condition="annualDepreciation">
+                <then>
+                    <if condition="annualDepreciation &gt; yearBeginNetBookValue">
+                        <set field="annualDepreciation" from="yearBeginNetBookValue"/></if>
+                    <set field="annualDepreciation" from="((BigDecimal) annualDepreciation).setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+
+                    <set field="monthlyDepreciation" from="(annualDepreciation / 12).setScale(2, BigDecimal.ROUND_HALF_UP)"/>
+                    <if condition="monthlyDepreciation &gt; netBookValue"><set field="monthlyDepreciation" from="netBookValue"/></if>
+                </then>
+                <else>
+                    <set field="annualDepreciation" from="0"/>
+                    <set field="monthlyDepreciation" from="0"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+    <service verb="post" noun="FixedAssetDepreciation">
+        <description>Post monthly fixed asset depreciation, update Asset.depreciation and
+            for last period in a year also updates Asset.yearBeginDepreciation</description>
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="timePeriodId" required="true"/>
+            <parameter name="transactionDate" type="Timestamp"/>
+            <parameter name="annualDepreciation" type="BigDecimal" required="true">
+                <description>Used to update Asset.yearBeginDepreciation and stored on AssetDepreciation history record</description></parameter>
+            <parameter name="monthlyDepreciation" type="BigDecimal" required="true"><description>Used as the amount on
+                TX entries and stored on the AssetDepreciation history record</description></parameter>
+            <parameter name="isLastYearPeriod" type="Boolean" default="false"/>
+            <parameter name="usefulLifeYears" type="Integer"><description>Used only to store on AssetDepreciation history record</description></parameter>
+            <parameter name="yearsRemaining" type="Integer"><description>Used only to store on AssetDepreciation history record</description></parameter>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
+            <set field="organizationPartyId" from="asset.ownerPartyId"/>
+            <entity-find-one entity-name="moqui.basic.Enumeration" value-field="assetTypeEnum">
+                <field-map field-name="enumId" from="asset.assetTypeEnumId"/></entity-find-one>
+
+            <!-- make sure this is a fixed asset -->
+            <if condition="assetTypeEnum.enumId != 'AstTpFixed' &amp;&amp; assetTypeEnum.parentEnumId != 'AstTpFixed'">
+                <log level="info" message="Not posting Depreciation for Asset [${assetId}], is not a fixed asset"/>
+                <return/>
+            </if>
+
+            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="papOut"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="partyAcctgPreference" from="papOut.partyAcctgPreference"/>
+            <!-- if no preference we shouldn't post anything -->
+            <if condition="!partyAcctgPreference">
+                <log level="info" message="Not posting Depreciation for Asset [${assetId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <return/>
+            </if>
+
+            <!-- if no transactionDate set from TimePeriod.thruDate -->
+            <if condition="!transactionDate">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/>
+            </if>
+
+            <!-- make sure no depreciation already posted for this financial period -->
+            <entity-find-one entity-name="mantle.product.asset.AssetDepreciation" value-field="existingAssetDepreciation"/>
+            <if condition="existingAssetDepreciation">
+                <log level="info" message="Not posting Depreciation for Asset [${assetId}], has already been posted (found existing AssetDepreciation record)"/>
+                <return/>
+            </if>
+
+            <!-- get assetTypeGlAccount -->
+            <service-call name="mantle.ledger.AssetAutoPostServices.get#AssetTypeGlAccount" out-map="context"
+                    in-map="[organizationPartyId:organizationPartyId, assetTypeEnumId:asset.assetTypeEnumId,
+                        classEnumId:asset.classEnumId, assetId:asset.assetId]"/>
+
+            <!-- determine accDepreciationGlAccountId (credit; FA_ACCUM_DEPRECIATION) -->
+            <set field="accDepreciationGlAccountId" from="assetTypeGlAccount?.accDepreciationGlAccountId"/>
+            <if condition="!accDepreciationGlAccountId">
+                <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="accDepreciationGlAccountOut"
+                        in-map="[glAccountTypeEnumId:'FA_ACCUM_DEPRECIATION', acctgTransTypeEnumId:acctgTransTypeEnumId,
+                            organizationPartyId:organizationPartyId, otherPartyId:null]"/>
+                <set field="accDepreciationGlAccountId" from="accDepreciationGlAccountOut.glAccountId"/>
+            </if>
+            <if condition="accDepreciationGlAccountId">
+                <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="accDepreciationGlAccount" cache="true">
+                    <field-map field-name="glAccountId" from="accDepreciationGlAccountId"/></entity-find-one>
+                <set field="accDepreciationGlAccountTypeEnumId" from="accDepreciationGlAccount?.glAccountTypeEnumId"/>
+            </if>
+
+            <!-- determine depreciationGlAccountId (debit; FA_DEPRECIATION) -->
+            <set field="depreciationGlAccountId" from="assetTypeGlAccount?.depreciationGlAccountId"/>
+            <if condition="!depreciationGlAccountId">
+                <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType" out-map="depreciationGlAccountOut"
+                        in-map="[glAccountTypeEnumId:'FA_DEPRECIATION', acctgTransTypeEnumId:acctgTransTypeEnumId,
+                            organizationPartyId:organizationPartyId, otherPartyId:null]"/>
+                <set field="depreciationGlAccountId" from="depreciationGlAccountOut.glAccountId"/>
+            </if>
+            <if condition="depreciationGlAccountId">
+                <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="depreciationGlAccount" cache="true">
+                    <field-map field-name="glAccountId" from="depreciationGlAccountId"/></entity-find-one>
+                <set field="depreciationGlAccountTypeEnumId" from="depreciationGlAccount?.glAccountTypeEnumId"/>
+            </if>
+
+            <!-- set the amount -->
+            <set field="amount" from="monthlyDepreciation"/>
+
+            <!-- create the AcctgTrans -->
+            <service-call name="mantle.ledger.LedgerServices.create#AcctgTrans" out-map="context"
+                    in-map="[acctgTransTypeEnumId:'AttDepreciation', organizationPartyId:organizationPartyId,
+                        otherPartyId:null, amountUomId:asset.acquireCostUomId, assetIssuanceId:assetIssuanceId,
+                        assetId:asset.assetId, transactionDate:transactionDate]"/>
+            <!-- note: could populate invoiceId, etc... but should we? for now no -->
+
+            <set field="useErrorJournal" from="false"/>
+            <!-- Credit to accDepreciationGlAccountId (FA_ACCUM_DEPRECIATION) -->
+            <if condition="!accDepreciationGlAccountId"><set field="useErrorJournal" from="true"/></if>
+            <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                    in-map="[acctgTransId:acctgTransId, debitCreditFlag:'C', glAccountTypeEnumId:accDepreciationGlAccountTypeEnumId,
+                        glAccountId:accDepreciationGlAccountId, amount:amount, productId:asset.productId, assetId:asset.assetId]"/>
+            <!-- Debit to depreciationGlAccountId (FA_DEPRECIATION) -->
+            <if condition="!depreciationGlAccountId"><set field="useErrorJournal" from="true"/></if>
+            <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                    in-map="[acctgTransId:acctgTransId, debitCreditFlag:'D', glAccountTypeEnumId:depreciationGlAccountTypeEnumId,
+                        glAccountId:depreciationGlAccountId, amount:amount, productId:asset.productId, assetId:asset.assetId]"/>
+
+            <if condition="useErrorJournal">
+                <then>
+                    <!-- put in the error journal for the org -->
+                    <if condition="partyAcctgPreference?.errorGlJournalId">
+                        <service-call name="update#mantle.ledger.transaction.AcctgTrans"
+                                in-map="[acctgTransId:acctgTransId, glJournalId:partyAcctgPreference.errorGlJournalId]"/>
+                    </if>
+                </then>
+                <else>
+                    <!-- call the post service -->
+                    <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
+                </else>
+            </if>
+
+            <!-- update Asset.depreciation and Asset.yearBeginDepreciation -->
+            <set field="asset.depreciation" from="(asset.depreciation ?: 0) + monthlyDepreciation"/>
+            <if condition="isLastYearPeriod">
+                <set field="asset.yearBeginDepreciation" from="(asset.yearBeginDepreciation ?: 0) + annualDepreciation"/></if>
+            <entity-update value-field="asset"/>
+
+            <!-- create the AssetDepreciation history record -->
+            <service-call name="create#mantle.product.asset.AssetDepreciation" in-map="[assetId:assetId,
+                    timePeriodId:timePeriodId, monthlyDepreciation:monthlyDepreciation, annualDepreciation:annualDepreciation,
+                    isLastYearPeriod:(isLastYearPeriod ? 'Y' : 'N'), yearBeginDepreciation:asset.yearBeginDepreciation,
+                    usefulLifeYears:usefulLifeYears, yearsRemaining:yearsRemaining, acctgTransId:acctgTransId]"/>
+        </actions>
+    </service>
+    <service verb="calculateAndPost" noun="FixedAssetDepreciation">
+        <description>Calculate and post monthly fixed asset depreciation, uses the calculate#FixedAssetDepreciation and
+            post#FixedAssetDepreciation services</description>
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="timePeriodId" required="true"/>
+            <parameter name="transactionDate" type="Timestamp"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="usefulLifeYears" type="Integer"/>
+            <parameter name="yearsRemaining" type="Integer"/>
+            <parameter name="isLastYearPeriod" type="Boolean"/>
+            <parameter name="annualDepreciation" type="BigDecimal"/>
+            <parameter name="monthlyDepreciation" type="BigDecimal"/>
+            <parameter name="acctgTransId"/>
+        </out-parameters>
+        <actions>
+            <!-- lock the Asset record -->
+            <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
+            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+            <!-- if no transactionDate set from TimePeriod.thruDate -->
+            <if condition="!transactionDate">
+                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/>
+            </if>
+            <if condition="timePeriod.timePeriodTypeId != 'FiscalMonth'">
+                <return error="true" message="Can only post fixed asset depreciation to Fiscal Month periods"/></if>
+
+            <service-call name="mantle.ledger.AssetAutoPostServices.calculate#FixedAssetDepreciation"
+                    in-map="context" out-map="context"/>
+            <if condition="monthlyDepreciation">
+                <service-call name="mantle.ledger.AssetAutoPostServices.post#FixedAssetDepreciation"
+                        in-map="context" out-map="context"/>
+            </if>
+        </actions>
+    </service>
+    <service verb="calculateAndPost" noun="AllFixedAssetDepreciations">
+        <description>Calculate and post monthly depreciation for all applicable fixed assets, uses the
+            calculateAndPost#FixedAssetDepreciation service</description>
+        <in-parameters>
+            <parameter name="timePeriodId" required="true"><description>Should be a Fiscal Month period</description></parameter>
+            <parameter name="transactionDate" type="Timestamp"><description>If not specified defaults to TimePeriod.thruDate.</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="transactionDate" type="Timestamp"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+            <if condition="timePeriod.timePeriodTypeId != 'FiscalMonth'">
+                <return error="true" message="Can only post fixed asset depreciation to Fiscal Month periods"/></if>
+            <if condition="!transactionDate">
+                <set field="transactionDate" from="ec.l10n.parseTimestamp((timePeriod.thruDate as String) + ' 12:00:00', '')"/></if>
+
+            <service-call name="mantle.ledger.LedgerServices.expand#ChildOrganizationList" out-map="expandResult"
+                    in-map="[organizationPartyId:timePeriod.partyId, onlyWithNoAcctgPreference:true]"/>
+            <set field="orgPartyIdList" from="expandResult.orgPartyIdList"/>
+            <if condition="!orgPartyIdList.contains(timePeriod.partyId)">
+                <script>orgPartyIdList.add(timePeriod.partyId)</script></if>
+            <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
+                <econdition field-name="ownerPartyId" operator="in" from="expandResult.orgPartyIdList"/>
+                <econdition field-name="depreciationTypeEnumId" operator="not-equals" from="null"/>
+            </entity-find>
+
+            <log level="info" message="Calculating and posting depreciation for organizations: ${expandResult.orgPartyIdList}, assets: ${assetList.assetId}"/>
+            <iterate list="assetList" entry="asset">
+                <service-call name="mantle.ledger.AssetAutoPostServices.calculateAndPost#FixedAssetDepreciation"
+                        in-map="[assetId:asset.assetId, timePeriodId:timePeriodId, transactionDate:transactionDate]"/>
+            </iterate>
+        </actions>
+    </service>
+
+    <!-- ========== Asset Adjustment Services ========== -->
+
+    <service verb="post" noun="AssetCostChange">
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="assetDetailSeqId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+    <service verb="post" noun="AssetOwnerChange">
+        <in-parameters>
+            <parameter name="assetId" required="true"/>
+            <parameter name="oldOwnerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+    <service verb="post" noun="PhysicalInventoryVariance">
+        <in-parameters><parameter name="physicalInventoryId" required="true"/></in-parameters>
+        <out-parameters><parameter name="acctgTransId"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+
+    <!-- ========== Config/Misc Services ========== -->
 
     <service verb="get" noun="AssetTypeGlAccount">
         <in-parameters>
@@ -304,78 +684,4 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
-
-    <service verb="revert" noun="AssetIssuanceOnCancel">
-        <in-parameters>
-            <parameter name="assetIssuanceId" required="true"/>
-            <parameter name="cancelledQuantity" type="BigDecimal" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
-            <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
-                <econdition field-name="assetIssuanceId"/>
-                <econdition field-name="acctgTransTypeEnumId" value="AttInventoryIssuance"/>
-            </entity-find>
-            <if condition="acctgTransList">
-                <if condition="acctgTransList.size() == 1">
-                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
-                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
-
-                    <else><return error="true" message="Found more than one accounting transaction for Asset Issuance ${assetIssuanceId}, may already be reversed, not posting reverse transaction."/></else>
-                </if>
-                <else><return error="true" message="No accounting transaction found for Asset Issuance ${assetIssuanceId}, not posting reverse transaction."/></else>
-            </if>
-        </actions>
-    </service>
-    <service verb="post" noun="AssetCostChange">
-        <in-parameters>
-            <parameter name="assetId" required="true"/>
-            <parameter name="assetDetailSeqId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <service verb="post" noun="AssetOwnerChange">
-        <in-parameters>
-            <parameter name="assetId" required="true"/>
-            <parameter name="oldOwnerPartyId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <service verb="post" noun="PhysicalInventoryVariance">
-        <in-parameters><parameter name="physicalInventoryId" required="true"/></in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <!-- not needed, just use post#AssetIssuance
-    <service verb="post" noun="WorkEffortAssetIssuance">
-        <in-parameters>
-            <parameter name="workEffortId" required="true"/>
-            <parameter name="assetId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions></actions>
-    </service>
-    <service verb="post" noun="WorkEffortInventoryProduced">
-        <in-parameters>
-            <parameter name="workEffortId" required="true"/>
-            <parameter name="assetId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions></actions>
-    </service>
-    <service verb="post" noun="AssetMaintenanceIssuance">
-        <in-parameters><parameter name="assetIssuanceId" required="true"/></in-parameters>
-        <out-parameters><parameter name="acctgTransId"/></out-parameters>
-        <actions></actions>
-    </service>
-    -->
 </services>
