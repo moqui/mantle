@@ -100,14 +100,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="itemTotal" from="(invoiceItem.amount ?: 0) * (invoiceItem.quantity ?: 1)"/>
                 <set field="invoiceTotal" from="invoiceTotal + itemTotal"/>
 
-                <set field="entryCommonMap" from="[invoiceItemSeqId:invoiceItem.invoiceItemSeqId, amount:itemTotal,
+                <set field="entryCommonMap" from="[invoiceItemSeqId:invoiceItem.invoiceItemSeqId,
                         productId:invoiceItem.productId, assetId:invoiceItem.assetId]"/>
 
                 <!-- entry for from Party (sales invoice) -->
                 <if condition="fromPartyAcctgPreference">
                     <set field="assetTypeGlAccount" from="null"/>
                     <if condition="invoiceItem.assetId">
-                        <entity-find-one entity-name="moqui.product.asset.Asset" value-field="asset">
+                        <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset">
                             <field-map field-name="assetId" from="invoiceItem.assetId"/></entity-find-one>
                         <if condition="asset.assetTypeEnumId">
                             <entity-find-one entity-name="moqui.basic.Enumeration" value-field="assetTypeEnum">
@@ -117,72 +117,148 @@ along with this software (see the LICENSE.md file). If not, see
                                         assetTypeEnumId:asset.assetTypeEnumId, classEnumId:asset.classEnumId]"/>
                         </if>
                     </if>
-                    <if condition="assetTypeGlAccount &amp;&amp; asset.acquireCost &amp;&amp;
+                    <if condition="invoiceItem.itemTypeEnumId == 'ItemAsset' &amp;&amp; assetTypeGlAccount &amp;&amp; asset.acquireCost &amp;&amp;
                             (assetTypeEnum.enumId == 'AstTpFixed' || assetTypeEnum.parentEnumId == 'AstTpFixed')">
-                        <then>
-                            <!-- handle special entries for fixed asset sale: -->
+                        <!-- handle special entries for fixed asset sale: -->
 
-                            <!-- TODO: credit Unissued Asset (acquireCost) -->
-                            <set field="issuanceGlAccountId" from="assetTypeGlAccount.issuanceGlAccountId"/>
-                            <!-- TODO: debit Accumulated Depreciation (depreciation) -->
+                        <!-- credit Unissued Asset (acquireCost) -->
+                        <set field="issuanceGlAccountTypeEnumId" value="UNISSUED_FIXED_ASSET"/>
+                        <set field="issuanceGlAccountId" from="assetTypeGlAccount.issuanceGlAccountId"/>
+                        <if condition="!issuanceGlAccountId">
+                            <!-- look up default Unissued Fixed Asset account -->
+                            <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType"
+                                    out-map="issuanceGlAccountOut" out-map-add-to-existing="false"
+                                    in-map="[glAccountTypeEnumId:issuanceGlAccountTypeEnumId, acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
+                                        organizationPartyId:fromAcctgTrans.organizationPartyId, otherPartyId:fromAcctgTrans.otherPartyId]"/>
+                            <set field="issuanceGlAccountId" from="issuanceGlAccountOut.glAccountId"/>
+                        </if>
+                        <if condition="!issuanceGlAccountId"><set field="useErrorJournal" from="true"/></if>
+                        <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                                in-map="entryCommonMap + [amount:asset.acquireCost, acctgTransId:fromAcctgTrans.acctgTransId,
+                                    acctgTrans:fromAcctgTrans, debitCreditFlag:'C',
+                                    glAccountTypeEnumId:issuanceGlAccountTypeEnumId, glAccountId:issuanceGlAccountId]"/>
+
+                        <!-- debit Accumulated Depreciation (depreciation) -->
+                        <if condition="asset.depreciation">
+                            <set field="accDepGlAccountTypeEnumId" value="FA_ACCUM_DEPRECIATION"/>
                             <set field="accDepreciationGlAccountId" from="assetTypeGlAccount.accDepreciationGlAccountId"/>
-
-                            <set field="profitLoss" from="itemTotal - (asset.acquireCost - (asset.depreciation ?: 0))"/>
-                            <if condition="profitLoss &gt; 0">
-                                <then>
-                                    <!-- TODO: credit Profit/Gain on Sale/Disposal (sale amount - (acquireCost - depreciation)) -->
-                                </then>
-                                <else-if condition="profitLoss &lt; 0">
-                                    <!-- TODO: debit Loss on Sale/Disposal (sale amount - (acquireCost - depreciation)) -->
-                                </else-if>
-                                <!-- NOTE: if profitLoss == 0 don't post anything -->
+                            <if condition="!accDepreciationGlAccountId">
+                                <!-- look up default Accumulated Depreciation account -->
+                                <service-call name="mantle.ledger.LedgerServices.get#DefaultGlAccountByType"
+                                        out-map="accDepreciationGlAccountOut" out-map-add-to-existing="false"
+                                        in-map="[glAccountTypeEnumId:accDepGlAccountTypeEnumId, acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
+                                            organizationPartyId:fromAcctgTrans.organizationPartyId, otherPartyId:fromAcctgTrans.otherPartyId]"/>
+                                <set field="accDepreciationGlAccountId" from="accDepreciationGlAccountOut.glAccountId"/>
                             </if>
-                        </then>
-                        <else>
-                            <!-- use InvoiceItem.overrideGlAccountId if specified -->
-                            <set field="itemGlAccountId" from="invoiceItem.overrideGlAccountId"/>
-                            <!-- no override? use AssetTypeGlAccount.profitGlAccountId based on Asset (queried above) -->
-                            <if condition="!itemGlAccountId &amp;&amp; assetTypeGlAccount">
-                                <set field="itemGlAccountId" from="assetTypeGlAccount.profitGlAccountId"/>
-                            </if>
-                            <!-- no override or profit account based on Asset? use AssetTypeGlAccount.profitGlAccountId based on Product -->
-                            <if condition="!itemGlAccountId &amp;&amp; invoiceItem.productId">
-                                <entity-find-one entity-name="mantle.product.Product" value-field="product">
-                                    <field-map field-name="productId" from="invoiceItem.productId"/></entity-find-one>
-                                <if condition="product?.assetTypeEnumId">
-                                    <set field="assetTypeGlAccount" from="null"/>
-                                    <service-call name="mantle.ledger.AssetAutoPostServices.get#AssetTypeGlAccount" out-map="context"
-                                            in-map="[organizationPartyId:fromPartyAcctgPreference.organizationPartyId,
-                                                assetTypeEnumId:product.assetTypeEnumId, classEnumId:product.assetClassEnumId]"/>
-                                    <set field="itemGlAccountId" from="assetTypeGlAccount?.profitGlAccountId"/>
-                                </if>
-                            </if>
-                            <!-- no override or profit account based on Asset or Product? use InvoiceItemGlAccount
-                                setting (by itemTypeEnumId), otherwise just get itemGlAccountTypeEnumId -->
-                            <if condition="!itemGlAccountId">
-                                <then>
-                                    <service-call name="mantle.ledger.InvoiceAutoPostServices.get#InvoiceItemGlAccount"
-                                            in-map="[acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
-                                                organizationPartyId:fromAcctgTrans.organizationPartyId,
-                                                otherPartyId:fromAcctgTrans.otherPartyId, itemTypeEnumId:invoiceItem.itemTypeEnumId,
-                                                productId:invoiceItem.productId, assetId:invoiceItem.assetId, direction:'O']"
-                                            out-map="invoiceItemGlAccountOut" out-map-add-to-existing="false"/>
-                                    <set field="itemGlAccountId" from="invoiceItemGlAccountOut?.glAccountId"/>
-                                    <set field="itemGlAccountTypeEnumId" from="invoiceItemGlAccountOut?.glAccountTypeEnumId"/>
-                                </then>
-                                <else>
-                                    <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" cache="true">
-                                        <field-map field-name="glAccountId" from="itemGlAccountId"/>
-                                    </entity-find-one>
-                                    <set field="itemGlAccountTypeEnumId" from="glAccount?.glAccountTypeEnumId"/>
-                                </else>
-                            </if>
-                            <if condition="!itemGlAccountId"><set field="useErrorJournal" from="true"/></if>
-
+                            <if condition="!accDepreciationGlAccountId"><set field="useErrorJournal" from="true"/></if>
                             <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
-                                    in-map="entryCommonMap + [acctgTransId:fromAcctgTrans.acctgTransId, acctgTrans:fromAcctgTrans,
-                                        debitCreditFlag:'C', glAccountTypeEnumId:itemGlAccountTypeEnumId, glAccountId:itemGlAccountId]"/>
-                        </else>
+                                    in-map="entryCommonMap + [amount:asset.depreciation, acctgTransId:fromAcctgTrans.acctgTransId,
+                                        acctgTrans:fromAcctgTrans, debitCreditFlag:'D',
+                                        glAccountTypeEnumId:accDepGlAccountTypeEnumId, glAccountId:accDepreciationGlAccountId]"/>
+
+                        </if>
+
+                        <!-- create profit/loss entry -->
+                        <set field="profitLoss" from="itemTotal - (asset.acquireCost - (asset.depreciation ?: 0))"/>
+                        <log level="info" message="======= Fixed asset sale: itemTotal=${itemTotal}, acquireCost=${asset.acquireCost}, depreciation=${asset.depreciation}, profitLoss=${profitLoss}"/>
+                        <if condition="profitLoss &gt; 0">
+                            <then>
+                                <!-- credit Profit/Gain on Sale/Disposal (sale amount - (acquireCost - depreciation)) -->
+
+                                <!-- just set itemTotal and let the standard entry handle it -->
+                                <set field="itemTotal" from="profitLoss"/>
+                            </then>
+                            <else-if condition="profitLoss &lt; 0">
+                                <!-- debit Loss on Sale/Disposal (sale amount - (acquireCost - depreciation)) -->
+
+                                <!-- set itemTotal=0 so standard post doesn't do anything -->
+                                <set field="itemTotal" from="0"/>
+
+                                <!-- use InvoiceItem.overrideGlAccountId if specified -->
+                                <set field="lossGlAccountId" from="invoiceItem.overrideGlAccountId"/>
+                                <!-- no override? use AssetTypeGlAccount.profitGlAccountId based on Asset (queried above) -->
+                                <if condition="!lossGlAccountId &amp;&amp; assetTypeGlAccount">
+                                    <set field="lossGlAccountId" from="assetTypeGlAccount.lossGlAccountId"/></if>
+                                <!-- no override or profit account based on Asset or Product? use InvoiceItemGlAccount
+                                    setting (by itemTypeEnumId), otherwise just get lossGlAccountTypeEnumId -->
+                                <!-- NOTE: this may map to the "profit" account but will be debited instead of credited -->
+                                <if condition="!lossGlAccountId">
+                                    <then>
+                                        <service-call name="mantle.ledger.InvoiceAutoPostServices.get#InvoiceItemGlAccount"
+                                                in-map="[acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
+                                                    organizationPartyId:fromAcctgTrans.organizationPartyId,
+                                                    otherPartyId:fromAcctgTrans.otherPartyId, itemTypeEnumId:invoiceItem.itemTypeEnumId,
+                                                    productId:invoiceItem.productId, assetId:invoiceItem.assetId, direction:'O']"
+                                                out-map="lossGlAccountOut" out-map-add-to-existing="false"/>
+                                        <set field="lossGlAccountId" from="lossGlAccountOut?.glAccountId"/>
+                                        <set field="lossGlAccountTypeEnumId" from="lossGlAccountOut?.glAccountTypeEnumId"/>
+                                    </then>
+                                    <else>
+                                        <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" cache="true">
+                                            <field-map field-name="glAccountId" from="lossGlAccountId"/>
+                                        </entity-find-one>
+                                        <set field="lossGlAccountTypeEnumId" from="glAccount?.glAccountTypeEnumId"/>
+                                    </else>
+                                </if>
+                                <if condition="!lossGlAccountId"><set field="useErrorJournal" from="true"/></if>
+
+                                <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                                        in-map="entryCommonMap + [amount:-profitLoss, acctgTransId:fromAcctgTrans.acctgTransId, acctgTrans:fromAcctgTrans,
+                                            debitCreditFlag:'D', glAccountTypeEnumId:lossGlAccountTypeEnumId, glAccountId:lossGlAccountId]"/>
+                            </else-if>
+                            <else>
+                                <!-- NOTE: if profitLoss == 0 don't post anything -->
+                                <set field="itemTotal" from="0"/>
+                            </else>
+                        </if>
+                    </if>
+
+                    <if condition="itemTotal != 0">
+                        <log level="info" message="======= Create invoice item tx entry: itemTotal=${itemTotal}"/>
+
+                        <!-- use InvoiceItem.overrideGlAccountId if specified -->
+                        <set field="itemGlAccountId" from="invoiceItem.overrideGlAccountId"/>
+                        <!-- no override? use AssetTypeGlAccount.profitGlAccountId based on Asset (queried above) -->
+                        <if condition="!itemGlAccountId &amp;&amp; assetTypeGlAccount">
+                            <set field="itemGlAccountId" from="assetTypeGlAccount.profitGlAccountId"/></if>
+                        <!-- no override or profit account based on Asset? use AssetTypeGlAccount.profitGlAccountId based on Product -->
+                        <if condition="!itemGlAccountId &amp;&amp; invoiceItem.productId">
+                            <entity-find-one entity-name="mantle.product.Product" value-field="product">
+                                <field-map field-name="productId" from="invoiceItem.productId"/></entity-find-one>
+                            <if condition="product?.assetTypeEnumId">
+                                <set field="assetTypeGlAccount" from="null"/>
+                                <service-call name="mantle.ledger.AssetAutoPostServices.get#AssetTypeGlAccount" out-map="context"
+                                        in-map="[organizationPartyId:fromPartyAcctgPreference.organizationPartyId,
+                                            assetTypeEnumId:product.assetTypeEnumId, classEnumId:product.assetClassEnumId]"/>
+                                <set field="itemGlAccountId" from="assetTypeGlAccount?.profitGlAccountId"/>
+                            </if>
+                        </if>
+                        <!-- no override or profit account based on Asset or Product? use InvoiceItemGlAccount
+                            setting (by itemTypeEnumId), otherwise just get itemGlAccountTypeEnumId -->
+                        <if condition="!itemGlAccountId">
+                            <then>
+                                <service-call name="mantle.ledger.InvoiceAutoPostServices.get#InvoiceItemGlAccount"
+                                        in-map="[acctgTransTypeEnumId:fromAcctgTrans.acctgTransTypeEnumId,
+                                            organizationPartyId:fromAcctgTrans.organizationPartyId,
+                                            otherPartyId:fromAcctgTrans.otherPartyId, itemTypeEnumId:invoiceItem.itemTypeEnumId,
+                                            productId:invoiceItem.productId, assetId:invoiceItem.assetId, direction:'O']"
+                                        out-map="invoiceItemGlAccountOut" out-map-add-to-existing="false"/>
+                                <set field="itemGlAccountId" from="invoiceItemGlAccountOut?.glAccountId"/>
+                                <set field="itemGlAccountTypeEnumId" from="invoiceItemGlAccountOut?.glAccountTypeEnumId"/>
+                            </then>
+                            <else>
+                                <entity-find-one entity-name="mantle.ledger.account.GlAccount" value-field="glAccount" cache="true">
+                                    <field-map field-name="glAccountId" from="itemGlAccountId"/>
+                                </entity-find-one>
+                                <set field="itemGlAccountTypeEnumId" from="glAccount?.glAccountTypeEnumId"/>
+                            </else>
+                        </if>
+                        <if condition="!itemGlAccountId"><set field="useErrorJournal" from="true"/></if>
+
+                        <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
+                                in-map="entryCommonMap + [amount:itemTotal, acctgTransId:fromAcctgTrans.acctgTransId,
+                                    acctgTrans:fromAcctgTrans, debitCreditFlag:'C', glAccountTypeEnumId:itemGlAccountTypeEnumId,
+                                    glAccountId:itemGlAccountId]"/>
                     </if>
                 </if>
 
@@ -224,7 +300,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="!itemGlAccountId"><set field="useErrorJournal" from="true"/></if>
 
                     <service-call name="mantle.ledger.LedgerServices.create#AcctgTransEntry"
-                            in-map="entryCommonMap + [acctgTransId:toAcctgTrans.acctgTransId, acctgTrans:toAcctgTrans,
+                            in-map="entryCommonMap + [amount:itemTotal, acctgTransId:toAcctgTrans.acctgTransId, acctgTrans:toAcctgTrans,
                                 debitCreditFlag:'D', glAccountTypeEnumId:itemGlAccountTypeEnumId, glAccountId:itemGlAccountId]"/>
                 </if>
             </iterate>

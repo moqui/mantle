@@ -75,11 +75,12 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="acquireOrderItemSeqId" type="id"/>
         <field name="acquireWorkEffortId" type="id"><description>For assets created from production runs, etc.</description></field>
         <field name="acquireShipmentId" type="id"/>
-        <field name="acquireCost" type="currency-amount"/>
+        <field name="acquireCost" type="currency-amount" enable-audit-log="update"/>
         <field name="acquireCostUomId" type="id"/>
-        <field name="salvageValue" type="currency-amount"/>
-        <field name="depreciation" type="currency-amount"/>
+        <field name="salvageValue" type="currency-amount" enable-audit-log="update"/>
+        <field name="depreciation" type="currency-amount"><description>History in AssetDepreciation</description></field>
         <field name="depreciationTypeEnumId" type="id"/>
+        <field name="yearBeginDepreciation" type="currency-amount"><description>History in AssetDepreciation</description></field>
         <field name="taxDepreciation" type="currency-amount"/>
         <field name="taxDepreciationTypeEnumId" type="id"/>
 
@@ -200,11 +201,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstIncoming" toStatusId="AstAvailable" transitionName="Arrived"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstPromised" transitionName="Promise"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstDelivered" transitionName="Deliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstOnHold" transitionName="Hold"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstDefective" transitionName="Mark As Defective"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstAvailable" toStatusId="AstInTransfer" transitionName="Start Transfer"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstOnHold" toStatusId="AstAvailable" transitionName="Release Hold"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstOnHold" toStatusId="AstDefective" transitionName="Defective"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstOnHold" toStatusId="AstDelivered" transitionName="Deliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstInTransfer" toStatusId="AstAvailable" transitionName="Transfer Complete"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstPromised" toStatusId="AstAvailable" transitionName="Cancel Promise"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstPromised" toStatusId="AstDelivered" transitionName="Deliver"/>
@@ -212,10 +215,10 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstPromised" toStatusId="AstInTransferPromise" transitionName="Start Transfer (Promised)"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstInTransferPromise" toStatusId="AstPromised" transitionName="Transfer Complete (Promised)"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstDelivered" toStatusId="AstReturned" transitionName="Return Status Pending"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstDelivered" toStatusId="AstActivated" transitionName="Activate"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstReturned" toStatusId="AstAvailable" transitionName="Make Return Available"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstReturned" toStatusId="AstOnHold" transitionName="Hold"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstReturned" toStatusId="AstDefective" transitionName="Defective"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstDelivered" toStatusId="AstActivated" transitionName="Activate"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstActivated" toStatusId="AstDeactivated" transitionName="Deactivate"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstActivated" toStatusId="AstReturned" transitionName="Return"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AstDeactivated" toStatusId="AstOnHold" transitionName="Hold"/>
@@ -237,7 +240,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Straight Line" enumId="DtpStraightLine" enumTypeId="DepreciationType"/>
             <moqui.basic.Enumeration description="Double Declining Balance" enumId="DtpDoubleDeclining" enumTypeId="DepreciationType"/>
             <moqui.basic.Enumeration description="Sum of Years Digits" enumId="DtpSumYearsDigits" enumTypeId="DepreciationType"/>
-            <moqui.basic.Enumeration description="Units of Production" enumId="DtpUnitsProduction" enumTypeId="DepreciationType"/>
+            <!-- not yet supported: <moqui.basic.Enumeration description="Units of Production" enumId="DtpUnitsProduction" enumTypeId="DepreciationType"/> -->
 
             <!-- Tax Depreciation Type -->
             <!-- NOTE: there are many variations, especially for USA MACRS ADS; future effort to model all of them -->
@@ -292,6 +295,20 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="InVrMisShipOrdered" description="Mis-shipped Item Ordered (+)" enumTypeId="InventoryVarianceReason"/>
             <moqui.basic.Enumeration enumId="InVrMisShipShipped" description="Mis-shipped Item Shipped (-)" enumTypeId="InventoryVarianceReason"/>
         </seed-data>
+    </entity>
+    <entity entity-name="AssetDepreciation" package-name="mantle.product.asset">
+        <field name="assetId" type="id" is-pk="true"/>
+        <field name="timePeriodId" type="id" is-pk="true"/>
+        <field name="monthlyDepreciation" type="currency-amount"/>
+        <field name="annualDepreciation" type="currency-amount"/>
+        <field name="yearBeginDepreciation" type="currency-amount"/>
+        <field name="isLastYearPeriod" type="text-indicator"/>
+        <field name="usefulLifeYears" type="number-integer"/>
+        <field name="yearsRemaining" type="number-integer"/>
+        <field name="acctgTransId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
+        <relationship type="one" related-entity-name="mantle.party.time.TimePeriod"/>
+        <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTrans"/>
     </entity>
     <entity entity-name="AssetIdentification" package-name="mantle.product.asset">
         <field name="assetId" type="id" is-pk="true"/>
