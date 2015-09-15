@@ -74,7 +74,7 @@ along with this software (see the LICENSE.md file). If not, see
              |     |===> DIVIDEND
              |===> COST_OF_SALES
                    |===> COST_GOODS_SOLD
-                         |===> INVENTORY_ADJUST
+                         |===> INVENTORY_SHRINKAGE
                    |===> COST_SERVICES_SOLD
              |===> EXPENSE
                    |===> CASH_EXPENSE
@@ -192,6 +192,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Product" enumId="PRODUCT_ACCOUNT" enumTypeId="GlAccountType"/>
 
             <moqui.basic.Enumeration description="Inventory" enumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
+            <moqui.basic.Enumeration description="WIP Inventory" enumId="WIP_INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Inventory Adjustment from Average Cost" enumId="INV_ADJ_AVG_COST" parentEnumId="INVENTORY_ACCOUNT" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Inventory Item Value Adjustment" enumId="INV_ADJ_VAL" enumTypeId="GlAccountType"/>
             <moqui.basic.Enumeration description="Unreceived Inventory" enumId="UNRECEIVED_INVENTORY" enumTypeId="GlAccountType"/>
@@ -356,11 +357,19 @@ along with this software (see the LICENSE.md file). If not, see
         - Inventory Purchase: credit Accounts Payable, debit Unreceived Inventory
         - Inventory Receipt: credit Unreceived Inventory, debit Inventory
 
+        - Inventory Receipt (production run): credit WIP Inventory, debit Inventory (typically Finished Good inventory)
+          - NOTE: for this to be correct the Asset.acquireCost must be calculated from the production run
+          - TODO: For production labor, etc there would be a separate posting (like inventory issuance) to debit WIP Inventory, credit an Operations account
+
         - Inventory Run Consume (issuance): credit Raw Material Inventory (or Finished Good?), debit Work In Progress Inventory
         - Inventory Run Produce (receipt): credit Work In Progress Inventory, debit Finished Good Inventory (or Raw Material if sub-assembly)
 
         - Inventory Sale: credit Sales, debit Accounts Receivable
         - Inventory Issuance: credit Inventory, debit COGS
+        - Inventory Issuance (production run, same owner):
+            credit Inventory (typically Raw Materials Inventory), debit WIP Inventory
+        - Inventory Issuance (production run, asset owner different from run owner, same as sale!):
+            credit Inventory (typically Raw Materials Inventory), debit COGS
 
         - Inventory Shrinkage: credit Inventory, debit Inventory Shrinkage
         - Inventory Found: credit Inventory Found, debit Inventory
@@ -402,6 +411,11 @@ along with this software (see the LICENSE.md file). If not, see
             for fixed assets this is a fixed asset value account (FIXED_ASSET);
             for supplies this is an expense account (EXPENSE or OPERATING_EXPENSE)
         </description></field>
+        <field name="wipAssetGlAccountId" type="id"><description>
+            The debit account for the asset value (purchase cost) on issue to production run (inventory consumed).
+            The credit account on receive from production run (inventory produced).
+            The opposing account will be the assetGlAccountId.
+        </description></field>
         <field name="receiptGlAccountId" type="id">
             <description>The credit account on receipt (Unreceived Inventory, Unreceived Asset, etc)</description></field>
         <field name="issuanceGlAccountId" type="id"><description>
@@ -436,6 +450,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="organizationPartyId"/></relationship>
         <relationship type="one" title="Asset" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="assetGlAccountId"/></relationship>
+        <relationship type="one" title="WipAsset" related-entity-name="mantle.ledger.account.GlAccount">
+            <key-map field-name="wipAssetGlAccountId"/></relationship>
         <relationship type="one" title="Receipt" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="receiptGlAccountId"/></relationship>
         <relationship type="one" title="Issuance" related-entity-name="mantle.ledger.account.GlAccount">

@@ -176,7 +176,7 @@ along with this software (see the LICENSE.md file). If not, see
     <mantle.ledger.account.GlAccount accountName="RAW MATERIALS INVENTORY" description="" glAccountClassEnumId="INVENTORY_ASSET"
         glAccountId="141100000" glAccountTypeEnumId="INVENTORY_ACCOUNT" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="141000000"/>
     <mantle.ledger.account.GlAccount accountName="WORK IN PROGRESS INVENTORY" description="" glAccountClassEnumId="INVENTORY_ASSET"
-        glAccountId="141200000" glAccountTypeEnumId="INVENTORY_ACCOUNT" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="141000000"/>
+        glAccountId="141200000" glAccountTypeEnumId="WIP_INVENTORY_ACCOUNT" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="141000000"/>
     <mantle.ledger.account.GlAccount accountName="FINISHED GOOD INVENTORY" description="" glAccountClassEnumId="INVENTORY_ASSET"
         glAccountId="141300000" glAccountTypeEnumId="INVENTORY_ACCOUNT" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="141000000"/>
 
@@ -553,7 +553,6 @@ along with this software (see the LICENSE.md file). If not, see
     <mantle.ledger.account.GlAccount accountName="INVENTORY SHRINKAGE" description="" glAccountClassEnumId="INVENTORY_SHRINKAGE"
         glAccountId="514000000" glAccountTypeEnumId="INVENTORY_SHRINKAGE_TP" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="510000000"/>
 
-    <!-- NOTE: should these really be NON_CASH_EXPENSE or under COST_GOODS_SOLD? -->
     <mantle.ledger.account.GlAccount accountName="WRITE DOWNS BELOW COST" description="" glAccountClassEnumId="NON_CASH_EXPENSE"
         glAccountId="515000000" glAccountTypeEnumId="" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="510000000"/>
     <mantle.ledger.account.GlAccount accountName="PURCHASE PRICE VARIANCE" description="" glAccountClassEnumId="NON_CASH_EXPENSE"
@@ -981,7 +980,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- 770000 OTHER EXPENSE - REPAIRS AND MAINTENANCE -->
     <mantle.ledger.account.GlAccount accountName="REPAIRS AND MAINTENANCE" description="" glAccountClassEnumId="SGA_EXPENSE"
         glAccountId="770000000" glAccountTypeEnumId="" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="700000000"/>
-    <mantle.ledger.account.GlAccount accountName="REPAIRS AND MAINTENANCE - BUILDING EQUIP" description="" glAccountClassEnumId="SGA_EXPENSE"
+    <mantle.ledger.account.GlAccount accountName="REPAIRS AND MAINTENANCE - BUILDING" description="" glAccountClassEnumId="SGA_EXPENSE"
         glAccountId="771000000" glAccountTypeEnumId="" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="770000000"/>
     <mantle.ledger.account.GlAccount accountName="REPAIRS AND MAINTENANCE - FURNITURE, FIXTURES, AND EQUIPMENT" description="" glAccountClassEnumId="SGA_EXPENSE"
         glAccountId="772000000" glAccountTypeEnumId="" glResourceTypeEnumId="GlrtMoney" parentGlAccountId="770000000"/>
@@ -1252,6 +1251,7 @@ along with this software (see the LICENSE.md file). If not, see
     <mantle.ledger.config.GlAccountTypeDefault glAccountId="125000000" glAccountTypeEnumId="INVENTORY_XFER_OUT" organizationPartyId="DefaultSettings"/>
     <mantle.ledger.config.GlAccountTypeDefault glAccountId="126000000" glAccountTypeEnumId="ACCREC_UNAPPLIED" organizationPartyId="DefaultSettings"/>
     <mantle.ledger.config.GlAccountTypeDefault glAccountId="141000000" glAccountTypeEnumId="INVENTORY_ACCOUNT" organizationPartyId="DefaultSettings"/>
+    <mantle.ledger.config.GlAccountTypeDefault glAccountId="141200000" glAccountTypeEnumId="WIP_INVENTORY_ACCOUNT" organizationPartyId="DefaultSettings"/>
     <mantle.ledger.config.GlAccountTypeDefault glAccountId="149000000" glAccountTypeEnumId="UNRECEIVED_INVENTORY" organizationPartyId="DefaultSettings"/>
     <mantle.ledger.config.GlAccountTypeDefault glAccountId="139000000" glAccountTypeEnumId="UNRECEIVED_FIXED_ASSET" organizationPartyId="DefaultSettings"/>
     <mantle.ledger.config.GlAccountTypeDefault glAccountId="150000000" glAccountTypeEnumId="PREPAID_EXPENSES" organizationPartyId="DefaultSettings"/>
@@ -1536,27 +1536,24 @@ along with this software (see the LICENSE.md file). If not, see
     <mantle.ledger.config.FinancialAccountReasonGlAccount glAccountId="430000000" reasonEnumId="FatrCsCredit" organizationPartyId="DefaultSettings"/>
     <mantle.ledger.config.FinancialAccountReasonGlAccount glAccountId="784000000" reasonEnumId="FatrErrorAdjust" organizationPartyId="DefaultSettings"/>
 
-    <!-- TODO: use AssetTypeGlAccount in
-        - post#Invoice for ItemInventory/ItemProduct, ItemAsset
-    -->
     <mantle.ledger.config.AssetTypeGlAccount assetTypeEnumId="AstTpInventory" classEnumId="" organizationPartyId="DefaultSettings"
-            assetGlAccountId="141000000" receiptGlAccountId="149000000" issuanceGlAccountId="502000000"
+            assetGlAccountId="141000000" wipAssetGlAccountId="141200000" receiptGlAccountId="149000000" issuanceGlAccountId="502000000"
             profitGlAccountId="401000000" lossGlAccountId="515000000"
             receiptTransTypeEnumId="AttInventoryReceipt" issuanceTransTypeEnumId="AttInventoryIssuance"
             shrinkageGlAccountId="514000000" foundGlAccountId="816000000"/>
     <mantle.ledger.config.AssetTypeGlAccount assetTypeEnumId="AstTpInventory" classEnumId="AsClsInventoryRaw" organizationPartyId="DefaultSettings"
-            assetGlAccountId="141100000" receiptGlAccountId="149100000" issuanceGlAccountId="502000000"
+            assetGlAccountId="141100000" wipAssetGlAccountId="141200000" receiptGlAccountId="149100000" issuanceGlAccountId="502000000"
             profitGlAccountId="401000000" lossGlAccountId="515000000"
             receiptTransTypeEnumId="AttInventoryReceipt" issuanceTransTypeEnumId="AttInventoryIssuance"
             shrinkageGlAccountId="514000000" foundGlAccountId="816000000"/>
     <!-- NOTE: sub-assemblies are tracked in the same account as raw materials (WIP is for inventory consumed in a run and moved to finished good or back to raw materials when produced from a run) -->
     <mantle.ledger.config.AssetTypeGlAccount assetTypeEnumId="AstTpInventory" classEnumId="AsClsInventorySub" organizationPartyId="DefaultSettings"
-            assetGlAccountId="141100000" receiptGlAccountId="149100000" issuanceGlAccountId="502000000"
+            assetGlAccountId="141100000" wipAssetGlAccountId="141200000" receiptGlAccountId="149100000" issuanceGlAccountId="502000000"
             profitGlAccountId="401000000" lossGlAccountId="515000000"
             receiptTransTypeEnumId="AttInventoryReceipt" issuanceTransTypeEnumId="AttInventoryIssuance"
             shrinkageGlAccountId="514000000" foundGlAccountId="816000000"/>
     <mantle.ledger.config.AssetTypeGlAccount assetTypeEnumId="AstTpInventory" classEnumId="AsClsInventoryFin" organizationPartyId="DefaultSettings"
-            assetGlAccountId="141300000" receiptGlAccountId="149300000" issuanceGlAccountId="502000000"
+            assetGlAccountId="141300000" wipAssetGlAccountId="141200000" receiptGlAccountId="149300000" issuanceGlAccountId="502000000"
             profitGlAccountId="401000000" lossGlAccountId="515000000"
             receiptTransTypeEnumId="AttInventoryReceipt" issuanceTransTypeEnumId="AttInventoryIssuance"
             shrinkageGlAccountId="514000000" foundGlAccountId="816000000"/>
