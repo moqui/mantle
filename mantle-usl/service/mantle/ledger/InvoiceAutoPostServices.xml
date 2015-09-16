@@ -23,9 +23,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- make sure there is no AcctgTrans for this invoiceId -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="existingTransList">
                 <econdition field-name="invoiceId"/>
+                <econdition field-name="reversedByAcctgTransId" from="null"/>
+                <econdition field-name="reverseOfAcctgTransId" from="null"/>
             </entity-find>
             <if condition="existingTransList">
-                <return error="true" message="Invoice [${invoiceId}] has already been posted in accounting transaction [${existingTransList[0].acctgTransId}]"/>
+                <!-- This will happen when an invoice goes from paid to Finalized/etc -->
+                <log level="info" message="Invoice [${invoiceId}] has already been posted in accounting transaction [${existingTransList[0].acctgTransId}]"/>
+                <return/>
             </if>
 
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice" for-update="true"/>
@@ -451,23 +455,30 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="revert" noun="InvoicePostOnCancel">
+    <service verb="revert" noun="InvoicePost">
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <actions>
             <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
                 <econdition field-name="invoiceId"/>
+                <econdition field-name="reversedByAcctgTransId" from="null"/>
+                <econdition field-name="reverseOfAcctgTransId" from="null"/>
                 <econdition field-name="acctgTransTypeEnumId" operator="in"
                         value="AttSalesInvoice,AttVendRtnInvoice,AttPurchaseInvoice,AttCustRtnInvoice"/>
             </entity-find>
             <if condition="acctgTransList">
                 <if condition="acctgTransList.size() == 1">
-                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
-                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
-
-                    <else><return error="true" message="Found more than one accounting transaction for Invoice ${invoiceId}, may already be reversed, not posting reverse transaction."/></else>
+                    <then>
+                        <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
+                                in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
+                    </then>
+                    <else>
+                        <return error="true" message="Found more than one accounting transaction for Invoice ${invoiceId}, may already be reversed, not posting reverse transaction."/>
+                    </else>
                 </if>
-                <else><return error="true" message="No accounting transaction found for Invoice ${invoiceId}, not posting reverse transaction."/></else>
+                <else>
+                    <log level="info" message="No accounting transaction found for Invoice ${invoiceId}, not posting reverse transaction."/>
+                </else>
             </if>
         </actions>
     </service>

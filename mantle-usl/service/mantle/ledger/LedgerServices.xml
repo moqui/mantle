@@ -577,7 +577,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId" required="true"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans"/>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
 
             <if condition="acctgTrans.isPosted != 'Y'">
                 <return error="true" message="Not reversing transaction [${acctgTransId}], transaction is not posted"/></if>
@@ -590,6 +590,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="reverseAcctgTrans" from="acctgTrans.clone()"/>
             <set field="reverseAcctgTrans.acctgTransId" from="null"/>
             <entity-sequenced-id-primary value-field="reverseAcctgTrans"/>
+            <set field="reverseAcctgTrans.reverseOfAcctgTransId" from="acctgTransId"/>
             <set field="reverseAcctgTrans.transactionDate" from="ec.user.nowTimestamp"/>
             <set field="reverseAcctgTrans.isPosted" value="N"/>
             <entity-create value-field="reverseAcctgTrans"/>
@@ -623,6 +624,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:reverseAcctgTransId]"/>
                 </else>
             </if>
+
+            <set field="acctgTrans.reversedByAcctgTransId" from="reverseAcctgTransId"/>
+            <entity-update value-field="acctgTrans"/>
 
             <set field="acctgTransId" from="reverseAcctgTransId"/>
         </actions>

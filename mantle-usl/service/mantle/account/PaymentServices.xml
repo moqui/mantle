@@ -112,12 +112,10 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="paymentTotal" from="payment.amount"/>
 
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
-                <econdition field-name="paymentId"/>
-            </entity-find>
+                <econdition field-name="paymentId"/></entity-find>
             <set field="appliedTotal" from="0"/>
             <iterate list="paymentApplicationList" entry="paymentApplication">
-                <set field="appliedTotal" from="appliedTotal + paymentApplication.amountApplied"/>
-            </iterate>
+                <set field="appliedTotal" from="appliedTotal + paymentApplication.amountApplied"/></iterate>
 
             <set field="unappliedTotal" from="paymentTotal - appliedTotal"/>
         </actions>
@@ -191,7 +189,7 @@ along with this software (see the LICENSE.md file). If not, see
                         orderItemBillingList:orderItemBillingList]"/>
 
                 <script>
-                    paymentInfo.amountWords = org.moqui.impl.StupidUtilities.numberToWordsWithDecimal(payment.amount)
+                    paymentInfo.amountWords = StupidUtilities.numberToWordsWithDecimal(payment.amount)
 
                     paymentInfo.putAll(descOut)
                     paymentInfo.putAll(totalsOut)
@@ -203,26 +201,9 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="void" noun="Payment">
-        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <service verb="autoApply" noun="Payment">
-        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
-        <out-parameters><parameter name="invoiceIdList" type="List"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
-    <service verb="autoApplyTo" noun="Invoice">
-        <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
-        <out-parameters><parameter name="paymentIdList" type="List"/></out-parameters>
-        <actions>
-            <!-- TODO: implement this... -->
-        </actions>
-    </service>
+    <!-- ============================================= -->
+    <!-- ========== Create Payment Services ========== -->
+    <!-- ============================================= -->
 
     <service verb="create" noun="Payment">
         <in-parameters>
@@ -370,6 +351,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ================================================== -->
+    <!-- ========== Payment Application Services ========== -->
+    <!-- ================================================== -->
+
     <service verb="apply" noun="InvoicePayment">
         <in-parameters>
             <parameter name="paymentId" required="true"/>
@@ -467,9 +452,65 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- ============================= -->
-    <!-- Payment Processing Interfaces -->
-    <!-- ============================= -->
+    <service verb="void" noun="Payment">
+        <description>Set to Void status if not already in Cancelled, Void, or Refunded. Un-apply from
+            invoice if applied. May be called directly or through SECA rule on any of these statuses.</description>
+        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
+            <if condition="!(payment.statusId in ['PmntCancelled', 'PmntVoid', 'PmntRefunded'])">
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:'PmntVoid']"/>
+            </if>
+
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="paymentId"/></entity-find>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <if condition="paymentApplication.amountApplied != 0">
+                    <service-call name="mantle.account.PaymentServices.unapply#PaymentApplication"
+                            in-map="[paymentApplicationId:paymentApplication.paymentApplicationId]"/>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="unapply" noun="PaymentApplication">
+        <in-parameters>
+            <parameter name="paymentApplicationId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.PaymentApplication" value-field="paymentApplication" for-update="true"/>
+            <if condition="paymentApplication.amountApplied != 0">
+                <service-call name="update#mantle.account.payment.PaymentApplication"
+                        in-map="[paymentApplicationId:paymentApplicationId, amountApplied:0,
+                            amountOriginallyApplied:paymentApplication.amountApplied]"/>
+                <!-- if Invoice is in InvoicePmtSent or InvoicePmtRecvd, set status back to unpaid -->
+                <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice">
+                    <field-map field-name="invoiceId" from="paymentApplication.invoiceId"/></entity-find-one>
+                <if condition="invoice.statusId == 'InvoicePmtRecvd'">
+                    <set field="invoice.statusId" value="InvoiceFinalized"/>
+                    <!-- NOTE: update entity directly instead of calling update# auto service so that other payments won't be unapplied -->
+                    <entity-update value-field="invoice"/>
+                </if>
+                <if condition="invoice.statusId == 'InvoicePmtSent'">
+                    <set field="invoice.statusId" value="InvoiceApproved"/>
+                    <!-- NOTE: update entity directly instead of calling update# auto service so that other payments won't be unapplied -->
+                    <entity-update value-field="invoice"/>
+                </if>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="autoApply" noun="Payment">
+        <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
+        <out-parameters><parameter name="invoiceIdList" type="List"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+
+    <!-- =================================================== -->
+    <!-- ========== Payment Processing Interfaces ========== -->
+    <!-- =================================================== -->
 
     <service verb="authorize" noun="Payment" type="interface">
         <in-parameters>
@@ -513,9 +554,9 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
     </service>
 
-    <!-- ====================================== -->
-    <!-- High-level Payment Processing Services -->
-    <!-- ====================================== -->
+    <!-- ============================================================ -->
+    <!-- ========== High-level Payment Processing Services ========== -->
+    <!-- ============================================================ -->
 
     <service verb="authorize" noun="OrderPayments">
         <in-parameters>
@@ -863,9 +904,9 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- ================================================ -->
-    <!-- ========== PaymentContent Services ========== -->
-    <!-- ================================================ -->
+    <!-- ============================================== -->
+    <!-- ========== Payment Content Services ========== -->
+    <!-- ============================================== -->
 
     <service verb="get" noun="PaymentContentLocation">
         <in-parameters>
