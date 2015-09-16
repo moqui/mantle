@@ -25,7 +25,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <return error="true" message="Payment [${paymentId}] has already been posted in accounting transaction [${existingTransList[0].acctgTransId}]"/>
             </if>
 
-            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
             <if condition="!payment"><return error="true" message="Could not find Payment with ID [${paymentId}]"/></if>
 
             <service-call name="mantle.ledger.PaymentAutoPostServices.get#PaymentPartyAcctgPreferences"
@@ -34,6 +34,8 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- if no preferences for from or to, we shouldn't post anything -->
             <if condition="!fromPartyAcctgPreference &amp;&amp; !toPartyAcctgPreference">
                 <log level="info" message="Not posting payment [${paymentId}], could not find PartyAcctgPreference for From Party [${payment.fromPartyId}], To Party [${payment.toPartyId}], or Override Party [${payment.overrideOrgPartyId}]"/>
+                <set field="payment.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="payment"/>
                 <return/>
             </if>
 
@@ -187,6 +189,10 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </else>
             </if>
+
+            <!-- set acctg trans result to Success -->
+            <set field="payment.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="payment"/>
         </actions>
     </service>
     <service verb="get" noun="PaymentPartyAcctgPreferences">
@@ -360,7 +366,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="paymentApplicationId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.account.payment.PaymentApplication" value-field="paymentApplication"/>
+            <entity-find-one entity-name="mantle.account.payment.PaymentApplication" value-field="paymentApplication" for-update="true"/>
             <set field="payment" from="paymentApplication.'mantle.account.payment.Payment'"/>
 
             <!-- only post if Payment already posted as unapplied -->
@@ -370,7 +376,9 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
             <if condition="!existingTransList">
                 <!-- if not yet posted the Payment posting will post as applied and take care of it -->
-                <log level="info" message="Payment [${payment.paymentId}] has not yet been posted, not posting PaymentApplication"/>
+                <log level="trace" message="Payment [${payment.paymentId}] has not yet been posted, not posting PaymentApplication"/>
+                <set field="paymentApplication.acctgTransResultEnumId" value="AtrPaymentNotPosted"/>
+                <entity-update value-field="paymentApplication"/>
                 <return/>
             </if>
 
@@ -379,7 +387,9 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if no preferences for from or to, we shouldn't post anything -->
             <if condition="!fromPartyAcctgPreference &amp;&amp; !toPartyAcctgPreference">
-                <log level="info" message="Not posting payment application [${paymentApplicationId}] for payment [${payment.paymentId}], could not find PartyAcctgPreference for From Party [${payment.fromPartyId}], To Party [${payment.toPartyId}], or Override Party [${payment.overrideOrgPartyId}]"/>
+                <log level="trace" message="Not posting payment application [${paymentApplicationId}] for payment [${payment.paymentId}], could not find PartyAcctgPreference for From Party [${payment.fromPartyId}], To Party [${payment.toPartyId}], or Override Party [${payment.overrideOrgPartyId}]"/>
+                <set field="paymentApplication.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="paymentApplication"/>
                 <return/>
             </if>
 
@@ -461,6 +471,10 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </else>
             </if>
+
+            <!-- set acctg trans result to Success -->
+            <set field="paymentApplication.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="paymentApplication"/>
         </actions>
     </service>
 

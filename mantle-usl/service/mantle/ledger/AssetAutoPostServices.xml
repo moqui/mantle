@@ -20,13 +20,15 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="assetReceiptId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.product.receipt.AssetReceipt" value-field="assetReceipt"/>
+            <entity-find-one entity-name="mantle.product.receipt.AssetReceipt" value-field="assetReceipt" for-update="true"/>
             <if condition="!assetReceipt"><return error="true" message="Not posting Inventory transaction, could not find Asset Receipt with ID [${assetReceiptId}]"/></if>
             <set field="asset" from="assetReceipt.'mantle.product.asset.Asset'"/>
             <set field="organizationPartyId" from="asset.ownerPartyId"/>
 
             <if condition="asset.acquireCost == null">
-                <log level="info" message="Not posting Asset Receipt [${assetReceiptId}], Asset has no acquireCost"/>
+                <log level="trace" message="Not posting Asset Receipt [${assetReceiptId}], Asset has no acquireCost"/>
+                <set field="assetReceipt.acctgTransResultEnumId" value="AtrNoAcquireCost"/>
+                <entity-update value-field="assetReceipt"/>
                 <return/>
             </if>
 
@@ -35,7 +37,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="partyAcctgPreference" from="papOut.partyAcctgPreference"/>
             <!-- if no preference we shouldn't post anything -->
             <if condition="!partyAcctgPreference">
-                <log level="info" message="Not posting Asset Receipt [${assetReceiptId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <log level="trace" message="Not posting Asset Receipt [${assetReceiptId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <set field="assetReceipt.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="assetReceipt"/>
                 <return/>
             </if>
 
@@ -135,18 +139,24 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
                 </else>
             </if>
+
+            <!-- set acctg trans result to Success -->
+            <set field="assetReceipt.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="assetReceipt"/>
         </actions>
     </service>
     <service verb="post" noun="AssetIssuance">
         <in-parameters><parameter name="assetIssuanceId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.product.issuance.AssetIssuance" value-field="assetIssuance"/>
+            <entity-find-one entity-name="mantle.product.issuance.AssetIssuance" value-field="assetIssuance" for-update="true"/>
             <set field="asset" from="assetIssuance.'mantle.product.asset.Asset'"/>
             <set field="organizationPartyId" from="asset.ownerPartyId"/>
 
             <if condition="asset.acquireCost == null">
-                <log level="info" message="Not posting Asset Issuance [${assetIssuanceId}], Asset has no acquireCost"/>
+                <log level="trace" message="Not posting Asset Issuance [${assetIssuanceId}], Asset has no acquireCost"/>
+                <set field="assetIssuance.acctgTransResultEnumId" value="AtrNoAcquireCost"/>
+                <entity-update value-field="assetIssuance"/>
                 <return/>
             </if>
 
@@ -155,7 +165,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="partyAcctgPreference" from="papOut.partyAcctgPreference"/>
             <!-- if no preference we shouldn't post anything -->
             <if condition="!partyAcctgPreference">
-                <log level="info" message="Not posting Asset Issuance [${assetIssuanceId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <log level="trace" message="Not posting Asset Issuance [${assetIssuanceId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <set field="assetIssuance.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="assetIssuance"/>
                 <return/>
             </if>
 
@@ -259,6 +271,10 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
                 </else>
             </if>
+
+            <!-- set acctg trans result to Success -->
+            <set field="assetIssuance.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="assetIssuance"/>
         </actions>
     </service>
     <service verb="revert" noun="AssetIssuanceOnCancel">
@@ -432,7 +448,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- make sure this is a fixed asset -->
             <if condition="assetTypeEnum.enumId != 'AstTpFixed' &amp;&amp; assetTypeEnum.parentEnumId != 'AstTpFixed'">
-                <log level="info" message="Not posting Depreciation for Asset [${assetId}], is not a fixed asset"/>
+                <log level="trace" message="Not posting Depreciation for Asset [${assetId}], is not a fixed asset"/>
                 <return/>
             </if>
 
@@ -641,7 +657,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="assetDetailId" required="true"/></in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.product.asset.AssetDetail" value-field="assetDetail"/>
+            <entity-find-one entity-name="mantle.product.asset.AssetDetail" value-field="assetDetail" for-update="true"/>
             <if condition="!assetDetail.physicalInventoryId"><return/></if>
             <if condition="!assetDetail.quantityOnHandDiff"><return/></if>
 
@@ -651,7 +667,9 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset" for-update="true"/>
             <entity-find-one entity-name="mantle.product.asset.PhysicalInventory" value-field="physicalInventory"/>
             <if condition="asset.acquireCost == null">
-                <log level="info" message="Not posting posting Physical Inventory [${assetDetail.physicalInventoryId}] variance for Asset Detail [${assetDetailId}], Asset has no acquireCost"/>
+                <log level="trace" message="Not posting posting Physical Inventory [${assetDetail.physicalInventoryId}] variance for Asset Detail [${assetDetailId}], Asset has no acquireCost"/>
+                <set field="assetDetail.acctgTransResultEnumId" value="AtrNoAcquireCost"/>
+                <entity-update value-field="assetDetail"/>
                 <return/>
             </if>
 
@@ -667,7 +685,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="partyAcctgPreference" from="papOut.partyAcctgPreference"/>
             <!-- if no preference we shouldn't post anything -->
             <if condition="!partyAcctgPreference">
-                <log level="info" message="Not posting Physical Inventory [${assetDetail.physicalInventoryId}] variance for Asset Detail [${assetDetailId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <log level="trace" message="Not posting Physical Inventory [${assetDetail.physicalInventoryId}] variance for Asset Detail [${assetDetailId}], could not find PartyAcctgPreference for Owner Party [${organizationPartyId}]"/>
+                <set field="assetDetail.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="assetDetail"/>
                 <return/>
             </if>
 
@@ -752,6 +772,10 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
                 </else>
             </if>
+
+            <!-- set acctg trans result to Success -->
+            <set field="assetDetail.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="assetDetail"/>
         </actions>
     </service>
 

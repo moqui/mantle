@@ -28,7 +28,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <return error="true" message="Invoice [${invoiceId}] has already been posted in accounting transaction [${existingTransList[0].acctgTransId}]"/>
             </if>
 
-            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice" for-update="true"/>
             <if condition="!invoice"><return error="true" message="Could not find Invoice with ID [${invoiceId}]"/></if>
 
             <!-- is there a OrgInternal PartyRole for from/to parties, and PartyAcctgPreference for the from/to parties or parent orgs of them? -->
@@ -54,7 +54,9 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if no preferences for from or to, we shouldn't post anything -->
             <if condition="!fromPartyAcctgPreference &amp;&amp; !toPartyAcctgPreference">
-                <log level="info" message="Not posting invoice [${invoiceId}], could not find PartyAcctgPreference for From Party [${invoice.fromPartyId}], To Party [${invoice.toPartyId}], or Invoice Override Party [${invoice.overrideOrgPartyId}]"/>
+                <log level="trace" message="Not posting invoice [${invoiceId}], could not find PartyAcctgPreference for From Party [${invoice.fromPartyId}], To Party [${invoice.toPartyId}], or Invoice Override Party [${invoice.overrideOrgPartyId}]"/>
+                <set field="invoice.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="invoice"/>
                 <return/>
             </if>
 
@@ -92,8 +94,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- get all InvoiceItems, including sub-items and all types as we'll post them flat -->
             <entity-find entity-name="mantle.account.invoice.InvoiceItem" list="invoiceItemList">
-                <econdition field-name="invoiceId"/>
-            </entity-find>
+                <econdition field-name="invoiceId"/></entity-find>
 
             <set field="invoiceTotal" from="0"/>
             <iterate list="invoiceItemList" entry="invoiceItem">
@@ -373,6 +374,10 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </else>
             </if>
+
+            <!-- set acctg trans result to Success -->
+            <set field="invoice.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="invoice"/>
         </actions>
     </service>
     
@@ -415,7 +420,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="otherPartyId"/>
             <parameter name="itemTypeEnumId" required="true"/>
             <parameter name="productId"/>
-            <parameter name="assetId"/>
             <parameter name="direction" required="true"/>
         </in-parameters>
         <out-parameters>
@@ -426,9 +430,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
                     in-map="[organizationPartyId:organizationPartyId]"/>
 
-            <!-- look by assetId and productId first (if passed in) -->
-            <!-- TODO: assetId by mantle.ledger.config.AssetTypeGlAccount -->
-
+            <!-- look by productId first (if passed in) -->
             <!-- TODO: productId by mantle.ledger.config.ProductGlAccount and ProductCategoryGlAccount -->
 
             <!-- nothing? look by itemTypeEnumId -->
