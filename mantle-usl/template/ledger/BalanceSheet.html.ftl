@@ -32,14 +32,18 @@ along with this software (see the LICENSE.md file). If not, see
     <thead>
         <tr>
             <th>Balance Sheet</th>
-            <#list timePeriodIdList as timePeriodId><th class="text-right">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</th></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <th class="text-right">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</th>
+            </#list>
         </tr>
     </thead>
     <tbody>
         <#if assetInfoMap??>
         <tr>
             <td>${assetInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(assetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(assetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList assetInfoMap.childClassInfoList 1/>
         </#if>
@@ -47,7 +51,9 @@ along with this software (see the LICENSE.md file). If not, see
         <#if contraAssetInfoMap??>
         <tr>
             <td>${contraAssetInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(contraAssetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(contraAssetInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList contraAssetInfoMap.childClassInfoList 1/>
         </#if>
@@ -55,18 +61,18 @@ along with this software (see the LICENSE.md file). If not, see
         <#if assetInfoMap?? && contraAssetInfoMap??>
         <tr>
             <td><strong>Asset - Contra Asset Total</strong></td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right"><strong>${ec.l10n.formatCurrency(assetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraAssetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(assetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraAssetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
         </tr>
         </#if>
-    </tbody>
 
-
-
-    <tbody>
         <#if liabilityInfoMap??>
         <tr>
             <td>${liabilityInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(liabilityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(liabilityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList liabilityInfoMap.childClassInfoList 1/>
         </#if>
@@ -75,7 +81,9 @@ along with this software (see the LICENSE.md file). If not, see
         <#if equityInfoMap??>
         <tr>
             <td>${equityInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(equityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(equityInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList equityInfoMap.childClassInfoList 1/>
         </#if>
@@ -83,7 +91,9 @@ along with this software (see the LICENSE.md file). If not, see
         <#if liabilityInfoMap?? && equityInfoMap??>
         <tr>
             <td><strong>Liability + Equity Total</strong></td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right"><strong>${ec.l10n.formatCurrency(liabilityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + equityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(liabilityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + equityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
         </tr>
         </#if>
     </tbody>

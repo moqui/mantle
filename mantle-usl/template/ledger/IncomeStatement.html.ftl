@@ -31,63 +31,93 @@ along with this software (see the LICENSE.md file). If not, see
 <table class="table table-striped table-hover table-condensed">
     <thead>
         <tr>
-            <th>Income and Expense</th>
-            <#list timePeriodIdList as timePeriodId><th class="text-right">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</th></#list>
+            <th>Income and Expense Statement</th>
+            <#list timePeriodIdList as timePeriodId>
+                <th class="text-right">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</th>
+            </#list>
         </tr>
     </thead>
     <tbody>
 
         <tr>
             <td>${revenueInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(revenueInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(revenueInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList revenueInfoMap.childClassInfoList 1/>
         <tr>
             <td>${contraRevenueInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(contraRevenueInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(contraRevenueInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList contraRevenueInfoMap.childClassInfoList 1/>
         <tr>
             <td><strong>Net Sales</strong></td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right"><strong>${ec.l10n.formatCurrency(revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
         </tr>
 
         <tr>
             <td>${costOfSalesInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(costOfSalesInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(costOfSalesInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList costOfSalesInfoMap.childClassInfoList 1/>
         <tr>
             <td><strong>Cost of Sales Total</strong></td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right"><strong>${ec.l10n.formatCurrency(costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
         </tr>
-
-        <tr>
+        <tr class="text-info" style="border-bottom: solid black;">
             <td><strong>Gross Profit On Sales</strong></td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right"><strong>${ec.l10n.formatCurrency((revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0) - costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(grossProfitOnSalesMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
         </tr>
-
-
 
         <tr>
             <td>${incomeInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(incomeInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(incomeInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList incomeInfoMap.childClassInfoList 1/>
         <tr>
+            <td><strong>Income Total</strong></td>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
+        </tr>
+        <tr>
             <td>${expenseInfoMap.className}</td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right">${ec.l10n.formatCurrency(expenseInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right">${ec.l10n.formatCurrency(expenseInfoMap.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            </#list>
         </tr>
         <@showChildClassList expenseInfoMap.childClassInfoList 1/>
         <tr>
-            <td><strong>Net Operating Income</strong></td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right"><strong>${ec.l10n.formatCurrency(incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td></#list>
+            <td><strong>Expense Total</strong></td>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
         </tr>
-    </tbody>
-    <tbody>
-        <tr>
+        <tr class="text-info" style="border-bottom: solid black;">
+            <td><strong>Net Operating Income</strong></td>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(netOperatingIncomeMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
+        </tr>
+
+        <tr class="text-success">
             <td><strong>Net Income</strong></td>
-            <#list timePeriodIdList as timePeriodId><td class="text-right"><strong>${ec.l10n.formatCurrency((incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0) - (contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 + expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0), currencyUomId, 2)}</strong></td></#list>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(netIncomeMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
         </tr>
     </tbody>
 </table>

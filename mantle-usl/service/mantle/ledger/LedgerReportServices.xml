@@ -21,9 +21,9 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="currencyUomId"/>
             <parameter name="timePeriodIdMap" type="Map"/>
+
             <parameter name="assetInfoMap" type="Map"/>
             <parameter name="contraAssetInfoMap" type="Map"/>
-
             <parameter name="liabilityInfoMap" type="Map"/>
             <parameter name="equityInfoMap" type="Map"/>
         </out-parameters>
@@ -74,6 +74,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <parameter name="incomeInfoMap" type="Map"/>
             <parameter name="expenseInfoMap" type="Map"/>
+
+            <parameter name="grossProfitOnSalesMap" type="Map"/>
+            <parameter name="netOperatingIncomeMap" type="Map"/>
+            <parameter name="netIncomeMap" type="Map"/>
         </out-parameters>
         <actions>
             <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
@@ -103,6 +107,24 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                     in-map="commonMap + [classEnumId:'EXPENSE']" out-map="expenseOut"/>
             <set field="expenseInfoMap" from="expenseOut.classInfoMap"/>
+
+            <set field="grossProfitOnSalesMap" from="[:]"/>
+            <set field="netOperatingIncomeMap" from="[:]"/>
+            <set field="netIncomeMap" from="[:]"/>
+            <iterate list="timePeriodIdList" entry="timePeriodId">
+                <script>
+                    BigDecimal grossProfitOnSales = (revenueInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (contraRevenueInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (costOfSalesInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    grossProfitOnSalesMap.put(timePeriodId, grossProfitOnSales)
+
+                    BigDecimal netOperatingIncome = (incomeInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (expenseInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    netOperatingIncomeMap.put(timePeriodId, netOperatingIncome)
+
+                    netIncomeMap.put(timePeriodId, grossProfitOnSales + netOperatingIncome)
+                </script>
+            </iterate>
         </actions>
     </service>
     <service verb="get" noun="GlAccountClassReportInfo">
