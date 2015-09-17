@@ -26,6 +26,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="contraAssetInfoMap" type="Map"/>
             <parameter name="liabilityInfoMap" type="Map"/>
             <parameter name="equityInfoMap" type="Map"/>
+
+            <parameter name="netAssetTotalMap" type="Map"/>
+            <parameter name="liabilityEquityTotalMap" type="Map"/>
         </out-parameters>
         <actions>
             <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
@@ -57,6 +60,20 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="commonMap + [classEnumId:'DISTRIBUTION']" out-map="distributionOut"/>
             <set field="distributionInfoMap" from="distributionOut.classInfoMap"/>
             -->
+
+            <set field="netAssetTotalMap" from="[:]"/>
+            <set field="liabilityEquityTotalMap" from="[:]"/>
+            <iterate list="timePeriodIdList" entry="timePeriodId">
+                <script>
+                    BigDecimal netAssetTotal = (assetInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (contraAssetInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    netAssetTotalMap.put(timePeriodId, netAssetTotal)
+
+                    BigDecimal liabilityEquityTotal = (liabilityInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) +
+                                                    (equityInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    liabilityEquityTotalMap.put(timePeriodId, liabilityEquityTotal)
+                </script>
+            </iterate>
         </actions>
     </service>
     <service verb="run" noun="IncomeStatement">
@@ -147,9 +164,21 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="glAccountClassEnumId" from="classEnumId"/>
             </entity-find>
             <set field="balanceByTimePeriod" from="[:]"/>
+            <set field="glAccountInfoMap" from="[:]"/>
             <iterate list="glAccountDetailList" entry="glAccountDetail">
-                <script>StupidUtilities.addToBigDecimalInMap(glAccountDetail.timePeriodId, glAccountDetail.endingBalance, balanceByTimePeriod)</script>
+                <script>
+                    StupidUtilities.addToBigDecimalInMap(glAccountDetail.timePeriodId, glAccountDetail.endingBalance, balanceByTimePeriod)
+
+                    Map glAccountInfo = glAccountInfoMap.get(glAccountDetail.accountCode)
+                    if (!glAccountInfo) {
+                        glAccountInfo = [accountCode:glAccountDetail.accountCode, accountName:glAccountDetail.accountName, balanceByTimePeriod:[:]]
+                        glAccountInfoMap.put(glAccountDetail.accountCode, glAccountInfo)
+                    }
+                    glAccountInfo.balanceByTimePeriod.put(glAccountDetail.timePeriodId, glAccountDetail.endingBalance)
+                </script>
             </iterate>
+            <set field="glAccountInfoList" from="new ArrayList(glAccountInfoMap.values())"/>
+            <order-map-list list="glAccountInfoList"><order-by field-name="accountCode"/></order-map-list>
 
             <!-- find child classes and recurse... -->
             <set field="childClassInfoList" from="[]"/>
@@ -179,8 +208,8 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- here is the full class info Map for reference in whatever uses the output -->
             <set field="classInfoMap" from="[classEnumId:classEnumId, className:classEnum.description,
                     balanceByTimePeriod:balanceByTimePeriod, childBalanceByTimePeriod:childBalanceByTimePeriod,
-                    totalBalanceByTimePeriod:totalBalanceByTimePeriod,
-                    childClassInfoList:childClassInfoList, glAccountDetailList:glAccountDetailList]"/>
+                    totalBalanceByTimePeriod:totalBalanceByTimePeriod, childClassInfoList:childClassInfoList,
+                    glAccountDetailList:glAccountDetailList, glAccountInfoList:glAccountInfoList]"/>
         </actions>
     </service>
 
