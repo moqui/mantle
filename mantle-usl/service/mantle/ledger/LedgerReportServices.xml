@@ -130,13 +130,13 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="netIncomeMap" from="[:]"/>
             <iterate list="timePeriodIdList" entry="timePeriodId">
                 <script>
-                    BigDecimal grossProfitOnSales = (revenueInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (contraRevenueInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (costOfSalesInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    BigDecimal grossProfitOnSales = (revenueInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (contraRevenueInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (costOfSalesInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
                     grossProfitOnSalesMap.put(timePeriodId, grossProfitOnSales)
 
-                    BigDecimal netOperatingIncome = (incomeInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (expenseInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    BigDecimal netOperatingIncome = (incomeInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (expenseInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
                     netOperatingIncomeMap.put(timePeriodId, netOperatingIncome)
 
                     netIncomeMap.put(timePeriodId, grossProfitOnSales + netOperatingIncome)
@@ -164,17 +164,23 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="glAccountClassEnumId"/>
             </entity-find>
             <set field="balanceByTimePeriod" from="[:]"/>
+            <set field="postedByTimePeriod" from="[:]"/>
             <set field="glAccountInfoMap" from="[:]"/>
             <iterate list="glAccountDetailList" entry="glAccountDetail">
                 <script>
-                    StupidUtilities.addToBigDecimalInMap(glAccountDetail.timePeriodId, glAccountDetail.endingBalance, balanceByTimePeriod)
+                    BigDecimal balance = glAccountDetail.endingBalance ?: 0
+                    BigDecimal posted = (glAccountDetail.endingBalance ?: 0) - (glAccountDetail.beginningBalance ?: 0)
+                    StupidUtilities.addToBigDecimalInMap(glAccountDetail.timePeriodId, balance, balanceByTimePeriod)
+                    StupidUtilities.addToBigDecimalInMap(glAccountDetail.timePeriodId, posted, postedByTimePeriod)
 
                     Map glAccountInfo = glAccountInfoMap.get(glAccountDetail.accountCode)
                     if (!glAccountInfo) {
-                        glAccountInfo = [accountCode:glAccountDetail.accountCode, accountName:glAccountDetail.accountName, balanceByTimePeriod:[:]]
+                        glAccountInfo = [accountCode:glAccountDetail.accountCode, accountName:glAccountDetail.accountName,
+                                         balanceByTimePeriod:[:], postedByTimePeriod:[:]]
                         glAccountInfoMap.put(glAccountDetail.accountCode, glAccountInfo)
                     }
-                    glAccountInfo.balanceByTimePeriod.put(glAccountDetail.timePeriodId, glAccountDetail.endingBalance)
+                    glAccountInfo.balanceByTimePeriod.put(glAccountDetail.timePeriodId, balance)
+                    glAccountInfo.postedByTimePeriod.put(glAccountDetail.timePeriodId, posted)
                 </script>
             </iterate>
             <set field="glAccountInfoList" from="new ArrayList(glAccountInfoMap.values())"/>
@@ -183,6 +189,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- find child classes and recurse... -->
             <set field="childClassInfoList" from="[]"/>
             <set field="childBalanceByTimePeriod" from="[:]"/>
+            <set field="childPostedByTimePeriod" from="[:]"/>
             <entity-find entity-name="moqui.basic.Enumeration" list="childEnumList">
                 <econdition field-name="parentEnumId" from="glAccountClassEnumId"/></entity-find>
             <iterate list="childEnumList" entry="childEnum">
@@ -192,23 +199,32 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>childClassInfoList.add(childOut.classInfoMap)</script>
                 <!-- add both the class balance and child balance to current class's child balance -->
                 <iterate list="timePeriodIdList" entry="timePeriodId">
-                    <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                            childOut.classInfoMap.balanceByTimePeriod[timePeriodId], childBalanceByTimePeriod)</script>
-                    <script>StupidUtilities.addToBigDecimalInMap(timePeriodId,
-                            childOut.classInfoMap.childBalanceByTimePeriod[timePeriodId], childBalanceByTimePeriod)</script>
+                    <script>
+                        StupidUtilities.addToBigDecimalInMap(timePeriodId, childOut.classInfoMap.balanceByTimePeriod[timePeriodId], childBalanceByTimePeriod)
+                        StupidUtilities.addToBigDecimalInMap(timePeriodId, childOut.classInfoMap.childBalanceByTimePeriod[timePeriodId], childBalanceByTimePeriod)
+                        StupidUtilities.addToBigDecimalInMap(timePeriodId, childOut.classInfoMap.postedByTimePeriod[timePeriodId], childPostedByTimePeriod)
+                        StupidUtilities.addToBigDecimalInMap(timePeriodId, childOut.classInfoMap.childPostedByTimePeriod[timePeriodId], childPostedByTimePeriod)
+                    </script>
                 </iterate>
             </iterate>
 
             <set field="totalBalanceByTimePeriod" from="[:]"/>
+            <set field="totalPostedByTimePeriod" from="[:]"/>
             <iterate list="timePeriodIdList" entry="timePeriodId">
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId, balanceByTimePeriod[timePeriodId], totalBalanceByTimePeriod)</script>
-                <script>StupidUtilities.addToBigDecimalInMap(timePeriodId, childBalanceByTimePeriod[timePeriodId], totalBalanceByTimePeriod)</script>
+                <script>
+                    StupidUtilities.addToBigDecimalInMap(timePeriodId, balanceByTimePeriod[timePeriodId], totalBalanceByTimePeriod)
+                    StupidUtilities.addToBigDecimalInMap(timePeriodId, childBalanceByTimePeriod[timePeriodId], totalBalanceByTimePeriod)
+                    StupidUtilities.addToBigDecimalInMap(timePeriodId, postedByTimePeriod[timePeriodId], totalPostedByTimePeriod)
+                    StupidUtilities.addToBigDecimalInMap(timePeriodId, childPostedByTimePeriod[timePeriodId], totalPostedByTimePeriod)
+                </script>
             </iterate>
 
             <!-- here is the full class info Map for reference in whatever uses the output -->
             <set field="classInfoMap" from="[glAccountClassEnumId:glAccountClassEnumId, className:classEnum.description,
                     balanceByTimePeriod:balanceByTimePeriod, childBalanceByTimePeriod:childBalanceByTimePeriod,
-                    totalBalanceByTimePeriod:totalBalanceByTimePeriod, childClassInfoList:childClassInfoList,
+                    postedByTimePeriod:postedByTimePeriod, childPostedByTimePeriod:childPostedByTimePeriod,
+                    totalBalanceByTimePeriod:totalBalanceByTimePeriod, totalPostedByTimePeriod:totalPostedByTimePeriod,
+                    childClassInfoList:childClassInfoList,
                     glAccountDetailList:glAccountDetailList, glAccountInfoList:glAccountInfoList]"/>
         </actions>
     </service>

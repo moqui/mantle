@@ -19,7 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
     <tr>
         <td style="padding-left: ${(depth-1) * 2}.3em;">${ec.l10n.localize(classInfo.className)}</td>
         <#list timePeriodIdList as timePeriodId>
-            <td class="text-right">${ec.l10n.formatCurrency(classInfo.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+            <td class="text-right">${ec.l10n.formatCurrency(classInfo.postedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
         </#list>
     </tr>
     <#list classInfo.glAccountInfoList! as glAccountInfo>
@@ -27,11 +27,11 @@ along with this software (see the LICENSE.md file). If not, see
             <tr>
                 <td style="padding-left: ${(depth-1) * 2 + 3}.3em;">${glAccountInfo.accountCode}: ${glAccountInfo.accountName}</td>
                 <#list timePeriodIdList as timePeriodId>
-                    <td class="text-right">${ec.l10n.formatCurrency(glAccountInfo.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
+                    <td class="text-right">${ec.l10n.formatCurrency(glAccountInfo.postedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
                 </#list>
             </tr>
         <#else>
-            <!-- ${glAccountInfo.accountCode}: ${glAccountInfo.accountName} ${glAccountInfo.balanceByTimePeriod} -->
+            <!-- ${glAccountInfo.accountCode}: ${glAccountInfo.accountName} ${glAccountInfo.postedByTimePeriod} -->
         </#if>
     </#list>
     <#list classInfo.childClassInfoList as childClassInfo>
@@ -55,7 +55,7 @@ along with this software (see the LICENSE.md file). If not, see
         <tr>
             <td><strong>${ec.l10n.localize("Net Sales")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(revenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(revenueInfoMap.totalPostedByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
         </tr>
 
@@ -63,7 +63,7 @@ along with this software (see the LICENSE.md file). If not, see
         <tr>
             <td><strong>${ec.l10n.localize("Cost of Sales Total")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(costOfSalesInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(costOfSalesInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
         </tr>
         <tr class="text-info" style="border-bottom: solid black;">
@@ -77,14 +77,14 @@ along with this software (see the LICENSE.md file). If not, see
         <tr>
             <td><strong>${ec.l10n.localize("Income Total")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(incomeInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(incomeInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
         </tr>
         <@showClass expenseInfoMap 1/>
         <tr>
             <td><strong>${ec.l10n.localize("Expense Total")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(expenseInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(expenseInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
         </tr>
         <tr class="text-info" style="border-bottom: solid black;">
