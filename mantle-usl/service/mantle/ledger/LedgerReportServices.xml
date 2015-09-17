@@ -43,21 +43,21 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="commonMap" from="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList]"/>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'ASSET']" out-map="assetOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'ASSET']" out-map="assetOut"/>
             <set field="assetInfoMap" from="assetOut.classInfoMap"/>
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'CONTRA_ASSET']" out-map="contraAssetOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'CONTRA_ASSET']" out-map="contraAssetOut"/>
             <set field="contraAssetInfoMap" from="contraAssetOut.classInfoMap"/>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'LIABILITY']" out-map="liabilityOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'LIABILITY']" out-map="liabilityOut"/>
             <set field="liabilityInfoMap" from="liabilityOut.classInfoMap"/>
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'EQUITY']" out-map="equityOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'EQUITY']" out-map="equityOut"/>
             <set field="equityInfoMap" from="equityOut.classInfoMap"/>
             <!-- NOTE: should DISTRIBUTION go here, or somewhere else?
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'DISTRIBUTION']" out-map="distributionOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'DISTRIBUTION']" out-map="distributionOut"/>
             <set field="distributionInfoMap" from="distributionOut.classInfoMap"/>
             -->
 
@@ -109,20 +109,20 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="commonMap" from="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList]"/>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'REVENUE']" out-map="revenueOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'REVENUE']" out-map="revenueOut"/>
             <set field="revenueInfoMap" from="revenueOut.classInfoMap"/>
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'CONTRA_REVENUE']" out-map="contraRevenueOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'CONTRA_REVENUE']" out-map="contraRevenueOut"/>
             <set field="contraRevenueInfoMap" from="contraRevenueOut.classInfoMap"/>
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'COST_OF_SALES']" out-map="costOfSalesOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'COST_OF_SALES']" out-map="costOfSalesOut"/>
             <set field="costOfSalesInfoMap" from="costOfSalesOut.classInfoMap"/>
 
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'INCOME']" out-map="incomeOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'INCOME']" out-map="incomeOut"/>
             <set field="incomeInfoMap" from="incomeOut.classInfoMap"/>
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [classEnumId:'EXPENSE']" out-map="expenseOut"/>
+                    in-map="commonMap + [glAccountClassEnumId:'EXPENSE']" out-map="expenseOut"/>
             <set field="expenseInfoMap" from="expenseOut.classInfoMap"/>
 
             <set field="grossProfitOnSalesMap" from="[:]"/>
@@ -148,20 +148,20 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="organizationPartyId" required="true"/>
             <parameter name="timePeriodIdList" type="List" required="true"/>
-            <parameter name="classEnumId" required="true"/>
+            <parameter name="glAccountClassEnumId" required="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="classInfoMap" type="Map"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.basic.Enumeration" value-field="classEnum">
-                <field-map field-name="enumId" from="classEnumId"/></entity-find-one>
+                <field-map field-name="enumId" from="glAccountClassEnumId"/></entity-find-one>
 
             <!-- lookup accounts, add to glAccountInfoList, sum up classBalance -->
             <entity-find entity-name="mantle.ledger.report.GlAccountOrgTimePeriodDetail" list="glAccountDetailList">
                 <econdition field-name="organizationPartyId"/>
                 <econdition field-name="timePeriodId" operator="in" from="timePeriodIdList"/>
-                <econdition field-name="glAccountClassEnumId" from="classEnumId"/>
+                <econdition field-name="glAccountClassEnumId"/>
             </entity-find>
             <set field="balanceByTimePeriod" from="[:]"/>
             <set field="glAccountInfoMap" from="[:]"/>
@@ -184,11 +184,11 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="childClassInfoList" from="[]"/>
             <set field="childBalanceByTimePeriod" from="[:]"/>
             <entity-find entity-name="moqui.basic.Enumeration" list="childEnumList">
-                <econdition field-name="parentEnumId" from="classEnumId"/></entity-find>
+                <econdition field-name="parentEnumId" from="glAccountClassEnumId"/></entity-find>
             <iterate list="childEnumList" entry="childEnum">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
-                            classEnumId:childEnum.enumId]" out-map="childOut"/>
+                            glAccountClassEnumId:childEnum.enumId]" out-map="childOut"/>
                 <script>childClassInfoList.add(childOut.classInfoMap)</script>
                 <!-- add both the class balance and child balance to current class's child balance -->
                 <iterate list="timePeriodIdList" entry="timePeriodId">
@@ -206,7 +206,7 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
 
             <!-- here is the full class info Map for reference in whatever uses the output -->
-            <set field="classInfoMap" from="[classEnumId:classEnumId, className:classEnum.description,
+            <set field="classInfoMap" from="[glAccountClassEnumId:glAccountClassEnumId, className:classEnum.description,
                     balanceByTimePeriod:balanceByTimePeriod, childBalanceByTimePeriod:childBalanceByTimePeriod,
                     totalBalanceByTimePeriod:totalBalanceByTimePeriod, childClassInfoList:childClassInfoList,
                     glAccountDetailList:glAccountDetailList, glAccountInfoList:glAccountInfoList]"/>

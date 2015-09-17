@@ -17,7 +17,7 @@ along with this software (see the LICENSE.md file). If not, see
 
 <#macro showClass classInfo depth>
     <tr>
-        <td style="padding-left: ${depth * 2}em;">${ec.l10n.localize(classInfo.className)}</td>
+        <td style="padding-left: ${(depth-1) * 2}.3em;">${ec.l10n.localize(classInfo.className)}</td>
         <#list timePeriodIdList as timePeriodId>
             <td class="text-right">${ec.l10n.formatCurrency(classInfo.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
         </#list>
@@ -25,7 +25,7 @@ along with this software (see the LICENSE.md file). If not, see
     <#list classInfo.glAccountInfoList! as glAccountInfo>
         <#if showDetail>
             <tr>
-                <td style="padding-left: ${depth * 2 + 3}em;">${glAccountInfo.accountCode}: ${glAccountInfo.accountName}</td>
+                <td style="padding-left: ${(depth-1) * 2 + 3}.3em;">${glAccountInfo.accountCode}: ${glAccountInfo.accountName}</td>
                 <#list timePeriodIdList as timePeriodId>
                     <td class="text-right">${ec.l10n.formatCurrency(glAccountInfo.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
                 </#list>
