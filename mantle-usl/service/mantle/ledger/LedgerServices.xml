@@ -700,139 +700,68 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find entity-name="mantle.party.time.TimePeriod" list="currentYearList"><date-filter valid-date="new Timestamp(basisDate.time)"/>
                 <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalYear"/></entity-find>
             <if condition="!currentYearList">
-                <!-- no current year... assume fiscal year is calendar year and create one automatically -->
-                <script>yearFromCal = basisCal.clone(); yearFromCal.set(Calendar.DAY_OF_YEAR, 1)</script>
-                <script>yearThruCal = basisCal.clone(); yearThruCal.set(Calendar.DAY_OF_YEAR, yearThruCal.getActualMaximum(Calendar.DAY_OF_YEAR))</script>
-                <service-call name="create#mantle.party.time.TimePeriod" out-map="createTpOut"
-                        in-map="[timePeriodTypeId:'FiscalYear', partyId:organizationPartyId,
-                            periodNum:yearFromCal.get(Calendar.YEAR), beginningBalance:0, endingBalance:0,
-                            periodName:(organization.organizationName + ' ' + yearFromCal.get(Calendar.YEAR)),
-                            fromDate:new java.sql.Date(yearFromCal.getTimeInMillis()),
-                            thruDate:new java.sql.Date(yearThruCal.getTimeInMillis()), isClosed:'N']"/>
-                <set field="yearPeriodId" from="createTpOut.timePeriodId"/>
-
-                <else>
-                    <script>yearFromCal = ec.user.getCalendarSafe(); yearFromCal.setTime(currentYearList.first.fromDate)</script>
-                    <script>yearThruCal = ec.user.getCalendarSafe(); yearThruCal.setTime(currentYearList.first.thruDate)</script>
-                    <set field="yearPeriodId" from="currentYearList.first.timePeriodId"/>
-                </else>
+                <then>
+                    <!-- no current year... assume fiscal year is calendar year and create one automatically -->
+                    <script>yearFromCal = basisCal.clone(); yearFromCal.set(Calendar.DAY_OF_YEAR, 1)</script>
+                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                            in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalYear',
+                                fromDate:new java.sql.Date(yearFromCal.getTimeInMillis())]"/>
+                    <set field="yearPeriodId" from="createTpOut.timePeriodId"/>
+                </then>
+                <else><set field="yearPeriodId" from="currentYearList.first.timePeriodId"/></else>
             </if>
 
             <!-- current quarter -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="currentQuarterList"><date-filter valid-date="new Timestamp(basisDate.time)"/>
                 <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalQuarter"/></entity-find>
             <if condition="!currentQuarterList">
-                <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
-                <script>quarterNumber = (int) (basisCal.get(Calendar.MONTH)/3)</script>
-                <script>quarterFromCal = basisCal.clone(); quarterFromCal.set(Calendar.MONTH, (quarterNumber * 3)); quarterFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
-                <script>quarterThruCal = basisCal.clone(); quarterThruCal.set(Calendar.MONTH, ((quarterNumber + 1) * 3)); quarterThruCal.set(Calendar.DAY_OF_MONTH, 1); quarterThruCal.add(Calendar.DAY_OF_YEAR, -1)</script>
-                <service-call name="create#mantle.party.time.TimePeriod" out-map="createTpOut"
-                        in-map="[parentPeriodId:yearPeriodId, timePeriodTypeId:'FiscalQuarter', partyId:organizationPartyId,
-                            periodNum:(quarterNumber + 1), beginningBalance:0, endingBalance:0,
-                            periodName:(organization.organizationName + ' ' + quarterFromCal.get(Calendar.YEAR) + 'Q' + (quarterNumber + 1)),
-                            fromDate:new java.sql.Date(quarterFromCal.getTimeInMillis()),
-                            thruDate:new java.sql.Date(quarterThruCal.getTimeInMillis()), isClosed:'N']"/>
-                <set field="quarterPeriodId" from="createTpOut.timePeriodId"/>
-
-                <else>
-                    <script>quarterFromCal = ec.user.getCalendarSafe(); quarterFromCal.setTime(currentQuarterList.first.fromDate)</script>
-                    <script>quarterThruCal = ec.user.getCalendarSafe(); quarterThruCal.setTime(currentQuarterList.first.thruDate)</script>
-                    <set field="quarterPeriodId" from="currentQuarterList.first.timePeriodId"/>
-                </else>
+                <then>
+                    <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
+                    <script>quarterNumber = (int) (basisCal.get(Calendar.MONTH)/3)</script>
+                    <script>quarterFromCal = basisCal.clone(); quarterFromCal.set(Calendar.MONTH, (quarterNumber * 3)); quarterFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
+                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                            in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalQuarter',
+                                parentPeriodId:yearPeriodId, periodNum:(quarterNumber + 1),
+                                fromDate:new java.sql.Date(quarterFromCal.getTimeInMillis())]"/>
+                    <set field="quarterPeriodId" from="createTpOut.timePeriodId"/>
+                </then>
+                <else><set field="quarterPeriodId" from="currentQuarterList.first.timePeriodId"/></else>
             </if>
 
             <!-- current month -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="currentMonthList"><date-filter valid-date="new Timestamp(basisDate.time)"/>
                 <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalMonth"/></entity-find>
             <if condition="!currentMonthList">
-                <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
-                <script>monthNumber = basisCal.get(Calendar.MONTH)</script>
-                <script>monthFromCal = basisCal.clone(); monthFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
-                <script>monthThruCal = basisCal.clone(); monthThruCal.set(Calendar.DAY_OF_MONTH, basisCal.getActualMaximum(Calendar.DAY_OF_MONTH))</script>
-                <service-call name="create#mantle.party.time.TimePeriod" out-map="createTpOut"
-                        in-map="[parentPeriodId:quarterPeriodId, timePeriodTypeId:'FiscalMonth', partyId:organizationPartyId,
-                            periodNum:monthNumber+1, beginningBalance:0, endingBalance:0,
-                            periodName:(organization.organizationName + ' ' + monthFromCal.get(Calendar.YEAR) + '-' + (monthNumber + 1)),
-                            fromDate:new java.sql.Date(monthFromCal.getTimeInMillis()),
-                            thruDate:new java.sql.Date(monthThruCal.getTimeInMillis()), isClosed:'N']"/>
-                <set field="monthPeriodId" from="createTpOut.timePeriodId"/>
+                <then>
+                    <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
+                    <script>monthNumber = basisCal.get(Calendar.MONTH)</script>
+                    <script>monthFromCal = basisCal.clone(); monthFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
+                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                            in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalMonth',
+                                parentPeriodId:quarterPeriodId, periodNum:(monthNumber + 1),
+                                fromDate:new java.sql.Date(monthFromCal.getTimeInMillis())]"/>
+                    <set field="monthPeriodId" from="createTpOut.timePeriodId"/>
+                </then>
 
-                <else>
-                    <script>monthFromCal = ec.user.getCalendarSafe(); monthFromCal.setTime(currentMonthList.first.fromDate)</script>
-                    <script>monthThruCal = ec.user.getCalendarSafe(); monthThruCal.setTime(currentMonthList.first.thruDate)</script>
-                    <set field="monthPeriodId" from="currentMonthList.first.timePeriodId"/>
-                </else>
+
+                <else><set field="monthPeriodId" from="currentMonthList.first.timePeriodId"/></else>
             </if>
 
             <!-- next year -->
             <!-- based on current year see if next exists and if not add one starting the day after and one year long -->
-            <script>nextYearFromCal = yearFromCal.clone(); nextYearFromCal.add(Calendar.YEAR, 1); nextYearFromCal.getTimeInMillis()</script>
-            <entity-find entity-name="mantle.party.time.TimePeriod" list="nextYearList"><date-filter valid-date="new Timestamp(nextYearFromCal.getTimeInMillis())"/>
-                <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalYear"/></entity-find>
-            <if condition="!nextYearList">
-                <script>nextYearThruCal = yearThruCal.clone(); nextYearThruCal.add(Calendar.YEAR, 1); nextYearThruCal.add(Calendar.DAY_OF_MONTH, 5); nextYearThruCal.set(Calendar.DAY_OF_MONTH, 1); nextYearThruCal.add(Calendar.DAY_OF_MONTH, -1); nextYearThruCal.getTimeInMillis()</script>
-                <set field="nextYearPeriodName" value="${organization.organizationName} ${nextYearFromCal.get(Calendar.YEAR)}"/>
-                <service-call name="create#mantle.party.time.TimePeriod" out-map="createTpOut"
-                        in-map="[previousPeriodId:yearPeriodId, timePeriodTypeId:'FiscalYear', partyId:organizationPartyId,
-                            beginningBalance:0, endingBalance:0, periodNum:nextYearFromCal.get(Calendar.YEAR),
-                            periodName:nextYearPeriodName, fromDate:new java.sql.Date(nextYearFromCal.getTimeInMillis()),
-                            thruDate:new java.sql.Date(nextYearThruCal.getTimeInMillis()), isClosed:'N']"/>
-                <set field="nextYearPeriodId" from="createTpOut.timePeriodId"/>
-
-                <else>
-                    <script>nextYearFromCal = ec.user.getCalendarSafe(); nextYearFromCal.setTime(nextYearList.first.fromDate)</script>
-                    <script>nextYearThruCal = ec.user.getCalendarSafe(); nextYearThruCal.setTime(nextYearList.first.thruDate)</script>
-                    <set field="nextYearPeriodId" from="nextYearList.first.timePeriodId"/>
-                </else>
-            </if>
+            <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod" out-map="nextYearOut"
+                    in-map="[timePeriodId:yearPeriodId]"/>
+            <set field="nextYearPeriodId" from="nextYearOut.nextTimePeriodId"/>
 
             <!-- next quarter, may be in current or next year -->
-            <script>nextQuarterFromCal = quarterFromCal.clone(); nextQuarterFromCal.add(Calendar.MONTH, 3); nextQuarterFromCal.add(Calendar.DAY_OF_MONTH, 5); nextQuarterFromCal.set(Calendar.DAY_OF_MONTH, 1); nextQuarterFromCal.getTimeInMillis()</script>
-            <entity-find entity-name="mantle.party.time.TimePeriod" list="nextQuarterList"><date-filter valid-date="new Timestamp(nextQuarterFromCal.getTimeInMillis())"/>
-                <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalQuarter"/></entity-find>
-            <if condition="!nextQuarterList">
-                <set field="parentPeriodId" from="(nextQuarterFromCal.getTimeInMillis() &lt; yearThruCal.getTimeInMillis()) ? yearPeriodId : nextYearPeriodId"/>
-                <script>nextQuarterThruCal = quarterThruCal.clone(); nextQuarterThruCal.add(Calendar.MONTH, 3); nextQuarterThruCal.add(Calendar.DAY_OF_MONTH, 5); nextQuarterThruCal.set(Calendar.DAY_OF_MONTH, 1); nextQuarterThruCal.add(Calendar.DAY_OF_MONTH, -1); nextQuarterThruCal.getTimeInMillis()</script>
-                <script>nextQuarterNumber = (int) (nextQuarterFromCal.get(Calendar.MONTH)/3)</script>
-                <set field="nextQuarterPeriodName" value="${organization.organizationName} ${nextQuarterFromCal.get(Calendar.YEAR)}Q${nextQuarterNumber + 1}"/>
-                <service-call name="create#mantle.party.time.TimePeriod" out-map="createTpOut"
-                        in-map="[parentPeriodId:parentPeriodId, previousPeriodId:quarterPeriodId,
-                            timePeriodTypeId:'FiscalQuarter', partyId:organizationPartyId, beginningBalance:0,
-                            endingBalance:0, periodNum:nextQuarterNumber+1, periodName:nextQuarterPeriodName,
-                            fromDate:new java.sql.Date(nextQuarterFromCal.getTimeInMillis()),
-                            thruDate:new java.sql.Date(nextQuarterThruCal.getTimeInMillis()), isClosed:'N']"/>
-                <set field="nextQuarterPeriodId" from="createTpOut.timePeriodId"/>
-
-                <else>
-                    <script>nextQuarterFromCal = ec.user.getCalendarSafe(); nextQuarterFromCal.setTime(nextQuarterList.first.fromDate)</script>
-                    <script>nextQuarterThruCal = ec.user.getCalendarSafe(); nextQuarterThruCal.setTime(nextQuarterList.first.thruDate)</script>
-                    <set field="nextQuarterPeriodId" from="nextQuarterList.first.timePeriodId"/>
-                </else>
-            </if>
+            <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod" out-map="nextQuarterOut"
+                    in-map="[timePeriodId:quarterPeriodId]"/>
+            <set field="nextQuarterPeriodId" from="nextQuarterOut.nextTimePeriodId"/>
 
             <!-- next month, may be in current or next quarter -->
-            <script>nextMonthFromCal = monthFromCal.clone(); nextMonthFromCal.add(Calendar.MONTH, 1); nextMonthFromCal.add(Calendar.DAY_OF_MONTH, 5); nextMonthFromCal.set(Calendar.DAY_OF_MONTH, 1); nextMonthFromCal.getTimeInMillis()</script>
-            <entity-find entity-name="mantle.party.time.TimePeriod" list="nextMonthList"><date-filter valid-date="new Timestamp(nextMonthFromCal.getTimeInMillis())"/>
-                <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalMonth"/></entity-find>
-            <if condition="!nextMonthList">
-                <set field="parentPeriodId" from="(nextMonthFromCal.getTimeInMillis() &lt; quarterThruCal.getTimeInMillis()) ? quarterPeriodId : nextQuarterPeriodId"/>
-                <script>nextMonthNumber = nextMonthFromCal.get(Calendar.MONTH)</script>
-                <script>nextMonthThruCal = monthThruCal.clone(); nextMonthThruCal.add(Calendar.MONTH, 1); nextMonthThruCal.add(Calendar.DAY_OF_MONTH, 5); nextMonthThruCal.set(Calendar.DAY_OF_MONTH, 1); nextMonthThruCal.add(Calendar.DAY_OF_MONTH, -1); nextMonthThruCal.getTimeInMillis()</script>
-                <set field="nextMonthPeriodName" value="${organization.organizationName} ${nextMonthFromCal.get(Calendar.YEAR)}-${nextMonthNumber + 1}"/>
-                <service-call name="create#mantle.party.time.TimePeriod" out-map="createTpOut"
-                        in-map="[parentPeriodId:parentPeriodId, previousPeriodId:monthPeriodId,
-                            timePeriodTypeId:'FiscalMonth', partyId:organizationPartyId, beginningBalance:0,
-                            endingBalance:0, periodNum:nextMonthNumber+1, periodName:nextMonthPeriodName,
-                            fromDate:new java.sql.Date(nextMonthFromCal.getTimeInMillis()),
-                            thruDate:new java.sql.Date(nextMonthThruCal.getTimeInMillis()), isClosed:'N']"/>
-
-                <else>
-                    <!-- this the last set, nothing will use these but leaving as a placeholder in case this is expanded:
-                    <script>nextMonthFromCal = ec.user.getCalendarSafe(); nextMonthFromCal.setTime(nextMonthList.first.fromDate)</script>
-                    <script>nextMonthThruCal = ec.user.getCalendarSafe(); nextQuarterThruCal.setTime(nextQuarterList.first.thruDate)</script>
-                    -->
-                </else>
-            </if>
+            <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod" out-map="nextMonthOut"
+                    in-map="[timePeriodId:monthPeriodId]"/>
+            <set field="nextMonthPeriodId" from="nextMonthOut.nextTimePeriodId"/>
         </actions>
     </service>
     <service verb="close" noun="FinancialTimePeriod">
@@ -876,23 +805,13 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="timePeriod.isClosed" value="Y"/>
             <entity-update value-field="timePeriod"/>
 
-            <!-- find the next TimePeriod -->
-            <entity-find entity-name="mantle.party.time.TimePeriod" list="nextTimePeriodList" for-update="true">
-                <econdition field-name="previousPeriodId" from="timePeriodId"/></entity-find>
-            <if condition="nextTimePeriodList">
-                <then><set field="nextTimePeriod" from="nextTimePeriodList.first"/></then>
-                <else>
-                    <!-- if no next time period, create one, though really should already be there just in case tx'es have posted already... -->
-                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
-                            in-map="[previousPeriodId:previousPeriodId]"/>
-                    <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="nextTimePeriod">
-                        <field-map field-name="timePeriodId" from="createTpOut.timePeriodId"/></entity-find-one>
-                </else>
-            </if>
+            <!-- find the next TimePeriod (gets nextTimePeriodId, nextTimePeriod) -->
+            <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod" out-map="context"
+                    in-map="[timePeriodId:timePeriodId]"/>
 
             <!-- recalculate postedDebits, postedCredits, endingBalance on GlAccountOrgTimePeriod records for this time period -->
             <service-call name="mantle.ledger.LedgerServices.recalculate#GlAccountOrgTimePeriodAmounts"
-                    in-map="[timePeriodId:timePeriodId, nextTimePeriodId:nextTimePeriod.timePeriodId]"/>
+                    in-map="[timePeriodId:timePeriodId, nextTimePeriodId:nextTimePeriodId]"/>
         </actions>
     </service>
     <service verb="recalculate" noun="GlAccountOrgTimePeriodAmounts">
