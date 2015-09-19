@@ -146,44 +146,60 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="run" noun="CashFlowStatement">
-        <in-parameters>
-            <parameter name="organizationPartyId" required="true"/>
-            <parameter name="timePeriodIdList" type="List" required="true"/>
-        </in-parameters>
+        <implements service="mantle.ledger.LedgerReportServices.run#IncomeStatement"/>
         <out-parameters>
-            <parameter name="currencyUomId"/>
-            <parameter name="timePeriodIdMap" type="Map"/>
-
-            <!-- TODO net cash flow from
+            <!-- net cash flow from
                 - operating activities
                   - net income (add; from income statement)
                   - cash from operating activities
-                    - loss on disposal of assets (subtract)
-                    - gain on sale of assets (add)
-                    - depreciation and amortization (add)
-                  - changes (end - begin balance) in operating assets and liabilities, net effects from acquisitions
+                    - TODO these two are in the income statement, include them here?
+                      - loss on disposal of assets (subtract)
+                      - gain on sale of assets (add)
+                    - CONTRA_ASSET (include this?)
+                      - accumulated depreciation ACCUM_DEPRECIATION (subtract)
+                      - accumulated amortization ACCUM_AMORTIZATION (subtract)
+                  - CURRENT_ASSET (end - begin balance) (except CASH_EQUIVALENT?)
                     - accounts receivable ACCOUNTS_RECEIVABLE (add)
                     - prepaid expenses PREPAID_AND_OTHER (add)
                     - accrued interest receivable (add)
-                    - inventory assets (add)
-                    - other assets (add)
-                    - accounts payable (subtract)
-                    - accrued expenses (subtract)
+                    - inventory assets INVENTORY_ASSET (add)
+                  - other assets OTHER_ASSET (add)
+                  - CURRENT_LIABILITY (end - begin balance)
+                    - accounts payable ACCOUNTS_PAYABLE (subtract)
+                    - accrued expenses ACCRUED_EXPENSES (subtract)
                     - accrued interest payable (subtract)
+                    - third party holdings THIRD_PARTY_HOLDINGS (subtract)
                 - investing activities
                   - change (end - begin balance) in long term assets LONGTERM_ASSET (subtract)
                   - redundant? cash paid for assets (subtract)
                 - financing activities
-                  - cash paid for shareholder distributions (subtract)
-                  - cash received from shareholders (add)
-                  - principal payments on long term debt (subtract)
+                  - DISTRIBUTION
+                    - cash paid for shareholder distributions DIVIDEND (subtract)
+                    - return of capital RETURN_OF_CAPITAL (subtract)
+                  - EQUITY
+                    - cash received from shareholders OWNERS_EQUITY (add)
+                    - retained earnings RETAINED_EARNINGS (add)
+                  - principal payments on long term debt LONGTERM_LIABILITY, others? (subtract)
                   - proceeds from long term debt (add)
                 - cash and equivalents CASH_EQUIVALENT; show change, begin balance, end balance
 
             -->
+            <parameter name="classInfoById" type="Map"/>
         </out-parameters>
         <actions>
-            <!-- TODO -->
+            <service-call name="mantle.ledger.LedgerReportServices.run#IncomeStatement" in-map="context" out-map="context"/>
+
+            <set field="classIdList" from="[
+                    /* Operating Activities */ 'CONTRA_ASSET', 'CURRENT_ASSET', 'OTHER_ASSET', 'CURRENT_LIABILITY',
+                    /* Investing Activities */ 'LONGTERM_ASSET',
+                    /* Financing Activities */ 'DISTRIBUTION', 'EQUITY', 'LONGTERM_LIABILITY']"/>
+
+            <set field="classInfoById" from="[:]"/>
+            <iterate list="classIdList" entry="classId">
+                <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
+                        in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
+                            classInfoById:classInfoById, glAccountClassEnumId:classId]"/>
+            </iterate>
         </actions>
     </service>
 
@@ -192,6 +208,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="organizationPartyId" required="true"/>
             <parameter name="timePeriodIdList" type="List" required="true"/>
             <parameter name="glAccountClassEnumId" required="true"/>
+            <parameter name="classInfoById" type="Map"/>
         </in-parameters>
         <out-parameters>
             <parameter name="classInfoMap" type="Map"/>
@@ -234,7 +251,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="childBalanceByTimePeriod" from="[:]"/>
             <set field="childPostedByTimePeriod" from="[:]"/>
             <entity-find entity-name="moqui.basic.Enumeration" list="childEnumList">
-                <econdition field-name="parentEnumId" from="glAccountClassEnumId"/></entity-find>
+                <econdition field-name="parentEnumId" from="glAccountClassEnumId"/>
+                <order-by field-name="description"/>
+            </entity-find>
             <iterate list="childEnumList" entry="childEnum">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
@@ -269,6 +288,8 @@ along with this software (see the LICENSE.md file). If not, see
                     totalBalanceByTimePeriod:totalBalanceByTimePeriod, totalPostedByTimePeriod:totalPostedByTimePeriod,
                     childClassInfoList:childClassInfoList,
                     glAccountDetailList:glAccountDetailList, glAccountInfoList:glAccountInfoList]"/>
+
+            <if condition="classInfoById != null"><script>classInfoById.put(glAccountClassEnumId, classInfoMap)</script></if>
         </actions>
     </service>
 
