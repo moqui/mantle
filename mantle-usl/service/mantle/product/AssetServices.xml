@@ -13,8 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-    <!-- STATUS: EXPERIMENTAL -->
-
     <service verb="get" noun="AssetDisplayInfo">
         <in-parameters><parameter name="assetId"/></in-parameters>
         <out-parameters>
@@ -823,6 +821,7 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
             <entity-find-one entity-name="mantle.facility.Facility" value-field="facility"/>
 
             <!-- set type and class from product if not passed in -->
@@ -834,6 +833,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orderPart" from="orderItem?.'mantle.order.OrderPart'"/>
                 <set field="ownerPartyId" from="orderPart?.customerPartyId"/>
             </if>
+            <!-- get ownerPartyId from WorkEffort if needed -->
+            <if condition="!ownerPartyId"><set field="ownerPartyId" from="workEffort?.ownerPartyId"/></if>
             <!-- get ownerPartyId from Facility if needed -->
             <if condition="!ownerPartyId"><set field="ownerPartyId" from="facility?.ownerPartyId"/></if>
 
@@ -1085,12 +1086,12 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="productId"/><econdition field-name="facilityId"/>
                     <econdition field-name="quantityOnHandTotal" operator="not-equals" from="0"/>
                     <econdition field-name="locationSeqId" ignore-if-empty="true"/>
+                    <order-by field-name="receivedDate"/><!-- oldest first -->
+                    <order-by field-name="-quantityOnHandTotal"/><!-- then by most QOH (should be rare in real world, useful mostly for consistency in tests) -->
                 </entity-find>
             </if>
             <!-- <log level="warn" message="======= Changing product [${productId}] in facility [${facilityId}:${locationSeqId}] by ${quantityChange}; assetList: ${assetList}"/> -->
             <if condition="quantityChange &gt; 0">
-                <!-- if adding inventory order assetList by -receivedDate to add to most recent first, otherwise by receivedDate to subtract from oldest first -->
-                <order-map-list list="assetList"><order-by field-name="-receivedDate"/></order-map-list>
                 <set field="quantityRemaining" from="quantityChange"/>
                 <iterate list="assetList" entry="asset">
                     <!-- NOTE: no real reason for iterating here, will always add it all to the first Asset record; leaving it for now to make more complex logic easier in the future -->
@@ -1102,7 +1103,6 @@ along with this software (see the LICENSE.md file). If not, see
                 </iterate>
 
                 <else-if condition="quantityChange &lt; 0">
-                    <order-map-list list="assetList"><order-by field-name="receivedDate"/></order-map-list>
                     <set field="quantityRemaining" from="-quantityChange"/>
                     <iterate list="assetList" entry="asset">
                         <set field="quantityDiff" from="quantityRemaining &gt; asset.quantityOnHandTotal ? asset.quantityOnHandTotal : quantityRemaining"/>

@@ -30,19 +30,25 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="acctgTransId"/></out-parameters>
         <actions>
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccountTrans" value-field="financialAccountTrans"/>
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccountTrans" value-field="financialAccountTrans" for-update="true"/>
             <entity-find-related-one value-field="financialAccountTrans"
                     relationship-name="mantle.account.financial.FinancialAccount" to-value-field="financialAccount"/>
             <if condition="!financialAccount"><return error="true" message="Not posting, could not find Financial Account with ID [${financialAccountTrans.finAccountId}] for financial account transaction with ID [${finAccountTransId}]"/></if>
 
             <if condition="!financialAccountTrans.reasonEnumId">
-                <log level="warn" message="Not posting FinancialAccountTrans [${finAccountTransId}], has no reasonEnumId"/>
+                <log level="trace" message="Not posting FinancialAccountTrans [${finAccountTransId}], has no reasonEnumId"/>
+                <set field="financialAccountTrans.acctgTransResultEnumId" value="AtrNoTransReason"/>
+                <entity-update value-field="financialAccountTrans"/>
                 <return/>
             </if>
 
             <!-- get partyAcctgPreference -->
             <if condition="!financialAccount.organizationPartyId">
-                <return error="true" message="Not posting, Financial Account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)} has no organization Party; for financial account transaction with ID [${finAccountTransId}]"/></if>
+                <log level="trace" message="Not posting, Financial Account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)} has no organization Party; for financial account transaction with ID [${finAccountTransId}]"/>
+                <set field="financialAccountTrans.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="financialAccountTrans"/>
+                <return/>
+            </if>
             <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
                     in-map="[organizationPartyId:financialAccount.organizationPartyId]"/>
 
@@ -127,6 +133,9 @@ along with this software (see the LICENSE.md file). If not, see
                 </else>
             </if>
 
+            <!-- set acctg trans result to Success -->
+            <set field="financialAccountTrans.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="financialAccountTrans"/>
         </actions>
     </service>
 
