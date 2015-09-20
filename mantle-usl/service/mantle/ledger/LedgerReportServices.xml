@@ -21,11 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="currencyUomId"/>
             <parameter name="timePeriodIdMap" type="Map"/>
-
-            <parameter name="assetInfoMap" type="Map"/>
-            <parameter name="contraAssetInfoMap" type="Map"/>
-            <parameter name="liabilityInfoMap" type="Map"/>
-            <parameter name="equityInfoMap" type="Map"/>
+            <parameter name="classInfoById" type="Map"/>
 
             <parameter name="netAssetTotalMap" type="Map"/>
             <parameter name="liabilityEquityTotalMap" type="Map"/>
@@ -40,37 +36,26 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>timePeriodIdMap.put(timePeriodId, timePeriod)</script>
             </iterate>
 
-            <set field="commonMap" from="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList]"/>
+            <set field="classIdList" from="['ASSET', 'CONTRA_ASSET', 'LIABILITY', 'EQUITY']"/>
+            <!-- NOTE: should DISTRIBUTION go here, or somewhere else? -->
 
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'ASSET']" out-map="assetOut"/>
-            <set field="assetInfoMap" from="assetOut.classInfoMap"/>
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'CONTRA_ASSET']" out-map="contraAssetOut"/>
-            <set field="contraAssetInfoMap" from="contraAssetOut.classInfoMap"/>
-
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'LIABILITY']" out-map="liabilityOut"/>
-            <set field="liabilityInfoMap" from="liabilityOut.classInfoMap"/>
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'EQUITY']" out-map="equityOut"/>
-            <set field="equityInfoMap" from="equityOut.classInfoMap"/>
-            <!-- NOTE: should DISTRIBUTION go here, or somewhere else?
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'DISTRIBUTION']" out-map="distributionOut"/>
-            <set field="distributionInfoMap" from="distributionOut.classInfoMap"/>
-            -->
+            <set field="classInfoById" from="[:]"/>
+            <iterate list="classIdList" entry="classId">
+                <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
+                        in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
+                            classInfoById:classInfoById, glAccountClassEnumId:classId]"/>
+            </iterate>
 
             <set field="netAssetTotalMap" from="[:]"/>
             <set field="liabilityEquityTotalMap" from="[:]"/>
             <iterate list="timePeriodIdList" entry="timePeriodId">
                 <script>
-                    BigDecimal netAssetTotal = (assetInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (contraAssetInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    BigDecimal netAssetTotal = (classInfoById.ASSET.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
                     netAssetTotalMap.put(timePeriodId, netAssetTotal)
 
-                    BigDecimal liabilityEquityTotal = (liabilityInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) +
-                                                    (equityInfoMap.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                    BigDecimal liabilityEquityTotal = (classInfoById.LIABILITY.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) +
+                                                    (classInfoById.EQUITY.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
                     liabilityEquityTotalMap.put(timePeriodId, liabilityEquityTotal)
                 </script>
             </iterate>
@@ -84,13 +69,7 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="currencyUomId"/>
             <parameter name="timePeriodIdMap" type="Map"/>
-
-            <parameter name="revenueInfoMap" type="Map"/>
-            <parameter name="contraRevenueInfoMap" type="Map"/>
-            <parameter name="costOfSalesInfoMap" type="Map"/>
-
-            <parameter name="incomeInfoMap" type="Map"/>
-            <parameter name="expenseInfoMap" type="Map"/>
+            <parameter name="classInfoById" type="Map"/>
 
             <parameter name="grossProfitOnSalesMap" type="Map"/>
             <parameter name="netOperatingIncomeMap" type="Map"/>
@@ -106,37 +85,28 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>timePeriodIdMap.put(timePeriodId, timePeriod)</script>
             </iterate>
 
-            <set field="commonMap" from="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList]"/>
+            <set field="classIdList" from="['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES', 'INCOME', 'EXPENSE']"/>
+            <!-- NOTE: should DISTRIBUTION go here, or somewhere else? -->
 
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'REVENUE']" out-map="revenueOut"/>
-            <set field="revenueInfoMap" from="revenueOut.classInfoMap"/>
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'CONTRA_REVENUE']" out-map="contraRevenueOut"/>
-            <set field="contraRevenueInfoMap" from="contraRevenueOut.classInfoMap"/>
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'COST_OF_SALES']" out-map="costOfSalesOut"/>
-            <set field="costOfSalesInfoMap" from="costOfSalesOut.classInfoMap"/>
-
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'INCOME']" out-map="incomeOut"/>
-            <set field="incomeInfoMap" from="incomeOut.classInfoMap"/>
-            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
-                    in-map="commonMap + [glAccountClassEnumId:'EXPENSE']" out-map="expenseOut"/>
-            <set field="expenseInfoMap" from="expenseOut.classInfoMap"/>
+            <set field="classInfoById" from="[:]"/>
+            <iterate list="classIdList" entry="classId">
+                <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
+                        in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
+                            classInfoById:classInfoById, glAccountClassEnumId:classId]"/>
+            </iterate>
 
             <set field="grossProfitOnSalesMap" from="[:]"/>
             <set field="netOperatingIncomeMap" from="[:]"/>
             <set field="netIncomeMap" from="[:]"/>
             <iterate list="timePeriodIdList" entry="timePeriodId">
                 <script>
-                    BigDecimal grossProfitOnSales = (revenueInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (contraRevenueInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (costOfSalesInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
+                    BigDecimal grossProfitOnSales = (classInfoById.REVENUE.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (classInfoById.COST_OF_SALES.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
                     grossProfitOnSalesMap.put(timePeriodId, grossProfitOnSales)
 
-                    BigDecimal netOperatingIncome = (incomeInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (expenseInfoMap.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
+                    BigDecimal netOperatingIncome = (classInfoById.INCOME.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
+                                                    (classInfoById.EXPENSE.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
                     netOperatingIncomeMap.put(timePeriodId, netOperatingIncome)
 
                     netIncomeMap.put(timePeriodId, grossProfitOnSales + netOperatingIncome)
@@ -194,7 +164,7 @@ along with this software (see the LICENSE.md file). If not, see
                     /* Investing Activities */ 'LONGTERM_ASSET',
                     /* Financing Activities */ 'DISTRIBUTION', 'EQUITY', 'LONGTERM_LIABILITY']"/>
 
-            <set field="classInfoById" from="[:]"/>
+            <!-- NOTE: classInfoById used from run#IncomeStatement, contains 'REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES', 'INCOME', 'EXPENSE' -->
             <iterate list="classIdList" entry="classId">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,

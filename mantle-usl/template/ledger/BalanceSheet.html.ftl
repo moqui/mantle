@@ -49,27 +49,25 @@ along with this software (see the LICENSE.md file). If not, see
         </tr>
     </thead>
     <tbody>
-        <#if assetInfoMap??>
-            <@showClass assetInfoMap 1/>
+        <#if classInfoById.ASSET??>
+            <@showClass classInfoById.ASSET 1/>
             <tr>
                 <td><strong>${ec.l10n.localize("Asset Total")}</strong></td>
                 <#list timePeriodIdList as timePeriodId>
-                    <td class="text-right"><strong>${ec.l10n.formatCurrency(assetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                    <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.ASSET.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
                 </#list>
             </tr>
         </#if>
-
-        <#if contraAssetInfoMap??>
-            <@showClass contraAssetInfoMap 1/>
+        <#if classInfoById.CONTRA_ASSET??>
+            <@showClass classInfoById.CONTRA_ASSET 1/>
             <tr>
                 <td><strong>${ec.l10n.localize("Contra Asset Total")}</strong></td>
                 <#list timePeriodIdList as timePeriodId>
-                    <td class="text-right"><strong>${ec.l10n.formatCurrency(contraAssetInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                    <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
                 </#list>
             </tr>
         </#if>
-
-        <#if assetInfoMap?? && contraAssetInfoMap??>
+        <#if netAssetTotalMap??>
             <tr class="text-info" style="border-bottom: solid black;">
                 <td><strong>${ec.l10n.localize("Net Asset Total")}</strong></td>
                 <#list timePeriodIdList as timePeriodId>
@@ -78,28 +76,25 @@ along with this software (see the LICENSE.md file). If not, see
             </tr>
         </#if>
 
-        <#if liabilityInfoMap??>
-            <@showClass liabilityInfoMap 1/>
+        <#if classInfoById.LIABILITY??>
+            <@showClass classInfoById.LIABILITY 1/>
             <tr>
                 <td><strong>${ec.l10n.localize("Liability Total")}</strong></td>
                 <#list timePeriodIdList as timePeriodId>
-                    <td class="text-right"><strong>${ec.l10n.formatCurrency(liabilityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                    <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.LIABILITY.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
                 </#list>
             </tr>
         </#if>
-
-
-        <#if equityInfoMap??>
-            <@showClass equityInfoMap 1/>
+        <#if classInfoById.EQUITY??>
+            <@showClass classInfoById.EQUITY 1/>
             <tr>
                 <td><strong>${ec.l10n.localize("Equity Total")}</strong></td>
                 <#list timePeriodIdList as timePeriodId>
-                    <td class="text-right"><strong>${ec.l10n.formatCurrency(equityInfoMap.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                    <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.EQUITY.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
                 </#list>
             </tr>
         </#if>
-
-        <#if liabilityInfoMap?? && equityInfoMap??>
+        <#if liabilityEquityTotalMap??>
             <tr class="text-info" style="border-bottom: solid black;">
                 <td><strong>${ec.l10n.localize("Liability + Equity Total")}</strong></td>
                 <#list timePeriodIdList as timePeriodId>
