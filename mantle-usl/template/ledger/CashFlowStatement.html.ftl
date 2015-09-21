@@ -113,7 +113,7 @@ along with this software (see the LICENSE.md file). If not, see
             <td><strong>${ec.l10n.localize("Investing Activities")}</strong></td>
             <#list timePeriodIdList as timePeriodId><td class="text-right"> </td><td class="text-right"> </td><td class="text-right"> </td></#list>
         </tr>
-        <#if classInfoById.LONGTERM_ASSET??><@showClass classInfoById.LONGTERM_ASSET 1/></#if>
+        <#if classInfoById.LONG_TERM_ASSET??><@showClass classInfoById.LONG_TERM_ASSET 1/></#if>
         <tr class="text-success">
             <td><strong>${ec.l10n.localize("Net Cash Investing Activities")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
