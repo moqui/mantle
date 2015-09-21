@@ -19,7 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
     <tr>
         <td style="padding-left: ${(depth-1) * 2}.3em;">${ec.l10n.localize(classInfo.className)}</td>
         <#list timePeriodIdList as timePeriodId>
-            <#assign beginningClassBalance = classInfo.balanceByTimePeriod[timePeriodId]!0 - classInfo.postedByTimePeriod[timePeriodId]!0>
+            <#assign beginningClassBalance = (classInfo.balanceByTimePeriod[timePeriodId]!0) - (classInfo.postedByTimePeriod[timePeriodId]!0)>
             <td class="text-right">${ec.l10n.formatCurrency(classInfo.postedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
             <td class="text-right">${ec.l10n.formatCurrency(beginningClassBalance, currencyUomId, 2)}</td>
             <td class="text-right">${ec.l10n.formatCurrency(classInfo.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
@@ -30,7 +30,7 @@ along with this software (see the LICENSE.md file). If not, see
             <tr>
                 <td style="padding-left: ${(depth-1) * 2 + 3}.3em;">${glAccountInfo.accountCode}: ${glAccountInfo.accountName}</td>
                 <#list timePeriodIdList as timePeriodId>
-                    <#assign beginningGlAccountBalance = glAccountInfo.balanceByTimePeriod[timePeriodId]!0 - glAccountInfo.postedByTimePeriod[timePeriodId]!0>
+                    <#assign beginningGlAccountBalance = (glAccountInfo.balanceByTimePeriod[timePeriodId]!0) - (glAccountInfo.postedByTimePeriod[timePeriodId]!0)>
                     <td class="text-right">${ec.l10n.formatCurrency(glAccountInfo.postedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
                     <td class="text-right">${ec.l10n.formatCurrency(beginningGlAccountBalance, currencyUomId, 2)}</td>
                     <td class="text-right">${ec.l10n.formatCurrency(glAccountInfo.balanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
@@ -47,7 +47,7 @@ along with this software (see the LICENSE.md file). If not, see
         <tr class="text-info">
             <td><strong>${ec.l10n.localize(classInfo.className + " Total")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
-                <#assign beginningTotalBalance = classInfo.totalBalanceByTimePeriod[timePeriodId]!0 - classInfo.totalPostedByTimePeriod[timePeriodId]!0>
+                <#assign beginningTotalBalance = (classInfo.totalBalanceByTimePeriod[timePeriodId]!0) - (classInfo.totalPostedByTimePeriod[timePeriodId]!0)>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfo.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(beginningTotalBalance, currencyUomId, 2)}</strong></td>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfo.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
