@@ -117,37 +117,48 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.party.Party"/>
     </extend-entity>
 
-    <entity entity-name="PartyIdentification" package-name="mantle.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="partyIdTypeEnumId" type="id" is-pk="true"/>
-        <field name="idValue" type="id-long" encrypt="true"/>
-        <field name="issuedBy" type="text-medium"/>
-        <field name="expireDate" type="date"/>
-        <relationship type="one" title="PartyIdType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="partyIdTypeEnumId"/></relationship>
+    <entity entity-name="PartyBadge" package-name="mantle.party">
+        <field name="partyBadgeId" type="id" is-pk="true"/>
+        <field name="partyId" type="id"/>
+        <field name="organizationPartyId" type="id"/>
+        <field name="fromDate" type="date-time"/>
+        <field name="thruDate" type="date-time"/>
+        <field name="serialNumber" type="text-short"/>
+        <field name="storedValue" type="text-medium"><description>For RFID this is the unique tracking identifier
+            (the TID can be tracked in the serialNumber field)</description></field>
         <relationship type="one" related-entity-name="mantle.party.Party"/>
-        <index name="PARTY_ID_VALUE" unique="false"><index-field name="idValue"/></index>
+        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
+            <key-map field-name="organizationPartyId"/></relationship>
+        <index name="PartyBadgeSerial" unique="true"><index-field name="serialNumber"/></index>
+        <index name="PartyBadgeStored" unique="true"><index-field name="storedValue"/></index>
+    </entity>
+    <entity entity-name="PartyBadgeScan" package-name="mantle.party">
+        <field name="partyBadgeId" type="id" is-pk="true"/>
+        <field name="scanDate" type="date-time" is-pk="true"/>
+        <field name="scanValue" type="text-short"/>
+        <field name="scanPurposeEnumId" type="id"/>
+        <field name="scanResultEnumId" type="id"/>
+        <field name="facilityId" type="id"/>
+        <field name="timeEntryId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.party.PartyBadge"/>
+        <relationship type="one" title="PartyBadgeScanPurpose" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="scanPurposeEnumId"/></relationship>
+        <relationship type="one" title="PartyBadgeScanResult" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="scanResultEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.facility.Facility"/>
+        <relationship type="one" related-entity-name="mantle.work.time.TimeEntry"/>
         <seed-data>
-            <moqui.basic.EnumerationType description="Party Identification Type" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Passport Number" enumId="PtidPassport" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Driver License Number" enumId="PtidDriverLicense" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Social Security Number" enumId="PtidSsn" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Federal EIN" enumId="PtidFein" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Matricula Consular ID" enumId="PtidMcid" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Global Location Number" enumId="PtidGln" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Alien Registration Number" enumId="PtidArn" enumTypeId="PartyIdType"/>
-            <moqui.basic.Enumeration description="Immigrant Admission Number" enumId="PtidIan" enumTypeId="PartyIdType"/>
+            <moqui.basic.EnumerationType description="Party Badge Scan Purpose" enumTypeId="PartyBadgeScanPurpose"/>
+            <moqui.basic.Enumeration description="Access" enumId="PbspAccess" enumTypeId="PartyBadgeScanPurpose"/>
+            <moqui.basic.Enumeration description="Clock In" enumId="PbspClockIn" enumTypeId="PartyBadgeScanPurpose"/>
+            <moqui.basic.Enumeration description="Clock Out" enumId="PbspClockOut" enumTypeId="PartyBadgeScanPurpose"/>
+
+            <moqui.basic.EnumerationType description="Party Badge Scan Result" enumTypeId="PartyBadgeScanResult"/>
+            <moqui.basic.Enumeration description="Success" enumId="PbsrSuccess" enumTypeId="PartyBadgeScanResult"/>
+            <moqui.basic.Enumeration description="Not Yet Valid" enumId="PbsrNotYetValid" enumTypeId="PartyBadgeScanResult"/>
+            <moqui.basic.Enumeration description="Expired" enumId="PbsrExpired" enumTypeId="PartyBadgeScanResult"/>
         </seed-data>
     </entity>
-    <entity entity-name="PartyGeoPoint" package-name="mantle.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="geoPointId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <relationship type="one" related-entity-name="mantle.party.Party"/>
-        <relationship type="one" related-entity-name="moqui.basic.GeoPoint"/>
-    </entity>
-
     <entity entity-name="PartyClassification" package-name="mantle.party">
         <field name="partyClassificationId" type="id" is-pk="true"/>
         <field name="classificationTypeEnumId" type="id"/>
@@ -199,11 +210,13 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
 
     <entity entity-name="PartyContent" package-name="mantle.party">
-        <field name="partyId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="partyContentTypeEnumId" type="id" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
+        <field name="partyContentId" type="id" is-pk="true"/>
+        <field name="partyId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="partyContentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <relationship type="one" related-entity-name="mantle.party.Party"/>
         <relationship type="one" title="PartyContentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="partyContentTypeEnumId"/></relationship>
@@ -212,10 +225,47 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.EnumerationType description="Party Content Type" enumTypeId="PartyContentType"/>
             <moqui.basic.Enumeration description="Internal Content" enumId="PcntInternal" enumTypeId="PartyContentType"/>
             <moqui.basic.Enumeration description="User Defined Content"  enumId="PcntUserDefined" enumTypeId="PartyContentType"/>
-            <moqui.basic.Enumeration description="Logo Image URL"  enumId="PcntLogoImageUrl" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Primary Image"  enumId="PcntPrimaryImage" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Logo Image"  enumId="PcntLogoImage" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Face Image"  enumId="PcntFaceImage" enumTypeId="PartyContentType"/>
             <moqui.basic.Enumeration description="Vendor Shipping Info"  enumId="PcntVendorShipping" enumTypeId="PartyContentType"/>
             <moqui.basic.Enumeration description="Payment Signature Primary"  enumId="PcntPaymentSignaturePrimary" enumTypeId="PartyContentType"/>
             <moqui.basic.Enumeration description="Payment Signature Secondary"  enumId="PcntPaymentSignatureSecondary" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Identity Document"  enumId="PcntIdentityDocument" enumTypeId="PartyContentType"/>
+            <moqui.basic.Enumeration description="Employment Authorization Document"  enumId="PcntEmplAuthzDocument" enumTypeId="PartyContentType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="PartyGeoPoint" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="geoPointId" type="id" is-pk="true"/>
+        <field name="fromDate" type="date-time" is-pk="true"/>
+        <field name="thruDate" type="date-time"/>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" related-entity-name="moqui.basic.GeoPoint"/>
+    </entity>
+    <entity entity-name="PartyIdentification" package-name="mantle.party">
+        <field name="partyId" type="id" is-pk="true"/>
+        <field name="partyIdTypeEnumId" type="id" is-pk="true"/>
+        <field name="idValue" type="id-long" encrypt="true"/>
+        <field name="issuedBy" type="text-medium"/>
+        <field name="issuedByPartyId" type="id"/>
+        <field name="expireDate" type="date"/>
+        <relationship type="one" title="PartyIdType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="partyIdTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.Party"/>
+        <relationship type="one" title="IssuedBy" related-entity-name="mantle.party.Party">
+            <key-map field-name="issuedByPartyId"/></relationship>
+        <index name="PARTY_ID_VALUE" unique="false"><index-field name="idValue"/></index>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Party Identification Type" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Passport Number" enumId="PtidPassport" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Driver License Number" enumId="PtidDriverLicense" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Social Security Number" enumId="PtidSsn" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Federal EIN" enumId="PtidFein" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Matricula Consular ID" enumId="PtidMcid" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Global Location Number" enumId="PtidGln" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Alien Registration Number" enumId="PtidArn" enumTypeId="PartyIdType"/>
+            <moqui.basic.Enumeration description="Immigrant Admission Number" enumId="PtidIan" enumTypeId="PartyIdType"/>
         </seed-data>
     </entity>
     <entity entity-name="PartyNote" package-name="mantle.party">
@@ -320,6 +370,7 @@ along with this software (see the LICENSE.md file). If not, see
             <mantle.party.RoleType description="Consumer" roleTypeId="Consumer"/>
             <mantle.party.RoleType description="Contractor" roleTypeId="Contractor"/>
             <mantle.party.RoleType description="Distributor" roleTypeId="Distributor"/>
+            <mantle.party.RoleType description="Garnishment Payee" roleTypeId="GarnishmentPayee"/>
             <mantle.party.RoleType description="Internet Service Provider" roleTypeId="InternetSp"/>
             <mantle.party.RoleType description="Hosting Provider" roleTypeId="HostingProvider"/>
             <mantle.party.RoleType description="Manufacturer" roleTypeId="Manufacturer"/>
@@ -683,7 +734,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="contactMechTypeEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
 
-        <!-- needed? <field name="originalCommEventId" type="id"/> -->
         <field name="parentCommEventId" type="id"/>
         <field name="rootCommEventId" type="id"/>
 
@@ -739,6 +789,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusItem description="Sent" sequenceNum="10" statusId="CeSent" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Received" sequenceNum="11" statusId="CeReceived" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Viewed" sequenceNum="12" statusId="CeViewed" statusTypeId="CommunicationEvent"/>
+            <moqui.basic.StatusItem description="Assigned" sequenceNum="13" statusId="CeAssigned" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Resolved" sequenceNum="20" statusId="CeResolved" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Referred" sequenceNum="21" statusId="CeReferred" statusTypeId="CommunicationEvent"/>
             <moqui.basic.StatusItem description="Bounced" sequenceNum="50" statusId="CeBounced" statusTypeId="CommunicationEvent"/>
@@ -751,13 +802,17 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeSent" toStatusId="CeReceived" transitionName="Receive"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeSent" toStatusId="CeViewed" transitionName="View"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeViewed" transitionName="View"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeAssigned" transitionName="Assigned"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeResolved" transitionName="Resolve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeReferred" transitionName="Refer"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeBounced" transitionName="Bounce"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeAssigned" transitionName="Assigned"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeReceived" transitionName="Un-view"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeResolved" transitionName="Resolve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeReferred" transitionName="Refer"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeBounced" transitionName="Bounce"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeAssigned" toStatusId="CeResolved" transitionName="Resolve"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeAssigned" toStatusId="CeReferred" transitionName="Refer"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeReceived" transitionName="Receive"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeReady" transitionName="Correct (Ready)"/>
 
@@ -765,26 +820,35 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeInProgress" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReceived" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeViewed" toStatusId="CeCancelled" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeAssigned" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeResolved" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeReferred" toStatusId="CeCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CeUnknownParty" toStatusId="CeCancelled" transitionName="Cancel"/>
         </seed-data>
     </entity>
     <entity entity-name="CommunicationEventContent" package-name="mantle.party.communication">
-        <field name="communicationEventId" type="id" is-pk="true"/>
-        <field name="contentLocation" type="text-medium" is-pk="true"/>
-        <field name="fromDate" type="date-time" is-pk="true"/>
-        <field name="thruDate" type="date-time"/>
-        <field name="assocTypeEnumId" type="id"/>
+        <field name="communicationEventContentId" type="id" is-pk="true"/>
+        <field name="communicationEventId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="contentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
         <field name="sequenceNum" type="number-integer"/>
-        <relationship type="one" related-entity-name="mantle.party.communication.CommunicationEvent"/>
-        <relationship type="one" title="AssocType" related-entity-name="moqui.basic.Enumeration">
-            <key-map field-name="assocTypeEnumId"/></relationship>
+        <relationship type="one" related-entity-name="moqui.security.UserAccount"/>
+        <relationship type="one" title="CommunicationContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="contentTypeEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Communication Content Type" enumTypeId="CommunicationContentType"/>
+            <moqui.basic.Enumeration description="Plain Text" enumId="CmctPlainText" enumTypeId="CommunicationContentType"/>
+            <moqui.basic.Enumeration description="HTML Text" enumId="CmctHtmlText" enumTypeId="CommunicationContentType"/>
+            <moqui.basic.Enumeration description="Attachment" enumId="CmctAttachment" enumTypeId="CommunicationContentType"/>
+        </seed-data>
     </entity>
     <entity entity-name="CommunicationEventProduct" package-name="mantle.party.communication">
         <field name="productId" type="id" is-pk="true"/>
         <field name="communicationEventId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="Product"/>
+        <relationship type="one" related-entity-name="mantle.product.Product"/>
         <relationship type="one" related-entity-name="mantle.party.communication.CommunicationEvent"/>
     </entity>
     <entity entity-name="CommunicationEventPurpose" package-name="mantle.party.communication">
@@ -823,10 +887,19 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusType description="Communication Event Party" statusTypeId="CommunicationEventParty"/>
             <moqui.basic.StatusItem description="Sent" sequenceNum="1" statusId="CepSent" statusTypeId="CommunicationEventParty"/>
             <moqui.basic.StatusItem description="Received" sequenceNum="2" statusId="CepReceived" statusTypeId="CommunicationEventParty"/>
-            <moqui.basic.StatusItem description="Closed" sequenceNum="3" statusId="CepClosed" statusTypeId="CommunicationEventParty"/>
+            <moqui.basic.StatusItem description="Assigned" sequenceNum="5" statusId="CepAssigned" statusTypeId="CommunicationEventParty"/>
+            <moqui.basic.StatusItem description="Resolved" sequenceNum="6" statusId="CepResolved" statusTypeId="CommunicationEventParty"/>
+            <moqui.basic.StatusItem description="Referred" sequenceNum="7" statusId="CepReferred" statusTypeId="CommunicationEventParty"/>
+            <moqui.basic.StatusItem description="Closed" sequenceNum="10" statusId="CepClosed" statusTypeId="CommunicationEventParty"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepSent" toStatusId="CepReceived" transitionName="Receive"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepSent" toStatusId="CepClosed" transitionName="Close"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepReceived" toStatusId="CepClosed" transitionName="Close"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepReceived" toStatusId="CepAssigned" transitionName="Assign"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepReceived" toStatusId="CepResolved" transitionName="Resolve"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepAssigned" toStatusId="CepResolved" transitionName="Resolve"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepAssigned" toStatusId="CepReferred" transitionName="Refer"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepAssigned" toStatusId="CepClosed" transitionName="Close"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="CepResolved" toStatusId="CepClosed" transitionName="Close"/>
         </seed-data>
     </entity>
     <entity entity-name="CommunicationEventType" package-name="mantle.party.communication">
@@ -911,6 +984,8 @@ along with this software (see the LICENSE.md file). If not, see
                     description="Postal - Billing (AP)"/>
             <ContactMechPurpose contactMechPurposeId="PostalPayment" contactMechTypeEnumId="CmtPostalAddress"
                     description="Postal - Payment (AR)"/>
+            <ContactMechPurpose contactMechPurposeId="PostalTax" contactMechTypeEnumId="CmtPostalAddress"
+                    description="Postal - Tax"/>
             <ContactMechPurpose contactMechPurposeId="PostalGeneral" contactMechTypeEnumId="CmtPostalAddress"
                     description="Postal - General Correspondence"/>
             <ContactMechPurpose contactMechPurposeId="PostalPurchReturn" contactMechTypeEnumId="CmtPostalAddress"
@@ -938,6 +1013,8 @@ along with this software (see the LICENSE.md file). If not, see
                     description="Phone - Payment (AR)"/>
             <ContactMechPurpose contactMechPurposeId="PhonePaymentFax" contactMechTypeEnumId="CmtTelecomNumber"
                     description="Phone - Payment Fax (AR)"/>
+            <ContactMechPurpose contactMechPurposeId="PhoneTax" contactMechTypeEnumId="CmtTelecomNumber"
+                    description="Phone - Tax"/>
             <ContactMechPurpose contactMechPurposeId="PhoneDid" contactMechTypeEnumId="CmtTelecomNumber"
                     description="Phone - Direct Inward Dialing"/>
             <ContactMechPurpose contactMechPurposeId="PhoneHome" contactMechTypeEnumId="CmtTelecomNumber"
@@ -976,6 +1053,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <ContactMechPurpose contactMechPurposeId="WebUrlPrimary" contactMechTypeEnumId="CmtWebAddress"
                     description="Website URL - Primary"/>
+            <ContactMechPurpose contactMechPurposeId="WebUrlPayment" contactMechTypeEnumId="CmtWebAddress"
+                    description="Website URL - Payment (AR)"/>
         </seed-data>
     </entity>
     <entity entity-name="PartyContactMech" package-name="mantle.party.contact">
@@ -1031,7 +1110,9 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="PostalCode" related-entity-name="moqui.basic.Geo">
             <key-map field-name="postalCodeGeoId"/></relationship>
         <relationship type="one" related-entity-name="GeoPoint"/>
-        <relationship type="one" title="Telecom" related-entity-name="mantle.party.contact.ContactMech">
+        <relationship type="one-nofk" title="Telecom" related-entity-name="mantle.party.contact.ContactMech">
+            <key-map field-name="telecomContactMechId"/></relationship>
+        <relationship type="one" title="Telecom" related-entity-name="mantle.party.contact.TelecomNumber">
             <key-map field-name="telecomContactMechId"/></relationship>
         <relationship type="one" title="Email" related-entity-name="mantle.party.contact.ContactMech">
             <key-map field-name="emailContactMechId"/></relationship>
@@ -1072,26 +1153,60 @@ along with this software (see the LICENSE.md file). If not, see
     </entity>
     <entity entity-name="TimePeriodType" package-name="mantle.party.time">
         <field name="timePeriodTypeId" type="id" is-pk="true"/>
+        <field name="periodPurposeEnumId" type="id"/>
         <field name="description" type="text-medium"/>
         <field name="periodLength" type="number-decimal"/>
         <field name="lengthUomId" type="id"/>
+        <relationship type="one" title="TimePeriodPurpose" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="periodPurposeEnumId"/></relationship>
         <relationship type="one" title="Length" related-entity-name="moqui.basic.Uom">
             <key-map field-name="lengthUomId" related-field-name="uomId"/></relationship>
         <seed-data>
-            <mantle.party.time.TimePeriodType description="Fiscal Year" timePeriodTypeId="FiscalYear" periodLength="1" lengthUomId="TF_yr"/>
-            <mantle.party.time.TimePeriodType description="Fiscal Quarter" timePeriodTypeId="FiscalQuarter" periodLength="3" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Fiscal Month" timePeriodTypeId="FiscalMonth" periodLength="1" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Fiscal Bi-Week" timePeriodTypeId="FiscalBiWeek" periodLength="2" lengthUomId="TF_wk"/>
-            <mantle.party.time.TimePeriodType description="Fiscal Week" timePeriodTypeId="FiscalWeek" periodLength="1" lengthUomId="TF_wk"/>
-            <mantle.party.time.TimePeriodType description="Sales Quarter" timePeriodTypeId="SalesQuarter" periodLength="3" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Sales Month" timePeriodTypeId="SalesMonth" periodLength="1" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Payroll Year" timePeriodTypeId="PayrollYear" periodLength="1" lengthUomId="TF_yr"/>
-            <mantle.party.time.TimePeriodType description="Payroll Semi-Year" timePeriodTypeId="PayrollSemiYear" periodLength="6" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Payroll Quarter" timePeriodTypeId="PayrollQuarter" periodLength="3" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Payroll Month" timePeriodTypeId="PayrollMonth" periodLength="1" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Payroll Semi-Month" timePeriodTypeId="PayrollSemiMonth" periodLength="0.5" lengthUomId="TF_mon"/>
-            <mantle.party.time.TimePeriodType description="Payroll Bi-Week" timePeriodTypeId="PayrollBiWeek" periodLength="2" lengthUomId="TF_wk"/>
-            <mantle.party.time.TimePeriodType description="Payroll Week" timePeriodTypeId="PayrollWeek" periodLength="1" lengthUomId="TF_wk"/>
+            <moqui.basic.EnumerationType description="Time Period Purpose" enumTypeId="TimePeriodPurpose"/>
+            <moqui.basic.Enumeration enumId="Fiscal" description="Fiscal" enumTypeId="TimePeriodPurpose"/>
+            <moqui.basic.Enumeration enumId="Payroll" description="Payroll" enumTypeId="TimePeriodPurpose"/>
+            <moqui.basic.Enumeration enumId="Sales" description="Sales" enumTypeId="TimePeriodPurpose"/>
+            <moqui.basic.Enumeration enumId="Tax" description="Tax" enumTypeId="TimePeriodPurpose"/>
+
+            <mantle.party.time.TimePeriodType description="Fiscal Year" timePeriodTypeId="FiscalYear"
+                    periodPurposeEnumId="Fiscal" periodLength="1" lengthUomId="TF_yr"/>
+            <mantle.party.time.TimePeriodType description="Fiscal Quarter" timePeriodTypeId="FiscalQuarter"
+                    periodPurposeEnumId="Fiscal" periodLength="3" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Fiscal Month" timePeriodTypeId="FiscalMonth"
+                    periodPurposeEnumId="Fiscal" periodLength="1" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Fiscal Bi-Week" timePeriodTypeId="FiscalBiWeek"
+                    periodPurposeEnumId="Fiscal" periodLength="2" lengthUomId="TF_wk"/>
+            <mantle.party.time.TimePeriodType description="Fiscal Week" timePeriodTypeId="FiscalWeek"
+                    periodPurposeEnumId="Fiscal" periodLength="1" lengthUomId="TF_wk"/>
+
+            <mantle.party.time.TimePeriodType description="Payroll Year" timePeriodTypeId="PayrollYear"
+                    periodPurposeEnumId="Payroll" periodLength="1" lengthUomId="TF_yr"/>
+            <mantle.party.time.TimePeriodType description="Payroll Semi-Year" timePeriodTypeId="PayrollSemiYear"
+                    periodPurposeEnumId="Payroll" periodLength="6" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Payroll Quarter" timePeriodTypeId="PayrollQuarter"
+                    periodPurposeEnumId="Payroll" periodLength="3" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Payroll Month" timePeriodTypeId="PayrollMonth"
+                    periodPurposeEnumId="Payroll" periodLength="1" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Payroll Semi-Month" timePeriodTypeId="PayrollSemiMonth"
+                    periodPurposeEnumId="Payroll" periodLength="0.5" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Payroll Bi-Week" timePeriodTypeId="PayrollBiWeek"
+                    periodPurposeEnumId="Payroll" periodLength="2" lengthUomId="TF_wk"/>
+            <mantle.party.time.TimePeriodType description="Payroll Week" timePeriodTypeId="PayrollWeek"
+                    periodPurposeEnumId="Payroll" periodLength="1" lengthUomId="TF_wk"/>
+
+            <mantle.party.time.TimePeriodType description="Sales Year" timePeriodTypeId="SalesYear"
+                    periodPurposeEnumId="Sales" periodLength="1" lengthUomId="TF_yr"/>
+            <mantle.party.time.TimePeriodType description="Sales Quarter" timePeriodTypeId="SalesQuarter"
+                    periodPurposeEnumId="Sales" periodLength="3" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Sales Month" timePeriodTypeId="SalesMonth"
+                    periodPurposeEnumId="Sales" periodLength="1" lengthUomId="TF_mon"/>
+
+            <mantle.party.time.TimePeriodType description="Tax Year" timePeriodTypeId="TaxYear"
+                    periodPurposeEnumId="Tax" periodLength="1" lengthUomId="TF_yr"/>
+            <mantle.party.time.TimePeriodType description="Tax Quarter" timePeriodTypeId="TaxQuarter"
+                    periodPurposeEnumId="Tax" periodLength="3" lengthUomId="TF_mon"/>
+            <mantle.party.time.TimePeriodType description="Tax Month" timePeriodTypeId="TaxMonth"
+                    periodPurposeEnumId="Tax" periodLength="1" lengthUomId="TF_mon"/>
         </seed-data>
     </entity>
 </entities>

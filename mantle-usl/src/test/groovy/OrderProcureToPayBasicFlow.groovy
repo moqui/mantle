@@ -13,6 +13,7 @@
 
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityList
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import spock.lang.Shared
@@ -41,6 +42,12 @@ class OrderProcureToPayBasicFlow extends Specification {
     String facilityId = 'ORG_ZIZI_RETAIL_WH'
     @Shared
     long effectiveTime = System.currentTimeMillis()
+    @Shared
+    java.sql.Date eolDate
+    @Shared
+    String equip1AssetId, equip2AssetId
+    @Shared
+    long totalFieldsChecked = 0
 
 
     def setupSpec() {
@@ -50,29 +57,41 @@ class OrderProcureToPayBasicFlow extends Specification {
         // set an effective date so data check works, etc
         ec.user.setEffectiveTime(new Timestamp(effectiveTime))
 
-        ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55400, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55400, 20)
+        ec.entity.tempSetSequencedIdPrimary("mantle.shipment.Shipment", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55400, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55400, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55400, 90)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.PhysicalInventory", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.receipt.AssetReceipt", 55400, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55400, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.Payment", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55400, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderHeader", 55400, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderItemBilling", 55400, 10)
-        ec.entity.tempSetSequencedIdPrimary("moqui.entity.EntityAuditLog", 55400, 100)
+        ec.entity.tempSetSequencedIdPrimary("moqui.entity.EntityAuditLog", 55400, 90)
         // TODO: add EntityAuditLog validation (especially status changes, etc)
     }
 
     def cleanupSpec() {
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
+        ec.entity.tempResetSequencedIdPrimary("mantle.shipment.Shipment")
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetDetail")
+        ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.PhysicalInventory")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.receipt.AssetReceipt")
+        ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetIssuance")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.Payment")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.PaymentApplication")
+        ec.entity.tempResetSequencedIdPrimary("mantle.order.OrderHeader")
         ec.entity.tempResetSequencedIdPrimary("mantle.order.OrderItemBilling")
         ec.entity.tempResetSequencedIdPrimary("moqui.entity.EntityAuditLog")
         ec.destroy()
+
+        logger.info("Order Procure to Pay Basic Flow complete, ${totalFieldsChecked} record fields checked")
     }
 
     def setup() {
@@ -101,14 +120,14 @@ class OrderProcureToPayBasicFlow extends Specification {
         orderPartSeqId = orderOut.orderPartSeqId
 
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_1_1', quantity:150,
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_1_1', quantity:400,
                     itemTypeEnumId:'ItemInventory']).call()
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'DEMO_3_1', quantity:100,
                     itemTypeEnumId:'ItemInventory']).call()
         ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
-                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'EQUIP_1', quantity:1,
-                    itemTypeEnumId:'ItemAssetEquipment', unitAmount:10000]).call()
+                .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, productId:'EQUIP_1', quantity:2,
+                    itemTypeEnumId:'ItemAsset', unitAmount:10000]).call()
 
         // add shipping charge
         ec.service.sync().name("mantle.order.OrderServices.create#OrderItem")
@@ -127,27 +146,31 @@ class OrderProcureToPayBasicFlow extends Specification {
         // then the PO is sent to the vendor/supplier
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
-                statusId="OrderApproved" currencyUomId="USD" grandTotal="11795.00"/>
+                statusId="OrderApproved" currencyUomId="USD" grandTotal="23795.00"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" fromPartyId="${customerPartyId}" toPartyId="${vendorPartyId}"
                 paymentMethodTypeEnumId="PmtCompanyCheck" orderId="${purchaseOrderId}" orderPartSeqId="01"
-                statusId="PmntPromised" amount="11795.00" amountUomId="USD"/>
+                statusId="PmntPromised" amount="23795.00" amountUomId="USD"/>
 
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="${vendorPartyId}"
                 customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_ZIZI_RTL_SA"
                 telecomContactMechId="ORG_ZIZI_RTL_PT" partTotal=""/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
-                productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="150" unitAmount="8.00" isModifiedPrice="N"/>
+                productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="400" unitAmount="8.00" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="100" unitAmount="4.50" isModifiedPrice="N"/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemAssetEquipment"
-                productId="EQUIP_1" itemDescription="Picker Bot 2000" quantity="1" unitAmount="10000" isModifiedPrice="Y"/>
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemAsset"
+                productId="EQUIP_1" itemDescription="Picker Bot 2000" quantity="2" unitAmount="10000" isModifiedPrice="Y"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemExpShipping"
                 itemDescription="Incoming Freight" quantity="1" unitAmount="145.00"/>
-        </entity-facade-xml>""").check()
-        logger.info("create Purchase Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         priceMap.price == 9.00
@@ -167,25 +190,26 @@ class OrderProcureToPayBasicFlow extends Specification {
         // TODO: add PO Shipment Schedule, update status to ShipScheduled
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment created -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipInput" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
 
-            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="150"/>
+            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_1_1" quantity="400"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisPending"
-                quantity="150" quantityNotHandled="150" invoiceId="" invoiceItemSeqId=""/>
+                quantity="400" quantityNotHandled="400" invoiceId="" invoiceItemSeqId=""/>
 
             <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="DEMO_3_1" quantity="100"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisPending"
                 quantity="100" quantityNotHandled="100" invoiceId="" invoiceItemSeqId=""/>
 
-            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="EQUIP_1" quantity="1"/>
+            <mantle.shipment.ShipmentItem shipmentId="${shipResult.shipmentId}" productId="EQUIP_1" quantity="2"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
-                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="1"
-                quantityNotHandled="1" invoiceId="" invoiceItemSeqId=""/>
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisPending" quantity="2"
+                quantityNotHandled="2" invoiceId="" invoiceItemSeqId=""/>
 
             <mantle.shipment.ShipmentRouteSegment shipmentId="${shipResult.shipmentId}" shipmentRouteSegmentSeqId="01"
                 destPostalContactMechId="ORG_ZIZI_RTL_SA" destTelecomContactMechId="ORG_ZIZI_RTL_PT"/>
@@ -193,14 +217,17 @@ class OrderProcureToPayBasicFlow extends Specification {
             <!-- no package when not outgoing packed, can be added by something else though:
             <mantle.shipment.ShipmentPackage shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"/>
             <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
-                productId="DEMO_1_1" quantity="150"/>
+                productId="DEMO_1_1" quantity="400"/>
             <mantle.shipment.ShipmentPackageContent shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 productId="DEMO_3_1" quantity="100"/>
             <mantle.shipment.ShipmentPackageRouteSeg shipmentId="${shipResult.shipmentId}" shipmentPackageSeqId="01"
                 shipmentRouteSegmentSeqId="01"/>
             -->
-        </entity-facade-xml>""").check()
-        logger.info("receive Purchase Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -213,12 +240,16 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([shipmentId:shipResult.shipmentId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment to Shipped status -->
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipShipped" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
-        </entity-facade-xml>""").check()
-        logger.info("set Shipment Shipped data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -234,24 +265,39 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
                 .parameters([shipmentId:shipResult.shipmentId, productId:'DEMO_1_1',
-                    quantityAccepted:150, facilityId:facilityId]).call()
+                    quantityAccepted:400, facilityId:facilityId]).call()
         ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
                 .parameters([shipmentId:shipResult.shipmentId, productId:'DEMO_3_1',
                     quantityAccepted:100, facilityId:facilityId]).call()
-        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
+
+        // receive equipment with depreciation settings, in real use more likely set after receive with an update of the Asset record
+        Calendar eolCal = ec.user.nowCalendar // will be set to effectiveTime, which will be the acquiredDate
+        eolCal.add(Calendar.YEAR, 5) // depreciate over 5 years
+        eolDate = new java.sql.Date(eolCal.timeInMillis)
+        Map receiveEquip1Out = ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
                 .parameters([shipmentId:shipResult.shipmentId, productId:'EQUIP_1',
                     quantityAccepted:1, facilityId:facilityId, serialNumber:'PB2000AZQRTFP',
-                    assetTypeEnumId:'AstTpEquipment']).call()
+                    expectedEndOfLife:(eolDate), salvageValue:1500, depreciationTypeEnumId:'DtpDoubleDeclining']).call()
+        equip1AssetId = receiveEquip1Out.assetIdList[0]
+        Map receiveEquip2Out = ec.service.sync().name("mantle.shipment.ShipmentServices.receive#ShipmentProduct")
+                .parameters([shipmentId:shipResult.shipmentId, productId:'EQUIP_1',
+                    quantityAccepted:1, facilityId:facilityId, serialNumber:'PB2000GRWADRE',
+                    expectedEndOfLife:(eolDate), salvageValue:1500, depreciationTypeEnumId:'DtpStraightLine']).call()
+        equip2AssetId = receiveEquip2Out.assetIdList[0]
 
         ec.service.sync().name("update#mantle.shipment.Shipment")
                 .parameters([shipmentId:shipResult.shipmentId, statusId:'ShipDelivered']).call()
 
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.shipment.Shipment shipmentId="${shipResult.shipmentId}" shipmentTypeEnumId="ShpTpPurchase"
                 statusId="ShipDelivered" fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL"/>
-        </entity-facade-xml>""").check()
-        logger.info("receive Purchase Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -264,11 +310,15 @@ class OrderProcureToPayBasicFlow extends Specification {
         // ec.service.sync().name("mantle.order.OrderServices.complete#OrderPart")
         //        .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId]).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- OrderHeader status to Completed -->
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" statusId="OrderCompleted"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Purchase Order Complete data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -276,46 +326,62 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "validate Assets Received"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.asset.Asset assetId="55400" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
-                ownerPartyId="ORG_ZIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="150"
-                availableToPromiseTotal="150" assetName="Demo Product One-One" receivedDate="${effectiveTime}"
-                acquiredDate="${effectiveTime}" facilityId="ORG_ZIZI_RETAIL_WH" acquireOrderId="${purchaseOrderId}"
+                ownerPartyId="ORG_ZIZI_RETAIL" productId="DEMO_1_1" hasQuantity="Y" quantityOnHandTotal="400"
+                availableToPromiseTotal="200" assetName="Demo Product One-One" receivedDate="${effectiveTime}"
+                acquiredDate="${effectiveTime}" facilityId="${facilityId}" acquireOrderId="${purchaseOrderId}"
                 acquireOrderItemSeqId="01" acquireCost="8" acquireCostUomId="USD"/>
             <mantle.product.receipt.AssetReceipt assetReceiptId="55400" assetId="55400" productId="DEMO_1_1"
                 orderId="${purchaseOrderId}" orderItemSeqId="01" shipmentId="${shipResult.shipmentId}"
-                receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="150"/>
+                receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="400"/>
             <mantle.product.asset.AssetDetail assetDetailId="55400" assetId="55400" effectiveDate="${effectiveTime}"
-                quantityOnHandDiff="150" availableToPromiseDiff="150" unitCost="8" shipmentId="${shipResult.shipmentId}"
+                quantityOnHandDiff="400" availableToPromiseDiff="400" unitCost="8" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_1_1" assetReceiptId="55400"/>
 
             <mantle.product.asset.Asset assetId="55401" assetTypeEnumId="AstTpInventory" statusId="AstAvailable"
                 ownerPartyId="ORG_ZIZI_RETAIL" productId="DEMO_3_1" hasQuantity="Y" quantityOnHandTotal="100"
                 availableToPromiseTotal="100" assetName="Demo Product Three-One" receivedDate="${effectiveTime}"
-                acquiredDate="${effectiveTime}" facilityId="ORG_ZIZI_RETAIL_WH" acquireOrderId="${purchaseOrderId}"
+                acquiredDate="${effectiveTime}" facilityId="${facilityId}" acquireOrderId="${purchaseOrderId}"
                 acquireOrderItemSeqId="02" acquireCost="4.5" acquireCostUomId="USD"/>
             <mantle.product.receipt.AssetReceipt assetReceiptId="55401" assetId="55401" productId="DEMO_3_1"
                 orderId="${purchaseOrderId}" orderItemSeqId="02" shipmentId="${shipResult.shipmentId}"
                 receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="100"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55401" assetId="55401" effectiveDate="${effectiveTime}"
-                quantityOnHandDiff="100" availableToPromiseDiff="100" unitCost="4.5" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_3_1" assetReceiptId="55401"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55409" assetId="55401" productId="DEMO_3_1"
+                availableToPromiseDiff="100" shipmentId="${shipResult.shipmentId}" assetReceiptId="55401" unitCost="4.5"
+                effectiveDate="${effectiveTime}" quantityOnHandDiff="100"/>
 
-            <mantle.product.asset.Asset assetId="55402" assetTypeEnumId="AstTpEquipment" statusId="AstInStorage"
+            <mantle.product.asset.Asset assetId="${equip1AssetId}" assetTypeEnumId="AstTpEquipment" statusId="AstInStorage"
                 ownerPartyId="ORG_ZIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="1"
-                availableToPromiseTotal="0" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
-                receivedDate="${effectiveTime}" acquiredDate="${effectiveTime}" facilityId="ORG_ZIZI_RETAIL_WH"
-                acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"/>
-            <mantle.product.receipt.AssetReceipt assetReceiptId="55402" assetId="55402" productId="EQUIP_1"
+                availableToPromiseTotal="1" assetName="Picker Bot 2000" serialNumber="PB2000AZQRTFP"
+                receivedDate="${effectiveTime}" acquiredDate="${effectiveTime}" facilityId="${facilityId}"
+                acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"
+                expectedEndOfLife="${eolDate}" salvageValue="1500" depreciationTypeEnumId="DtpDoubleDeclining"/>
+            <mantle.product.receipt.AssetReceipt assetReceiptId="55402" assetId="${equip1AssetId}" productId="EQUIP_1"
                 orderId="${purchaseOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}"
                 receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="1"/>
-            <mantle.product.asset.AssetDetail assetDetailId="55402" assetId="55402" effectiveDate="${effectiveTime}"
-                quantityOnHandDiff="1" availableToPromiseDiff="0" unitCost="10,000" shipmentId="${shipResult.shipmentId}"
-                productId="EQUIP_1" assetReceiptId="55402"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55410" assetId="${equip1AssetId}" productId="EQUIP_1"
+                availableToPromiseDiff="1" shipmentId="${shipResult.shipmentId}" assetReceiptId="55402" unitCost="10000"
+                effectiveDate="${effectiveTime}" quantityOnHandDiff="1"/>
+
+            <mantle.product.asset.Asset assetId="${equip2AssetId}" assetTypeEnumId="AstTpEquipment" statusId="AstInStorage"
+                ownerPartyId="ORG_ZIZI_RETAIL" productId="EQUIP_1" hasQuantity="N" quantityOnHandTotal="1"
+                availableToPromiseTotal="1" assetName="Picker Bot 2000" serialNumber="PB2000GRWADRE"
+                receivedDate="${effectiveTime}" acquiredDate="${effectiveTime}" facilityId="${facilityId}"
+                acquireOrderId="${purchaseOrderId}" acquireOrderItemSeqId="03" acquireCost="10,000" acquireCostUomId="USD"
+                expectedEndOfLife="${eolDate}" salvageValue="1500" depreciationTypeEnumId="DtpStraightLine"/>
+            <mantle.product.receipt.AssetReceipt assetReceiptId="55403" assetId="${equip2AssetId}" productId="EQUIP_1"
+                orderId="${purchaseOrderId}" orderItemSeqId="03" shipmentId="${shipResult.shipmentId}"
+                receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}" quantityAccepted="1"/>
+            <mantle.product.asset.AssetDetail assetDetailId="55411" assetId="${equip2AssetId}" productId="EQUIP_1"
+                availableToPromiseDiff="1" shipmentId="${shipResult.shipmentId}" assetReceiptId="55403" unitCost="10000"
+                effectiveDate="${effectiveTime}" quantityOnHandDiff="1"/>
+
 
             <!-- verify assetReceiptId set on OrderItemBilling, and that all else is the same -->
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
-                invoiceId="55400" invoiceItemSeqId="01" quantity="150" amount="8.00"
+                invoiceId="55400" invoiceItemSeqId="01" quantity="400" amount="8.00"
                 shipmentId="${shipResult.shipmentId}" assetReceiptId="55400"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55401" orderId="${purchaseOrderId}" orderItemSeqId="02"
                 invoiceId="55400" invoiceItemSeqId="02" quantity="100" amount="4.50"
@@ -326,7 +392,7 @@ class OrderProcureToPayBasicFlow extends Specification {
 
             <!-- ShipmentItemSource now has quantityNotHandled="0" and statusId to SisReceived -->
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisReceived" quantity="150"
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisReceived" quantity="400"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="01"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisReceived" quantity="100"
@@ -334,8 +400,14 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="03"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Assets Received data check results: " + dataCheckErrors)
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55403" shipmentId="${shipResult.shipmentId}"
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="04"/>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -344,16 +416,17 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "validate Assets Receipt Accounting Transactions"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55400" acctgTransTypeEnumId="AttInventoryReceipt"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55400"
                 assetReceiptId="55400"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="1,200" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
+                amount="3200" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="1,200" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
+                amount="3200" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55401" acctgTransTypeEnumId="AttInventoryReceipt"
@@ -361,16 +434,40 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" assetId="55401"
                 assetReceiptId="55401"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="450" glAccountTypeEnumId="COGS_ACCOUNT" glAccountId="501000"
+                amount="450" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountTypeEnumId="INVENTORY_ACCOUNT" glAccountId="140000"
+                amount="450" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
-            <!-- NOTE: no inventory transaction for an Equipment Asset -->
+            <mantle.ledger.transaction.AcctgTrans postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y"
+                    assetId="${equip1AssetId}" acctgTransTypeEnumId="AttAssetReceipt" glFiscalTypeEnumId="GLFT_ACTUAL"
+                    transactionDate="${effectiveTime}" acctgTransId="55402" assetReceiptId="55402"
+                    organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="139100000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnreceivedFixedAsset"
+                    debitCreditFlag="C" acctgTransEntrySeqId="01" assetId="${equip1AssetId}"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                    debitCreditFlag="D" acctgTransEntrySeqId="02" assetId="${equip1AssetId}"/>
+            </mantle.ledger.transaction.AcctgTrans>
+            <mantle.ledger.transaction.AcctgTrans postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y"
+                    assetId="${equip2AssetId}" acctgTransTypeEnumId="AttAssetReceipt" glFiscalTypeEnumId="GLFT_ACTUAL"
+                    transactionDate="${effectiveTime}" acctgTransId="55403" assetReceiptId="55403"
+                    organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="139100000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnreceivedFixedAsset"
+                    debitCreditFlag="C" acctgTransEntrySeqId="01" assetId="${equip2AssetId}"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                    debitCreditFlag="D" acctgTransEntrySeqId="02" assetId="${equip2AssetId}"/>
+            </mantle.ledger.transaction.AcctgTrans>
 
-        </entity-facade-xml>""").check()
-        logger.info("validate Assets Received data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -392,7 +489,8 @@ class OrderProcureToPayBasicFlow extends Specification {
         // invoiceId = invResult.invoiceIdList.first
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and received, not yet approved/etc -->
             <mantle.account.invoice.Invoice invoiceId="55400" invoiceTypeEnumId="InvoiceSales"
                 fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL" statusId="InvoiceReceived"
@@ -400,10 +498,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 currencyUomId="USD"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="01"
-                itemTypeEnumId="ItemInventory" productId="DEMO_1_1" quantity="150" amount="8.00"
+                itemTypeEnumId="ItemInventory" productId="DEMO_1_1" quantity="400" amount="8.00"
                 description="Demo Product One-One" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55400" orderId="${purchaseOrderId}" orderItemSeqId="01"
-                invoiceId="55400" invoiceItemSeqId="01" quantity="150" amount="8.00"
+                invoiceId="55400" invoiceItemSeqId="01" quantity="400" amount="8.00"
                 shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="02"
@@ -414,21 +512,28 @@ class OrderProcureToPayBasicFlow extends Specification {
                 shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="03"
-                itemTypeEnumId="ItemAssetEquipment" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
-                itemDate="${effectiveTime}"/>
+                itemTypeEnumId="ItemAsset" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
+                itemDate="${effectiveTime}" assetId="${equip1AssetId}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55402" orderId="${purchaseOrderId}" orderItemSeqId="03"
                 invoiceId="55400" invoiceItemSeqId="03" quantity="1" amount="10,000"
                 shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="04"
+                itemTypeEnumId="ItemAsset" productId="EQUIP_1" quantity="1" amount="10,000" description="Picker Bot 2000"
+                itemDate="${effectiveTime}" assetId="${equip2AssetId}"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55403" orderId="${purchaseOrderId}" orderItemSeqId="03"
+                invoiceId="55400" invoiceItemSeqId="04" quantity="1" amount="10,000"
+                shipmentId="${shipResult.shipmentId}"/>
+
+            <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="05"
                 itemTypeEnumId="ItemExpShipping" quantity="1" amount="145" description="Incoming Freight"
                 itemDate="${effectiveTime}"/>
-            <mantle.order.OrderItemBilling orderItemBillingId="55403" orderId="${purchaseOrderId}" orderItemSeqId="04"
-                invoiceId="55400" invoiceItemSeqId="04" quantity="1" amount="145"/>
+            <mantle.order.OrderItemBilling orderItemBillingId="55404" orderId="${purchaseOrderId}" orderItemSeqId="04"
+                invoiceId="55400" invoiceItemSeqId="05" quantity="1" amount="145"/>
 
             <!-- ShipmentItemSource now has invoiceId and invoiceItemSeqId -->
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55400" shipmentId="${shipResult.shipmentId}"
-                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisReceived" quantity="150"
+                productId="DEMO_1_1" orderId="${purchaseOrderId}" orderItemSeqId="01" statusId="SisReceived" quantity="400"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="01"/>
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55401" shipmentId="${shipResult.shipmentId}"
                 productId="DEMO_3_1" orderId="${purchaseOrderId}" orderItemSeqId="02" statusId="SisReceived" quantity="100"
@@ -436,8 +541,14 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55402" shipmentId="${shipResult.shipmentId}"
                 productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
                 quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="03"/>
-        </entity-facade-xml>""").check()
-        logger.info("process Purchase Invoice data check results: " + dataCheckErrors)
+            <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55403" shipmentId="${shipResult.shipmentId}"
+                productId="EQUIP_1" orderId="${purchaseOrderId}" orderItemSeqId="03" statusId="SisReceived" quantity="1"
+                quantityNotHandled="0" invoiceId="55400" invoiceItemSeqId="04"/>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -450,10 +561,14 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([invoiceId:'55400', statusId:'InvoiceApproved']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.invoice.Invoice invoiceId="55400" statusId="InvoiceApproved"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -462,29 +577,40 @@ class OrderProcureToPayBasicFlow extends Specification {
     def "validate Purchase Invoice Accounting Transaction"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Approved Invoice -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55402" acctgTransTypeEnumId="AttPurchaseInvoice"
-                organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
-                postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
-                otherPartyId="ZiddlemanInc" invoiceId="55400"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="1200" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
-                productId="DEMO_1_1" invoiceItemSeqId="01"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="450" glAccountId="501000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
-                productId="DEMO_3_1" invoiceItemSeqId="02"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="03" debitCreditFlag="D"
-                amount="10,000" glAccountTypeEnumId="FIXED_ASSET" glAccountId="171000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="03"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="04" debitCreditFlag="D"
-                amount="145" glAccountTypeEnumId="" glAccountId="509000" reconcileStatusId="AES_NOT_RECONCILED"
-                isSummary="N" invoiceItemSeqId="04"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55402" acctgTransEntrySeqId="05" debitCreditFlag="C"
-                amount="11795" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttPurchaseInvoice"
+                    organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
+                    postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
+                    otherPartyId="ZiddlemanInc" invoiceId="55400">
+
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" debitCreditFlag="D"
+                    amount="3200" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1" invoiceItemSeqId="01"/>
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" debitCreditFlag="D"
+                    amount="450" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1" invoiceItemSeqId="02"/>
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="03" debitCreditFlag="D"
+                    amount="10,000" glAccountTypeEnumId="GatUnreceivedFixedAsset" glAccountId="139100000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="03"/>
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="04" debitCreditFlag="D"
+                    amount="10,000" glAccountTypeEnumId="GatUnreceivedFixedAsset" glAccountId="139100000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="04"/>
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="05" debitCreditFlag="D"
+                    amount="145" glAccountTypeEnumId="" glAccountId="509000000" reconcileStatusId="AES_NOT_RECONCILED"
+                    isSummary="N" invoiceItemSeqId="05"/>
+
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="06" debitCreditFlag="C"
+                    amount="23795" glAccountTypeEnumId="GatAccountsPayable" glAccountId="210000000"
+                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            </mantle.ledger.transaction.AcctgTrans>
+
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -497,9 +623,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 .parameters([invoiceId:'55400', paymentId:setInfoOut.paymentId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.payment.PaymentApplication paymentApplicationId="${sendPmtResult.paymentApplicationId}"
-                paymentId="${setInfoOut.paymentId}" invoiceId="55400" amountApplied="11795.00"
+                paymentId="${setInfoOut.paymentId}" invoiceId="55400" amountApplied="23795.00"
                 appliedDate="${effectiveTime}"/>
             <!-- Payment to Delivered status, set effectiveDate -->
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"
@@ -508,8 +635,11 @@ class OrderProcureToPayBasicFlow extends Specification {
             <mantle.account.invoice.Invoice invoiceId="55400" invoiceTypeEnumId="InvoiceSales"
                 fromPartyId="ZiddlemanInc" toPartyId="ORG_ZIZI_RETAIL" statusId="InvoicePmtSent" invoiceDate="${effectiveTime}"
                 currencyUomId="USD"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -518,18 +648,22 @@ class OrderProcureToPayBasicFlow extends Specification {
     def "validate Purchase Payment Accounting Transaction"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Delivered Payment -->
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55403" acctgTransTypeEnumId="AttOutgoingPayment"
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55405" acctgTransTypeEnumId="AttOutgoingPayment"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="ZiddlemanInc" paymentId="${setInfoOut.paymentId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55403" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="11795" glAccountId="111100" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="01" debitCreditFlag="D"
+                amount="23795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="02" debitCreditFlag="C"
+                amount="23795" glAccountId="111100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -538,18 +672,373 @@ class OrderProcureToPayBasicFlow extends Specification {
     def "validate Purchase Payment Application Accounting Transaction"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
-            <mantle.ledger.transaction.AcctgTrans acctgTransId="55404" acctgTransTypeEnumId="AttOutgoingPaymentAp"
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55406" acctgTransTypeEnumId="AttOutgoingPaymentAp"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="ZiddlemanInc" paymentId="${setInfoOut.paymentId}"
                 paymentApplicationId="${sendPmtResult.paymentApplicationId}"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="11795" glAccountId="210000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55404" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="11795" glAccountId="216000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Shipment Invoice Accounting Transaction data check results: " + dataCheckErrors)
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55406" acctgTransEntrySeqId="01" debitCreditFlag="D"
+                amount="23795" glAccountId="210000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+            <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55406" acctgTransEntrySeqId="02" debitCreditFlag="C"
+                amount="23795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "depreciate Fixed Assets"() {
+        when:
+        // find the current Fiscal Month for ORG_ZIZI_RETAIL
+        Map fiscalMonthOut = ec.service.sync().name("mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods")
+                .parameters([organizationPartyId:customerPartyId, filterDate:ec.user.nowTimestamp, timePeriodTypeId:'FiscalMonth']).call()
+        Map timePeriod = (Map) fiscalMonthOut.timePeriodList[0]
+
+        Map deprOut = ec.service.sync().name("mantle.ledger.AssetAutoPostServices.calculateAndPost#AllFixedAssetDepreciations")
+                .parameters([timePeriodId:timePeriod.timePeriodId]).call()
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.asset.Asset assetId="${equip1AssetId}" acquireCost="10000" salvageValue="1500" depreciation="283.33"/>
+            <mantle.product.asset.AssetDepreciation assetId="${equip1AssetId}" timePeriodId="${timePeriod.timePeriodId}"
+                    annualDepreciation="3400" yearsRemaining="5" isLastYearPeriod="N"
+                    monthlyDepreciation="283.33" acctgTransId="55407" usefulLifeYears="5"/>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55407" amountUomId="USD" isPosted="Y" postedDate="${effectiveTime}"
+                    acctgTransTypeEnumId="AttDepreciation" glFiscalTypeEnumId="GLFT_ACTUAL" organizationPartyId="ORG_ZIZI_RETAIL"
+                    transactionDate="${deprOut.transactionDate.time}">
+                <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="182000000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaAccumDepreciation"
+                        debitCreditFlag="C" acctgTransEntrySeqId="01"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="672000000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaDepreciation"
+                        debitCreditFlag="D" acctgTransEntrySeqId="02"/>
+            </mantle.ledger.transaction.AcctgTrans>
+
+            <mantle.product.asset.AssetDepreciation assetId="${equip2AssetId}" timePeriodId="100002" annualDepreciation="1700"
+                    yearsRemaining="5" isLastYearPeriod="N" monthlyDepreciation="141.67" usefulLifeYears="5" acctgTransId="55408"/>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55408" postedDate="${effectiveTime}" amountUomId="USD"
+                    isPosted="Y" assetId="${equip2AssetId}" acctgTransTypeEnumId="AttDepreciation" glFiscalTypeEnumId="GLFT_ACTUAL"
+                    transactionDate="${deprOut.transactionDate.time}" organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry amount="141.67" productId="EQUIP_1" glAccountId="182000000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaAccumDepreciation"
+                        debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="141.67" productId="EQUIP_1" glAccountId="672000000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaDepreciation"
+                        debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
+            </mantle.ledger.transaction.AcctgTrans>
+
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" organizationPartyId="ORG_ZIZI_RETAIL"
+                    timePeriodId="${timePeriod.timePeriodId}" postedCredits="425" endingBalance="425"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" organizationPartyId="ORG_ZIZI_RETAIL"
+                    timePeriodId="${timePeriod.timePeriodId}" postedDebits="425" endingBalance="425"/>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "sell Depreciated Asset Loss"() {
+        when:
+        Map createOrderResult = ec.service.sync().name("mantle.order.OrderServices.create#Order")
+                .parameters([customerPartyId:'CustJqp', vendorPartyId:'ORG_ZIZI_RETAIL', facilityId:facilityId]).call()
+        String orderId = createOrderResult.orderId
+        String firstPartSeqId = createOrderResult.orderPartSeqId
+
+        ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, shippingPostalContactMechId:'CustJqpAddr']).call()
+
+        ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, itemTypeEnumId:'ItemAsset',
+                             productId:'EQUIP_1', quantity:1, unitAmount:9000]).call()
+
+        // place and approve the order
+        ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:orderId]).call()
+        ec.service.sync().name("mantle.order.OrderServices.approve#Order").parameters([orderId:orderId]).call()
+
+        // create a Shipment
+        Map createShipmentOut = ec.service.sync().name("mantle.shipment.ShipmentServices.create#OrderPartShipment")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId]).call()
+        String shipmentId = createShipmentOut.shipmentId
+
+        // set the shipment scheduled, pack the item
+        ec.service.sync().name("update#mantle.shipment.Shipment")
+                .parameters([shipmentId:shipmentId, statusId:'ShipScheduled']).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#ShipmentProduct")
+                .parameters([shipmentId:shipmentId, productId:'EQUIP_1', quantity:1, assetId:equip1AssetId]).call()
+
+        // set packed, will generate the invoice, etc; then set shipped
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#Shipment").parameters([shipmentId:shipmentId]).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment").parameters([shipmentId:shipmentId]).call()
+
+        // lookup the invoiceId from ShipmentItemSource
+        EntityList sisList = ec.entity.find("mantle.shipment.ShipmentItemSource").condition([shipmentId:shipmentId]).list()
+        String invoiceId = sisList?.first()?.invoiceId
+
+        // pay the invoice with a new payment
+        Map invTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+        BigDecimal invoiceTotal = invTotalOut.invoiceTotal
+
+        ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
+                .parameters([invoiceId:invoiceId, statusId:'PmntDelivered', amountUomId:'USD', amount:invoiceTotal,
+                             paymentMethodTypeEnumId:'PmtPersonalCheck', effectiveDate:ec.user.nowTimestamp,
+                             paymentRefNum:'123456']).call()
+
+        Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55400" assetId="${equip1AssetId}" orderId="55401" orderItemSeqId="01"
+                    issuedDate="${effectiveTime}" quantity="1" productId="EQUIP_1" shipmentId="55401">
+                <mantle.product.asset.AssetDetail assetDetailId="55414" assetId="${equip1AssetId}" productId="EQUIP_1"
+                        availableToPromiseDiff="-1" shipmentId="55401" effectiveDate="${effectiveTime}" quantityOnHandDiff="-1"/>
+            </mantle.product.issuance.AssetIssuance>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55409" assetIssuanceId="55400" postedDate="${effectiveTime}"
+                    amountUomId="USD" isPosted="Y" assetId="${equip1AssetId}" acctgTransTypeEnumId="AttInventoryIssuance"
+                    glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                        debitCreditFlag="C" assetId="${equip1AssetId}" acctgTransEntrySeqId="01"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnissuedFixedAsset"
+                        debitCreditFlag="D" assetId="${equip1AssetId}" acctgTransEntrySeqId="02"/>
+            </mantle.ledger.transaction.AcctgTrans>
+
+            <mantle.account.invoice.Invoice invoiceId="55401" invoiceTypeEnumId="InvoiceSales"
+                    toPartyId="CustJqp" fromPartyId="ORG_ZIZI_RETAIL" description="Invoice for Order 55401 part 01 and Shipment 55401"
+                    invoiceDate="${effectiveTime}" currencyUomId="USD" statusId="InvoicePmtRecvd">
+                <mantle.account.invoice.InvoiceItem invoiceItemSeqId="01" itemTypeEnumId="ItemAsset" amount="9000"
+                        quantity="1" productId="EQUIP_1" description="Picker Bot 2000" itemDate="${effectiveTime}" assetId="${equip1AssetId}">
+                    <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55404" quantity="1" productId="EQUIP_1"
+                            orderId="55401" orderItemSeqId="01" statusId="SisPacked" quantityNotHandled="0" shipmentId="55401"/>
+                    <mantle.order.OrderItemBilling orderItemBillingId="55405" orderItemSeqId="01" amount="9000"
+                            quantity="1" orderId="55401" shipmentId="55401" assetIssuanceId="55400"/>
+                </mantle.account.invoice.InvoiceItem>
+                <mantle.ledger.transaction.AcctgTrans acctgTransId="55410" otherPartyId="CustJqp" postedDate="${effectiveTime}"
+                        amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttSalesInvoice" glFiscalTypeEnumId="GLFT_ACTUAL"
+                        transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                    <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            glAccountTypeEnumId="GatUnissuedFixedAsset" debitCreditFlag="C" assetId="${equip1AssetId}" acctgTransEntrySeqId="01"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="182000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            glAccountTypeEnumId="GatFaAccumDepreciation" debitCreditFlag="D" assetId="${equip1AssetId}" acctgTransEntrySeqId="02"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="716.67" productId="EQUIP_1" glAccountId="823000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="D"
+                            assetId="${equip1AssetId}" acctgTransEntrySeqId="03"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="9000" glAccountId="121000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatAccountsReceivable"
+                            debitCreditFlag="D" acctgTransEntrySeqId="04"/>
+                </mantle.ledger.transaction.AcctgTrans>
+                <mantle.account.payment.PaymentApplication paymentId="55401" amountApplied="9000"
+                        appliedDate="${effectiveTime}" paymentApplicationId="55401"/>
+            </mantle.account.invoice.Invoice>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+        afterTotalOut.unpaidTotal == 0
+        afterTotalOut.appliedPaymentsTotal == invoiceTotal
+    }
+
+    def "sell Depreciated Asset Gain"() {
+        when:
+        Map createOrderResult = ec.service.sync().name("mantle.order.OrderServices.create#Order")
+                .parameters([customerPartyId:'CustJqp', vendorPartyId:'ORG_ZIZI_RETAIL', facilityId:facilityId]).call()
+        String orderId = createOrderResult.orderId
+        String firstPartSeqId = createOrderResult.orderPartSeqId
+
+        ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, shippingPostalContactMechId:'CustJqpAddr']).call()
+
+        ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId, itemTypeEnumId:'ItemAsset',
+                             productId:'EQUIP_1', quantity:1, unitAmount:11000]).call()
+
+        // place and approve the order
+        ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:orderId]).call()
+        ec.service.sync().name("mantle.order.OrderServices.approve#Order").parameters([orderId:orderId]).call()
+
+        // create a Shipment
+        Map createShipmentOut = ec.service.sync().name("mantle.shipment.ShipmentServices.create#OrderPartShipment")
+                .parameters([orderId:orderId, orderPartSeqId:firstPartSeqId]).call()
+        String shipmentId = createShipmentOut.shipmentId
+
+        // set the shipment scheduled, pack the item
+        ec.service.sync().name("update#mantle.shipment.Shipment")
+                .parameters([shipmentId:shipmentId, statusId:'ShipScheduled']).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#ShipmentProduct")
+                .parameters([shipmentId:shipmentId, productId:'EQUIP_1', quantity:1, assetId:equip2AssetId]).call()
+
+        // set packed, will generate the invoice, etc; then set shipped
+        ec.service.sync().name("mantle.shipment.ShipmentServices.pack#Shipment").parameters([shipmentId:shipmentId]).call()
+        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment").parameters([shipmentId:shipmentId]).call()
+
+        // lookup the invoiceId from ShipmentItemSource
+        EntityList sisList = ec.entity.find("mantle.shipment.ShipmentItemSource").condition([shipmentId:shipmentId]).list()
+        String invoiceId = sisList?.first()?.invoiceId
+
+        // pay the invoice with a new payment
+        Map invTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+        BigDecimal invoiceTotal = invTotalOut.invoiceTotal
+
+        ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
+                .parameters([invoiceId:invoiceId, statusId:'PmntDelivered', amountUomId:'USD', amount:invoiceTotal,
+                             paymentMethodTypeEnumId:'PmtPersonalCheck', effectiveDate:ec.user.nowTimestamp,
+                             paymentRefNum:'123456']).call()
+
+        Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
+                .parameters([invoiceId:invoiceId]).call()
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55401" assetId="${equip2AssetId}" orderId="55402" orderItemSeqId="01"
+                    issuedDate="${effectiveTime}" quantity="1" productId="EQUIP_1" shipmentId="55402">
+                <mantle.product.asset.AssetDetail assetDetailId="55417" assetId="${equip2AssetId}" productId="EQUIP_1"
+                        availableToPromiseDiff="-1" shipmentId="55402" effectiveDate="${effectiveTime}" quantityOnHandDiff="-1"/>
+            </mantle.product.issuance.AssetIssuance>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55412" assetIssuanceId="55401" postedDate="${effectiveTime}"
+                    amountUomId="USD" isPosted="Y" assetId="${equip2AssetId}" acctgTransTypeEnumId="AttInventoryIssuance"
+                    glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                        debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
+                <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
+                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnissuedFixedAsset"
+                        debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
+            </mantle.ledger.transaction.AcctgTrans>
+
+            <mantle.account.invoice.Invoice invoiceId="55402" invoiceTypeEnumId="InvoiceSales"
+                    toPartyId="CustJqp" fromPartyId="ORG_ZIZI_RETAIL" description="Invoice for Order 55402 part 01 and Shipment 55402"
+                    invoiceDate="${effectiveTime}" currencyUomId="USD" statusId="InvoicePmtRecvd">
+                <mantle.account.invoice.InvoiceItem invoiceItemSeqId="01" itemTypeEnumId="ItemAsset" amount="11000"
+                        quantity="1" productId="EQUIP_1" description="Picker Bot 2000" itemDate="${effectiveTime}" assetId="${equip2AssetId}">
+                    <mantle.shipment.ShipmentItemSource shipmentItemSourceId="55405" quantity="1" productId="EQUIP_1"
+                            orderId="55402" orderItemSeqId="01" statusId="SisPacked" quantityNotHandled="0" shipmentId="55402"/>
+                    <mantle.order.OrderItemBilling orderItemBillingId="55406" orderItemSeqId="01" amount="11000"
+                            quantity="1" orderId="55402" shipmentId="55402" assetIssuanceId="55401"/>
+                </mantle.account.invoice.InvoiceItem>
+                <mantle.ledger.transaction.AcctgTrans acctgTransId="55413" otherPartyId="CustJqp" postedDate="${effectiveTime}"
+                        amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttSalesInvoice" glFiscalTypeEnumId="GLFT_ACTUAL"
+                        transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                    <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            glAccountTypeEnumId="GatUnissuedFixedAsset" debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="141.67" productId="EQUIP_1" glAccountId="182000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            glAccountTypeEnumId="GatFaAccumDepreciation" debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="1141.67" productId="EQUIP_1" glAccountId="814000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="C"
+                            assetId="${equip2AssetId}" acctgTransEntrySeqId="03"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="11000" glAccountId="121000000"
+                            reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatAccountsReceivable"
+                            debitCreditFlag="D" acctgTransEntrySeqId="04"/>
+                </mantle.ledger.transaction.AcctgTrans>
+                <mantle.account.payment.PaymentApplication paymentId="55402" amountApplied="11000"
+                        appliedDate="${effectiveTime}" paymentApplicationId="55402"/>
+            </mantle.account.invoice.Invoice>
+
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="100002"
+                    postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="100002"
+                    postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
+
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="100002"
+                    postedCredits="425" postedDebits="425" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="100002"
+                    postedDebits="425" endingBalance="425" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="100002"
+                    postedCredits="1141.67" endingBalance="1141.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="823000000" timePeriodId="100002"
+                    postedDebits="716.67" endingBalance="716.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+        afterTotalOut.unpaidTotal == 0
+        afterTotalOut.appliedPaymentsTotal == invoiceTotal
+    }
+
+    def "inventory Shrinkage"() {
+        when:
+        ec.service.sync().name("mantle.product.AssetServices.record#PhysicalInventoryChange")
+                .parameters([productId:'DEMO_1_1', facilityId:facilityId, quantityChange:-10,
+                             varianceReasonEnumId:'InVrLost', comments:'Test lost 10 DEMO_1_1']).call()
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.asset.PhysicalInventory physicalInventoryId="55400" physicalInventoryDate="${effectiveTime}"
+                    comments="Test lost 10 DEMO_1_1" partyId="EX_JOHN_DOE">
+                <mantle.product.asset.AssetDetail assetDetailId="55418" assetId="DEMO_1_1A" productId="DEMO_1_1"
+                        varianceReasonEnumId="InVrLost" availableToPromiseDiff="-10" quantityOnHandDiff="-10" effectiveDate="${effectiveTime}"/>
+                <mantle.ledger.transaction.AcctgTrans acctgTransId="55415" postedDate="${effectiveTime}" amountUomId="USD"
+                        isPosted="Y" assetId="DEMO_1_1A" acctgTransTypeEnumId="AttInventoryVariance"
+                        glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                    <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="75" productId="DEMO_1_1"
+                            glAccountId="530000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountTypeEnumId="GatInvShrinkage" debitCreditFlag="D" assetId="DEMO_1_1A"/>
+                    <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="75" productId="DEMO_1_1"
+                            glAccountId="141300000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountTypeEnumId="GatInventory" debitCreditFlag="C" assetId="DEMO_1_1A"/>
+                </mantle.ledger.transaction.AcctgTrans>
+            </mantle.product.asset.PhysicalInventory>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+    def "inventory Found"() {
+        when:
+        ec.service.sync().name("mantle.product.AssetServices.record#PhysicalInventoryChange")
+                .parameters([productId:'DEMO_1_1', facilityId:facilityId, quantityChange:10,
+                             varianceReasonEnumId:'InVrFound', comments:'Test found 10 DEMO_1_1']).call()
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.asset.PhysicalInventory physicalInventoryId="55401" physicalInventoryDate="${effectiveTime}"
+                    comments="Test found 10 DEMO_1_1" partyId="EX_JOHN_DOE">
+                <mantle.product.asset.AssetDetail assetDetailId="55419" assetId="DEMO_1_1A" productId="DEMO_1_1"
+                        varianceReasonEnumId="InVrFound" availableToPromiseDiff="10" quantityOnHandDiff="10" effectiveDate="${effectiveTime}"/>
+                <mantle.ledger.transaction.AcctgTrans acctgTransId="55416" postedDate="${effectiveTime}" amountUomId="USD"
+                        isPosted="Y" assetId="DEMO_1_1A" acctgTransTypeEnumId="AttInventoryVariance"
+                        glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                    <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="75" productId="DEMO_1_1"
+                            glAccountId="816000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountTypeEnumId="GatInvFound" debitCreditFlag="C" assetId="DEMO_1_1A"/>
+                    <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="75" productId="DEMO_1_1"
+                            glAccountId="141300000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountTypeEnumId="GatInventory" debitCreditFlag="D" assetId="DEMO_1_1A"/>
+                </mantle.ledger.transaction.AcctgTrans>
+            </mantle.product.asset.PhysicalInventory>
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0

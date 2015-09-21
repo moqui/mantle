@@ -13,8 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-    <!-- STATUS: EXPERIMENTAL -->
-
     <service verb="clone" noun="WorkEffort">
         <in-parameters>
             <parameter name="baseWorkEffortId" required="true"/>
@@ -80,7 +78,12 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="copyContent">
                 <entity-find entity-name="mantle.work.effort.WorkEffortContent" list="valueList">
                     <date-filter/><econdition field-name="workEffortId" from="baseWorkEffortId"/></entity-find>
-                <iterate list="valueList" entry="value"><set field="value.workEffortId" from="workEffortId"/><entity-create value-field="value"/></iterate>
+                <iterate list="valueList" entry="value">
+                    <set field="value.workEffortContentId" from="null"/>
+                    <entity-sequenced-id-primary value-field="value"/>
+                    <set field="value.workEffortId" from="workEffortId"/>
+                    <entity-create value-field="value"/>
+                </iterate>
             </if>
             <if condition="copyNote">
                 <entity-find entity-name="mantle.work.effort.WorkEffortNote" list="valueList">
@@ -161,6 +164,119 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <else><service-call name="create#mantle.work.effort.WorkEffortProduct" in-map="context" out-map="context"/></else>
             </if>
+        </actions>
+    </service>
+
+    <service verb="get" noun="WorkEffortStartEnd">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="workEffort" type="Map"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="startDate" type="Timestamp"/>
+            <parameter name="endDate" type="Timestamp"/>
+            <parameter name="duration" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <if condition="!workEffort"><entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/></if>
+
+            <set field="startDate" from="workEffort.actualStartDate ?: workEffort.estimatedStartDate"/>
+
+            <set field="endDate" from="workEffort.actualCompletionDate ?: workEffort.estimatedCompletionDate"/>
+            <if condition="!endDate">
+                <set field="duration" from="(workEffort.actualWorkDuration ?: workEffort.estimatedWorkDuration) ?: workEffort.estimatedWorkTime"/>
+                <!-- convert to minutes because Java Calendar class take an integer and we may have something like 2.5 hours -->
+                <service-call name="org.moqui.impl.BasicServices.convert#Uom" out-map="convertDurOut"
+                        in-map="[uomId:(workEffort.timeUomId ?: 'TF_hr'), toUomId:'TF_min', amount:duration]"/>
+                <set field="durationMinutes" from="(convertDurOut.convertedAmount ?: 60) as int"/>
+                <script>
+                    Calendar endCal = ec.user.getCalendarSafe()
+                    endCal.setTimeInMillis(startDate.time)
+                    endCal.add(Calendar.MINUTE, durationMinutes)
+                    endDate = new Timestamp(endCal.getTimeInMillis())
+                </script>
+            </if>
+        </actions>
+    </service>
+
+    <!-- ================================================ -->
+    <!-- ========== WorkEffortContent Services ========== -->
+    <!-- ================================================ -->
+
+    <service verb="get" noun="WorkEffortContentLocation">
+        <in-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="contentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="workEffortContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="contentTypeEnumIdList" entry="contentTypeEnumId">
+                <entity-find entity-name="mantle.work.effort.WorkEffortContent" list="workEffortContentList">
+                    <econdition field-name="workEffortId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="workEffortContentList">
+                    <set field="workEffortContent" from="workEffortContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="workEffortContent ? workEffortContent.contentLocation : null"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="WorkEffortContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffortContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="workEffortContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.work.effort.WorkEffortContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.work.WorkEffortServices.save#WorkEffortContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="WorkEffortContent">
+        <in-parameters>
+            <parameter name="workEffortContentId" required="true"/>
+            <auto-parameters entity-name="mantle.work.effort.WorkEffortContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.work.effort.WorkEffortContent" value-field="workEffortContent"/>
+                <service-call name="mantle.work.WorkEffortServices.save#WorkEffortContentFile" out-map="context"
+                        in-map="context + [workEffortId:workEffortContent.workEffortId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.work.effort.WorkEffortContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="WorkEffortContentFile">
+        <in-parameters>
+            <parameter name="workEffortContentId" required="true"/>
+            <parameter name="workEffortId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/work/${workEffortId}/content_${workEffortContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.work.effort.WorkEffortContent"
+                    in-map="[workEffortContentId:workEffortContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
 </services>

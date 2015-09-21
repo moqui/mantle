@@ -2,38 +2,173 @@
 Mantle Business Artifacts Release Notes
 
 ===========================================================================
-Release 1.0.2 - TBD
+Release 1.1.1 - TBD
 ===========================================================================
 
-Mantle Business Artifacts 1.0.2 is a minor new feature and bug fix release.
+Mantle Business Artifacts 1.1.1 is a minor new feature and bug fix release.
 
-Mantle 1.0.2 is based on Moqui Framework TODO.
+This release is based on Moqui Framework TODO.
 
-NOTE: This version requires an update to existing databases to add the
-isPayable field as a PK field for the PaymentMethodTypeGlAccount entity.
+TODO
+
+Non Backward Compatible Changes
+
+- GlAccountType enumerations keys have been changed to camel case to
+  eliminate redundancy and demo GL Account data and code updated; for
+  existing systems th gl accounts demo data will need to be reloaded, all
+  AcctgTransEntry.glAccountTypeEnumId values updated, and old GlAccountType
+  Enumeration records removed; no known systems using this in production so
+  no automation is in place to do this
 
 New Features:
 
+- GL posting for physical inventory variance
+- GL posting for WIP (work in progress) inventory for production runs, both
+  on issuance (consume) and receipt (produce)
+- Added fields to track AcctgTrans reversed by and reverse of related
+  transactions, and that transaction has been reversed or is reverse
+- Revert GL posting for Invoice on cancel (through SECA rule)
+- Revert GL posting for Invoice when status change from Finalized or Sent
+  to In Process (to resume editing)
+- Revert GL posting for Payment status set to Void, Cancelled or Refunded
+  (through SECA rule)
+- When Payment status set to Void, Cancelled or Refunded un-apply from
+  invoices (through SECA rule); also added void#Payment service that can be
+  called directly
+- When Invoice set to Cancelled status un-apply payments (through SECA
+  rule); also added cancel#Invoice service that can be called directly
+- When Invoice status goes from Payment Sent/Receive to Approved/Finalized
+  un-apply payments (through SECA rule); also added unpay#Invoice service
+  that can be called directly
+- Improvements to Income Statement and Balance Sheet reports: formatting,
+  code cleanups, optionally show detail (balance by GL Account)
+- Financial Time Period closing now recalculates all posted amounts and
+  updates the GlAccountOrgTimePeriod records, creates or updates
+  GlAccountOrgTimePeriod records for next period (creating next period
+  if needed)
+
+Bug Fixes:
+
+- Fixed issue in LedgerServices.get#OrganizationFiscalTimePeriods where no
+  results were returned when filterDate is not specified
+- Fixed Income Statement to show amounts posted, not ending balance
+- Fixed Net Income value in Income Statement report
+- Fixed more duplicate GL Account types and classes, all GL Account Type
+  IDs are now camel cased and reviewed, various added to demo GL accounts
+
+===========================================================================
+Release 1.1.0 - 11 Sep 2015
+===========================================================================
+
+Mantle Business Artifacts 1.1.0 is a new feature and bug fix release with
+primary key and other changes not backward compatible with the previous
+release.
+
+Mantle 1.1.0 is based on Moqui Framework 1.5.3.
+
+There are over 650 commits since the last release and an increase in size
+from around 30k lines to over 40k lines of text (primarily XML, Groovy,
+and FTL files). The My Account app has 15 screens and 34 forms. Mantle has
+330 entities (plus 137 view entities), and 363 services. Mantle supports a
+wide range of business information and processes with this small code base.
+
+Significant new features include expanded time entry, human resources,
+and payroll functionality. There are now entities and services in place to
+handle salary and hourly/piece employees (contract and permanent, etc), and
+all employee and tax authority details to calculate payroll taxes and
+create and pay payroll invoices and payments.
+
+There is new functionality for Financial Accounts to better support
+deposits and withdrawals and related GL postings.
+
+Improved Inventory and Fixed Asset GL postings and account mapping
+configuration options based on asset type and class. Implemented fixed
+asset depreciation calculation and GL posting.
+
+There are a number of improvements to the Product data model with more
+options for structured data and content across defined product classes.
+
+Non Backward Compatible Changes:
+
+- This version requires an update to existing databases to add the
+  isPayable field as a PK field for the PaymentMethodTypeGlAccount entity.
+- The demo GL Accounts have been restructured and expanded (see notes in
+  ZaaGlAccountsDemoData.xml).
+- Item Types (order, invoice, etc) have been simplified for easier invoice
+  entry (removed ItemAsset variations) and expanded for payroll, etc.
+- Added assetTypeEnumId and assetClassEnumId to Product entity and
+  simplified ProductType enumerations (productTypeEnumId); some changes
+  to data and code may be necessary to populate properly, see the notes
+  in the comments under the Product entity in ProductDefinitionEntities.xml
+- The PK of ProductDimension has the new dimensionTypeId field instead
+  of the dimensionTypeEnumId field.
+- The ProductContent, PartyContent, and WorkEffortContent entities have
+  been changed to use a single sequenced primary key field and restructured
+  for consistency.
+- The AssetTypeGlAccount entity now uses a single PK, added classEnumId.
+
+New Features:
+
+- Added Travis CI configuration for continuous integration testing, now
+  setup for the moqui/mantle project with a badge reporting status
 - New XSL-FO templates and data prep services for Printed Checks (based on
   Payment records), Financial Account Statements, Order, Shipment Pick,
   Shipment Pack, Shipment Load Pick, Shipment Load Picklist and Pack Sheets
-- Removed Picklist entity, using Shipment Load/Ship purpose WorkEffort
-  instead to combine picklist management with shipping scheduling
+- Expanded PartyContent and other *Content entities, added upload/etc
+  services, changed to single PK field
 - Various new view entities and cleanups
 - Added various name/ID templates for DB configurable formatting using the
   L10nFacade with the new "default" locale (universal fallback)
-- GL posting for Financial Account Transactions
-- GL Account cleanups and reorg so that third-party holdings accounts are
-  under a new class under current liability and not under accounts payable
-- GL posting for payment method types (PaymentMethodTypeGlAccount) can now
-  vary by payable/receivable with the new isPayable field (Y for payable,
-  N for receivable, E for either); this is a PK field, modifying the PK of
-  this entity and requiring an update to existing databases
+- Removed Picklist entity, using Shipment Load/Ship purpose WorkEffort
+  instead to combine picklist management with shipping scheduling
+- HR and Payroll
+  - Significant enhancements and cleanups for Human Resources entities
+    related to employment and payroll (including payroll adjustments for
+    tax and other withholdings, pay grade and salary, and much more)
+  - Services for payroll including calculating salary and hourly/piece pay
+    amounts for a payroll period, calculating payroll adjustments
+    (including bonuses, garnishments, income/FICA/other from multiple tax
+    authorities), creating payroll invoices (and closing a payroll period),
+    and authorizing payroll invoices then creating payments; with check
+    printing payroll checks with details is also supported
+- Work
+  - Improved TimeEntry for piece counts, various service enhancements
+  - Added time entry screens in MyAccount app (general and for task)
+  - Added duration fields to WorkEffort, used for calendar time as opposed to
+    existing time fields which are total across all parties for cost and
+    budgeting purposes; changed various services to use these
+- Ledger
+  - GL posting for Financial Account Transactions
+  - GL Account cleanups and reorg so that third-party holdings accounts are
+    under a new class under current liability and not accounts payable
+  - GL posting for payment method types (PaymentMethodTypeGlAccount) can
+    vary by payable/receivable with the new isPayable field (Y for payable,
+    N for receivable, E for either); this is a PK field, modifying the PK
+    of this entity and requiring an update to existing databases
+- Product
+  - New ProductDimensionType entity so that unitTypeEnumId can be specified
+  - New ProductClass concept with Product.productClassEnumId field and the
+    ProductClassDimension and ProductClassFeature entities to specify which
+    dimensions and features apply to a given product class
+  - Added Product.assetTypeEnumId and assetClassEnumId fields, set in demo
+    data, used when creating Assets (in receive#Asset) for products,
+    cleaned up product types and used asset types and classes to simplify
+    code and resolve some issues
+- Asset
+  - Significant enhancements in accounting for fixed and inventory assets,
+    including some corrections of inventory posting and more flexible
+    configuration of posting for classes of inventory assets
+  - Implemented fixed asset depreciation calculation and GL postings
+  - Implemented fixed asset purchase and sale/disposal support
 
 Bug Fixes:
 
 - Fixed issue with conflicting use of enumId CURRENT_LIABILITY for both GL
   account class and type
+- Fixed concurrency issue when reserving inventory for the same product
+  from multiple threads running at the same time, plus test case to verify
+- Fixed issue with accounting transaction posting on last day in a period
+  not updating time period totals per account, etc
 
 ===========================================================================
 Release 1.0.1 - 2 May 2015

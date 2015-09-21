@@ -13,8 +13,6 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-<!-- STATUS: EXPERIMENTAL -->
-
     <service verb="get" noun="InvoiceDisplayInfo">
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <out-parameters>
@@ -352,12 +350,8 @@ along with this software (see the LICENSE.md file). If not, see
 
                     <if condition="invoiceId">
                         <!-- create InvoiceItem, OrderItemBilling, set invoiceId,invoiceItemSeqId -->
-                        <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
-                                    amount:orderItem.unitAmount, description:orderItem.itemDescription,
-                                    quantity:(shipmentItemSource.quantity * (orderItem.selectedAmount ?: 1)),
-                                    quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
-                                    itemDate:orderHeader.placedDate]"/>
+
+                        <set field="quantityNotOnItems" from="shipmentItemSource.quantity * (orderItem.selectedAmount ?: 1)"/>
 
                         <!-- first do AssetIssuance -->
                         <if condition="handleIssuances">
@@ -369,11 +363,39 @@ along with this software (see the LICENSE.md file). If not, see
                             <iterate list="assetIssuanceList" entry="assetIssuance">
                                 <!-- should we make sure the total quantity on all AssetIssuance records matches the
                                     quantity on the ShipmentItemSource record? that should be handled when they are created... -->
+                                <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                        in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
+                                            amount:orderItem.unitAmount, description:orderItem.itemDescription,
+                                            quantity:assetIssuance.quantity, assetId:assetIssuance.assetId,
+                                            quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
+                                            itemDate:orderHeader.placedDate]"/>
                                 <service-call name="create#mantle.order.OrderItemBilling"
                                         in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
-                                        invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
-                                        assetIssuanceId:assetIssuance.assetIssuanceId, shipmentId:shipmentId,
-                                        amount:orderItem.unitAmount, quantity:assetIssuance.quantity]"/>
+                                            invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                            assetIssuanceId:assetIssuance.assetIssuanceId, shipmentId:shipmentId,
+                                            amount:orderItem.unitAmount, quantity:assetIssuance.quantity]"/>
+                                <!-- update ShipmentItemSource -->
+                                <if condition="shipmentItemSource.invoiceItemSeqId">
+                                    <then>
+                                        <!-- will have to split the ShipmentItemSource -->
+                                        <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                                        <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                                        <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                                        <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <set field="newShipmentItemSource.quantity" from="assetIssuance.quantity"/>
+                                        <entity-create value-field="newShipmentItemSource"/>
+
+                                        <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetIssuance.quantity"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </then>
+                                    <else>
+                                        <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                                        <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </else>
+                                </if>
+
+                                <set field="quantityNotOnItems" from="quantityNotOnItems - assetIssuance.quantity"/>
                             </iterate>
                         </if>
 
@@ -388,18 +410,72 @@ along with this software (see the LICENSE.md file). If not, see
                             <iterate list="assetReceiptList" entry="assetReceipt">
                                 <!-- should we make sure the total quantity on all AssetReceipt records matches the
                                     quantity on the ShipmentItemSource record? that should be handled when they are created... -->
+                                <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                        in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
+                                            amount:orderItem.unitAmount, description:orderItem.itemDescription,
+                                            quantity:assetReceipt.quantityAccepted, assetId:assetReceipt.assetId,
+                                            quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
+                                            itemDate:orderHeader.placedDate]"/>
                                 <service-call name="create#mantle.order.OrderItemBilling"
                                         in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
-                                        invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
-                                        assetReceiptId:assetReceipt.assetReceiptId, shipmentId:shipmentId,
-                                        amount:orderItem.unitAmount, quantity:assetReceipt.quantityAccepted]"/>
+                                            invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                            assetReceiptId:assetReceipt.assetReceiptId, shipmentId:shipmentId,
+                                            amount:orderItem.unitAmount, quantity:assetReceipt.quantityAccepted]"/>
+                                <!-- update ShipmentItemSource -->
+                                <if condition="shipmentItemSource.invoiceItemSeqId">
+                                    <then>
+                                        <!-- will have to split the ShipmentItemSource -->
+                                        <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                                        <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                                        <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                                        <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <set field="newShipmentItemSource.quantity" from="assetReceipt.quantityAccepted"/>
+                                        <entity-create value-field="newShipmentItemSource"/>
+
+                                        <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetReceipt.quantityAccepted"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </then>
+                                    <else>
+                                        <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                                        <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                        <entity-update value-field="shipmentItemSource"/>
+                                    </else>
+                                </if>
+
+                                <set field="quantityNotOnItems" from="quantityNotOnItems - assetReceipt.quantityAccepted"/>
                             </iterate>
                         </if>
 
-                        <!-- update ShipmentItemSource -->
-                        <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
-                        <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                        <entity-update value-field="shipmentItemSource"/>
+                        <!-- there should not be any quantity left over after issuance/receipt records, but just make sure -->
+                        <if condition="quantityNotOnItems">
+                            <!-- NOTE: in this case we don't have an assetId -->
+                            <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                    in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
+                                        amount:orderItem.unitAmount, description:orderItem.itemDescription,
+                                        quantity:quantityNotOnItems,
+                                        quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
+                                        itemDate:orderHeader.placedDate]"/>
+                            <!-- update ShipmentItemSource -->
+                            <if condition="shipmentItemSource.invoiceItemSeqId">
+                                <then>
+                                    <!-- will have to split the ShipmentItemSource -->
+                                    <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                                    <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                                    <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                                    <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                    <set field="newShipmentItemSource.quantity" from="quantityNotOnItems"/>
+                                    <entity-create value-field="newShipmentItemSource"/>
+
+                                    <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - quantityNotOnItems"/>
+                                    <entity-update value-field="shipmentItemSource"/>
+                                </then>
+                                <else>
+                                    <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                                    <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                    <entity-update value-field="shipmentItemSource"/>
+                                </else>
+                            </if>
+                        </if>
 
                         <!-- also invoice child OrderItems (adjustments, etc) -->
                         <set field="childOrderItemList" from="orderItem.'Child#mantle.order.OrderItem'"/>
@@ -597,7 +673,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </entity-find-one>
                     <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId ?: 'USD'"/>
                 </if>
-                <set field="description" value="Invoice for ${workEffort ? 'project ' + ec.resource.expand('WorkEffortNameTemplate','') : ''} ${workerParty ? 'worker ' + ec.resource.expand('PartyNameTemplate','',workerParty) : ''}"/>
+                <set field="description" value="Invoice for${workEffort ? ' project ' + ec.resource.expand('WorkEffortNameTemplate','') : ''}${workerParty ? ' worker ' + ec.resource.expand('PartyNameTemplate','',workerParty) : ''}"/>
                 <if condition="ratePurposeEnumId == 'RaprClient'">
                     <service-call name="create#mantle.account.invoice.Invoice" out-map="context"
                             in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:'InvoiceInProcess',
@@ -703,92 +779,59 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="itemTypeEnumId" value="ItemTimeEntry"/>
             <set field="invoiceItemCreatedCount" from="0" type="Long"/>
             <if condition="createSingleItem">
-                <set field="amountTotal" from="0"/>
-                <iterate list="timeEntryList" entry="timeEntry">
-                    <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
-
-                    <if condition="rateAmountId">
-                        <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                            <field-map field-name="rateAmountId"/>
-                        </entity-find-one>
-
-                        <else>
-                            <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
-                                    in-map="[timeEntryId:timeEntry.timeEntryId]"/>
-                            <!-- set the values in the timeEntry record for use below since the service updates the DB record and we don't want to re-query to get it -->
-                            <set field="timeEntry.rateAmountId" from="getTerOut.rateAmountId"/>
-                            <set field="timeEntry.vendorRateAmountId" from="getTerOut.vendorRateAmountId"/>
-
-                            <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
-                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                <field-map field-name="rateAmountId"/>
-                            </entity-find-one>
-                        </else>
-                    </if>
-                    <if condition="rateAmount"><set field="amountTotal" from="amountTotal + (timeEntry.hours*rateAmount.rateAmount)"/></if>
-                </iterate>
-                <if condition="amountTotal">
-                    <set field="description" value="Time entries for task ${ec.resource.expand('WorkEffortNameTemplate','',workEffort)}"/>
-                    <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                            in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
-                                amount:amountTotal, quantity:1, description:description]"/>
-                    <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
-
+                <then>
+                    <set field="amountTotal" from="0"/>
                     <iterate list="timeEntryList" entry="timeEntry">
-                        <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
-                        <if condition="rateAmountId">
-                            <if condition="ratePurposeEnumId == 'RaprVendor'">
-                                <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
-                                <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-
-                                <else>
-                                    <set field="timeEntry.invoiceId" from="invoiceId"/>
-                                    <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                </else>
-                            </if>
-                            <entity-update value-field="timeEntry"/>
-                        </if>
+                        <service-call name="mantle.work.TimeServices.get#TimeEntryAmount" out-map="getTeaOut"
+                                in-map="[timeEntryId:timeEntry.timeEntryId, timeEntry:timeEntry, ratePurposeEnumId:ratePurposeEnumId]"/>
+                        <set field="amountTotal" from="amountTotal + getTeaOut.amountTotal"/>
                     </iterate>
-                </if>
+                    <if condition="amountTotal">
+                        <set field="description" value="Time entries for task ${ec.resource.expand('WorkEffortNameTemplate','',workEffort)}"/>
+                        <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
+                                    amount:amountTotal, quantity:1, description:description]"/>
+                        <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
 
+                        <iterate list="timeEntryList" entry="timeEntry">
+                            <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+                            <if condition="rateAmountId">
+                                <if condition="ratePurposeEnumId == 'RaprVendor'">
+                                    <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
+                                    <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
 
+                                    <else>
+                                        <set field="timeEntry.invoiceId" from="invoiceId"/>
+                                        <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                    </else>
+                                </if>
+                                <entity-update value-field="timeEntry"/>
+                            </if>
+                        </iterate>
+                    </if>
+                </then>
                 <else>
                     <iterate list="timeEntryList" entry="timeEntry">
-                        <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? timeEntry.vendorRateAmountId : timeEntry.rateAmountId"/>
+                        <service-call name="mantle.work.TimeServices.get#TimeEntryAmount" out-map="getTeaOut"
+                                in-map="[timeEntryId:timeEntry.timeEntryId, timeEntry:timeEntry, ratePurposeEnumId:ratePurposeEnumId]"/>
 
-                        <if condition="rateAmountId">
-                            <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                <field-map field-name="rateAmountId"/>
-                            </entity-find-one>
+                        <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
+                                    amount:getTeaOut.amount, quantity:getTeaOut.quantity, description:timeEntry.comments,
+                                    itemDate:timeEntry.thruDate]"/>
+                        <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
 
-                            <else>
-                                <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="getTerOut"
-                                        in-map="[timeEntryId:timeEntry.timeEntryId]"/>
-                                <set field="rateAmountId" from="ratePurposeEnumId == 'RaprVendor' ? getTerOut.vendorRateAmountId : getTerOut.rateAmountId"/>
-                                <entity-find-one entity-name="mantle.humanres.rate.RateAmount" value-field="rateAmount" cache="true">
-                                    <field-map field-name="rateAmountId"/>
-                                </entity-find-one>
-                            </else>
-                        </if>
-
-                        <if condition="rateAmount">
-                            <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                    in-map="[invoiceId:invoiceId, itemTypeEnumId:itemTypeEnumId,
-                                        amount:rateAmount.rateAmount, quantity:timeEntry.hours, description:timeEntry.comments,
-                                        itemDate:timeEntry.fromDate]"/>
-                            <set field="invoiceItemCreatedCount" from="invoiceItemCreatedCount + 1"/>
-
-                            <if condition="ratePurposeEnumId == 'RaprVendor'">
+                        <if condition="ratePurposeEnumId == 'RaprVendor'">
+                            <then>
                                 <set field="timeEntry.vendorInvoiceId" from="invoiceId"/>
                                 <set field="timeEntry.vendorInvoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-
-                                <else>
-                                    <set field="timeEntry.invoiceId" from="invoiceId"/>
-                                    <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                </else>
-                            </if>
-                            <entity-update value-field="timeEntry"/>
+                            </then>
+                            <else>
+                                <set field="timeEntry.invoiceId" from="invoiceId"/>
+                                <set field="timeEntry.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                            </else>
                         </if>
+                        <entity-update value-field="timeEntry"/>
                     </iterate>
                 </else>
             </if>
@@ -834,6 +877,133 @@ along with this software (see the LICENSE.md file). If not, see
                                 quantity:originalInvoiceItem.quantity]"/>
                 </if>
             </iterate>
+        </actions>
+    </service>
+
+    <service verb="cancel" noun="Invoice">
+        <description>Set to Cancelled status if not already in Cancelled. Un-apply payment invoice if any applied. May
+            be called directly or through SECA rule on Cancelled status.</description>
+        <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
+        <actions>
+            <service-call name="mantle.account.InvoiceServices.unpay#Invoice"
+                    in-map="[invoiceId:invoiceId, statusId:'InvoiceCancelled']"/>
+        </actions>
+    </service>
+    <service verb="unpay" noun="Invoice">
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="statusId"/>
+        </in-parameters>
+        <actions>
+            <!-- check/update the status -->
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice" for-update="true"/>
+            <if condition="!statusId">
+                <if condition="invoice.statusId == 'InvoicePmtRecvd'"><set field="statusId" value="InvoiceFinalized"/></if>
+                <if condition="invoice.statusId == 'InvoicePmtSent'"><set field="statusId" value="InvoiceApproved"/></if>
+            </if>
+            <if condition="statusId &amp;&amp; invoice.statusId != statusId">
+                <service-call name="update#mantle.account.invoice.Invoice"
+                        in-map="[invoiceId:invoiceId, statusId:statusId]"/>
+            </if>
+
+            <!-- unapply payment applications -->
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="invoiceId"/></entity-find>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <if condition="paymentApplication.amountApplied != 0">
+                    <service-call name="mantle.account.PaymentServices.unapply#PaymentApplication"
+                            in-map="[paymentApplicationId:paymentApplication.paymentApplicationId]"/>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="autoApplyTo" noun="Invoice">
+        <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
+        <out-parameters><parameter name="paymentIdList" type="List"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+
+    <!-- ================================================ -->
+    <!-- ========== InvoiceContent Services ========== -->
+    <!-- ================================================ -->
+
+    <service verb="get" noun="InvoiceContentLocation">
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="contentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="invoiceContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="contentTypeEnumIdList" entry="contentTypeEnumId">
+                <entity-find entity-name="mantle.account.invoice.InvoiceContent" list="invoiceContentList">
+                    <econdition field-name="invoiceId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="invoiceContentList">
+                    <set field="invoiceContent" from="invoiceContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="invoiceContent ? invoiceContent.contentLocation : null"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="InvoiceContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.invoice.InvoiceContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="invoiceContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.account.invoice.InvoiceContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.account.InvoiceServices.save#InvoiceContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="InvoiceContent">
+        <in-parameters>
+            <parameter name="invoiceContentId" required="true"/>
+            <auto-parameters entity-name="mantle.account.invoice.InvoiceContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.account.invoice.InvoiceContent" value-field="invoiceContent"/>
+                <service-call name="mantle.account.InvoiceServices.save#InvoiceContentFile" out-map="context"
+                        in-map="context + [invoiceId:invoiceContent.invoiceId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.account.invoice.InvoiceContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="InvoiceContentFile">
+        <in-parameters>
+            <parameter name="invoiceContentId" required="true"/>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/invoice/${invoiceId}/content_${invoiceContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.account.invoice.InvoiceContent"
+                    in-map="[invoiceContentId:invoiceContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
 </services>
