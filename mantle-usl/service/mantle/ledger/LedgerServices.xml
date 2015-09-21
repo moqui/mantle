@@ -315,6 +315,19 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="update#mantle.ledger.transaction.AcctgTrans" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="delete" noun="AcctgTrans">
+        <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
+
+            <if condition="acctgTrans.isPosted == 'Y'">
+                <return error="true" message="Not deleting transaction [${acctgTransId}], transaction is posted"/></if>
+
+            <entity-delete-by-condition entity-name="mantle.ledger.transaction.AcctgTransEntry">
+                <econdition field-name="acctgTransId"/></entity-delete-by-condition>
+            <entity-delete value-field="acctgTrans"/>
+        </actions>
+    </service>
 
     <service verb="create" noun="AcctgTransEntry">
         <in-parameters>
@@ -563,20 +576,6 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="acctgTrans.isPosted" value="Y"/>
             <set field="acctgTrans.postedDate" from="ec.user.nowTimestamp"/>
             <entity-update value-field="acctgTrans"/>
-        </actions>
-    </service>
-
-    <service verb="delete" noun="AcctgTrans">
-        <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
-        <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
-
-            <if condition="acctgTrans.isPosted == 'Y'">
-                <return error="true" message="Not deleting transaction [${acctgTransId}], transaction is posted"/></if>
-
-            <entity-delete-by-condition entity-name="mantle.ledger.transaction.AcctgTransEntry">
-                <econdition field-name="acctgTransId"/></entity-delete-by-condition>
-            <entity-delete value-field="acctgTrans"/>
         </actions>
     </service>
 
