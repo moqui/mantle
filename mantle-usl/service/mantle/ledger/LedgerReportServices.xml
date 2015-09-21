@@ -51,11 +51,11 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="timePeriodIdList" entry="timePeriodId">
                 <script>
                     BigDecimal netAssetTotal = (classInfoById.ASSET.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                                               (classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
                     netAssetTotalMap.put(timePeriodId, netAssetTotal)
 
                     BigDecimal liabilityEquityTotal = (classInfoById.LIABILITY.totalBalanceByTimePeriod.get(timePeriodId) ?: 0) +
-                                                    (classInfoById.EQUITY.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
+                                                      (classInfoById.EQUITY.totalBalanceByTimePeriod.get(timePeriodId) ?: 0)
                     liabilityEquityTotalMap.put(timePeriodId, liabilityEquityTotal)
                 </script>
             </iterate>
@@ -92,26 +92,18 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="classIdList" entry="classId">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
-                            classInfoById:classInfoById, glAccountClassEnumId:classId]"/>
+                            classInfoById:classInfoById, negateDebit:true, glAccountClassEnumId:classId]"/>
             </iterate>
 
-            <set field="grossProfitOnSalesMap" from="[:]"/>
-            <set field="netOperatingIncomeMap" from="[:]"/>
-            <set field="netIncomeMap" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <script>
-                    BigDecimal grossProfitOnSales = (classInfoById.REVENUE.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (classInfoById.COST_OF_SALES.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
-                    grossProfitOnSalesMap.put(timePeriodId, grossProfitOnSales)
-
-                    BigDecimal netOperatingIncome = (classInfoById.INCOME.totalPostedByTimePeriod.get(timePeriodId) ?: 0) -
-                                                    (classInfoById.EXPENSE.totalPostedByTimePeriod.get(timePeriodId) ?: 0)
-                    netOperatingIncomeMap.put(timePeriodId, netOperatingIncome)
-
-                    netIncomeMap.put(timePeriodId, grossProfitOnSales + netOperatingIncome)
-                </script>
-            </iterate>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="grossProfitOnSalesOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES']]"/>
+            <set field="grossProfitOnSalesMap" from="grossProfitOnSalesOut.totalPosted"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netOperatingIncomeOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['INCOME', 'EXPENSE']]"/>
+            <set field="netOperatingIncomeMap" from="netOperatingIncomeOut.totalPosted"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netIncomeOut"
+                    in-map="[classInfoById:classInfoById, classIdList:classIdList]"/>
+            <set field="netIncomeMap" from="netIncomeOut.totalPosted"/>
         </actions>
     </service>
 
@@ -156,6 +148,9 @@ along with this software (see the LICENSE.md file). If not, see
 
             -->
             <parameter name="classInfoById" type="Map"/>
+            <parameter name="netOperatingActivityMap" type="Map"/>
+            <parameter name="netInvestingActivityMap" type="Map"/>
+            <parameter name="netFinancingActivityMap" type="Map"/>
         </out-parameters>
         <actions>
             <service-call name="mantle.ledger.LedgerReportServices.run#IncomeStatement" in-map="context" out-map="context"/>
@@ -169,16 +164,51 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="classIdList" entry="classId">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
-                            classInfoById:classInfoById, glAccountClassEnumId:classId]"/>
+                            classInfoById:classInfoById, glAccountClassEnumId:classId, negateCredit:true]"/>
             </iterate>
+
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netOperatingActivityOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES',
+                        'INCOME', 'EXPENSE', 'CURRENT_ASSET', 'OTHER_ASSET', 'CONTRA_ASSET', 'CURRENT_LIABILITY']]"/>
+            <set field="netOperatingActivityMap" from="netOperatingActivityOut.totalPosted"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netInvestingActivityOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['LONGTERM_ASSET']]"/>
+            <set field="netInvestingActivityMap" from="netInvestingActivityOut.totalPosted"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netFinancingActivityOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['DISTRIBUTION', 'EQUITY', 'LONG_TERM_LIABILITY']]"/>
+            <set field="netFinancingActivityMap" from="netFinancingActivityOut.totalPosted"/>
         </actions>
     </service>
 
+    <service verb="get" noun="GlAccountClassInfoSums">
+        <in-parameters>
+            <parameter name="classInfoById" type="Map" required="true"/>
+            <parameter name="classIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="totalPosted" type="Map"/>
+            <parameter name="totalBalance" type="Map"/>
+        </out-parameters>
+        <actions>
+            <set field="totalPosted" from="[:]"/>
+            <set field="totalBalance" from="[:]"/>
+            <iterate list="classIdList" entry="classId">
+                <set field="classInfo" from="classInfoById.get(classId)"/>
+                <if condition="!classInfo"><continue/></if>
+                <iterate list="classInfo.totalPostedByTimePeriod" entry="totalPostedVal" key="timePeriodId">
+                    <script>StupidUtilities.addToBigDecimalInMap(timePeriodId, totalPostedVal, totalPosted)</script></iterate>
+                <iterate list="classInfo.totalBalanceByTimePeriod" entry="totalBalanceVal" key="timePeriodId">
+                    <script>StupidUtilities.addToBigDecimalInMap(timePeriodId, totalBalanceVal, totalBalance)</script></iterate>
+            </iterate>
+        </actions>
+    </service>
     <service verb="get" noun="GlAccountClassReportInfo">
         <in-parameters>
             <parameter name="organizationPartyId" required="true"/>
             <parameter name="timePeriodIdList" type="List" required="true"/>
             <parameter name="glAccountClassEnumId" required="true"/>
+            <parameter name="negateDebit" type="Boolean" default="false"/>
+            <parameter name="negateCredit" type="Boolean" default="false"/>
             <parameter name="classInfoById" type="Map"/>
         </in-parameters>
         <out-parameters>
@@ -189,6 +219,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="enumId" from="glAccountClassEnumId"/></entity-find-one>
             <if condition="!classEnum">
                 <return error="true" message="Enumeration not found for ${glAccountClassEnumId}"/></if>
+
+            <set field="negate" from="false"/>
+            <if condition="negateDebit || negateCredit">
+                <service-call name="mantle.ledger.LedgerServices.find#RootGlAccountClassEnum" out-map="context"
+                        in-map="[glAccountClassEnumId:glAccountClassEnumId]"/>
+                <set field="negate" from="(negateDebit &amp;&amp; rootGlAccountClassEnumId == 'DEBIT') ||
+                        (negateCredit &amp;&amp; rootGlAccountClassEnumId == 'CREDIT')"/>
+            </if>
 
             <!-- lookup accounts, add to glAccountInfoList, sum up classBalance -->
             <entity-find entity-name="mantle.ledger.report.GlAccountOrgTimePeriodDetail" list="glAccountDetailList">
@@ -203,6 +241,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>
                     BigDecimal balance = glAccountDetail.endingBalance ?: 0
                     BigDecimal posted = (glAccountDetail.endingBalance ?: 0) - (glAccountDetail.beginningBalance ?: 0)
+                    if (negate) { balance = -balance; posted = -posted }
+
                     StupidUtilities.addToBigDecimalInMap(glAccountDetail.timePeriodId, balance, balanceByTimePeriod)
                     StupidUtilities.addToBigDecimalInMap(glAccountDetail.timePeriodId, posted, postedByTimePeriod)
 
@@ -228,9 +268,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <order-by field-name="description"/>
             </entity-find>
             <iterate list="childEnumList" entry="childEnum">
-                <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
+                <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo" out-map="childOut"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
-                            glAccountClassEnumId:childEnum.enumId]" out-map="childOut"/>
+                            glAccountClassEnumId:childEnum.enumId, negateDebit:negateDebit, negateCredit:negateCredit]"/>
                 <script>childClassInfoList.add(childOut.classInfoMap)</script>
                 <!-- add both the class balance and child balance to current class's child balance -->
                 <iterate list="timePeriodIdList" entry="timePeriodId">

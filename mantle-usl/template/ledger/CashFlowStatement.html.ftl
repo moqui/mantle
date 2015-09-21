@@ -55,6 +55,17 @@ along with this software (see the LICENSE.md file). If not, see
         </tr>
     </#if>
 </#macro>
+<#macro showClassTotals classInfo>
+    <tr class="text-info">
+        <td style="padding-left: 0.3em;"><strong>${ec.l10n.localize(classInfo.className)}</strong></td>
+        <#list timePeriodIdList as timePeriodId>
+            <#assign beginningClassBalance = (classInfo.totalBalanceByTimePeriod[timePeriodId]!0) - (classInfo.totalPostedByTimePeriod[timePeriodId]!0)>
+            <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfo.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            <td class="text-right"><strong><#-- ${ec.l10n.formatCurrency(beginningClassBalance, currencyUomId, 2)}--> </strong></td>
+            <td class="text-right"><strong><#-- ${ec.l10n.formatCurrency(classInfo.totalBalanceByTimePeriod[timePeriodId]!0, currencyUomId, 2)} --> </strong></td>
+        </#list>
+    </tr>
+</#macro>
 
 <table class="table table-striped table-hover table-condensed">
     <thead>
@@ -72,24 +83,44 @@ along with this software (see the LICENSE.md file). If not, see
             <td><strong>${ec.l10n.localize("Operating Activities")}</strong></td>
             <#list timePeriodIdList as timePeriodId><td class="text-right"> </td><td class="text-right"> </td><td class="text-right"> </td></#list>
         </tr>
-        <tr class="text-success">
+
+        <#if classInfoById.REVENUE??><@showClassTotals classInfoById.REVENUE/></#if>
+        <#if classInfoById.CONTRA_REVENUE??><@showClassTotals classInfoById.CONTRA_REVENUE/></#if>
+        <#if classInfoById.COST_OF_SALES??><@showClassTotals classInfoById.COST_OF_SALES/></#if>
+        <#if classInfoById.INCOME??><@showClassTotals classInfoById.INCOME/></#if>
+        <#if classInfoById.EXPENSE??><@showClassTotals classInfoById.EXPENSE/></#if>
+        <tr class="text-warning">
             <td><strong>${ec.l10n.localize("Net Income")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(netIncomeMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
-                <td class="text-right"><strong> </strong></td>
-                <td class="text-right"><strong> </strong></td>
+                <td class="text-right"><strong> </strong></td><td class="text-right"><strong> </strong></td>
             </#list>
         </tr>
-        <#if classInfoById.CONTRA_ASSET??><@showClass classInfoById.CONTRA_ASSET 1/></#if>
+
         <#if classInfoById.CURRENT_ASSET??><@showClass classInfoById.CURRENT_ASSET 1/></#if>
         <#if classInfoById.OTHER_ASSET??><@showClass classInfoById.OTHER_ASSET 1/></#if>
+        <#if classInfoById.CONTRA_ASSET??><@showClass classInfoById.CONTRA_ASSET 1/></#if>
         <#if classInfoById.CURRENT_LIABILITY??><@showClass classInfoById.CURRENT_LIABILITY 1/></#if>
+        <tr class="text-success">
+            <td><strong>${ec.l10n.localize("Net Cash Operating Activities")}</strong></td>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(netOperatingActivityMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong> </strong></td><td class="text-right"><strong> </strong></td>
+            </#list>
+        </tr>
 
         <tr style="border-top: solid black;">
             <td><strong>${ec.l10n.localize("Investing Activities")}</strong></td>
             <#list timePeriodIdList as timePeriodId><td class="text-right"> </td><td class="text-right"> </td><td class="text-right"> </td></#list>
         </tr>
         <#if classInfoById.LONGTERM_ASSET??><@showClass classInfoById.LONGTERM_ASSET 1/></#if>
+        <tr class="text-success">
+            <td><strong>${ec.l10n.localize("Net Cash Investing Activities")}</strong></td>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(netInvestingActivityMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong> </strong></td><td class="text-right"><strong> </strong></td>
+            </#list>
+        </tr>
 
         <tr style="border-top: solid black;">
             <td><strong>${ec.l10n.localize("Financing Activities")}</strong></td>
@@ -98,5 +129,12 @@ along with this software (see the LICENSE.md file). If not, see
         <#if classInfoById.DISTRIBUTION??><@showClass classInfoById.DISTRIBUTION 1/></#if>
         <#if classInfoById.EQUITY??><@showClass classInfoById.EQUITY 1/></#if>
         <#if classInfoById.LONG_TERM_LIABILITY??><@showClass classInfoById.LONG_TERM_LIABILITY 1/></#if>
+        <tr class="text-success">
+            <td><strong>${ec.l10n.localize("Net Cash Financing Activities")}</strong></td>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(netFinancingActivityMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong> </strong></td><td class="text-right"><strong> </strong></td>
+            </#list>
+        </tr>
     </tbody>
 </table>

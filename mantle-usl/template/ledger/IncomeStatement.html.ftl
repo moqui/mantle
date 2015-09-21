@@ -55,7 +55,7 @@ along with this software (see the LICENSE.md file). If not, see
         <tr>
             <td><strong>${ec.l10n.localize("Net Sales")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.REVENUE.totalPostedByTimePeriod[timePeriodId]!0 - classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.REVENUE.totalPostedByTimePeriod[timePeriodId]!0 + classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
         </tr>
 
