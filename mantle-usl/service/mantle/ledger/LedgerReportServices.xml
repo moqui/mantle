@@ -123,7 +123,7 @@ along with this software (see the LICENSE.md file). If not, see
                       - accumulated amortization ACCUM_AMORTIZATION (subtract)
                   - CURRENT_ASSET (end - begin balance) (except CASH_EQUIVALENT?)
                     - accounts receivable ACCOUNTS_RECEIVABLE (add)
-                    - prepaid expenses PREPAID_AND_OTHER (add)
+                    - prepaid expenses PREPAID_EXPENSE (add)
                     - accrued interest receivable (add)
                     - inventory assets INVENTORY_ASSET (add)
                   - other assets OTHER_ASSET (add)
@@ -177,6 +177,31 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netFinancingActivityOut"
                     in-map="[classInfoById:classInfoById, classIdList:['DISTRIBUTION', 'EQUITY', 'LONG_TERM_LIABILITY']]"/>
             <set field="netFinancingActivityMap" from="netFinancingActivityOut.totalPosted"/>
+        </actions>
+    </service>
+    <service verb="run" noun="RetainedEarningsStatement">
+        <implements service="mantle.ledger.LedgerReportServices.run#IncomeStatement"/>
+        <out-parameters>
+            <!-- show RETAINED_EARNINGS, all from Income Statement (Net Income), DIVIDEND -->
+            <parameter name="classInfoById" type="Map"/>
+            <parameter name="netEarningsMap" type="Map"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.ledger.LedgerReportServices.run#IncomeStatement" in-map="context" out-map="context"/>
+
+            <set field="classIdList" from="['RETAINED_EARNINGS', 'DIVIDEND']"/>
+
+            <!-- NOTE: classInfoById used from run#IncomeStatement, contains 'REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES', 'INCOME', 'EXPENSE' -->
+            <iterate list="classIdList" entry="classId">
+                <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
+                        in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
+                            classInfoById:classInfoById, glAccountClassEnumId:classId, negateDebit:true]"/>
+            </iterate>
+
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netEarningsOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES',
+                        'INCOME', 'EXPENSE', 'RETAINED_EARNINGS', 'DIVIDEND']]"/>
+            <set field="netEarningsMap" from="netEarningsOut.totalPosted"/>
         </actions>
     </service>
 
