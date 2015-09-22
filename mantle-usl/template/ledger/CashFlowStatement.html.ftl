@@ -72,9 +72,9 @@ along with this software (see the LICENSE.md file). If not, see
         <tr>
             <th>${ec.l10n.localize("Cash Flow Statement")}</th>
             <#list timePeriodIdList as timePeriodId>
-                <th class="text-right">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed}) Posted</th>
-                <th class="text-right">Beginning</th>
-                <th class="text-right">Ending</th>
+                <th class="text-right">${timePeriodIdMap[timePeriodId].periodName} (${ec.l10n.localize("Closed")}: ${timePeriodIdMap[timePeriodId].isClosed}) ${ec.l10n.localize("Posted")}</th>
+                <th class="text-right">${ec.l10n.localize("Beginning")}</th>
+                <th class="text-right">${ec.l10n.localize("Ending")}</th>
             </#list>
         </tr>
     </thead>
@@ -90,7 +90,7 @@ along with this software (see the LICENSE.md file). If not, see
         <#if classInfoById.INCOME??><@showClassTotals classInfoById.INCOME/></#if>
         <#if classInfoById.EXPENSE??><@showClassTotals classInfoById.EXPENSE/></#if>
         <tr class="text-warning">
-            <td><strong>${ec.l10n.localize("Net Income")}</strong></td>
+            <td><strong>${ec.l10n.localize("Net Income (see details on Income Statement)")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(netIncomeMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
                 <td class="text-right"><strong> </strong></td><td class="text-right"><strong> </strong></td>
@@ -133,6 +133,14 @@ along with this software (see the LICENSE.md file). If not, see
             <td><strong>${ec.l10n.localize("Net Cash Financing Activities")}</strong></td>
             <#list timePeriodIdList as timePeriodId>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(netFinancingActivityMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong> </strong></td><td class="text-right"><strong> </strong></td>
+            </#list>
+        </tr>
+
+        <tr class="text-success" style="border-top: solid black;">
+            <td><strong>${ec.l10n.localize("Net Increase in Cash")}</strong></td>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency((netOperatingActivityMap[timePeriodId]!0) + (netInvestingActivityMap[timePeriodId]!0) + (netFinancingActivityMap[timePeriodId]!0), currencyUomId, 2)}</strong></td>
                 <td class="text-right"><strong> </strong></td><td class="text-right"><strong> </strong></td>
             </#list>
         </tr>
