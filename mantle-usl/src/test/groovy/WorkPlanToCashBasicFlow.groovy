@@ -133,7 +133,7 @@ class WorkPlanToCashBasicFlow extends Specification {
                 organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.config.ItemTypeGlAccount glAccountId="550000000" direction="I" itemTypeEnumId="ItemTimeEntry"
                 organizationPartyId="${vendorResult.partyId}"/>
-            <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpTravAir" direction="E" glAccountId="681000000"
+            <mantle.ledger.config.ItemTypeGlAccount itemTypeEnumId="ItemExpTravAir" direction="E" glAccountId="681100000"
                 organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.account.GlAccountOrganization glAccountId="121000000" organizationPartyId="${vendorResult.partyId}"/>
             <mantle.ledger.account.GlAccountOrganization glAccountId="210000000" organizationPartyId="${vendorResult.partyId}"/>
@@ -641,9 +641,9 @@ class WorkPlanToCashBasicFlow extends Specification {
                 organizationPartyId="${vendorResult.partyId}" transactionDate="${effectiveTime}" isPosted="Y" postedDate="${effectiveTime}"
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="${workerResult.partyId}" invoiceId="${expInvResult.invoiceId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="345.67" glAccountId="681000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="01"/>
+                amount="345.67" glAccountId="681100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="123.45" glAccountId="681000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="02"/>
+                amount="123.45" glAccountId="681100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="02"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="03" debitCreditFlag="D"
                 amount="240" glAccountId="550000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="03"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="04" debitCreditFlag="D"
@@ -752,9 +752,9 @@ class WorkPlanToCashBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="03" debitCreditFlag="C"
                 amount="120" glAccountId="412000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="03"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="04" debitCreditFlag="C"
-                amount="345.67" glAccountId="681000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
+                amount="345.67" glAccountId="681100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="05" debitCreditFlag="C"
-                amount="123.45" glAccountId="681000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
+                amount="123.45" glAccountId="681100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="06" debitCreditFlag="D"
                 amount="1,039.12" glAccountTypeEnumId="GatAccountsReceivable" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
 
