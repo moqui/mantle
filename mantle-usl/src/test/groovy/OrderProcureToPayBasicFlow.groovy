@@ -598,7 +598,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                     amount="10,000" glAccountTypeEnumId="GatUnreceivedFixedAsset" glAccountId="139100000"
                     reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="04"/>
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="05" debitCreditFlag="D"
-                    amount="145" glAccountTypeEnumId="" glAccountId="509000000" reconcileStatusId="AES_NOT_RECONCILED"
+                    amount="145" glAccountTypeEnumId="" glAccountId="519000000" reconcileStatusId="AES_NOT_RECONCILED"
                     isSummary="N" invoiceItemSeqId="05"/>
 
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="06" debitCreditFlag="C"
@@ -995,7 +995,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                         isPosted="Y" assetId="DEMO_1_1A" acctgTransTypeEnumId="AttInventoryVariance"
                         glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                     <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="75" productId="DEMO_1_1"
-                            glAccountId="530000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountId="527000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                             glAccountTypeEnumId="GatInvShrinkage" debitCreditFlag="D" assetId="DEMO_1_1A"/>
                     <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="75" productId="DEMO_1_1"
                             glAccountId="141300000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"

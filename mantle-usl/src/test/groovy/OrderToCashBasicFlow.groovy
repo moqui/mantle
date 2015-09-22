@@ -308,7 +308,7 @@ class OrderToCashBasicFlow extends Specification {
                 amount="8" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="8" glAccountTypeEnumId="GatCogs" glAccountId="502000000"
+                amount="8" glAccountTypeEnumId="GatCogs" glAccountId="512000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttInventoryIssuance"
@@ -319,7 +319,7 @@ class OrderToCashBasicFlow extends Specification {
                 amount="20" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="20" glAccountTypeEnumId="GatCogs" glAccountId="502000000"
+                amount="20" glAccountTypeEnumId="GatCogs" glAccountId="512000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
             <!-- NOTE: there is no AcctgTrans for assetId 55500, productId DEMO_2_1 because it is auto-created and has
