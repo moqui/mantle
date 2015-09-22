@@ -40,12 +40,21 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- NOTE: should DISTRIBUTION go here, or somewhere else? -->
 
             <set field="classInfoById" from="[:]"/>
-            <iterate list="classIdList" entry="classId">
+            <iterate list="['ASSET', 'LIABILITY', 'EQUITY']" entry="classId">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
                             classInfoById:classInfoById, glAccountClassEnumId:classId]"/>
             </iterate>
+            <!-- do this separately, only one that needs to be negated for this report -->
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
+                    in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
+                        classInfoById:classInfoById, glAccountClassEnumId:'CONTRA_ASSET', negateCredit:true]"/>
 
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netAssetTotalMap"
+                    in-map="[classInfoById:classInfoById, classIdList:['ASSET', 'CONTRA_ASSET']]"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="liabilityEquityTotalMap"
+                    in-map="[classInfoById:classInfoById, classIdList:['LIABILITY', 'EQUITY']]"/>
+            <!--
             <set field="netAssetTotalMap" from="[:]"/>
             <set field="liabilityEquityTotalMap" from="[:]"/>
             <iterate list="timePeriodIdList" entry="timePeriodId">
@@ -59,6 +68,7 @@ along with this software (see the LICENSE.md file). If not, see
                     liabilityEquityTotalMap.put(timePeriodId, liabilityEquityTotal)
                 </script>
             </iterate>
+            -->
         </actions>
     </service>
     <service verb="run" noun="IncomeStatement">
@@ -154,13 +164,16 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <service-call name="mantle.ledger.LedgerReportServices.run#IncomeStatement" in-map="context" out-map="context"/>
-
-            <set field="classIdList" from="[
-                    /* Operating Activities */ 'CONTRA_ASSET', 'CURRENT_ASSET', 'OTHER_ASSET', 'CURRENT_LIABILITY',
-                    /* Investing Activities */ 'LONG_TERM_ASSET',
-                    /* Financing Activities */ 'DISTRIBUTION', 'EQUITY', 'LONG_TERM_LIABILITY']"/>
-
             <!-- NOTE: classInfoById used from run#IncomeStatement, contains 'REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES', 'INCOME', 'EXPENSE' -->
+
+            <!--
+                Operating Activities: -'CONTRA_ASSET', +'CURRENT_ASSET', +'OTHER_ASSET', -'CURRENT_LIABILITY'
+                Investing Activities: -'LONG_TERM_ASSET'
+                Financing Activities: -'DISTRIBUTION', +'EQUITY', +'LONG_TERM_LIABILITY'
+            -->
+            <set field="classIdList" from="['CONTRA_ASSET', 'CURRENT_ASSET', 'OTHER_ASSET', 'CURRENT_LIABILITY',
+                                            'LONG_TERM_ASSET',
+                                            'DISTRIBUTION', 'EQUITY', 'LONG_TERM_LIABILITY']"/>
             <iterate list="classIdList" entry="classId">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
@@ -202,6 +215,107 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[classInfoById:classInfoById, classIdList:['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES',
                         'INCOME', 'EXPENSE', 'RETAINED_EARNINGS', 'DIVIDEND']]"/>
             <set field="netEarningsMap" from="netEarningsOut.totalPosted"/>
+        </actions>
+    </service>
+
+    <service verb="run" noun="FinancialRatios">
+        <in-parameters>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="timePeriodIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="currencyUomId"/>
+            <parameter name="timePeriodIdMap" type="Map"/>
+            <parameter name="classInfoById" type="Map"/>
+
+            <parameter name="grossProfitOnSalesMap" type="Map"/>
+            <parameter name="netOperatingIncomeMap" type="Map"/>
+            <parameter name="netIncomeMap" type="Map"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId"/>
+            <set field="timePeriodIdMap" from="[:]"/>
+            <iterate list="timePeriodIdList" entry="timePeriodId">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+                <script>timePeriodIdMap.put(timePeriodId, timePeriod)</script>
+            </iterate>
+
+            <!-- Get info for all DEBIT and CREDIT accounts, we'll use them in various places -->
+            <set field="classIdList" from="['DEBIT', 'CREDIT']"/>
+            <set field="classInfoById" from="[:]"/>
+            <iterate list="classIdList" entry="classId">
+                <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo"
+                        in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
+                            classInfoById:classInfoById, negateDebit:true, glAccountClassEnumId:classId]"/>
+            </iterate>
+
+            <!-- get Net Income -->
+            <set field="netIncomeClassIdList" from="['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES', 'INCOME', 'EXPENSE']"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netIncomeOut"
+                    in-map="[classInfoById:classInfoById, classIdList:netIncomeClassIdList]"/>
+            <set field="netIncomeMap" from="netIncomeOut.totalPosted"/>
+
+            <!-- empty Maps for the various values -->
+            <set field="ebitMap" from="[:]"/>
+            <set field="ibieMap" from="[:]"/>
+            <set field="ebtMap" from="[:]"/>
+            <set field="netInterestMap" from="[:]"/>
+
+            <iterate list="timePeriodIdList" entry="timePeriodId">
+                <set field="netAssetBalance" from="classInfoById.ASSET.totalBalanceByTimePeriod[timePeriodId] -
+                        classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
+                <set field="netLongTermAssetBalance" from="classInfoById.LONG_TERM_ASSET.totalBalanceByTimePeriod[timePeriodId] -
+                        classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
+
+                <!-- Sales = REVENUE - CONTRA_REVENUE -->
+                <!-- Gross Profit = Sales - COST_OF_SALES -->
+                <!-- Administrative Expense = SGA_EXPENSE + COMPENSATION -->
+                <!-- EBIT = Gross Profit - Administrative Expense - DEPRECIATION - CASH_EXPENSE -->
+                <!-- EBT = EBIT - INTEREST_EXPENSE + INTEREST_INCOME -->
+                <!-- Net Income = EBT - Taxes (TODO) -->
+
+                <!-- TODO: Earnings Before Interest and Taxes -->
+                <set field="netInterest" from="0"/>
+                <set field="ebit" from="0"/>
+                <!-- EBIT + interest income = IBIE; IBIE - interest expense = EBT; EBT - income taxes = Net Income -->
+                <!-- EBIT = Net Income + income taxes + interest expense - interest income -->
+
+                <!-- Liquidity: Ability to meet short-term obligations -->
+                <!-- TODO: Current Liquidity = CURRENT_ASSET / CURRENT_LIABILITY -->
+                <!-- TODO: Quick Liquidity = (CURRENT_ASSET - INVENTORY_ASSET) / CURRENT_LIABILITY -->
+                <!-- TODO: Net Working Capital to Total Assets = (CURRENT_ASSET - INVENTORY_ASSET) / ASSET -->
+
+                <!-- Activity: Efficiency in generating sales with assets -->
+                <!-- TODO: Inventory Turnover = COST_GOODS_SOLD / INVENTORY_ASSET (should be "average" inventory...) -->
+                <!-- TODO: Collection Period = ACCOUNTS_RECEIVABLE / (credit sales per day??? - maybe REVENUE/(days in period)) -->
+                <!-- TODO: Fixed Asset Turnover = Sales / netLongTermAssetBalance -->
+                <!-- TODO: Total Assets Turnover = Sales / netAssetBalance -->
+
+                <!-- Leverage: Degree of indebtedness and ability to meet long term obligations -->
+                <!-- TODO: Debt Ratio = LIABILITY / netAssetBalance -->
+                <!-- TODO: Debt to Equity = LONG_TERM_LIABILITY / EQUITY -->
+                <!-- TODO: Times Interest Earned = EBIT / netInterest -->
+                <!-- TODO: Cash Coverage = (EBIT + DEPRECIATION) / netInterest -->
+                <!-- TODO: Fixed Charge Coverage = (EBIT + [lease payments]) / (netInterest + [lease payments]) -->
+                <!-- TODO: Equity Multiplier = ASSET / EQUITY -->
+
+                <!-- Profitability: Returns on assets and equity -->
+                <!-- TODO: Gross Profit Margin = Gross Profit / Sales -->
+            </iterate>
+
+
+
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="grossProfitOnSalesOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES']]"/>
+            <set field="grossProfitOnSalesMap" from="grossProfitOnSalesOut.totalPosted"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netOperatingIncomeOut"
+                    in-map="[classInfoById:classInfoById, classIdList:['INCOME', 'EXPENSE']]"/>
+            <set field="netOperatingIncomeMap" from="netOperatingIncomeOut.totalPosted"/>
+            <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netIncomeOut"
+                    in-map="[classInfoById:classInfoById, classIdList:classIdList]"/>
+            <set field="netIncomeMap" from="netIncomeOut.totalPosted"/>
         </actions>
     </service>
 
@@ -295,7 +409,8 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="childEnumList" entry="childEnum">
                 <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassReportInfo" out-map="childOut"
                         in-map="[organizationPartyId:organizationPartyId, timePeriodIdList:timePeriodIdList,
-                            glAccountClassEnumId:childEnum.enumId, negateDebit:negateDebit, negateCredit:negateCredit]"/>
+                            glAccountClassEnumId:childEnum.enumId, negateDebit:negateDebit, negateCredit:negateCredit,
+                            classInfoById:classInfoById]"/>
                 <script>childClassInfoList.add(childOut.classInfoMap)</script>
                 <!-- add both the class balance and child balance to current class's child balance -->
                 <iterate list="timePeriodIdList" entry="timePeriodId">
