@@ -123,9 +123,9 @@ class WorkPlanToCashBasicFlow extends Specification {
                 taxFormEnumId="TxfUsIrs1120" cogsMethodEnumId="CogsActualCost" baseCurrencyUomId="USD"
                 invoiceSequenceEnumId="InvSqStandard" orderSequenceEnumId="OrdSqStandard"
                 errorGlJournalId="${vendorResult.partyId}Error"/>
-            <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="ACCOUNTS_RECEIVABLE"
+            <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="GatAccountsReceivable"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="121000000"/>
-            <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="ACCOUNTS_PAYABLE"
+            <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="GatAccountsPayable"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="210000000"/>
             <mantle.ledger.config.PaymentMethodTypeGlAccount paymentMethodTypeEnumId="PmtCompanyCheck" isPayable="E"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="111100000"/>
@@ -651,7 +651,7 @@ class WorkPlanToCashBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="05" debitCreditFlag="D"
                 amount="80" glAccountId="550000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55900" acctgTransEntrySeqId="06" debitCreditFlag="C"
-                amount="849.12" glAccountTypeEnumId="ACCOUNTS_PAYABLE" glAccountId="210000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="849.12" glAccountTypeEnumId="GatAccountsPayable" glAccountId="210000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
             <mantle.work.effort.WorkEffortInvoice invoiceId="${expInvResult.invoiceId}" workEffortId="TEST"/>
 
             <mantle.account.payment.Payment paymentId="${expPmtResult.paymentId}" paymentTypeEnumId="PtInvoicePayment"
@@ -756,7 +756,7 @@ class WorkPlanToCashBasicFlow extends Specification {
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="05" debitCreditFlag="C"
                 amount="123.45" glAccountId="681000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="05"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55902" acctgTransEntrySeqId="06" debitCreditFlag="D"
-                amount="1,039.12" glAccountTypeEnumId="ACCOUNTS_RECEIVABLE" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="1,039.12" glAccountTypeEnumId="GatAccountsReceivable" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
 
             <moqui.entity.EntityAuditLog auditHistorySeqId="55943" changedEntityName="mantle.account.invoice.Invoice"
                 changedFieldName="statusId" pkPrimaryValue="${clientInvResult.invoiceId}" newValueText="InvoiceInProcess"

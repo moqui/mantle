@@ -23,12 +23,16 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- make sure there is no AcctgTrans for this invoiceId -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="existingTransList">
                 <econdition field-name="invoiceId"/>
+                <econdition field-name="reversedByAcctgTransId" from="null"/>
+                <econdition field-name="reverseOfAcctgTransId" from="null"/>
             </entity-find>
             <if condition="existingTransList">
-                <return error="true" message="Invoice [${invoiceId}] has already been posted in accounting transaction [${existingTransList[0].acctgTransId}]"/>
+                <!-- This will happen when an invoice goes from paid to Finalized/etc -->
+                <log level="info" message="Invoice [${invoiceId}] has already been posted in accounting transaction [${existingTransList[0].acctgTransId}]"/>
+                <return/>
             </if>
 
-            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice" for-update="true"/>
             <if condition="!invoice"><return error="true" message="Could not find Invoice with ID [${invoiceId}]"/></if>
 
             <!-- is there a OrgInternal PartyRole for from/to parties, and PartyAcctgPreference for the from/to parties or parent orgs of them? -->
@@ -54,7 +58,9 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if no preferences for from or to, we shouldn't post anything -->
             <if condition="!fromPartyAcctgPreference &amp;&amp; !toPartyAcctgPreference">
-                <log level="info" message="Not posting invoice [${invoiceId}], could not find PartyAcctgPreference for From Party [${invoice.fromPartyId}], To Party [${invoice.toPartyId}], or Invoice Override Party [${invoice.overrideOrgPartyId}]"/>
+                <log level="trace" message="Not posting invoice [${invoiceId}], could not find PartyAcctgPreference for From Party [${invoice.fromPartyId}], To Party [${invoice.toPartyId}], or Invoice Override Party [${invoice.overrideOrgPartyId}]"/>
+                <set field="invoice.acctgTransResultEnumId" value="AtrNoAcctgPreference"/>
+                <entity-update value-field="invoice"/>
                 <return/>
             </if>
 
@@ -92,8 +98,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- get all InvoiceItems, including sub-items and all types as we'll post them flat -->
             <entity-find entity-name="mantle.account.invoice.InvoiceItem" list="invoiceItemList">
-                <econdition field-name="invoiceId"/>
-            </entity-find>
+                <econdition field-name="invoiceId"/></entity-find>
 
             <set field="invoiceTotal" from="0"/>
             <iterate list="invoiceItemList" entry="invoiceItem">
@@ -122,7 +127,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <!-- handle special entries for fixed asset sale: -->
 
                         <!-- credit Unissued Asset (acquireCost) -->
-                        <set field="issuanceGlAccountTypeEnumId" value="UNISSUED_FIXED_ASSET"/>
+                        <set field="issuanceGlAccountTypeEnumId" value="GatUnissuedFixedAsset"/>
                         <set field="issuanceGlAccountId" from="assetTypeGlAccount.issuanceGlAccountId"/>
                         <if condition="!issuanceGlAccountId">
                             <!-- look up default Unissued Fixed Asset account -->
@@ -140,7 +145,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                         <!-- debit Accumulated Depreciation (depreciation) -->
                         <if condition="asset.depreciation">
-                            <set field="accDepGlAccountTypeEnumId" value="FA_ACCUM_DEPRECIATION"/>
+                            <set field="accDepGlAccountTypeEnumId" value="GatFaAccumDepreciation"/>
                             <set field="accDepreciationGlAccountId" from="assetTypeGlAccount.accDepreciationGlAccountId"/>
                             <if condition="!accDepreciationGlAccountId">
                                 <!-- look up default Accumulated Depreciation account -->
@@ -160,7 +165,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                         <!-- create profit/loss entry -->
                         <set field="profitLoss" from="itemTotal - (asset.acquireCost - (asset.depreciation ?: 0))"/>
-                        <log level="info" message="======= Fixed asset sale: itemTotal=${itemTotal}, acquireCost=${asset.acquireCost}, depreciation=${asset.depreciation}, profitLoss=${profitLoss}"/>
+                        <!-- <log level="info" message="======= Fixed asset sale: itemTotal=${itemTotal}, acquireCost=${asset.acquireCost}, depreciation=${asset.depreciation}, profitLoss=${profitLoss}"/> -->
                         <if condition="profitLoss &gt; 0">
                             <then>
                                 <!-- credit Profit/Gain on Sale/Disposal (sale amount - (acquireCost - depreciation)) -->
@@ -214,7 +219,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
 
                     <if condition="itemTotal != 0">
-                        <log level="info" message="======= Create invoice item tx entry: itemTotal=${itemTotal}"/>
+                        <!-- <log level="info" message="======= Create invoice item tx entry: itemTotal=${itemTotal}"/> -->
 
                         <!-- use InvoiceItem.overrideGlAccountId if specified -->
                         <set field="itemGlAccountId" from="invoiceItem.overrideGlAccountId"/>
@@ -309,7 +314,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- balancing entry for from Party -->
             <if condition="fromPartyAcctgPreference">
-                <set field="glAccountTypeEnumId" value="ACCOUNTS_RECEIVABLE"/>
+                <set field="glAccountTypeEnumId" value="GatAccountsReceivable"/>
 
                 <set field="glAccountId" from="fromInvoiceTypeTransTypeOut.glAccountId"/>
                 <if condition="!glAccountId">
@@ -328,7 +333,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- balancing entry for to Party -->
             <if condition="toPartyAcctgPreference">
-                <set field="glAccountTypeEnumId" value="ACCOUNTS_PAYABLE"/>
+                <set field="glAccountTypeEnumId" value="GatAccountsPayable"/>
 
                 <set field="glAccountId" from="toInvoiceTypeTransTypeOut.glAccountId"/>
                 <if condition="!glAccountId">
@@ -373,6 +378,10 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </else>
             </if>
+
+            <!-- set acctg trans result to Success -->
+            <set field="invoice.acctgTransResultEnumId" value="AtrSuccess"/>
+            <entity-update value-field="invoice"/>
         </actions>
     </service>
     
@@ -415,7 +424,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="otherPartyId"/>
             <parameter name="itemTypeEnumId" required="true"/>
             <parameter name="productId"/>
-            <parameter name="assetId"/>
             <parameter name="direction" required="true"/>
         </in-parameters>
         <out-parameters>
@@ -426,9 +434,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
                     in-map="[organizationPartyId:organizationPartyId]"/>
 
-            <!-- look by assetId and productId first (if passed in) -->
-            <!-- TODO: assetId by mantle.ledger.config.AssetTypeGlAccount -->
-
+            <!-- look by productId first (if passed in) -->
             <!-- TODO: productId by mantle.ledger.config.ProductGlAccount and ProductCategoryGlAccount -->
 
             <!-- nothing? look by itemTypeEnumId -->
@@ -449,23 +455,30 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="revert" noun="InvoicePostOnCancel">
+    <service verb="revert" noun="InvoicePost">
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <actions>
             <!-- there should just be one AcctgTrans for this invoice, if there is more than one may already be cancelled -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
                 <econdition field-name="invoiceId"/>
+                <econdition field-name="reversedByAcctgTransId" from="null"/>
+                <econdition field-name="reverseOfAcctgTransId" from="null"/>
                 <econdition field-name="acctgTransTypeEnumId" operator="in"
                         value="AttSalesInvoice,AttVendRtnInvoice,AttPurchaseInvoice,AttCustRtnInvoice"/>
             </entity-find>
             <if condition="acctgTransList">
                 <if condition="acctgTransList.size() == 1">
-                    <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
-                            in-map="[acctgTransId:acctgTransList.first.acctgTransId]"/>
-
-                    <else><return error="true" message="Found more than one accounting transaction for Invoice ${invoiceId}, may already be reversed, not posting reverse transaction."/></else>
+                    <then>
+                        <service-call name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"
+                                in-map="[acctgTransId:acctgTransList.first.acctgTransId, deleteIfNotPosted:true]"/>
+                    </then>
+                    <else>
+                        <return error="true" message="Found more than one accounting transaction for Invoice ${invoiceId}, may already be reversed, not posting reverse transaction."/>
+                    </else>
                 </if>
-                <else><return error="true" message="No accounting transaction found for Invoice ${invoiceId}, not posting reverse transaction."/></else>
+                <else>
+                    <log level="info" message="No accounting transaction found for Invoice ${invoiceId}, not posting reverse transaction."/>
+                </else>
             </if>
         </actions>
     </service>
