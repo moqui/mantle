@@ -24,14 +24,6 @@ along with this software (see the LICENSE.md file). If not, see
         </tr>
     </thead>
     <tbody>
-        <#--
-            <parameter name="debtRatioMap" type="Map"/><parameter name="debtToEquityMap" type="Map"/>
-            <parameter name="timesInterestEarnedMap" type="Map"/><parameter name="cashCoverageMap" type="Map"/>
-            <parameter name="equityMultiplierMap" type="Map"/>
-
-            <parameter name="grossProfitMarginMap" type="Map"/><parameter name="netProfitMarginMap" type="Map"/>
-            <parameter name="returnOnAssetsMap" type="Map"/><parameter name="returnOnEquityMap" type="Map"/>
-        -->
         <tr><td><strong>${ec.l10n.localize("Liquidity")}</strong></td><td> </td><#list timePeriodIdList as timePeriodId><td> </td></#list></tr>
         <tr><td>${ec.l10n.localize("Current Liquidity")}</td><td><i>${ec.l10n.localize("Current Assets")} / ${ec.l10n.localize("Current Liabilities")}</i></td><#list timePeriodIdList as timePeriodId>
             <td class="text-right">${ec.l10n.format(currentLiquidityMap[timePeriodId]!0, "0.0000")}</td></#list></tr>
