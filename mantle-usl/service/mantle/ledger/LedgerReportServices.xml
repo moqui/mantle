@@ -261,51 +261,102 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="netIncomeMap" from="netIncomeOut.totalPosted"/>
 
             <!-- empty Maps for the various values -->
-            <set field="ebitMap" from="[:]"/>
-            <set field="ibieMap" from="[:]"/>
+            <set field="salesMap" from="[:]"/>
+            <set field="costOfSalesMap" from="[:]"/>
+            <set field="cogsMap" from="[:]"/>
+            <set field="grossProfitMap" from="[:]"/>
+
             <set field="ebtMap" from="[:]"/>
-            <set field="netInterestMap" from="[:]"/>
+            <set field="ibieMap" from="[:]"/>
+            <set field="ebitMap" from="[:]"/>
+
+            <set field="totalAssetsMap" from="[:]"/>
+            <set field="netFixedAssetsMap" from="[:]"/>
+            <set field="currentAssetsMap" from="[:]"/>
+            <set field="currentLiabilitiesMap" from="[:]"/>
+            <set field="inventoryMap" from="[:]"/>
+            <set field="totalLiabilitiesMap" from="[:]"/>
+            <set field="longTermDebtMap" from="[:]"/>
+            <set field="equityMap" from="[:]"/>
 
             <iterate list="timePeriodIdList" entry="timePeriodId">
-                <set field="netAssetBalance" from="classInfoById.ASSET.totalBalanceByTimePeriod[timePeriodId] -
-                        classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
-                <set field="netLongTermAssetBalance" from="classInfoById.LONG_TERM_ASSET.totalBalanceByTimePeriod[timePeriodId] -
-                        classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
-
                 <!-- Sales = REVENUE - CONTRA_REVENUE -->
+                <set field="sales" from="classInfoById.REVENUE.totalPostedByTimePeriod[timePeriodId] -
+                        classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>salesMap.put(timePeriodId, sales)</script>
                 <!-- Gross Profit = Sales - COST_OF_SALES -->
-                <!-- Administrative Expense = SGA_EXPENSE + COMPENSATION -->
-                <!-- EBIT = Gross Profit - Administrative Expense - DEPRECIATION - CASH_EXPENSE -->
-                <!-- EBT = EBIT - INTEREST_EXPENSE + INTEREST_INCOME -->
-                <!-- Net Income = EBT - Taxes (TODO) -->
+                <set field="costOfSales" from="classInfoById.COST_OF_SALES.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>costOfSalesMap.put(timePeriodId, costOfSales)</script>
+                <set field="cogs" from="classInfoById.COST_GOODS_SOLD.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>cogsMap.put(timePeriodId, cogs)</script>
+                <set field="grossProfit" from="sales - costOfSales"/>
+                <script>grossProfitMap.put(timePeriodId, grossProfit)</script>
+                <!-- Administrative Expense = SGA_EXPENSE + COMPENSATION
+                <set field="administrativeExpense" from="classInfoById.SGA_EXPENSE.totalPostedByTimePeriod[timePeriodId] +
+                        classInfoById.COMPENSATION.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>administrativeExpenseMap.put(timePeriodId, administrativeExpense)</script>
+                 -->
 
-                <!-- TODO: Earnings Before Interest and Taxes -->
-                <set field="netInterest" from="0"/>
-                <set field="ebit" from="0"/>
+                <!-- Net Income = (standard Net Income from run#IncomeStatement service) -->
+                <!-- EBT = Net Income + TAX_EXPENSE -->
+                <set field="ebt" from="netIncomeMap[timePeriodId] + classInfoById.TAX_EXPENSE.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>ebtMap.put(timePeriodId, ebt)</script>
+                <!-- IBIE = EBT + INTEREST_EXPENSE -->
+                <set field="ibie" from="ebt + classInfoById.INTEREST_EXPENSE.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>ibieMap.put(timePeriodId, ibie)</script>
+                <!-- EBIT = IBIE - INTEREST_INCOME -->
+                <set field="ebit" from="ibie - classInfoById.INTEREST_INCOME.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>ebitMap.put(timePeriodId, ebit)</script>
+
                 <!-- EBIT + interest income = IBIE; IBIE - interest expense = EBT; EBT - income taxes = Net Income -->
                 <!-- EBIT = Net Income + income taxes + interest expense - interest income -->
 
+                <!-- Total Assets = ASSET - CONTRA_ASSET -->
+                <set field="totalAssets" from="classInfoById.ASSET.totalBalanceByTimePeriod[timePeriodId] -
+                        classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>totalAssetsMap.put(timePeriodId, totalAssets)</script>
+                <set field="netFixedAssets" from="classInfoById.LONG_TERM_ASSET.totalBalanceByTimePeriod[timePeriodId] -
+                        classInfoById.CONTRA_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>netFixedAssetsMap.put(timePeriodId, netFixedAssets)</script>
+                <set field="currentAssets" from="classInfoById.CURRENT_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>currentAssetsMap.put(timePeriodId, currentAssets)</script>
+                <set field="currentLiabilities" from="classInfoById.CURRENT_LIABILITY.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>currentLiabilitiesMap.put(timePeriodId, currentLiabilities)</script>
+                <set field="inventory" from="classInfoById.INVENTORY_ASSET.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>inventoryMap.put(timePeriodId, inventory)</script>
+
+                <set field="totalLiabilities" from="classInfoById.LIABILITY.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>totalLiabilitiesMap.put(timePeriodId, totalLiabilities)</script>
+                <set field="longTermDebt" from="classInfoById.LONG_TERM_LIABILITY.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>longTermDebtMap.put(timePeriodId, longTermDebt)</script>
+                <set field="equity" from="classInfoById.EQUITY.totalBalanceByTimePeriod[timePeriodId]"/>
+                <script>equityMap.put(timePeriodId, equity)</script>
+
                 <!-- Liquidity: Ability to meet short-term obligations -->
-                <!-- TODO: Current Liquidity = CURRENT_ASSET / CURRENT_LIABILITY -->
-                <!-- TODO: Quick Liquidity = (CURRENT_ASSET - INVENTORY_ASSET) / CURRENT_LIABILITY -->
-                <!-- TODO: Net Working Capital to Total Assets = (CURRENT_ASSET - INVENTORY_ASSET) / ASSET -->
+                <!-- TODO: Current Liquidity = currentAssets / currentLiabilities -->
+                <!-- TODO: Quick Liquidity = (currentAssets - inventory) / currentLiabilities -->
+                <!-- TODO: Net Working Capital to Total Assets = (currentAssets - inventory) / totalAssets -->
 
                 <!-- Activity: Efficiency in generating sales with assets -->
-                <!-- TODO: Inventory Turnover = COST_GOODS_SOLD / INVENTORY_ASSET (should be "average" inventory...) -->
+                <!-- TODO: Inventory Turnover = cogs / inventory (NOTE: should be "average" inventory...) -->
                 <!-- TODO: Collection Period = ACCOUNTS_RECEIVABLE / (credit sales per day??? - maybe REVENUE/(days in period)) -->
-                <!-- TODO: Fixed Asset Turnover = Sales / netLongTermAssetBalance -->
-                <!-- TODO: Total Assets Turnover = Sales / netAssetBalance -->
+                <!-- TODO: Fixed Asset Turnover = sales / netFixedAssets -->
+                <!-- TODO: Total Assets Turnover = sales / totalAssets -->
 
                 <!-- Leverage: Degree of indebtedness and ability to meet long term obligations -->
-                <!-- TODO: Debt Ratio = LIABILITY / netAssetBalance -->
-                <!-- TODO: Debt to Equity = LONG_TERM_LIABILITY / EQUITY -->
-                <!-- TODO: Times Interest Earned = EBIT / netInterest -->
-                <!-- TODO: Cash Coverage = (EBIT + DEPRECIATION) / netInterest -->
-                <!-- TODO: Fixed Charge Coverage = (EBIT + [lease payments]) / (netInterest + [lease payments]) -->
-                <!-- TODO: Equity Multiplier = ASSET / EQUITY -->
+                <!-- TODO: Debt Ratio = totalLiabilities / totalAssets -->
+                <!-- TODO: Debt to Equity = longTermDebt / equity -->
+                <!-- TODO: Times Interest Earned = ebit / netInterest -->
+                <!-- TODO: Cash Coverage = (ebit + DEPRECIATION) / netInterest -->
+                <!-- TODO: Fixed Charge Coverage = (ebit + [lease payments]) / (netInterest + [lease payments]) -->
+                <!-- TODO: Equity Multiplier = totalAssets / equity -->
 
                 <!-- Profitability: Returns on assets and equity -->
-                <!-- TODO: Gross Profit Margin = Gross Profit / Sales -->
+                <!-- TODO: Gross Profit Margin = grossProfit / sales -->
+                <!-- TODO: Net Profit Margin = netIncome / sales -->
+                <!-- TODO: Return on Assets = netIncome / totalAssets -->
+                <!-- TODO: Return on Equity = netIncome / equity -->
+                <!-- NOTE FUTURE need values split by share, count of shares, etc: Price/Earnings, Earnings per Share, Market-to-Book -->
             </iterate>
 
 
