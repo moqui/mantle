@@ -13,28 +13,65 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
-    <service verb="run" noun="BalanceSheet">
+    <service verb="get" noun="ReportBasicInfo">
         <in-parameters>
             <parameter name="organizationPartyId" required="true"/>
             <parameter name="timePeriodIdList" type="List" required="true"/>
+            <parameter name="childOrganizations" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters>
+            <parameter name="partyAcctgPreference" type="Map"/>
             <parameter name="currencyUomId"/>
+            <parameter name="timePeriodIdList" type="List"/>
             <parameter name="timePeriodIdMap" type="Map"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                    in-map="[organizationPartyId:organizationPartyId]"/>
+            <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId"/>
+
+            <if condition="childOrganizations">
+                <service-call name="mantle.ledger.LedgerServices.expand#ChildOrganizationList" out-map="expandResult"
+                        in-map="[organizationPartyId:organizationPartyId]"/>
+                <set field="childOrgIdList" from="expandResult.orgPartyIdList"/>
+                <script>childOrgIdList.remove(organizationPartyId)</script>
+            </if>
+
+            <set field="timePeriodList" from="[]"/>
+            <iterate list="new ArrayList(timePeriodIdList)" entry="timePeriodId">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+                <script>timePeriodList.add(timePeriod)</script>
+
+                <if condition="childOrgIdList">
+                    <entity-find entity-name="mantle.party.time.TimePeriod" list="childTimePeriodList">
+                        <econdition field-name="timePeriodTypeId" from="timePeriod.timePeriodTypeId"/>
+                        <econdition field-name="fromDate" from="timePeriod.fromDate"/>
+                        <econdition field-name="partyId" operator="in" from="childOrgIdList"/>
+                    </entity-find>
+                    <script>timePeriodList.addAll(childTimePeriodList)</script>
+                </if>
+            </iterate>
+
+            <order-map-list list="timePeriodList"><order-by field-name="periodName"/></order-map-list>
+            <set field="timePeriodIdList" from="[]"/>
+            <set field="timePeriodIdMap" from="[:]"/>
+            <iterate list="timePeriodList" entry="timePeriod"><script>
+                timePeriodIdList.add(timePeriod.timePeriodId)
+                timePeriodIdMap.put(timePeriod.timePeriodId, timePeriod)
+            </script></iterate>
+        </actions>
+    </service>
+
+    <service verb="run" noun="BalanceSheet">
+        <implements service="mantle.ledger.LedgerReportServices.get#ReportBasicInfo"/>
+        <out-parameters>
             <parameter name="classInfoById" type="Map"/>
 
             <parameter name="netAssetTotalMap" type="Map"/>
             <parameter name="liabilityEquityTotalMap" type="Map"/>
         </out-parameters>
         <actions>
-            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                    in-map="[organizationPartyId:organizationPartyId]"/>
-            <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId"/>
-            <set field="timePeriodIdMap" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
-                <script>timePeriodIdMap.put(timePeriodId, timePeriod)</script>
-            </iterate>
+            <service-call name="mantle.ledger.LedgerReportServices.get#ReportBasicInfo" in-map="context" out-map="context"/>
 
             <set field="classIdList" from="['ASSET', 'CONTRA_ASSET', 'LIABILITY', 'EQUITY']"/>
             <!-- NOTE: should DISTRIBUTION go here, or somewhere else? -->
@@ -57,13 +94,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="run" noun="IncomeStatement">
-        <in-parameters>
-            <parameter name="organizationPartyId" required="true"/>
-            <parameter name="timePeriodIdList" type="List" required="true"/>
-        </in-parameters>
+        <implements service="mantle.ledger.LedgerReportServices.get#ReportBasicInfo"/>
         <out-parameters>
-            <parameter name="currencyUomId"/>
-            <parameter name="timePeriodIdMap" type="Map"/>
             <parameter name="classInfoById" type="Map"/>
 
             <parameter name="grossProfitOnSalesMap" type="Map"/>
@@ -71,14 +103,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="netIncomeMap" type="Map"/>
         </out-parameters>
         <actions>
-            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                    in-map="[organizationPartyId:organizationPartyId]"/>
-            <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId"/>
-            <set field="timePeriodIdMap" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
-                <script>timePeriodIdMap.put(timePeriodId, timePeriod)</script>
-            </iterate>
+            <service-call name="mantle.ledger.LedgerReportServices.get#ReportBasicInfo" in-map="context" out-map="context"/>
 
             <set field="classIdList" from="['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES', 'INCOME', 'EXPENSE']"/>
             <!-- NOTE: should DISTRIBUTION go here, or somewhere else? -->
@@ -207,13 +232,8 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="run" noun="FinancialRatios">
-        <in-parameters>
-            <parameter name="organizationPartyId" required="true"/>
-            <parameter name="timePeriodIdList" type="List" required="true"/>
-        </in-parameters>
+        <implements service="mantle.ledger.LedgerReportServices.get#ReportBasicInfo"/>
         <out-parameters>
-            <parameter name="currencyUomId"/>
-            <parameter name="timePeriodIdMap" type="Map"/>
             <parameter name="classInfoById" type="Map"/>
 
             <parameter name="netIncomeMap" type="Map"/>
@@ -244,14 +264,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="returnOnAssetsMap" type="Map"/><parameter name="returnOnEquityMap" type="Map"/>
         </out-parameters>
         <actions>
-            <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                    in-map="[organizationPartyId:organizationPartyId]"/>
-            <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId"/>
-            <set field="timePeriodIdMap" from="[:]"/>
-            <iterate list="timePeriodIdList" entry="timePeriodId">
-                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
-                <script>timePeriodIdMap.put(timePeriodId, timePeriod)</script>
-            </iterate>
+            <service-call name="mantle.ledger.LedgerReportServices.get#ReportBasicInfo" in-map="context" out-map="context"/>
 
             <!-- Get info for all DEBIT and CREDIT accounts, we'll use them in various places -->
             <set field="classIdList" from="['DEBIT', 'CREDIT']"/>
@@ -453,7 +466,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- lookup accounts, add to glAccountInfoList, sum up classBalance -->
             <entity-find entity-name="mantle.ledger.report.GlAccountOrgTimePeriodDetail" list="glAccountDetailList">
-                <econdition field-name="organizationPartyId"/>
+                <!-- now one TimePeriod per org, so leave this out to get children too: <econdition field-name="organizationPartyId"/> -->
                 <econdition field-name="timePeriodId" operator="in" from="timePeriodIdList"/>
                 <econdition field-name="glAccountClassEnumId"/>
             </entity-find>
