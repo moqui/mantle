@@ -720,7 +720,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                         debitCreditFlag="D" acctgTransEntrySeqId="02"/>
             </mantle.ledger.transaction.AcctgTrans>
 
-            <mantle.product.asset.AssetDepreciation assetId="${equip2AssetId}" timePeriodId="100002" annualDepreciation="1700"
+            <mantle.product.asset.AssetDepreciation assetId="${equip2AssetId}" timePeriodId="${timePeriod.timePeriodId}" annualDepreciation="1700"
                     yearsRemaining="5" isLastYearPeriod="N" monthlyDepreciation="141.67" usefulLifeYears="5" acctgTransId="55408"/>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55408" postedDate="${effectiveTime}" amountUomId="USD"
                     isPosted="Y" assetId="${equip2AssetId}" acctgTransTypeEnumId="AttDepreciation" glFiscalTypeEnumId="GLFT_ACTUAL"
@@ -954,18 +954,18 @@ class OrderProcureToPayBasicFlow extends Specification {
                         appliedDate="${effectiveTime}" paymentApplicationId="55402"/>
             </mantle.account.invoice.Invoice>
 
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="55102"
                     postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="55102"
                     postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
 
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="55102"
                     postedCredits="425" postedDebits="425" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="55102"
                     postedDebits="425" endingBalance="425" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="55102"
                     postedCredits="1141.67" endingBalance="1141.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="793000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="793000000" timePeriodId="55102"
                     postedDebits="716.67" endingBalance="716.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
