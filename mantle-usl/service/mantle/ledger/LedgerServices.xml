@@ -244,9 +244,31 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="toRoleTypeId" value="OrgInternal"/>
                 </entity-find>
                 <if condition="partyRelationshipList">
-                    <service-call name="mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods" out-map="context"
+                    <service-call name="mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods" out-map="parentPeriodsOut"
                             in-map="[organizationPartyId:partyRelationshipList[0].toPartyId, filterDate:filterDate,
                                 timePeriodTypeId:timePeriodTypeId]"/>
+                    <set field="parentOrgPeriodList" from="parentPeriodsOut.timePeriodList"/>
+
+                    <!-- if periods are from a parent org, create clone for this org -->
+                    <set field="timePeriodList" from="[]"/>
+                    <!-- go through periods largest to smallest to set parent -->
+                    <set field="timePeriodTypeIdList" from="['FiscalYear', 'FiscalQuarter', 'FiscalMonth', 'FiscalBiWeek', 'FiscalWeek']"/>
+                    <set field="parentPeriodId" from="null"/>
+                    <iterate list="timePeriodTypeIdList" entry="timePeriodTypeId">
+                        <filter-map-list list="parentOrgPeriodList" to-list="matchPeriodList">
+                            <field-map field-name="timePeriodTypeId"/></filter-map-list>
+
+                        <if condition="matchPeriodList">
+                            <set field="parentOrgPeriod" from="matchPeriodList[0]"/>
+                            <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                                    in-map="[partyId:organizationPartyId, timePeriodTypeId:parentOrgPeriod.timePeriodTypeId,
+                                        fromDate:parentOrgPeriod.fromDate, parentPeriodId:parentPeriodId]"/>
+                            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod">
+                                <field-map field-name="timePeriodId" from="createTpOut.timePeriodId"/></entity-find-one>
+                            <script>timePeriodList.add(timePeriod)</script>
+                            <set field="parentPeriodId" from="createTpOut.timePeriodId"/>
+                        </if>
+                    </iterate>
                 </if>
             </if>
         </actions>
