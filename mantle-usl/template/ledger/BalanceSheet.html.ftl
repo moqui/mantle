@@ -16,6 +16,7 @@ along with this software (see the LICENSE.md file). If not, see
 <#assign showDetail = (detail! == "true")>
 
 <#macro showClass classInfo depth>
+    <#assign hasChildren = classInfo.childClassInfoList?has_content>
     <tr>
         <td style="padding-left: ${(depth-1) * 2}.3em;">${ec.l10n.localize(classInfo.className)}</td>
         <#if (timePeriodIdList?size > 1)>
@@ -52,12 +53,12 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- ${glAccountInfo.accountCode}: ${glAccountInfo.accountName} ${glAccountInfo.balanceByTimePeriod} -->
         </#if>
     </#list>
-    <#list classInfo.childClassInfoList as childClassInfo>
-        <@showClass childClassInfo depth + 1/>
-    </#list>
-    <#if depth == 1>
-        <tr class="text-info">
-            <td><strong>${ec.l10n.localize(classInfo.className + " Total")}</strong></td>
+    <#if hasChildren>
+        <#list classInfo.childClassInfoList as childClassInfo>
+            <@showClass childClassInfo depth + 1/>
+        </#list>
+        <tr<#if depth == 1> class="text-info"</#if>>
+            <td style="padding-left: ${(depth-1) * 2}.3em;"><strong>${ec.l10n.localize(classInfo.className + " Total")}</strong></td>
             <#if (timePeriodIdList?size > 1)>
                 <#assign beginningTotalBalance = (classInfo.totalBalanceByTimePeriod['ALL']!0) - (classInfo.totalPostedByTimePeriod['ALL']!0)>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfo.totalPostedByTimePeriod['ALL']!0, currencyUomId, 2)}</strong></td>
@@ -94,7 +95,7 @@ along with this software (see the LICENSE.md file). If not, see
         <#if classInfoById.ASSET??><@showClass classInfoById.ASSET 1/></#if>
         <#if classInfoById.CONTRA_ASSET??><@showClass classInfoById.CONTRA_ASSET 1/></#if>
         <#if netAssetTotalMap??>
-            <tr class="text-info" style="border-bottom: solid black;">
+            <tr class="text-success" style="border-bottom: solid black;">
                 <td><strong>${ec.l10n.localize("Net Asset Total")}</strong></td>
                 <#if (timePeriodIdList?size > 1)>
                     <td class="text-right"><strong>${ec.l10n.formatCurrency(netAssetTotalMap.totalPosted['ALL']!0, currencyUomId, 2)}</strong></td>
@@ -112,7 +113,7 @@ along with this software (see the LICENSE.md file). If not, see
         <#if classInfoById.LIABILITY??><@showClass classInfoById.LIABILITY 1/></#if>
         <#if classInfoById.EQUITY??><@showClass classInfoById.EQUITY 1/></#if>
         <#if liabilityEquityTotalMap??>
-            <tr class="text-info" style="border-bottom: solid black;">
+            <tr class="text-success" style="border-bottom: solid black;">
                 <td><strong>${ec.l10n.localize("Liability + Equity Total")}</strong></td>
                 <#if (timePeriodIdList?size > 1)>
                     <td class="text-right"><strong>${ec.l10n.formatCurrency(liabilityEquityTotalMap.totalPosted['ALL']!0, currencyUomId, 2)}</strong></td>

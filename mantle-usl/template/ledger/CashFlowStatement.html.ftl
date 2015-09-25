@@ -55,8 +55,8 @@ along with this software (see the LICENSE.md file). If not, see
     <#list classInfo.childClassInfoList as childClassInfo>
         <@showClass childClassInfo depth + 1/>
     </#list>
-    <#if depth == 1>
-        <tr class="text-info">
+    <#if classInfo.childClassInfoList?has_content>
+        <tr<#if depth == 1> class="text-info"</#if>>
             <td><strong>${ec.l10n.localize(classInfo.className + " Total")}</strong></td>
             <#if (timePeriodIdList?size > 1)>
                 <#assign beginningTotalBalance = (classInfo.totalBalanceByTimePeriod['ALL']!0) - (classInfo.totalPostedByTimePeriod['ALL']!0)>
