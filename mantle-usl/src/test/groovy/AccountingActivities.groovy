@@ -109,18 +109,18 @@ class AccountingActivities extends Specification {
                 .parameters([acctgTransTypeEnumId:'AttInternal', organizationPartyId:organizationPartyId, amountUomId:currencyUomId]).call()
         String acctgTransId = transOut.acctgTransId
         ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTransEntry")
-                .parameters([acctgTransId:acctgTransId, glAccountId:'850000000', debitCreditFlag:'D', amount:100000]).call()
+                .parameters([acctgTransId:acctgTransId, glAccountId:'850000000', debitCreditFlag:'D', amount:1000]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTransEntry")
-                .parameters([acctgTransId:acctgTransId, glAccountId:'336000000', debitCreditFlag:'C', amount:100000]).call()
+                .parameters([acctgTransId:acctgTransId, glAccountId:'336000000', debitCreditFlag:'C', amount:1000]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.post#AcctgTrans").parameters([acctgTransId:acctgTransId]).call()
 
         transOut = ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTrans")
                 .parameters([acctgTransTypeEnumId:'AttInternal', organizationPartyId:organizationPartyId, amountUomId:currencyUomId]).call()
         acctgTransId = transOut.acctgTransId
         ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTransEntry")
-                .parameters([acctgTransId:acctgTransId, glAccountId:'336000000', debitCreditFlag:'D', amount:60000]).call()
+                .parameters([acctgTransId:acctgTransId, glAccountId:'336000000', debitCreditFlag:'D', amount:600]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTransEntry")
-                .parameters([acctgTransId:acctgTransId, glAccountId:'335000000', debitCreditFlag:'C', amount:60000]).call()
+                .parameters([acctgTransId:acctgTransId, glAccountId:'335000000', debitCreditFlag:'C', amount:600]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.post#AcctgTrans").parameters([acctgTransId:acctgTransId]).call()
 
         List<String> dataCheckErrors = []
@@ -141,9 +141,9 @@ class AccountingActivities extends Specification {
                 .parameters([acctgTransTypeEnumId:'AttDisbursement', organizationPartyId:organizationPartyId, amountUomId:currencyUomId]).call()
         String acctgTransId = transOut.acctgTransId
         ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTransEntry")
-                .parameters([acctgTransId:acctgTransId, glAccountId:'335000000', debitCreditFlag:'D', amount:30000]).call()
+                .parameters([acctgTransId:acctgTransId, glAccountId:'335000000', debitCreditFlag:'D', amount:300]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.create#AcctgTransEntry")
-                .parameters([acctgTransId:acctgTransId, glAccountId:'111100000', debitCreditFlag:'C', amount:30000]).call()
+                .parameters([acctgTransId:acctgTransId, glAccountId:'111100000', debitCreditFlag:'C', amount:300]).call()
         ec.service.sync().name("mantle.ledger.LedgerServices.post#AcctgTrans").parameters([acctgTransId:acctgTransId]).call()
 
         /* pay out just one of the dividends to see amounts for both in accounts in different states
