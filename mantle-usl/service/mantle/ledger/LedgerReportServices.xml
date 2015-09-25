@@ -236,12 +236,13 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="classInfoById" type="Map"/>
 
+            <!-- Metric Maps -->
             <parameter name="netIncomeMap" type="Map"/>
-
-            <parameter name="salesMap" type="Map"/><parameter name="costOfSalesMap" type="Map"/>
-            <parameter name="cogsMap" type="Map"/><parameter name="grossProfitMap" type="Map"/>
-
+            <parameter name="salesMap" type="Map"/><parameter name="grossProfitMap" type="Map"/>
             <parameter name="ebtMap" type="Map"/><parameter name="ibieMap" type="Map"/><parameter name="ebitMap" type="Map"/>
+
+            <!-- GL Class Total Maps -->
+            <parameter name="costOfSalesMap" type="Map"/><parameter name="cogsMap" type="Map"/>
 
             <parameter name="totalAssetsMap" type="Map"/><parameter name="netFixedAssetsMap" type="Map"/>
             <parameter name="currentAssetsMap" type="Map"/><parameter name="currentLiabilitiesMap" type="Map"/>
@@ -250,6 +251,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="accountsReceivableMap" type="Map"/><parameter name="depreciationMap" type="Map"/>
             <parameter name="amortizationMap" type="Map"/><parameter name="interestExpenseMap" type="Map"/>
 
+            <!-- Ratio Maps -->
             <parameter name="currentLiquidityMap" type="Map"/><parameter name="quickLiquidityMap" type="Map"/>
             <parameter name="netCapitalToAssetsMap" type="Map"/>
 
@@ -275,70 +277,34 @@ along with this software (see the LICENSE.md file). If not, see
                             classInfoById:classInfoById, glAccountClassEnumId:classId]"/>
             </iterate>
 
+            <!-- empty Maps for the various values -->
+            <set field="metricMapNames" from="['salesMap', 'grossProfitMap', 'ebtMap', 'ibieMap', 'ebitMap']"/><!-- no netIncomeMap, gets from service and already in ALL entries -->
+            <set field="classMapNames" from="['costOfSalesMap', 'cogsMap', 'totalAssetsMap', 'netFixedAssetsMap', 'currentAssetsMap',
+                    'currentLiabilitiesMap', 'inventoryMap', 'totalLiabilitiesMap', 'longTermDebtMap', 'equityMap',
+                    'accountsReceivableMap', 'depreciationMap', 'amortizationMap', 'interestExpenseMap']"/>
+            <set field="ratioMapNames" from="['currentLiquidityMap', 'quickLiquidityMap', 'netCapitalToAssetsMap', 'inventoryTurnoverMap',
+                    'collectionPeriodMap', 'fixedAssetTurnoverMap', 'totalAssetsTurnoverMap', 'debtRatioMap',
+                    'debtToEquityMap', 'timesInterestEarnedMap', 'cashCoverageMap', 'fixedChargeCoverageMap',
+                    'equityMultiplierMap', 'grossProfitMarginMap', 'netProfitMarginMap', 'returnOnAssetsMap',
+                    'returnOnEquityMap']"/>
+            <iterate list="metricMapNames" entry="mapName"><script>context.put(mapName, [:])</script></iterate>
+            <iterate list="classMapNames" entry="mapName"><script>context.put(mapName, [:])</script></iterate>
+            <iterate list="ratioMapNames" entry="mapName"><script>context.put(mapName, [:])</script></iterate>
+
             <!-- get Net Income -->
             <set field="netIncomeClassIdList" from="['REVENUE', 'CONTRA_REVENUE', 'COST_OF_SALES', 'INCOME', 'EXPENSE']"/>
             <service-call name="mantle.ledger.LedgerReportServices.get#GlAccountClassInfoSums" out-map="netIncomeOut"
                     in-map="[classInfoById:classInfoById, classIdList:netIncomeClassIdList]"/>
             <set field="netIncomeMap" from="netIncomeOut.totalPosted"/>
 
-            <!-- empty Maps for the various values -->
-            <set field="salesMap" from="[:]"/><set field="costOfSalesMap" from="[:]"/>
-            <set field="cogsMap" from="[:]"/><set field="grossProfitMap" from="[:]"/>
-
-            <set field="ebtMap" from="[:]"/><set field="ibieMap" from="[:]"/><set field="ebitMap" from="[:]"/>
-
-            <set field="totalAssetsMap" from="[:]"/><set field="netFixedAssetsMap" from="[:]"/>
-            <set field="currentAssetsMap" from="[:]"/><set field="currentLiabilitiesMap" from="[:]"/>
-            <set field="inventoryMap" from="[:]"/><set field="totalLiabilitiesMap" from="[:]"/>
-            <set field="longTermDebtMap" from="[:]"/><set field="equityMap" from="[:]"/>
-            <set field="accountsReceivableMap" from="[:]"/><set field="depreciationMap" from="[:]"/>
-            <set field="amortizationMap" from="[:]"/><set field="interestExpenseMap" from="[:]"/>
-
-            <set field="currentLiquidityMap" from="[:]"/><set field="quickLiquidityMap" from="[:]"/>
-            <set field="netCapitalToAssetsMap" from="[:]"/>
-
-            <set field="inventoryTurnoverMap" from="[:]"/><!-- <set field="collectionPeriodMap" from="[:]"/> -->
-            <set field="fixedAssetTurnoverMap" from="[:]"/><set field="totalAssetsTurnoverMap" from="[:]"/>
-
-            <set field="debtRatioMap" from="[:]"/><set field="debtToEquityMap" from="[:]"/>
-            <set field="timesInterestEarnedMap" from="[:]"/><set field="cashCoverageMap" from="[:]"/>
-            <!-- <set field="fixedChargeCoverageMap" from="[:]"/> --><set field="equityMultiplierMap" from="[:]"/>
-
-            <set field="grossProfitMarginMap" from="[:]"/><set field="netProfitMarginMap" from="[:]"/>
-            <set field="returnOnAssetsMap" from="[:]"/><set field="returnOnEquityMap" from="[:]"/>
-
             <iterate list="timePeriodIdList" entry="timePeriodId">
-                <!-- Sales = REVENUE - CONTRA_REVENUE -->
-                <set field="sales" from="(classInfoById.REVENUE.totalPostedByTimePeriod[timePeriodId] ?: 0) -
-                        (classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
-                <script>salesMap.put(timePeriodId, sales)</script>
-                <!-- Gross Profit = Sales - COST_OF_SALES -->
+
+                <!-- ========== GL Class Totals ========== -->
+
                 <set field="costOfSales" from="classInfoById.COST_OF_SALES.totalPostedByTimePeriod[timePeriodId] ?: 0"/>
                 <script>costOfSalesMap.put(timePeriodId, costOfSales)</script>
                 <set field="cogs" from="classInfoById.COST_GOODS_SOLD.totalPostedByTimePeriod[timePeriodId] ?: 0"/>
                 <script>cogsMap.put(timePeriodId, cogs)</script>
-                <set field="grossProfit" from="sales - costOfSales"/>
-                <script>grossProfitMap.put(timePeriodId, grossProfit)</script>
-                <!-- Administrative Expense = SGA_EXPENSE + COMPENSATION
-                <set field="administrativeExpense" from="classInfoById.SGA_EXPENSE.totalPostedByTimePeriod[timePeriodId] +
-                        classInfoById.COMPENSATION.totalPostedByTimePeriod[timePeriodId]"/>
-                <script>administrativeExpenseMap.put(timePeriodId, administrativeExpense)</script>
-                 -->
-
-                <!-- Net Income = (standard Net Income from run#IncomeStatement service) -->
-                <set field="netIncome" from="netIncomeMap[timePeriodId] ?: 0"/>
-                <!-- EBT = Net Income + TAX_EXPENSE -->
-                <set field="ebt" from="netIncome + (classInfoById.TAX_EXPENSE.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
-                <script>ebtMap.put(timePeriodId, ebt)</script>
-                <!-- IBIE = EBT + INTEREST_EXPENSE -->
-                <set field="ibie" from="ebt + (classInfoById.INTEREST_EXPENSE.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
-                <script>ibieMap.put(timePeriodId, ibie)</script>
-                <!-- EBIT = IBIE - INTEREST_INCOME -->
-                <set field="ebit" from="ibie - (classInfoById.INTEREST_INCOME.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
-                <script>ebitMap.put(timePeriodId, ebit)</script>
-
-                <!-- EBIT + interest income = IBIE; IBIE - interest expense = EBT; EBT - income taxes = Net Income -->
-                <!-- EBIT = Net Income + income taxes + interest expense - interest income -->
 
                 <!-- Total Assets = ASSET - CONTRA_ASSET -->
                 <set field="totalAssets" from="(classInfoById.ASSET.totalBalanceByTimePeriod[timePeriodId] ?: 0) -
@@ -370,17 +336,55 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="interestExpense" from="classInfoById.INTEREST_EXPENSE.totalPostedByTimePeriod[timePeriodId] ?: 0"/>
                 <script>interestExpenseMap.put(timePeriodId, interestExpense)</script>
 
+                <!-- ========== Metrics ========== -->
+
+                <!-- Sales = REVENUE - CONTRA_REVENUE -->
+                <set field="sales" from="(classInfoById.REVENUE.totalPostedByTimePeriod[timePeriodId] ?: 0) -
+                        (classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
+                <script>salesMap.put(timePeriodId, sales)</script>
+                <!-- Gross Profit = Sales - COST_OF_SALES -->
+                <set field="grossProfit" from="sales - costOfSales"/>
+                <script>grossProfitMap.put(timePeriodId, grossProfit)</script>
+                <!-- Administrative Expense = SGA_EXPENSE + COMPENSATION
+                <set field="administrativeExpense" from="classInfoById.SGA_EXPENSE.totalPostedByTimePeriod[timePeriodId] +
+                        classInfoById.COMPENSATION.totalPostedByTimePeriod[timePeriodId]"/>
+                <script>administrativeExpenseMap.put(timePeriodId, administrativeExpense)</script>
+                 -->
+
+                <!-- Net Income = (standard Net Income from run#IncomeStatement service) -->
+                <set field="netIncome" from="netIncomeMap[timePeriodId] ?: 0"/>
+                <!-- EBT = Net Income + TAX_EXPENSE -->
+                <set field="ebt" from="netIncome + (classInfoById.TAX_EXPENSE.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
+                <script>ebtMap.put(timePeriodId, ebt)</script>
+                <!-- IBIE = EBT + INTEREST_EXPENSE -->
+                <set field="ibie" from="ebt + (classInfoById.INTEREST_EXPENSE.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
+                <script>ibieMap.put(timePeriodId, ibie)</script>
+                <!-- EBIT = IBIE - INTEREST_INCOME -->
+                <set field="ebit" from="ibie - (classInfoById.INTEREST_INCOME.totalPostedByTimePeriod[timePeriodId] ?: 0)"/>
+                <script>ebitMap.put(timePeriodId, ebit)</script>
+                <!-- EBIT + interest income = IBIE; IBIE - interest expense = EBT; EBT - income taxes = Net Income -->
+                <!-- EBIT = Net Income + income taxes + interest expense - interest income -->
+
+                <!-- ========== Add Class Totals and Metrics to values for ALL periods ========== -->
+
+                <iterate list="classMapNames" entry="mapName">
+                    <script>StupidUtilities.addToBigDecimalInMap('ALL', context[mapName][timePeriodId], context[mapName])</script></iterate>
+                <iterate list="metricMapNames" entry="mapName">
+                    <script>StupidUtilities.addToBigDecimalInMap('ALL', context[mapName][timePeriodId], context[mapName])</script></iterate>
+
+                <!-- ========== Ratios ========== -->
+
                 <!-- Liquidity: Ability to meet short-term obligations -->
                 <!-- Current Liquidity = currentAssets / currentLiabilities -->
                 <script>currentLiquidityMap.put(timePeriodId, currentLiabilities ? currentAssets / currentLiabilities : 0)</script>
                 <!-- Quick Liquidity = (currentAssets - inventory) / currentLiabilities -->
                 <script>quickLiquidityMap.put(timePeriodId, currentLiabilities ? (currentAssets - inventory) / currentLiabilities : 0)</script>
                 <!-- Net Working Capital to Total Assets = (currentAssets - inventory) / totalAssets -->
-                <script>netCapitalToAssetsMap.put(timePeriodId, totalAssets ? (currentAssets - inventory) / totalAssets: totalAssets)</script>
+                <script>netCapitalToAssetsMap.put(timePeriodId, totalAssets ? (currentAssets - inventory) / totalAssets : 0)</script>
 
                 <!-- Activity: Efficiency in generating sales with assets -->
                 <!-- Inventory Turnover = cogs / inventory (NOTE: should be "average" inventory...) -->
-                <script>inventoryTurnoverMap.put(timePeriodId, inventory ? cogs / inventory : inventory)</script>
+                <script>inventoryTurnoverMap.put(timePeriodId, inventory ? cogs / inventory : 0)</script>
                 <!-- TODO: Collection Period = accountsReceivable / (credit sales per day??? - maybe REVENUE/(days in period)) -->
                 <!-- <script>collectionPeriodMap.put(timePeriodId, )</script> -->
                 <!-- Fixed Asset Turnover = sales / netFixedAssets -->
@@ -412,7 +416,52 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- Return on Equity = netIncome / equity -->
                 <script>returnOnEquityMap.put(timePeriodId, equity ? netIncome / equity : 0)</script>
                 <!-- NOTE FUTURE need values split by share, count of shares, etc: Price/Earnings, Earnings per Share, Market-to-Book -->
+
             </iterate>
+
+            <!-- Calculate ratios for ALL periods -->
+            <!-- Liquidity: Ability to meet short-term obligations -->
+            <!-- Current Liquidity = currentAssets / currentLiabilities -->
+            <script>currentLiquidityMap.put('ALL', currentLiabilitiesMap['ALL'] ? currentAssetsMap['ALL'] / currentLiabilitiesMap['ALL'] : 0)</script>
+            <!-- Quick Liquidity = (currentAssets - inventory) / currentLiabilities -->
+            <script>quickLiquidityMap.put('ALL', currentLiabilitiesMap['ALL'] ? (currentAssetsMap['ALL'] - inventoryMap['ALL']) / currentLiabilitiesMap['ALL'] : 0)</script>
+            <!-- Net Working Capital to Total Assets = (currentAssets - inventory) / totalAssets -->
+            <script>netCapitalToAssetsMap.put('ALL', totalAssetsMap['ALL'] ? (currentAssetsMap['ALL'] - inventoryMap['ALL']) / totalAssetsMap['ALL'] : 0)</script>
+
+            <!-- Activity: Efficiency in generating sales with assets -->
+            <!-- Inventory Turnover = cogs / inventory (NOTE: should be "average" inventory...) -->
+            <script>inventoryTurnoverMap.put('ALL', inventoryMap['ALL'] ? cogsMap['ALL'] / inventoryMap['ALL'] : 0)</script>
+            <!-- TODO: Collection Period = accountsReceivable / (credit sales per day??? - maybe REVENUE/(days in period)) -->
+            <!-- <script>collectionPeriodMap.put('ALL', )</script> -->
+            <!-- Fixed Asset Turnover = sales / netFixedAssets -->
+            <script>fixedAssetTurnoverMap.put('ALL', netFixedAssetsMap['ALL'] ? salesMap['ALL'] / netFixedAssetsMap['ALL'] : 0)</script>
+            <!-- Total Assets Turnover = sales / totalAssets -->
+            <script>totalAssetsTurnoverMap.put('ALL', totalAssetsMap['ALL'] ? salesMap['ALL'] / totalAssetsMap['ALL'] : 0)</script>
+
+            <!-- Leverage: Degree of indebtedness and ability to meet long term obligations -->
+            <!-- Debt Ratio = totalLiabilities / totalAssets -->
+            <script>debtRatioMap.put('ALL', totalAssetsMap['ALL'] ? totalLiabilitiesMap['ALL'] / totalAssetsMap['ALL'] : 0)</script>
+            <!-- Debt to Equity = longTermDebt / equity -->
+            <script>debtToEquityMap.put('ALL', equityMap['ALL'] ? longTermDebtMap['ALL'] / equityMap['ALL'] : 0)</script>
+            <!-- Times Interest Earned = ebit / interestExpense -->
+            <script>timesInterestEarnedMap.put('ALL', interestExpenseMap['ALL'] ? ebitMap['ALL'] / interestExpenseMap['ALL'] : 0)</script>
+            <!-- Cash Coverage = (ebit + depreciation + amortization) / interestExpense -->
+            <script>cashCoverageMap.put('ALL', interestExpenseMap['ALL'] ? (ebitMap['ALL'] + depreciationMap['ALL'] + amortizationMap['ALL']) / interestExpenseMap['ALL'] : 0)</script>
+            <!-- TODO: Fixed Charge Coverage = (ebit + [lease payments]) / (interestExpense + [lease payments]) -->
+            <!-- <script>fixedChargeCoverageMap.put('ALL', )</script> -->
+            <!-- Equity Multiplier = totalAssets / equity -->
+            <script>equityMultiplierMap.put('ALL', equityMap['ALL'] ? totalAssetsMap['ALL'] / equityMap['ALL'] : 0)</script>
+
+            <!-- Profitability: Returns on assets and equity -->
+            <!-- Gross Profit Margin = grossProfit / sales -->
+            <script>grossProfitMarginMap.put('ALL', salesMap['ALL'] ? grossProfitMap['ALL'] / salesMap['ALL'] : 0)</script>
+            <!-- Net Profit Margin = netIncome / sales -->
+            <script>netProfitMarginMap.put('ALL', salesMap['ALL'] ? netIncomeMap['ALL'] / salesMap['ALL'] : 0)</script>
+            <!-- Return on Assets = netIncome / totalAssets -->
+            <script>returnOnAssetsMap.put('ALL', totalAssetsMap['ALL'] ? netIncomeMap['ALL'] / totalAssetsMap['ALL'] : 0)</script>
+            <!-- Return on Equity = netIncome / equity -->
+            <script>returnOnEquityMap.put('ALL', equityMap['ALL'] ? netIncomeMap['ALL'] / equityMap['ALL'] : 0)</script>
+            <!-- NOTE FUTURE need values split by share, count of shares, etc: Price/Earnings, Earnings per Share, Market-to-Book -->
         </actions>
     </service>
 
