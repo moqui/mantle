@@ -244,9 +244,31 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="toRoleTypeId" value="OrgInternal"/>
                 </entity-find>
                 <if condition="partyRelationshipList">
-                    <service-call name="mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods" out-map="context"
+                    <service-call name="mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods" out-map="parentPeriodsOut"
                             in-map="[organizationPartyId:partyRelationshipList[0].toPartyId, filterDate:filterDate,
                                 timePeriodTypeId:timePeriodTypeId]"/>
+                    <set field="parentOrgPeriodList" from="parentPeriodsOut.timePeriodList"/>
+
+                    <!-- if periods are from a parent org, create clone for this org -->
+                    <set field="timePeriodList" from="[]"/>
+                    <!-- go through periods largest to smallest to set parent -->
+                    <set field="timePeriodTypeIdList" from="['FiscalYear', 'FiscalQuarter', 'FiscalMonth', 'FiscalBiWeek', 'FiscalWeek']"/>
+                    <set field="parentPeriodId" from="null"/>
+                    <iterate list="timePeriodTypeIdList" entry="timePeriodTypeId">
+                        <filter-map-list list="parentOrgPeriodList" to-list="matchPeriodList">
+                            <field-map field-name="timePeriodTypeId"/></filter-map-list>
+
+                        <if condition="matchPeriodList">
+                            <set field="parentOrgPeriod" from="matchPeriodList[0]"/>
+                            <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                                    in-map="[partyId:organizationPartyId, timePeriodTypeId:parentOrgPeriod.timePeriodTypeId,
+                                        fromDate:parentOrgPeriod.fromDate, parentPeriodId:parentPeriodId]"/>
+                            <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod">
+                                <field-map field-name="timePeriodId" from="createTpOut.timePeriodId"/></entity-find-one>
+                            <script>timePeriodList.add(timePeriod)</script>
+                            <set field="parentPeriodId" from="createTpOut.timePeriodId"/>
+                        </if>
+                    </iterate>
                 </if>
             </if>
         </actions>
@@ -286,7 +308,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- Manual Accounting Transaction services -->
+    <!-- ============================================================ -->
+    <!-- ========== Manual Accounting Transaction Services ========== -->
+    <!-- ============================================================ -->
+
     <service verb="create" noun="AcctgTrans">
         <in-parameters>
             <auto-parameters entity-name="mantle.ledger.transaction.AcctgTrans" include="nonpk">
@@ -313,6 +338,19 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
             <if condition="acctgTrans.isPosted == 'Y'"><return error="true" message="Cannot update transaction [${acctgTransId}], already posted."/></if>
             <service-call name="update#mantle.ledger.transaction.AcctgTrans" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="delete" noun="AcctgTrans">
+        <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
+
+            <if condition="acctgTrans.isPosted == 'Y'">
+                <return error="true" message="Not deleting transaction [${acctgTransId}], transaction is posted"/></if>
+
+            <entity-delete-by-condition entity-name="mantle.ledger.transaction.AcctgTransEntry">
+                <econdition field-name="acctgTransId"/></entity-delete-by-condition>
+            <entity-delete value-field="acctgTrans"/>
         </actions>
     </service>
 
@@ -363,7 +401,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- Accounting Transaction (AcctgTrans) Posting Services -->
+    <!-- ================================================= -->
+    <!-- ========== AcctgTrans Posting Services ========== -->
+    <!-- ================================================= -->
+
     <service verb="calculate" noun="AcctgTransTrialBalance">
         <description>Add up debits and credits for an AcctgTrans and get the difference.</description>
         <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
@@ -566,20 +607,6 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="delete" noun="AcctgTrans">
-        <in-parameters><parameter name="acctgTransId" required="true"/></in-parameters>
-        <actions>
-            <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
-
-            <if condition="acctgTrans.isPosted == 'Y'">
-                <return error="true" message="Not deleting transaction [${acctgTransId}], transaction is posted"/></if>
-
-            <entity-delete-by-condition entity-name="mantle.ledger.transaction.AcctgTransEntry">
-                <econdition field-name="acctgTransId"/></entity-delete-by-condition>
-            <entity-delete value-field="acctgTrans"/>
-        </actions>
-    </service>
-
     <service verb="post" noun="ReverseAcctgTrans">
         <description>Create a new transaction that is the reverse of the original (for each entry debits to credit and
             vice versa, transaction date set to now, etc).Clones the original transaction so new one will be associated
@@ -701,7 +728,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- Financial TimePeriod services -->
+    <!-- =================================================== -->
+    <!-- ========== Financial TimePeriod Services ========== -->
+    <!-- =================================================== -->
+
     <service verb="check" noun="NextFiscalTimePeriods">
         <description>
             Ensure that at least current and next TimePeriods exist for FiscalMonth, FiscalQuarter (3 months), FiscalYear.
@@ -919,7 +949,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- GL Journal Services -->
+    <!-- ========================================= -->
+    <!-- ========== GL Journal Services ========== -->
+    <!-- ========================================= -->
+
     <service verb="create" noun="GlJournal">
         <in-parameters>
             <auto-parameters include="nonpk"><exclude field-name="isPosted"/><exclude field-name="postedDate"/></auto-parameters>
