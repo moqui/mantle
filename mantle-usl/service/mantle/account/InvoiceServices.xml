@@ -880,6 +880,52 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="cancel" noun="Invoice">
+        <description>Set to Cancelled status if not already in Cancelled. Un-apply payment invoice if any applied. May
+            be called directly or through SECA rule on Cancelled status.</description>
+        <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
+        <actions>
+            <service-call name="mantle.account.InvoiceServices.unpay#Invoice"
+                    in-map="[invoiceId:invoiceId, statusId:'InvoiceCancelled']"/>
+        </actions>
+    </service>
+    <service verb="unpay" noun="Invoice">
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="statusId"/>
+        </in-parameters>
+        <actions>
+            <!-- check/update the status -->
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice" for-update="true"/>
+            <if condition="!statusId">
+                <if condition="invoice.statusId == 'InvoicePmtRecvd'"><set field="statusId" value="InvoiceFinalized"/></if>
+                <if condition="invoice.statusId == 'InvoicePmtSent'"><set field="statusId" value="InvoiceApproved"/></if>
+            </if>
+            <if condition="statusId &amp;&amp; invoice.statusId != statusId">
+                <service-call name="update#mantle.account.invoice.Invoice"
+                        in-map="[invoiceId:invoiceId, statusId:statusId]"/>
+            </if>
+
+            <!-- unapply payment applications -->
+            <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
+                <econdition field-name="invoiceId"/></entity-find>
+            <iterate list="paymentApplicationList" entry="paymentApplication">
+                <if condition="paymentApplication.amountApplied != 0">
+                    <service-call name="mantle.account.PaymentServices.unapply#PaymentApplication"
+                            in-map="[paymentApplicationId:paymentApplication.paymentApplicationId]"/>
+                </if>
+            </iterate>
+        </actions>
+    </service>
+
+    <service verb="autoApplyTo" noun="Invoice">
+        <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
+        <out-parameters><parameter name="paymentIdList" type="List"/></out-parameters>
+        <actions>
+            <!-- TODO: implement this... -->
+        </actions>
+    </service>
+
     <!-- ================================================ -->
     <!-- ========== InvoiceContent Services ========== -->
     <!-- ================================================ -->
