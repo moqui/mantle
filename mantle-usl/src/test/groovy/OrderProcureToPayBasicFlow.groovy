@@ -45,7 +45,7 @@ class OrderProcureToPayBasicFlow extends Specification {
     @Shared
     java.sql.Date eolDate
     @Shared
-    String equip1AssetId, equip2AssetId
+    String equip1AssetId, equip2AssetId, currentFiscalMonthId
     @Shared
     long totalFieldsChecked = 0
 
@@ -699,6 +699,7 @@ class OrderProcureToPayBasicFlow extends Specification {
         Map fiscalMonthOut = ec.service.sync().name("mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods")
                 .parameters([organizationPartyId:customerPartyId, filterDate:ec.user.nowTimestamp, timePeriodTypeId:'FiscalMonth']).call()
         Map timePeriod = (Map) fiscalMonthOut.timePeriodList[0]
+        currentFiscalMonthId = timePeriod.timePeriodId
 
         Map deprOut = ec.service.sync().name("mantle.ledger.AssetAutoPostServices.calculateAndPost#AllFixedAssetDepreciations")
                 .parameters([timePeriodId:timePeriod.timePeriodId]).call()
@@ -706,7 +707,7 @@ class OrderProcureToPayBasicFlow extends Specification {
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.asset.Asset assetId="${equip1AssetId}" acquireCost="10000" salvageValue="1500" depreciation="283.33"/>
-            <mantle.product.asset.AssetDepreciation assetId="${equip1AssetId}" timePeriodId="${timePeriod.timePeriodId}"
+            <mantle.product.asset.AssetDepreciation assetId="${equip1AssetId}" timePeriodId="${currentFiscalMonthId}"
                     annualDepreciation="3400" yearsRemaining="5" isLastYearPeriod="N"
                     monthlyDepreciation="283.33" acctgTransId="55407" usefulLifeYears="5"/>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55407" amountUomId="USD" isPosted="Y" postedDate="${effectiveTime}"
@@ -720,7 +721,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                         debitCreditFlag="D" acctgTransEntrySeqId="02"/>
             </mantle.ledger.transaction.AcctgTrans>
 
-            <mantle.product.asset.AssetDepreciation assetId="${equip2AssetId}" timePeriodId="${timePeriod.timePeriodId}" annualDepreciation="1700"
+            <mantle.product.asset.AssetDepreciation assetId="${equip2AssetId}" timePeriodId="${currentFiscalMonthId}" annualDepreciation="1700"
                     yearsRemaining="5" isLastYearPeriod="N" monthlyDepreciation="141.67" usefulLifeYears="5" acctgTransId="55408"/>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55408" postedDate="${effectiveTime}" amountUomId="USD"
                     isPosted="Y" assetId="${equip2AssetId}" acctgTransTypeEnumId="AttDepreciation" glFiscalTypeEnumId="GLFT_ACTUAL"
@@ -734,9 +735,9 @@ class OrderProcureToPayBasicFlow extends Specification {
             </mantle.ledger.transaction.AcctgTrans>
 
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" organizationPartyId="ORG_ZIZI_RETAIL"
-                    timePeriodId="${timePeriod.timePeriodId}" postedCredits="425" endingBalance="425"/>
+                    timePeriodId="${currentFiscalMonthId}" postedCredits="425" endingBalance="425"/>
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" organizationPartyId="ORG_ZIZI_RETAIL"
-                    timePeriodId="${timePeriod.timePeriodId}" postedDebits="425" endingBalance="425"/>
+                    timePeriodId="${currentFiscalMonthId}" postedDebits="425" endingBalance="425"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
@@ -954,18 +955,18 @@ class OrderProcureToPayBasicFlow extends Specification {
                         appliedDate="${effectiveTime}" paymentApplicationId="55402"/>
             </mantle.account.invoice.Invoice>
 
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="55102"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="55102"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
 
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="55102"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="425" postedDebits="425" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="55102"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="${currentFiscalMonthId}"
                     postedDebits="425" endingBalance="425" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="55102"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="1141.67" endingBalance="1141.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="793000000" timePeriodId="55102"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="793000000" timePeriodId="${currentFiscalMonthId}"
                     postedDebits="716.67" endingBalance="716.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
