@@ -308,7 +308,7 @@ class OrderToCashBasicFlow extends Specification {
                 amount="8" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="8" glAccountTypeEnumId="GatCogs" glAccountId="502000000"
+                amount="8" glAccountTypeEnumId="GatCogs" glAccountId="512000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttInventoryIssuance"
@@ -319,7 +319,7 @@ class OrderToCashBasicFlow extends Specification {
                 amount="20" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="20" glAccountTypeEnumId="GatCogs" glAccountId="502000000"
+                amount="20" glAccountTypeEnumId="GatCogs" glAccountId="512000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
 
             <!-- NOTE: there is no AcctgTrans for assetId 55500, productId DEMO_2_1 because it is auto-created and has
@@ -380,16 +380,16 @@ class OrderToCashBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 invoiceId="55500"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="16.99" glAccountId="401000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="16.99" glAccountId="411000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="38.85" glAccountId="401000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="38.85" glAccountId="411000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="03" debitCreditFlag="C"
-                amount="84.84" glAccountId="401000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="84.84" glAccountId="411000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_2_1" invoiceItemSeqId="03"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="04" debitCreditFlag="C"
-                amount="5" glAccountId="731200000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
+                amount="5" glAccountId="440000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="05" debitCreditFlag="D"
                 amount="145.68" glAccountTypeEnumId="GatAccountsReceivable" glAccountId="121000000"
                 reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>

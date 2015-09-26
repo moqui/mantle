@@ -156,7 +156,7 @@ class OrderTenantAccess extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 invoiceId="55600"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55600" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="29.97" glAccountId="401000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="29.97" glAccountId="411000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
                 productId="DEMO_TNT" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55600" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="29.97" glAccountTypeEnumId="GatAccountsReceivable" glAccountId="121000000"
