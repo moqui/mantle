@@ -15,9 +15,11 @@ along with this software (see the LICENSE.md file). If not, see
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
         default-menu-title="Message List" default-menu-include="false">
 
+    <parameter name="partyId"/>
+
     <transition name="editMessage"><default-response url="../EditMessage"/></transition>
     <transition name="messageThread"><default-response url="../MessageThread"/></transition>
-    <transition name="createMessage"><service-call name="mantle.party.CommunicationServices.create#Message" in-map="context"/>
+    <transition name="createMessage"><service-call name="mantle.party.CommunicationServices.create#Message"/>
         <default-response url="."/></transition>
 
     <transition-include name="getPartyList" location="component://mantle-usl/template/party/PartyForms.xml"/>
@@ -35,11 +37,18 @@ along with this software (see the LICENSE.md file). If not, see
             <select-field field-name="statusId"/><select-field field-name="fromPartyId"/><select-field field-name="toPartyId"/>
             <select-field field-name="subject"/><select-field field-name="communicationEventTypeId"/>
         </entity-find>
+
+        <!-- for using this screen as an internal user looking at messages for a different party (not allowed in MyAccount) -->
+        <if condition="ec.user.userAccount.partyId != partyId"><set field="toPartyId" from="partyId"/></if>
     </actions>
     <widgets>
         <!-- <label text="Messages to or from ${ec.resource.expand('PartyNameTemplate','',party)}" type="h3"/> -->
         <container-dialog id="CreateMessageDialog" button-text="Send Message" width="800">
             <form-single name="CreateMessage" transition="createMessage">
+                <field name="partyId"><default-field><hidden/></default-field></field>
+                <field name="fromPartyId" entry-name="ec.user.userAccount.partyId"><default-field title="From">
+                    <display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/>
+                </default-field></field>
                 <field name="toPartyId"><default-field title="To">
                     <text-line ac-transition="getPartyList" ac-min-length="2" size="60"/>
                 </default-field></field>
