@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <service verb="consume" noun="PurchaseOrder">
+        <in-parameters>
+            <parameter name="messageText" required="true"/>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/edi/order/X12V4010TS850.groovy"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="ediMap" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation)
+                    .loadBody(bodyLocation).parseText(messageText)"/>
+
+            <set field="ISA" from="ediMap.ISA[0]"/>
+            <set field="GS" from="ISA.GS[0]"/>
+            <set field="ST" from="GS.ST[0]"/>
+            <set field="BEG" from="ST.BEG[0]"/>
+
+            <!-- TODO: use a different service structure, have a generic X12 consumer that calls services based on GS01 -->
+            <!-- Validate GS01=PO? isa.GS[0].elements[0] == 'PO' -->
+
+            <!-- TODO: Do we care about GS06 (Group Control Number)? -->
+
+            <!-- TODO: find existing order (if there is one) -->
+            <set field="poNumber" from="BEG.elements[3]"/><!-- BEG03 -->
+            <set field="poRevision" from="BEG.elements[4]"/><!-- BEG04 -->
+
+            <!-- TODO: handle TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
+            <set field="tsPurpose" from="BEG.elements[1]"/>
+            <!-- TODO: handle PO Type BEG02 (CP Change to Purchase Order, DS Dropship, IN Information Copy, NE New Order) -->
+            <set field="poType" from="BEG.elements[2]"/>
+
+            <!-- TODO: create new order -->
+
+            <!-- TODO: update existing order -->
+        </actions>
+    </service>
+</services>
