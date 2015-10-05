@@ -16,13 +16,15 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="consume" noun="PurchaseOrder">
         <in-parameters>
             <parameter name="messageText" required="true"/>
-            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/edi/X12Envelope.groovy"/>
-            <parameter name="bodyLocation" default-value="component://mantle-usl/service/edi/order/X12V4010TS850.groovy"/>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS850.groovy"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
             <set field="ediMap" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation)
                     .loadBody(bodyLocation).parseText(messageText)"/>
+
+            <log message="======== PO EDI Map: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))} "/>
 
             <set field="ISA" from="ediMap.ISA[0]"/>
             <set field="GS" from="ISA.GS[0]"/>
