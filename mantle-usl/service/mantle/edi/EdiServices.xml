@@ -21,11 +21,12 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <set field="messageText" from="messageText.trim()"/>
             <set field="systemMessageIdList" from="[]"/>
+            <!-- TODO: save message as-is if there is a parse/etc error -->
             <if condition="messageText.startsWith('ISA')">
                 <then>
                     <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(x12EnvelopeLocation)"/>
                     <set field="splitList" from="ediHandler.splitMessage('ISA', 'IEA', messageText)"/>
-                    <log message="======== splitList: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(splitList))} "/>
+                    <!-- <log message="======== splitList: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(splitList))} "/> -->
                     <!-- create new SystemMessage for each ISA in a bulk message, if there is more than one (so they can be processed with individual status) -->
                     <iterate list="splitList" entry="splitMessage">
                         <set field="ediMap" from="ediHandler.parseText(splitMessage)"/>
@@ -54,7 +55,24 @@ along with this software (see the LICENSE.md file). If not, see
                             <econdition field-name="messageId"/><order-by field-name="-messageDate"/>
                         </entity-find>
                         <if condition="existingMessageList">
-                            <!-- TODO -->
+                            <!-- how to handle duplicates? create a SystemMessage in an error state and handle manually -->
+                            <set field="existingMessage" from="existingMessageList[0]"/>
+                            <!-- if messageDate is the same or initDate (received date) is within 1 year, consider it a
+                                duplicate; outside 1 year allow messageId to be reused -->
+                            <if condition="existingMessage.messageDate == messageDate ||
+                                    (existingMessage.initDate.time - ec.user.nowTimestamp.time) &lt; (365*24*60*60*1000)">
+                                <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                                        in-map="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
+                                            senderId:senderId, receiverId:receiverId, messageId:messageId, messageDate:messageDate,
+                                            docType:docType, docSubType:docSubType, docVersion:docVersion,
+                                            statusId:'SmsgError', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+                                <set field="errorText" value="Found duplicate EDI message for sender ${senderId}, receiver ${receiverId}, message ${messageId}; duplicate SystemMessage ID [${existingMessage.systemMessageId}]"/>
+                                <service-call name="create#moqui.service.message.SystemMessageError"
+                                        in-map="[systemMessageId:createOut.systemMessageId, errorDate:ec.user.nowTimestamp,
+                                            attemptedStatusId:'SmsgReceived', errorText:errorText]"/>
+                                <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+                                <continue/>
+                            </if>
                         </if>
 
                         <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
