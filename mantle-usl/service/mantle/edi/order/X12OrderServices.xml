@@ -21,10 +21,11 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <actions>
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
-            <set field="ediMap" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation)
-                    .loadBody(bodyLocation).parseText(messageText)"/>
+            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
+            <set field="ediMap" from="ediHandler.parseText(messageText)"/>
 
-            <log message="======== PO EDI Map: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))} "/>
+            <log message="======== PO EDI Map:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))}"/>
+            <log message="======== PO EDI Generated:\n${ediHandler.generateText(ediMap)}"/>
 
             <set field="ISA" from="ediMap.ISA[0]"/>
             <set field="GS" from="ISA.GS[0]"/>
