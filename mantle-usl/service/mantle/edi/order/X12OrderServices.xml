@@ -21,6 +21,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS850.groovy"/>
         </in-parameters>
         <actions>
+            <set field="orderMap" from="[:]"/>
+
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
             <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
             <set field="ediMap" from="ediHandler.parseText(messageText)"/>
@@ -33,21 +35,15 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="ST" from="GS.ST[0]"/>
             <set field="BEG" from="ST.BEG[0]"/>
 
-            <!-- TODO: use a different service structure, have a generic X12 consumer that calls services based on GS01 -->
             <!-- Validate GS01=PO? isa.GS[0].elements[0] == 'PO' -->
 
-            <!-- TODO: handle TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
-            <set field="tsPurpose" from="BEG.elements[1]"/>
-            <!-- TODO: handle PO Type BEG02 (CP Change to Purchase Order, DS Dropship, IN Information Copy, NE New Order) -->
-            <set field="poType" from="BEG.elements[2]"/>
-
-            <set field="otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
+            <set field="orderMap.otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
             <!-- don't care about this <set field="poRelease" from="BEG.elements[4]"/><!- - BEG04 - -> -->
-            <set field="placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
+            <set field="orderMap.placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
 
             <iterate list="ST.REF" entry="REF">
                 <set field="refType" from="REF.elements[1]"/>
-                <if condition="refType == 'IL'"><then><set field="externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
+                <if condition="refType == 'IL'"><then><set field="orderMap.externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
                     <else-if condition="refType == 'VN'"><set field="vendorOrderId" from="REF.elements[2]"/></else-if><!-- OrderHeader.orderId, use for send more than receive -->
                     <else-if condition="refType == 'VR'"><set field="vendorIdNum" from="REF.elements[2]"/></else-if>
                     <else-if condition="refType == 'YB'"><set field="vendorRevision" from="REF.elements[2]"/></else-if>
@@ -64,17 +60,14 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- Dates from DTM -->
             <set field="deliveryDateStr" from="ST.DTM?.find({it.elements[1] == '002'})?.elements?.get(2)"/>
-            <set field="estimatedDeliveryDate" from="deliveryDateStr ? ec.l10n.parseTimestamp(deliveryDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="orderMap.estimatedDeliveryDate" from="deliveryDateStr ? ec.l10n.parseTimestamp(deliveryDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
             <set field="shipDateStr" from="ST.DTM?.find({it.elements[1] == '010'})?.elements?.get(2)"/>
-            <set field="shipBeforeDate" from="shipDateStr ? ec.l10n.parseTimestamp(shipDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="orderMap.shipBeforeDate" from="shipDateStr ? ec.l10n.parseTimestamp(shipDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
             <set field="pickUpDateStr" from="ST.DTM?.find({it.elements[1] == '118'})?.elements?.get(2)"/>
-            <set field="estimatedPickUpDate" from="pickUpDateStr ? ec.l10n.parseTimestamp(pickUpDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="orderMap.estimatedPickUpDate" from="pickUpDateStr ? ec.l10n.parseTimestamp(pickUpDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
 
             <!-- TODO Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
             <set field="transportMethodCode" from="ST.TD5?.get(0)?.elements?.get(4)"/>
-
-            <!-- Need to handle N9*L1*GEN? is just a note saying MSG has general notes; handle other N9 (Reference Information) segments? -->
-            <!-- TODO: MSG segments, just order notes in MSG01 -->
 
             <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
                 OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
@@ -158,33 +151,77 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- add all Parties to Map, to save in OrderParty -->
                 <script>partyByRoleMap.put(roleTypeId, n1PartyId)</script>
                 <!-- set customerPartyId (BY) or vendorPartyId (VN) -->
-                <if condition="roleTypeId == 'Customer'"><set field="customerPartyId" from="n1PartyId"/></if>
-                <if condition="roleTypeId == 'Vendor'"><set field="vendorPartyId" from="n1PartyId"/></if>
+                <if condition="roleTypeId == 'Customer'"><set field="orderMap.customerPartyId" from="n1PartyId"/></if>
+                <if condition="roleTypeId == 'Vendor'"><set field="orderMap.vendorPartyId" from="n1PartyId"/></if>
                 <!-- set Ship To address based on ST -->
-                <if condition="roleTypeId == 'CustomerShipTo'"><set field="postalContactMechId" from="n1ContactMechId"/></if>
+                <if condition="roleTypeId == 'CustomerShipTo'"><set field="orderMap.postalContactMechId" from="n1ContactMechId"/></if>
                 <!-- TODO: match VendorShipFrom to a warehouse Facility? -->
             </iterate>
 
-            <!-- TODO: find existing order (if there is one) by customer and PO number -->
+            <!-- find existing order (if there is one) by customer and PO number -->
             <entity-find entity-name="mantle.order.OrderPart" list="existingOrderPartList">
-                <econdition field-name="otherPartyOrderId"/>
-                <econdition field-name="customerPartyId"/>
+                <econdition field-name="otherPartyOrderId" from="orderMap.otherPartyOrderId"/>
+                <econdition field-name="customerPartyId" from="orderMap.customerPartyId"/>
             </entity-find>
 
-            <log message="======== PO EDI context:\n${context}"/>
+            <!-- TODO: handle TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
+            <set field="tsPurpose" from="BEG.elements[1]"/>
+            <!-- TODO: handle PO Type BEG02 (CP Change to Purchase Order, DS Dropship, IN Information Copy, NE New Order) -->
+            <set field="poType" from="BEG.elements[2]"/>
 
             <if condition="!existingOrderPartList">
                 <then>
-                    <!-- TODO: create new order -->
+                    <!-- create new order -->
+                    <service-call name="mantle.order.OrderServices.create#Order" out-map="orderOut" in-map="orderMap"/>
+                    <!-- add OrderPartParty records for other parties -->
+                    <iterate list="partyByRoleMap" entry="partyId" key="roleTypeId">
+                        <service-call name="create#mantle.order.OrderPartParty" in-map="[orderId:orderOut.orderId,
+                                orderPartSeqId:orderOut.orderPartSeqId, partyId:partyId, roleTypeId:roleTypeId]"/>
+                    </iterate>
+
+                    <!-- Need to handle N9*L1*GEN? is just a note saying MSG has general notes; handle other N9 (Reference Information) segments? -->
+                    <if condition="ST.N9"><iterate list="ST.N9" entry="N9"><if condition="N9.elements[1] == 'L1'">
+                        <!-- MSG segments, just order notes in MSG01 -->
+                        <set field="orderNotes" value=""/>
+                        <iterate list="N9.MSG" entry="MSG"><set field="orderNotes" from="orderNotes + '\n' + MSG.elements[1]"/></iterate>
+                        <service-call name="create#mantle.order.OrderNote" in-map="[orderId:orderOut.orderId,
+                                noteDate:ec.user.nowTimestamp, noteText:orderNotes]"/>
+                    </if></iterate></if>
 
                     <!-- TODO: ST.SAC (Service, Promotion, Allowance, or Charge Info; header adjustments as OrderItem with no parent) -->
 
-                    <!-- TODO: ST.PO1 (; product OrderItem) -->
-                    <!-- TODO: ST.PO1.SAC (Service, Promotion, Allowance, or Charge Info; item adjustments as OrderItem WITH parent) -->
+                    <!-- ST.PO1 (Baseline Item Data; product OrderItem) -->
+                    <iterate list="ST.PO1" entry="PO1">
+                        <!-- PO103 Unit/Basis, do anything with it? -->
+                        <!-- PO105 Basis of Unit Price Code (PE Price per Each, PK Price per Kilogram, PP Price per Pound); only PE supported... -->
+                        <!-- PO106 (for PO107 - optional) Product/Service ID Qualifier (UA U.P.C./EAN Case Code (2-5-5),
+                            UK U.P.C./EAN Shipping Container Code (1-2-5-5-1), UP U.P.C. Consumer Package Code (1-5-5-1)) -->
+                        <!-- PO108 (for PO109 - mandatory) Product/Service ID Qualifier (MG Manufacturer's Part Number,
+                            VN Vendor's (Seller's) Item Number, VP Vendor's (Seller's) Part Number); ==> productId -->
+                        <!-- PO110 (for PO111 - mandatory) Product/Service ID Qualifier (PI Purchaser's Item Code) ==> otherPartyProductId -->
+                        <!-- PID: description -->
+                        <if condition="PO1.PID"><set field="itemDescription" from="PO1.PID[0].elements[5]"/>
+                            <else><set field="itemDescription" from="null"/></else></if>
+                        <!-- PO109 is our product ID, make sure it exists -->
+                        <set field="comments" from="null"/>
+                        <set field="productId" from="PO1.elements[9]"/>
+                        <entity-find-one entity-name="mantle.product.Product" value-field="product"/>
+                        <if condition="!product">
+                            <set field="comments" value="Referenced product ID [${productId}] does not exist"/>
+                            <set field="productId" from="null"/>
+                        </if>
+                        <service-call name="mantle.order.OrderServices.create#OrderItem" out-map="createItemOut"
+                                in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
+                                    itemTypeEnumId:'ItemProduct', externalItemId:PO1.elements[1], quantity:PO1.elements[2],
+                                    unitAmount:PO1.elements[4], productId:productId, otherPartyProductId:PO1.elements[11],
+                                    itemDescription:itemDescription, comments:comments]"/>
+                        <!-- TODO: ST.PO1.SAC (Service, Promotion, Allowance, or Charge Info; item adjustments as OrderItem WITH parent) -->
+                    </iterate>
                 </then>
                 <else>
                     <!-- TODO: update existing order (merge, cancel/replace?) -->
                     <!-- TODO: check status of existing order -->
+                    <return error="true" message="Found order [${existingOrderPartList[0].orderId}] for customer ID [${orderMap.customerPartyId}], other party order ID [${orderMap.otherPartyOrderId}]; update not yet support"/>
                 </else>
             </if>
         </actions>
