@@ -179,11 +179,11 @@ along with this software (see the LICENSE.md file). If not, see
                                 orderPartSeqId:orderOut.orderPartSeqId, partyId:partyId, roleTypeId:roleTypeId]"/>
                     </iterate>
 
-                    <!-- Need to handle N9*L1*GEN? is just a note saying MSG has general notes; handle other N9 (Reference Information) segments? -->
+                    <!-- Handle N9*L1*GEN, just a note saying MSG has general notes; handle other N9 (Reference Information) segments? -->
                     <if condition="ST.N9"><iterate list="ST.N9" entry="N9"><if condition="N9.elements[1] == 'L1'">
                         <!-- MSG segments, just order notes in MSG01 -->
                         <set field="orderNotes" value=""/>
-                        <iterate list="N9.MSG" entry="MSG"><set field="orderNotes" from="orderNotes + '\n' + MSG.elements[1]"/></iterate>
+                        <iterate list="N9.MSG" entry="MSG"><set field="orderNotes" from="orderNotes + MSG.elements[1] + '\n'"/></iterate>
                         <service-call name="create#mantle.order.OrderNote" in-map="[orderId:orderOut.orderId,
                                 noteDate:ec.user.nowTimestamp, noteText:orderNotes]"/>
                     </if></iterate></if>
