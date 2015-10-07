@@ -575,6 +575,41 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- TODO: consider expanding this, ie figure out country from state/province... and save on PostalAddress? -->
         </actions>
     </service>
+    <service verb="findOrCreate" noun="PartyPostalAddress">
+        <description>Find (currently by exact match) existing PostalAddress, or create one if none found.</description>
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
+            <parameter name="partyId" required="true"/>
+            <parameter name="contactMechPurposeId"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contactMechId"/>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.party.contact.PartyContactMechPostalAddress" list="existingList">
+                <date-filter/><econdition field-name="partyId"/>
+                <econdition field-name="address1"/><econdition field-name="city"/><econdition field-name="postalCode"/>
+                <econdition field-name="stateProvinceGeoId" ignore-if-empty="true"/>
+                <econdition field-name="countryGeoId" ignore-if-empty="true"/>
+            </entity-find>
+            <if condition="existingList">
+                <then>
+                    <set field="contactMechId" from="existingList.get(0).contactMechId"/>
+                    <!-- make sure address has purpose, create new PartyContactMech if needed -->
+                    <if condition="contactMechPurposeId &amp;&amp; !existingList.contactMechPurposeId.contains(contactMechPurposeId)">
+                        <service-call name="create#mantle.party.contact.PartyContactMech"
+                                in-map="[partyId:partyId, contactMechId:contactMechId, fromDate:ec.user.nowTimestamp,
+                                    contactMechPurposeId:contactMechPurposeId]"/>
+                    </if>
+                </then>
+                <else>
+                    <if condition="!contactMechPurposeId"><set field="contactMechPurposeId" value="PostalPrimary"/></if>
+                    <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut" in-map="context"/>
+                    <set field="contactMechId" from="paOut.contactMechId"/>
+                </else>
+            </if>
+        </actions>
+    </service>
 
     <!-- TelecomNumber Services -->
     <service verb="create" noun="TelecomNumber">
