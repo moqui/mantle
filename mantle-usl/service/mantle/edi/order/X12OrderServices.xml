@@ -14,6 +14,7 @@ along with this software (see the LICENSE.md file). If not, see
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
     <service verb="consume" noun="PurchaseOrder">
+        <description>Consume a PO message from a Customer, ie create a Sales Order for a Customer's Purchase Order (internal org is the vendor)</description>
         <in-parameters>
             <parameter name="messageText" required="true"/>
             <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
@@ -35,20 +36,80 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- TODO: use a different service structure, have a generic X12 consumer that calls services based on GS01 -->
             <!-- Validate GS01=PO? isa.GS[0].elements[0] == 'PO' -->
 
-            <!-- TODO: Do we care about GS06 (Group Control Number)? -->
-
-            <!-- TODO: find existing order (if there is one) -->
-            <set field="poNumber" from="BEG.elements[3]"/><!-- BEG03 -->
-            <set field="poRevision" from="BEG.elements[4]"/><!-- BEG04 -->
-
             <!-- TODO: handle TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
             <set field="tsPurpose" from="BEG.elements[1]"/>
             <!-- TODO: handle PO Type BEG02 (CP Change to Purchase Order, DS Dropship, IN Information Copy, NE New Order) -->
             <set field="poType" from="BEG.elements[2]"/>
 
-            <!-- TODO: create new order -->
+            <set field="otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
+            <!-- don't care about this <set field="poRelease" from="BEG.elements[4]"/><!- - BEG04 - -> -->
+            <set field="placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
 
-            <!-- TODO: update existing order -->
+            <iterate list="ST.REF" entry="REF">
+                <set field="refType" from="REF.elements[1]"/>
+                <if condition="refType == 'IL'">
+                    <then><set field="externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
+                    <else-if condition="refType == 'VN'"><set field="vendorOrderId" from="REF.elements[2]"/></else-if><!-- OrderHeader.orderId, use for send more than receive -->
+                    <else-if condition="refType == 'VR'"><set field="vendorIdNum" from="REF.elements[2]"/></else-if>
+                    <else-if condition="refType == 'YB'"><set field="vendorRevision" from="REF.elements[2]"/></else-if>
+                    <else-if condition="refType == 'YD'"><set field="buyerIdNum" from="REF.elements[2]"/></else-if>
+                    <else-if condition="refType == 'ZI'"><set field="buyerRevision" from="REF.elements[2]"/></else-if><!-- required for order change -->
+                    <!-- TODO: handle other REF types? -->
+                </if>
+            </iterate>
+
+            <!-- TODO Shipment Method of Payment (BP Paid by Buyer, CC Collect, PB Customer Pick-up/Backhaul,
+                PC Prepaid but Charged to Customer, PE Prepaid and Summary Bill, PP Prepaid (by Seller), PU Pickup,
+                TP Third Party Pay -->
+            <set field="fobCode" from="ST.FOB?.get(0)?.elements?.get(1)"/>
+
+            <!-- Dates from DTM -->
+            <set field="deliveryDateStr" from="ST.DTM?.find({it.elements[1] == '002'})?.elements?.get(2)"/>
+            <set field="estimatedDeliveryDate" from="deliveryDateStr ? ec.l10n.parseTimestamp(deliveryDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="shipDateStr" from="ST.DTM?.find({it.elements[1] == '010'})?.elements?.get(2)"/>
+            <set field="shipBeforeDate" from="shipDateStr ? ec.l10n.parseTimestamp(shipDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="pickUpDateStr" from="ST.DTM?.find({it.elements[1] == '118'})?.elements?.get(2)"/>
+            <set field="estimatedPickUpDate" from="pickUpDateStr ? ec.l10n.parseTimestamp(pickUpDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+
+            <!-- TODO Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
+            <set field="transportMethodCode" from="ST.TD5?.get(0)?.elements?.get(4)"/>
+
+            <!-- Need to handle N9*L1*GEN? is just a note saying MSG has general notes; handle other N9 (Reference Information) segments? -->
+            <!-- TODO: MSG segments, just order notes in MSG01 -->
+
+            <!-- TODO: N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
+                OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
+            <!-- TODO: determine customerPartyId and vendorPartyId -->
+            <iterate list="ST.N1" entry="N1">
+                <!-- N104 is ID, N103 is ID type: 1 D-U-N-S Number (PtidDuns4), 9 D-U-N-S+4 (PtidDuns4), 54 Warehouse?,
+                    91 Assigned by Seller or Seller's Agent (that's us, so this is the partyId),
+                    92 Assigned by Buyer or Buyer's Agent (PtidCust) -->
+                <!-- TODO: find existing Party -->
+                <!-- TODO: create new Party -->
+                <!-- TODO: set customerPartyId (BY) or vendorPartyId (VN), or add as OrderParty -->
+                <!-- TODO: set Ship To address based on ST -->
+            </iterate>
+
+            <!-- TODO: find existing order (if there is one) by customer and PO number -->
+            <entity-find entity-name="mantle.order.OrderPart" list="existingOrderPartList">
+                <econdition field-name="otherPartyOrderId"/>
+                <econdition field-name="customerPartyId"/>
+            </entity-find>
+
+            <if condition="!existingOrderPartList">
+                <then>
+                    <!-- TODO: create new order -->
+
+                    <!-- TODO: ST.SAC (Service, Promotion, Allowance, or Charge Info; header adjustments as OrderItem with no parent) -->
+
+                    <!-- TODO: ST.PO1 (; product OrderItem) -->
+                    <!-- TODO: ST.PO1.SAC (Service, Promotion, Allowance, or Charge Info; item adjustments as OrderItem WITH parent) -->
+                </then>
+                <else>
+                    <!-- TODO: update existing order (merge, cancel/replace?) -->
+                    <!-- TODO: check status of existing order -->
+                </else>
+            </if>
         </actions>
     </service>
 </services>
