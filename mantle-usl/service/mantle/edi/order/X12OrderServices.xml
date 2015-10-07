@@ -47,8 +47,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <iterate list="ST.REF" entry="REF">
                 <set field="refType" from="REF.elements[1]"/>
-                <if condition="refType == 'IL'">
-                    <then><set field="externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
+                <if condition="refType == 'IL'"><then><set field="externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
                     <else-if condition="refType == 'VN'"><set field="vendorOrderId" from="REF.elements[2]"/></else-if><!-- OrderHeader.orderId, use for send more than receive -->
                     <else-if condition="refType == 'VR'"><set field="vendorIdNum" from="REF.elements[2]"/></else-if>
                     <else-if condition="refType == 'YB'"><set field="vendorRevision" from="REF.elements[2]"/></else-if>
@@ -77,17 +76,93 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Need to handle N9*L1*GEN? is just a note saying MSG has general notes; handle other N9 (Reference Information) segments? -->
             <!-- TODO: MSG segments, just order notes in MSG01 -->
 
-            <!-- TODO: N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
+            <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
                 OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
-            <!-- TODO: determine customerPartyId and vendorPartyId -->
+            <set field="n1TypeToRoleType" from="['BO':'SalesRepresentative', 'BT':'CustomerBillTo', 'BY':'Customer', 'CA':'Carrier',
+                    'OB':'CustomerPlacing', 'PW':'VendorShipFrom', 'SF':'VendorShipFrom', 'ST':'CustomerShipTo', 'VN':'Vendor']"/>
+            <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
+                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
+            <set field="n1IdTypeToPartyIdType" from="['1':'PtidDuns', '9':'PtidDuns4', '91':'PtidVend', '92':'PtidCust']"/>
+
+            <set field="partyByRoleMap" from="[:]"/>
             <iterate list="ST.N1" entry="N1">
-                <!-- N104 is ID, N103 is ID type: 1 D-U-N-S Number (PtidDuns4), 9 D-U-N-S+4 (PtidDuns4), 54 Warehouse?,
-                    91 Assigned by Seller or Seller's Agent (that's us, so this is the partyId),
+                <set field="n1Type" from="N1.elements[1]"/>
+                <set field="n1Name" from="N1.elements[2]"/>
+                <!-- N104 is ID, N103 is ID type: 1 D-U-N-S Number (PtidDuns), 9 D-U-N-S+4 (PtidDuns4), 54 Warehouse?,
+                    91 Assigned by Seller or Seller's Agent (that's us, so this is the partyId, try PtidVend too),
                     92 Assigned by Buyer or Buyer's Agent (PtidCust) -->
-                <!-- TODO: find existing Party -->
-                <!-- TODO: create new Party -->
-                <!-- TODO: set customerPartyId (BY) or vendorPartyId (VN), or add as OrderParty -->
-                <!-- TODO: set Ship To address based on ST -->
+                <set field="n1IdType" from="N1.elements[3]"/>
+                <set field="n1Id" from="N1.elements[4]"/>
+
+                <set field="partyIdTypeEnumId" from="n1IdTypeToPartyIdType.get(n1IdType)"/>
+                <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
+                <set field="roleTypeId" from="n1TypeToRoleType.get(n1Type)"/>
+
+                <!-- find existing Party -->
+                <set field="n1PartyId" from="null"/>
+                <if condition="n1IdType == '91'">
+                    <!-- special handling for type 91: try by literal partyId first -->
+                    <entity-find-one entity-name="mantle.party.Party" value-field="foundParty">
+                        <field-map field-name="partyId" from="n1Id"/></entity-find-one>
+                    <set field="n1PartyId" from="foundParty?.partyId"/>
+                </if>
+                <if condition="!n1PartyId">
+                    <!-- general lookup on PartyIdentification -->
+                    <entity-find entity-name="mantle.party.PartyIdentification" list="partyIdentList">
+                        <econdition field-name="partyIdTypeEnumId"/><econdition field-name="idValue" from="n1Id"/></entity-find>
+                    <set field="n1PartyId" from="partyIdentList?.getAt(0)?.partyId"/>
+                    <!-- TODO: what if the ID is not issued by us and is not unique? -->
+                </if>
+
+                <!-- NOTE: always create or try to match against name or name/address? for now create, not reliable to
+                    match against name, especially when we have an ID of some sort to match against -->
+                <if condition="!n1PartyId">
+                    <then>
+                        <!-- create new Party -->
+                        <service-call name="mantle.party.PartyServices.create#Organization" out-map="createOrgOut"
+                                in-map="[organizationName:n1Name, roleTypeId:roleTypeId]"/>
+                        <set field="n1PartyId" from="createOrgOut.partyId"/>
+                        <!-- add the PartyIdentification -->
+                        <service-call name="create#mantle.party.PartyIdentification"
+                                in-map="[partyId:n1PartyId, partyIdTypeEnumId:partyIdTypeEnumId, idValue:n1Id]"/>
+                    </then>
+                    <else>
+                        <!-- have a Party, make sure it has the role -->
+                        <service-call name="mantle.party.PartyServices.ensure#PartyRole"
+                                in-map="[partyId:n1PartyId, roleTypeId:roleTypeId]"/>
+                    </else>
+                </if>
+
+                <set field="n1AddressMap" from="null"/>
+                <if condition="N1.N3 &amp;&amp; N1.N4">
+                    <set field="N3" from="N1.N3[0]"/><set field="N4" from="N1.N4[0]"/>
+                    <set field="postalCode" from="N4.elements[3]"/><set field="postalCodeExt" from="null"/>
+                    <if condition="N4.elements[4] == 'USA' &amp;&amp; postalCode.length() == 9">
+                        <set field="postalCode" from="postalCode.substring(0,5)"/>
+                        <set field="postalCodeExt" from="postalCode.substring(5)"/>
+                    </if>
+                    <set field="n1AddressMap" from="[toName:n1Name, address1:N3.elements[1], city:N4.elements[1],
+                            stateProvinceGeoId:(N4.elements[4] + '_' + N4.elements[2]), countryGeoId:N4.elements[4],
+                            postalCode:postalCode, postalCodeExt:postalCodeExt]"/>
+                    <if condition="N3.elements.size() &gt; 2"><set field="n1AddressMap.address2" from="N3.elements[2]"/></if>
+                </if>
+                <if condition="n1AddressMap &amp;&amp; n1PartyId">
+                    <!-- make sure Party has given address (by mapped purpose), get contactMechId -->
+                    <service-call name="mantle.party.ContactServices.findOrCreate#PartyPostalAddress" out-map="ppaOut"
+                            in-map="n1AddressMap + [partyId:n1PartyId, contactMechPurposeId:contactMechPurposeId]"/>
+                    <set field="n1ContactMechId" from="ppaOut.contactMechId"/>
+                </if>
+
+                <!-- TODO: handle PER segments? (Contact Name, Communication Number) -->
+
+                <!-- add all Parties to Map, to save in OrderParty -->
+                <script>partyByRoleMap.put(roleTypeId, n1PartyId)</script>
+                <!-- set customerPartyId (BY) or vendorPartyId (VN) -->
+                <if condition="roleTypeId == 'Customer'"><set field="customerPartyId" from="n1PartyId"/></if>
+                <if condition="roleTypeId == 'Vendor'"><set field="vendorPartyId" from="n1PartyId"/></if>
+                <!-- set Ship To address based on ST -->
+                <if condition="roleTypeId == 'CustomerShipTo'"><set field="postalContactMechId" from="n1ContactMechId"/></if>
+                <!-- TODO: match VendorShipFrom to a warehouse Facility? -->
             </iterate>
 
             <!-- TODO: find existing order (if there is one) by customer and PO number -->
@@ -95,6 +170,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="otherPartyOrderId"/>
                 <econdition field-name="customerPartyId"/>
             </entity-find>
+
+            <log message="======== PO EDI context:\n${context}"/>
 
             <if condition="!existingOrderPartList">
                 <then>
