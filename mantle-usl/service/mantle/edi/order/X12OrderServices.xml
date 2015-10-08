@@ -131,8 +131,14 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="N3" from="N1.N3[0]"/><set field="N4" from="N1.N4[0]"/>
                     <set field="postalCode" from="N4.elements[3]"/><set field="postalCodeExt" from="null"/>
                     <if condition="N4.elements[4] == 'USA' &amp;&amp; postalCode.length() == 9">
-                        <set field="postalCode" from="postalCode.substring(0,5)"/>
-                        <set field="postalCodeExt" from="postalCode.substring(5)"/>
+                        <then>
+                            <set field="postalCodeExt" from="postalCode.substring(5)"/>
+                            <set field="postalCode" from="postalCode.substring(0,5)"/>
+                        </then>
+                        <else-if condition="postalCode.contains('-') &amp;&amp; postalCode.length() &gt; 9">
+                            <set field="postalCodeExt" from="postalCode.substring(postalCode.indexOf('-') + 1)"/>
+                            <set field="postalCode" from="postalCode.substring(0, postalCode.indexOf('-'))"/>
+                        </else-if>
                     </if>
                     <set field="n1AddressMap" from="[toName:n1Name, address1:N3.elements[1], city:N4.elements[1],
                             stateProvinceGeoId:(N4.elements[4] + '_' + N4.elements[2]), countryGeoId:N4.elements[4],
