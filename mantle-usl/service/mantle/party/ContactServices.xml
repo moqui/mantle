@@ -149,6 +149,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="telecomContactMechPurposeId"/>
             <parameter name="emailContactMechPurposeId"/>
             <parameter name="getAll" type="Boolean" default="false"/>
+            <parameter name="alsoIncludePrimaryPurpose" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="postalAddressList" type="List"><parameter name="infoMap">
@@ -184,11 +185,16 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <if condition="postalContactMechPurposeId">
-                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="postalPcmList">
-                    <date-filter/><econdition field-name="partyId"/>
-                    <econdition field-name="contactMechPurposeId" from="postalContactMechPurposeId"/>
-                    <order-by field-name="-fromDate"/>
-                </entity-find>
+                <then>
+                    <set field="postalPurposeList" from="[postalContactMechPurposeId]"/>
+                    <if condition="alsoIncludePrimaryPurpose &amp;&amp; postalContactMechPurposeId != 'PostalPrimary'">
+                        <script>postalPurposeList.add('PostalPrimary')</script></if>
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="postalPcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" operator="in" from="postalPurposeList"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                </then>
                 <else-if condition="getAll">
                     <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="postalPcmList">
                         <date-filter/><econdition field-name="partyId"/>
@@ -241,11 +247,16 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <if condition="telecomContactMechPurposeId">
-                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
-                    <date-filter/><econdition field-name="partyId"/>
-                    <econdition field-name="contactMechPurposeId" from="telecomContactMechPurposeId"/>
-                    <order-by field-name="-fromDate"/>
-                </entity-find>
+                <then>
+                    <set field="telecomPurposeList" from="[telecomContactMechPurposeId]"/>
+                    <if condition="alsoIncludePrimaryPurpose &amp;&amp; telecomContactMechPurposeId != 'PhonePrimary'">
+                        <script>telecomPurposeList.add('PhonePrimary')</script></if>
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" operator="in" from="telecomPurposeList"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                </then>
                 <else-if condition="getAll">
                     <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="telecomPcmList">
                         <date-filter/><econdition field-name="partyId"/>
@@ -275,11 +286,16 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <if condition="emailContactMechPurposeId">
-                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
-                    <date-filter/><econdition field-name="partyId"/>
-                    <econdition field-name="contactMechPurposeId" from="emailContactMechPurposeId"/>
-                    <order-by field-name="-fromDate"/>
-                </entity-find>
+                <then>
+                    <set field="emailPurposeList" from="[emailContactMechPurposeId]"/>
+                    <if condition="alsoIncludePrimaryPurpose &amp;&amp; emailContactMechPurposeId != 'EmailPrimary'">
+                        <script>emailPurposeList.add('EmailPrimary')</script></if>
+                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
+                        <date-filter/><econdition field-name="partyId"/>
+                        <econdition field-name="contactMechPurposeId" operator="in" from="emailPurposeList"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                </then>
                 <else-if condition="getAll">
                     <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="emailPcmList">
                         <date-filter/><econdition field-name="partyId"/>
