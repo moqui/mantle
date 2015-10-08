@@ -175,6 +175,10 @@ h2. General Order Placement and eCommerce Usage
                 boolean isVendorInternalOrg = ec.entity.find("mantle.party.PartyRole")
                         .condition("partyId", orderPart.vendorPartyId).condition("roleTypeId", "OrgInternal").one() as boolean
 
+                EntityList orderPartPartyList = ec.entity.find("mantle.order.OrderPartPartyDetail")
+                        .condition([orderId:orderPart.orderId, orderPartSeqId:orderPart.orderPartSeqId]).orderBy("description").list()
+                EntityValue customerShipToDetail = orderPartPartyList.find({ it.roleTypeId == 'CustomerShipTo' })
+
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
                         partNoParentOrderItemList:partNoParentOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
@@ -184,6 +188,7 @@ h2. General Order Placement and eCommerce Usage
                         telecomNumber:telecomNumber, facility:facility,
                         facilityContactInfo:facilityContactInfo, customerDetail:customerDetail, vendorDetail:vendorDetail,
                         isCustomerInternalOrg:isCustomerInternalOrg, isVendorInternalOrg:isVendorInternalOrg,
+                        orderPartPartyList:orderPartPartyList, customerShipToDetail:customerShipToDetail,
                         partShipmentItemSourceList:partShipmentItemSourceList, partShipmentIdSet:partShipmentIdSet])
             }
             </script>
