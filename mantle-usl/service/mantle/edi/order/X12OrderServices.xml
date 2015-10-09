@@ -21,7 +21,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS850.groovy"/>
         </in-parameters>
         <actions>
-            <set field="orderMap" from="[:]"/>
+            <set field="headerMap" from="[:]"/>
 
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
             <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
@@ -37,18 +37,18 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- Validate GS01=PO? isa.GS[0].elements[0] == 'PO' -->
 
-            <set field="orderMap.otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
+            <set field="headerMap.otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
             <!-- don't care about this <set field="poRelease" from="BEG.elements[4]"/><!- - BEG04 - -> -->
-            <set field="orderMap.placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
+            <set field="headerMap.placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
 
             <iterate list="ST.REF" entry="REF">
                 <set field="refType" from="REF.elements[1]"/>
-                <if condition="refType == 'IL'"><then><set field="orderMap.externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
+                <if condition="refType == 'IL'"><then><set field="headerMap.externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
                     <else-if condition="refType == 'VN'"><set field="vendorOrderId" from="REF.elements[2]"/></else-if><!-- OrderHeader.orderId, use for send more than receive -->
                     <else-if condition="refType == 'VR'"><set field="vendorIdNum" from="REF.elements[2]"/></else-if>
                     <else-if condition="refType == 'YB'"><set field="vendorRevision" from="REF.elements[2]"/></else-if>
                     <else-if condition="refType == 'YD'"><set field="buyerIdNum" from="REF.elements[2]"/></else-if>
-                    <else-if condition="refType == 'ZI'"><set field="buyerRevision" from="REF.elements[2]"/></else-if><!-- required for order change -->
+                    <else-if condition="refType == 'ZI'"><set field="headerMap.externalRevision" from="REF.elements[2]"/></else-if><!-- required for order change -->
                     <!-- TODO: handle other REF types? -->
                 </if>
             </iterate>
@@ -60,11 +60,11 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- Dates from DTM -->
             <set field="deliveryDateStr" from="ST.DTM?.find({it.elements[1] == '002'})?.elements?.get(2)"/>
-            <set field="orderMap.estimatedDeliveryDate" from="deliveryDateStr ? ec.l10n.parseTimestamp(deliveryDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="headerMap.estimatedDeliveryDate" from="deliveryDateStr ? ec.l10n.parseTimestamp(deliveryDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
             <set field="shipDateStr" from="ST.DTM?.find({it.elements[1] == '010'})?.elements?.get(2)"/>
-            <set field="orderMap.shipBeforeDate" from="shipDateStr ? ec.l10n.parseTimestamp(shipDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="headerMap.shipBeforeDate" from="shipDateStr ? ec.l10n.parseTimestamp(shipDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
             <set field="pickUpDateStr" from="ST.DTM?.find({it.elements[1] == '118'})?.elements?.get(2)"/>
-            <set field="orderMap.estimatedPickUpDate" from="pickUpDateStr ? ec.l10n.parseTimestamp(pickUpDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="headerMap.estimatedPickUpDate" from="pickUpDateStr ? ec.l10n.parseTimestamp(pickUpDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
 
             <!-- TODO Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
             <set field="transportMethodCode" from="ST.TD5?.get(0)?.elements?.get(4)"/>
@@ -157,17 +157,17 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- add all Parties to Map, to save in OrderParty -->
                 <script>partyByRoleMap.put(roleTypeId, n1PartyId)</script>
                 <!-- set customerPartyId (BY) or vendorPartyId (VN) -->
-                <if condition="roleTypeId == 'Customer'"><set field="orderMap.customerPartyId" from="n1PartyId"/></if>
-                <if condition="roleTypeId == 'Vendor'"><set field="orderMap.vendorPartyId" from="n1PartyId"/></if>
+                <if condition="roleTypeId == 'Customer'"><set field="headerMap.customerPartyId" from="n1PartyId"/></if>
+                <if condition="roleTypeId == 'Vendor'"><set field="headerMap.vendorPartyId" from="n1PartyId"/></if>
                 <!-- set Ship To address based on ST -->
-                <if condition="roleTypeId == 'CustomerShipTo'"><set field="orderMap.postalContactMechId" from="n1ContactMechId"/></if>
+                <if condition="roleTypeId == 'CustomerShipTo'"><set field="headerMap.postalContactMechId" from="n1ContactMechId"/></if>
                 <!-- TODO: match VendorShipFrom to a warehouse Facility? -->
             </iterate>
 
             <!-- find existing order (if there is one) by customer and PO number -->
             <entity-find entity-name="mantle.order.OrderPart" list="existingOrderPartList">
-                <econdition field-name="otherPartyOrderId" from="orderMap.otherPartyOrderId"/>
-                <econdition field-name="customerPartyId" from="orderMap.customerPartyId"/>
+                <econdition field-name="otherPartyOrderId" from="headerMap.otherPartyOrderId"/>
+                <econdition field-name="customerPartyId" from="headerMap.customerPartyId"/>
             </entity-find>
 
             <!-- TODO: handle TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
@@ -178,7 +178,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!existingOrderPartList">
                 <then>
                     <!-- create new order -->
-                    <service-call name="mantle.order.OrderServices.create#Order" out-map="orderOut" in-map="orderMap"/>
+                    <service-call name="mantle.order.OrderServices.create#Order" out-map="orderOut" in-map="headerMap"/>
                     <!-- add OrderPartParty records for other parties -->
                     <iterate list="partyByRoleMap" entry="partyId" key="roleTypeId">
                         <service-call name="create#mantle.order.OrderPartParty" in-map="[orderId:orderOut.orderId,
@@ -226,8 +226,18 @@ along with this software (see the LICENSE.md file). If not, see
                 </then>
                 <else>
                     <!-- TODO: update existing order (merge, cancel/replace?) -->
+                    <set field="orderPart" from="existingOrderPartList[0]"/>
+                    <set field="orderHeader" from="orderPart.'mantle.order.OrderHeader'"/>
+
+                    <log message="============ ${orderHeader.externalRevision},  ${headerMap.externalRevision}\n${orderPart}"/>
+                    <set field="curRevision" from="ec.l10n.parseNumber(orderHeader.externalRevision ?: 1, '')"/>
+                    <set field="newRevision" from="ec.l10n.parseNumber(headerMap.externalRevision ?: 1, '')"/>
+                    <if condition="newRevision &lt;= curRevision">
+                        <return error="true" message="Newer or same revision [${orderHeader.externalRevision}] order [${existingOrderPartList[0].orderId}] found for customer ID [${headerMap.customerPartyId}], other party order ID [${headerMap.otherPartyOrderId}]; attempted revision [${headerMap.externalRevision}]"/>
+                    </if>
+
                     <!-- TODO: check status of existing order -->
-                    <return error="true" message="Found order [${existingOrderPartList[0].orderId}] for customer ID [${orderMap.customerPartyId}], other party order ID [${orderMap.otherPartyOrderId}]; update not yet supported"/>
+                    <return error="true" message="Found order [${existingOrderPartList[0].orderId}] for customer ID [${headerMap.customerPartyId}], other party order ID [${headerMap.otherPartyOrderId}]; update not yet supported"/>
                 </else>
             </if>
         </actions>
