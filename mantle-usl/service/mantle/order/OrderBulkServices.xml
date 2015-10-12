@@ -52,6 +52,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <parameter name="noteText"/>
             </parameter></parameter>
             <parameter name="items" type="List"><parameter name="noteEntry" type="Map">
+                <description>Can include any field from OrderItem entity</description>
                 <parameter name="productId"/>
                 <parameter name="otherPartyProductId"/>
                 <parameter name="itemTypeEnumId"/>
@@ -61,6 +62,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <parameter name="itemDescription"/>
                 <parameter name="comments"/>
             </parameter></parameter>
+            <parameter name="removeMissingItems" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderId"/>
@@ -140,6 +142,16 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="orderId" from="existingOrder?.orderId"/>
             <set field="orderPartSeqId" from="existingOrder?.orderPartSeqId"/>
 
+            <!-- pre-process/validate order items -->
+            <iterate list="items" entry="item">
+                <entity-find-one entity-name="mantle.product.Product" value-field="product">
+                    <field-map field-name="productId" from="item.productId"/></entity-find-one>
+                <if condition="!product">
+                    <set field="item.comments" value="Product [${item.productId}] from message does not exist"/>
+                    <set field="item.productId" from="null"/>
+                </if>
+            </iterate>
+
             <set field="isCreate" from="orderId ? false : true"/>
 
             <if condition="isCreate">
@@ -151,29 +163,58 @@ along with this software (see the LICENSE.md file). If not, see
 
                     <!-- order items -->
                     <iterate list="items" entry="item">
-                        <entity-find-one entity-name="mantle.product.Product" value-field="product">
-                            <field-map field-name="productId" from="item.productId"/></entity-find-one>
-                        <if condition="!product">
-                            <set field="item.comments" value="Product [${item.productId}] from message does not exist"/>
-                            <set field="item.productId" from="null"/>
-                        </if>
                         <set field="item.orderId" from="orderId"/>
                         <set field="item.orderPartSeqId" from="orderPartSeqId"/>
                         <service-call name="mantle.order.OrderServices.create#OrderItem" in-map="item" out-map="createItemOut"/>
                     </iterate>
                 </then>
                 <else>
-                    <!-- TODO: update existing order (merge, cancel/replace?) -->
-
-                    <log message="============ ${existingOrder.externalRevision},  ${header.externalRevision}\n${orderPart}"/>
+                    <log message="============ ${existingOrder.externalRevision},  ${header.externalRevision}\n${existingOrder}"/>
                     <set field="curRevision" from="ec.l10n.parseNumber(existingOrder.externalRevision ?: 1, '')"/>
                     <set field="newRevision" from="ec.l10n.parseNumber(header.externalRevision ?: 1, '')"/>
                     <if condition="newRevision &lt;= curRevision">
                         <return error="true" message="Newer or same revision [${existingOrder.externalRevision}] order [${orderId}] found for customer ID [${header.customerPartyId}], other party order ID [${header.otherPartyOrderId}]; attempted revision [${header.externalRevision}]"/>
                     </if>
 
-                    <!-- TODO: check status of existing order -->
-                    <return error="true" message="Found order [${orderId}] for customer ID [${header.customerPartyId}], other party order ID [${header.otherPartyOrderId}]; update not yet supported"/>
+                    <!-- check status of existing order -->
+                    <if condition="existingOrder.statusId in ['OrderCompleted', 'OrderRejected', 'OrderCancelled']">
+                        <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem">
+                            <field-map field-name="statusId" from="existingOrder.statusId"/></entity-find-one>
+                        <return error="true" message="Found order [${orderId}] in status ${statusItem.description}, cannot be updated"/>
+                    </if>
+
+                    <!-- update existing order -->
+                    <set field="header.orderId" from="orderId"/>
+                    <set field="header.orderPartSeqId" from="orderPartSeqId"/>
+                    <service-call name="update#mantle.order.OrderHeader" in-map="header"/>
+                    <service-call name="mantle.order.OrderServices.update#OrderPart" in-map="header"/>
+
+                    <!-- update order items -->
+                    <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
+                        <econdition field-name="orderId"/></entity-find>
+                    <set field="itemSeqIdSeenList" from="[]"/>
+                    <iterate list="items" entry="item">
+                        <set field="item.orderId" from="orderId"/>
+                        <set field="item.orderPartSeqId" from="orderPartSeqId"/>
+
+                        <set field="orderItem" from="orderItemList.find({ it.externalItemSeqId == item.externalItemSeqId })"/>
+                        <if condition="orderItem">
+                            <then>
+                                <script>itemSeqIdSeenList.add(orderItem.orderItemSeqId)</script>
+                                <set field="item.orderItemSeqId" from="orderItem.orderItemSeqId"/>
+                                <service-call name="mantle.order.OrderServices.update#OrderItem" in-map="item" out-map="updateItemOut"/>
+                            </then>
+                            <else>
+                                <service-call name="mantle.order.OrderServices.create#OrderItem" in-map="item" out-map="createItemOut"/>
+                            </else>
+                        </if>
+                    </iterate>
+
+                    <!-- remove missing order items -->
+                    <set field="itemMissingList" from="orderItemList.findAll({ !(it.orderItemSeqId in itemSeqIdSeenList) })"/>
+                    <iterate list="itemMissingList" entry="itemMissing">
+                        <service-call name="mantle.order.OrderServices.delete#OrderItem" in-map="itemMissing"/>
+                    </iterate>
                 </else>
             </if>
 
