@@ -49,6 +49,13 @@ along with this software (see the LICENSE.md file). If not, see
                         <set field="docSubType" from="ST.elements[1]"/><!-- ST01 -->
                         <set field="docVersion" from="GS.elements[8]"/><!-- GS08 -->
 
+                        <!-- find corresponding SystemMessageRemote -->
+                        <entity-find entity-name="moqui.service.message.SystemMessageRemote" list="smrList">
+                            <econdition field-name="systemMessageTypeId" value="EdiMessage"/>
+                            <econdition field-name="remoteId" from="senderId"/>
+                        </entity-find>
+                        <set field="systemMessageRemoteId" from="smrList ? smrList[0].systemMessageRemoteId : null"/>
+
                         <!-- see if there is an existing message with the same IDs and fairly recent -->
                         <entity-find entity-name="moqui.service.message.SystemMessage" list="existingMessageList">
                             <econdition field-name="senderId"/><econdition field-name="receiverId"/>
@@ -63,6 +70,7 @@ along with this software (see the LICENSE.md file). If not, see
                                     (existingMessage.initDate.time - ec.user.nowTimestamp.time) &lt; (365*24*60*60*1000)">
                                 <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
                                         in-map="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
+                                            systemMessageRemoteId:systemMessageRemoteId,
                                             senderId:senderId, receiverId:receiverId, messageId:messageId, messageDate:messageDate,
                                             docType:docType, docSubType:docSubType, docVersion:docVersion,
                                             statusId:'SmsgError', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
@@ -77,6 +85,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                         <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
                                 in-map="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
+                                    systemMessageRemoteId:systemMessageRemoteId,
                                     senderId:senderId, receiverId:receiverId, messageId:messageId, messageDate:messageDate,
                                     docType:docType, docSubType:docSubType, docVersion:docVersion,
                                     statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
