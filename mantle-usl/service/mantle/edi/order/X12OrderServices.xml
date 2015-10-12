@@ -13,8 +13,10 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
+    <!-- EDI X12 V4010 Order Message Services -->
+
     <service verb="consume" noun="PurchaseOrder">
-        <description>Consume a PO message from a Customer, ie create a Sales Order for a Customer's Purchase Order (internal org is the vendor)</description>
+        <description>Consume a PO message (X12 850) from a Customer, ie create a Sales Order for a Customer's Purchase Order (internal org is the vendor)</description>
         <in-parameters>
             <parameter name="messageText" required="true"/>
             <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
@@ -43,6 +45,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="header.otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
             <!-- don't care about this <set field="poRelease" from="BEG.elements[4]"/><!- - BEG04 - -> -->
             <set field="header.placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
+            <set field="header.systemMessageRemoteId" from="systemMessage.systemMessageRemoteId"/>
 
             <iterate list="ST.REF" entry="REF">
                 <set field="refType" from="REF.elements[1]"/>
@@ -157,6 +160,38 @@ along with this software (see the LICENSE.md file). If not, see
 
             <service-call name="mantle.order.OrderBulkServices.store#Order"
                     in-map="[header:header, parties:parties, notes:notes, items:items]"/>
+        </actions>
+    </service>
+
+    <service verb="produce" noun="PurchaseOrderAck">
+        <description>Product a PO ack/revision message (X12 855) to send updates to a sales order associated with a customer's purchase order</description>
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>If not specified comes from OrderHeader.systemMessageRemoteId</description></parameter>
+        </in-parameters>
+        <out-parameters>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.order.OrderServices.get#OrderDisplayInfo" in-map="[orderId:orderId]" out-map="context"/>
+
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="orderHeader.systemMessageRemoteId"/></if>
+            <entity-find-one entity-name="moqui.service.message.SystemMessageRemote" value-field="smr"/>
+            <if condition="!smr">
+                <return error="true" message="No System Message Remote specified or found for order [${orderId}]"/></if>
+
+            <set field="nowTimestamp" from="ec.user.nowTimestamp"/>
+            <set field="nowDate6" from="ec.l10n.format(nowTimestamp, 'yyMMdd')"/>
+            <set field="nowDate8" from="ec.l10n.format(nowTimestamp, 'yyyyMMdd')"/>
+            <set field="nowTime" from="ec.l10n.format(nowTimestamp, 'HHmm')"/>
+
+            <set field="systemMessageId" from="ec.entity.sequencedIdPrimary('moqui.service.message.SystemMessage', null, null)"/>
+            <set field="controlNumber" from="systemMessageId"/>
+
+            <set field="ISA" from="[elements:['ISA', '00', '', '00', '', smr.internalIdType, smr.internalId, smr.remoteIdType, smr.remoteId,
+                nowDate6, nowTime, 'U', '00401', controlNumber, smr.ackRequested, smr.usage, smr.componentDelimiter]]"/>
+            <set field="ediMap" from="[ISA:[ISA]]"/>
+
+            <!-- TODO -->
         </actions>
     </service>
 </services>
