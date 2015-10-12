@@ -19,6 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Consume a PO message (X12 850) from a Customer, ie create a Sales Order for a Customer's Purchase Order (internal org is the vendor)</description>
         <in-parameters>
             <parameter name="messageText" required="true"/>
+            <parameter name="systemMessageId"/>
             <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
             <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS850.groovy"/>
         </in-parameters>
@@ -45,7 +46,8 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="header.otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
             <!-- don't care about this <set field="poRelease" from="BEG.elements[4]"/><!- - BEG04 - -> -->
             <set field="header.placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
-            <set field="header.systemMessageRemoteId" from="systemMessage.systemMessageRemoteId"/>
+            <set field="header.systemMessageRemoteId" from="systemMessage?.systemMessageRemoteId"/>
+            <set field="header.salesChannelEnumId" value="ScEdi"/>
 
             <iterate list="ST.REF" entry="REF">
                 <set field="refType" from="REF.elements[1]"/>
@@ -196,8 +198,10 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="systemMessageId" from="ec.entity.sequencedIdPrimary('moqui.service.message.SystemMessage', null, null)"/>
             <set field="controlNumber" from="systemMessageId"/>
 
+            <set field="ST" from="[elements:['ST']]"/><!-- TODO -->
+            <set field="GS" from="[elements:['GS'], ST:[ST]]"/><!-- TODO -->
             <set field="ISA" from="[elements:['ISA', '00', '', '00', '', smr.internalIdType, smr.internalId, smr.remoteIdType, smr.remoteId,
-                nowDate6, nowTime, 'U', '00401', controlNumber, smr.ackRequested, smr.usage, smr.componentDelimiter]]"/>
+                nowDate6, nowTime, 'U', '00401', controlNumber, smr.ackRequested, smr.usage, smr.componentDelimiter], GS:[GS]]"/>
             <set field="ediMap" from="[ISA:[ISA]]"/>
 
             <!-- TODO -->
