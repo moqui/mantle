@@ -296,10 +296,18 @@ h2. General Order Placement and eCommerce Usage
         </actions>
     </service>
 
+    <service verb="increment" noun="OrderRevision">
+        <in-parameters><parameter name="orderId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <set field="orderHeader.orderRevision" from="orderHeader.orderRevision + 1"/>
+            <entity-update value-field="orderHeader"/>
+        </actions>
+    </service>
     <service verb="update" noun="OrderHeaderTotal">
-        <in-parameters>
-            <parameter name="orderId"/>
-        </in-parameters>
+        <description>Update OrderHeader.grandTotal based on OrderPart.partTotal values, called by update#OrderPartTotal
+            which is called by EECA on OrderItem</description>
+        <in-parameters><parameter name="orderId"/></in-parameters>
         <actions>
             <set field="totalSum" from="0.0" type="BigDecimal"/>
             <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
@@ -314,6 +322,7 @@ h2. General Order Placement and eCommerce Usage
         </actions>
     </service>
     <service verb="update" noun="OrderPartTotal">
+        <description>Updated OrderPart.partTotal, called by EECA rule on OrderItem create/update/delete</description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
@@ -968,6 +977,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="statusId" default-value="OrderOpen"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="visitId" default="ec.user.visitId"/>
+            <parameter name="orderRevision" type="Integer" default="1"/>
 
             <parameter name="clearDates" type="Boolean" default="true"/>
             <parameter name="copyContactMech" type="Boolean" default="true"/>
