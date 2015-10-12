@@ -153,13 +153,22 @@ along with this software (see the LICENSE.md file). If not, see
 
             </iterate>
 
-            <!-- TODO: handle TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
+            <!-- NOTE: ignoring these for now, always want to create order or update matching order, unless cancel comes through -->
+            <!-- TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
             <set field="tsPurpose" from="BEG.elements[1]"/>
-            <!-- TODO: handle PO Type BEG02 (CP Change to Purchase Order, DS Dropship, IN Information Copy, NE New Order) -->
+            <!-- PO Type BEG02 (CP Change to Purchase Order, DS Dropship, IN Information Copy, NE New Order) -->
             <set field="poType" from="BEG.elements[2]"/>
 
-            <service-call name="mantle.order.OrderBulkServices.store#Order"
-                    in-map="[header:header, parties:parties, notes:notes, items:items]"/>
+            <if condition="tsPurpose == '01'">
+                <then>
+                    <set field="header.statusId" value="OrderCancelled"/>
+                    <service-call name="mantle.order.OrderServices.cancel#Order" in-map="header"/>
+                </then>
+                <else>
+                    <service-call name="mantle.order.OrderBulkServices.store#Order"
+                            in-map="[header:header, parties:parties, notes:notes, items:items]"/>
+                </else>
+            </if>
         </actions>
     </service>
 
