@@ -166,11 +166,27 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="tsPurpose == '01'">
                 <then>
                     <set field="header.statusId" value="OrderCancelled"/>
-                    <service-call name="mantle.order.OrderServices.cancel#Order" in-map="header"/>
+                    <entity-find entity-name="mantle.order.OrderHeaderAndPart" list="existingOrderList">
+                        <econditions combine="or">
+                            <econdition field-name="externalId" from="header.externalId"/>
+                            <econdition field-name="otherPartyOrderId" from="header.otherPartyOrderId"/>
+                        </econditions>
+                        <econdition field-name="customerPartyId" from="header.customerPartyId"/>
+                    </entity-find>
+                    <set field="existingOrder" from="existingOrderList ? existingOrderList[0] : null"/>
+                    <if condition="existingOrder">
+                        <service-call name="mantle.order.OrderServices.cancel#Order" in-map="[orderId:existingOrder.orderId]"/>
+                        <!-- save orderId and orderRevision on SystemMessage -->
+                        <if condition="systemMessageId"><service-call name="update#" in-map="[systemMessageId:systemMessageId,
+                                orderId:existingOrder.orderId, orderRevision:existingOrder.orderRevision]"/></if>
+                    </if>
                 </then>
                 <else>
-                    <service-call name="mantle.order.OrderBulkServices.store#Order"
+                    <service-call name="mantle.order.OrderBulkServices.store#Order" out-map="storeOut"
                             in-map="[header:header, parties:parties, notes:notes, items:items]"/>
+                    <!-- save orderId and orderRevision on SystemMessage -->
+                    <if condition="systemMessageId"><service-call name="update#moqui.service.message.SystemMessage"
+                            in-map="[systemMessageId:systemMessageId, orderId:storeOut.orderId, orderRevision:storeOut.orderRevision]"/></if>
                 </else>
             </if>
         </actions>
@@ -201,6 +217,20 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find entity-name="mantle.order.OrderPartParty" list="orderPartPartyList">
                 <econdition field-name="orderId"/><order-by field-name="roleTypeId"/></entity-find>
 
+            <!-- get previous SystemMessage records for order -->
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
+                <econdition field-name="orderId"/><econdition field-name="isOutgoing" value="Y"/>
+                <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
+                <order-by field-name="-orderRevision"/>
+            </entity-find>
+            <set field="lastOutRevision" from="outMessageList ? outMessageList[0].orderRevision : null"/>
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="inMessageList">
+                <econdition field-name="orderId"/><econdition field-name="isOutgoing" value="N"/>
+                <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
+                <order-by field-name="-orderRevision"/>
+            </entity-find>
+            <set field="lastInRevision" from="inMessageList ? inMessageList[0].orderRevision : null"/>
+
 
             <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="orderHeader.systemMessageRemoteId"/></if>
 
@@ -210,12 +240,14 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- BAK - PO Ack Header -->
             <if condition="orderHeader.statusId in ['OrderCancelled', 'OrderRejected']">
                 <then><set field="tsPurpose" value="01"/></then>
-                <!-- <else-if condition="TODO has prior messages"><set field="tsPurpose" value="05"/></else-if> -->
+                <else-if condition="outMessageList"><set field="tsPurpose" value="05"/></else-if>
                 <else><set field="tsPurpose" value="00"/></else>
             </if>
             <if condition="orderHeader.statusId in ['OrderCancelled', 'OrderRejected']">
                 <then><set field="ackType" value="RD"/></then>
-                <!-- <else-if condition="TODO changed since prior messages"><set field="tsPurpose" value="AC"/></else-if> -->
+                <else-if condition="(lastOutRevision &amp;&amp; orderHeader.orderRevision &gt; lastOutRevision) ||
+                        (!lastOutRevision &amp;&amp; lastInRevision &amp;&amp; orderHeader.orderRevision &gt; lastInRevision)">
+                    <set field="ackType" value="AC"/></else-if>
                 <else><set field="ackType" value="AD"/></else>
             </if>
             <set field="placedDate" from="ec.l10n.format(orderHeader.placedDate ?: orderHeader.entryDate, 'yyyyMMdd')"/>
@@ -395,7 +427,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
                     in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
                         envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
-                        docType:'PR', docSubType:'855']"/>
+                        docType:'PR', docSubType:'855', orderId:orderId, orderRevision:orderHeader.orderRevision]"/>
         </actions>
     </service>
 </services>

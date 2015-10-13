@@ -158,6 +158,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="produce" noun="EdiMessageX12">
         <in-parameters>
             <parameter name="systemMessageRemoteId" required="true"/>
+            <parameter name="systemMessageTypeId" default-value="EdiMessage"/>
+            <parameter name="messageDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="bodyEdiMap" type="Map" required="true"><description>A Map with NO elements entry, only
                 sub-segment entries depending on the message. Will be put under the ST segment (added to the ST Map).</description></parameter>
             <parameter name="docType" required="true"><description>Goes in GS01 (such as PO, PR, etc)</description></parameter>
@@ -166,6 +168,9 @@ along with this software (see the LICENSE.md file). If not, see
 
             <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
             <parameter name="bodyLocation" required="true"/>
+
+            <parameter name="orderId"/>
+            <parameter name="orderRevision" type="Long"/>
         </in-parameters>
         <out-parameters><parameter name="systemMessageId"/></out-parameters>
         <actions>
@@ -175,10 +180,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)
                     .setChars(smr.segmentTerminator as Character, smr.elementSeparator as Character, smr.componentDelimiter as Character, smr.escapeCharacter as Character)"/>
 
-            <set field="nowTimestamp" from="ec.user.nowTimestamp"/>
-            <set field="nowDate6" from="ec.l10n.format(nowTimestamp, 'yyMMdd')"/>
-            <set field="nowDate8" from="ec.l10n.format(nowTimestamp, 'yyyyMMdd')"/>
-            <set field="nowTime" from="ec.l10n.format(nowTimestamp, 'HHmm')"/>
+            <set field="nowDate6" from="ec.l10n.format(messageDate, 'yyMMdd')"/>
+            <set field="nowDate8" from="ec.l10n.format(messageDate, 'yyyyMMdd')"/>
+            <set field="nowTime" from="ec.l10n.format(messageDate, 'HHmm')"/>
 
             <set field="systemMessageId" from="ec.entity.sequencedIdPrimary('moqui.service.message.SystemMessage', null, null)"/>
             <set field="controlNumber" from="systemMessageId"/>
@@ -202,11 +206,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="messageText" from="ediHandler.generateText(ediMap)"/>
 
-            <service-call name="org.moqui.impl.SystemMessageServices.queue#SystemMessage"
-                    in-map="[systemMessageId:systemMessageId, systemMessageTypeId:'EdiMessage', messageText:messageText,
-                        systemMessageRemoteId:systemMessageRemoteId, senderId:senderId, receiverId:receiverId,
-                        messageId:controlNumber, messageDate:nowTimestamp,
-                        docType:docType, docSubType:docSubType, docVersion:docVersion]"/>
+            <set field="messageId" from="controlNumber"/>
+            <service-call name="org.moqui.impl.SystemMessageServices.queue#SystemMessage" in-map="context"/>
         </actions>
     </service>
 </services>
