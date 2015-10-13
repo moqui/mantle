@@ -179,32 +179,25 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="systemMessageRemoteId"><description>If not specified comes from OrderHeader.systemMessageRemoteId</description></parameter>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS855.groovy"/>
         </in-parameters>
-        <out-parameters>
-        </out-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
         <actions>
             <service-call name="mantle.order.OrderServices.get#OrderDisplayInfo" in-map="[orderId:orderId]" out-map="context"/>
 
             <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="orderHeader.systemMessageRemoteId"/></if>
-            <entity-find-one entity-name="moqui.service.message.SystemMessageRemote" value-field="smr"/>
-            <if condition="!smr">
-                <return error="true" message="No System Message Remote specified or found for order [${orderId}]"/></if>
 
-            <set field="nowTimestamp" from="ec.user.nowTimestamp"/>
-            <set field="nowDate6" from="ec.l10n.format(nowTimestamp, 'yyMMdd')"/>
-            <set field="nowDate8" from="ec.l10n.format(nowTimestamp, 'yyyyMMdd')"/>
-            <set field="nowTime" from="ec.l10n.format(nowTimestamp, 'HHmm')"/>
+            <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
+            <set field="bodyEdiMap" from="[:]"/>
 
-            <set field="systemMessageId" from="ec.entity.sequencedIdPrimary('moqui.service.message.SystemMessage', null, null)"/>
-            <set field="controlNumber" from="systemMessageId"/>
-
-            <set field="ST" from="[elements:['ST']]"/><!-- TODO -->
-            <set field="GS" from="[elements:['GS'], ST:[ST]]"/><!-- TODO -->
-            <set field="ISA" from="[elements:['ISA', '00', '', '00', '', smr.internalIdType, smr.internalId, smr.remoteIdType, smr.remoteId,
-                nowDate6, nowTime, 'U', '00401', controlNumber, smr.ackRequested, smr.usage, smr.componentDelimiter], GS:[GS]]"/>
-            <set field="ediMap" from="[ISA:[ISA]]"/>
 
             <!-- TODO -->
+
+            <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
+                    in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
+                        envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
+                        docType:'PR', docSubType:'855']"/>
         </actions>
     </service>
 </services>
