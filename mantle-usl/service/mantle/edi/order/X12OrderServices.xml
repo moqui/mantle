@@ -301,15 +301,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="n1Name" from="ec.resource.expand('PartyFullNameTemplate', '', partyDetail)"/>
                 <if condition="n1Name.length() > 60"><set field="n1Name" from="n1Name.substring(0, 60)"/></if>
 
-                <if condition="orderPartParty.roleTypeId == 'CustomerShipTo'">
-                    <then>
-                        <!-- TODO: for ship to party use orderPart.postalContactMechId -->
-
-                    </then>
-                    <else>
-
-                    </else>
-                </if>
+                <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
+                <!-- for ship to party use orderPart.postalContactMechId -->
+                <set field="postalContactMechId" from="orderPartParty.roleTypeId == 'CustomerShipTo' ? orderPart.postalContactMechId : null"/>
+                <service-call name="mantle.party.ContactServices.get#PartyContactInfo"
+                        out-map="contactInfo" out-map-add-to-existing="false"
+                        in-map="[partyId:orderPartParty.partyId, postalContactMechPurposeId:contactMechPurposeId,
+                            postalContactMechId:postalContactMechId]"/>
 
                 <!-- for ID try PtidDuns4 (9), PtidDuns (1), PtidCust (92); default to partyId (91) -->
                 <set field="n1Id" from="null"/><set field="n1IdType" from="null"/>
@@ -330,7 +328,22 @@ along with this software (see the LICENSE.md file). If not, see
                     <break/>
                 </if>
 
-                <script>bodyEdiMap.N1.add([elements:['N1', n1Type, n1Name, n1IdType, n1Id], N3:[N3], N4:[N4]])</script>
+                <set field="N1" from="[elements:['N1', n1Type, n1Name, n1IdType, n1Id]]"/>
+                <if condition="contactInfo">
+                    <set field="address1" from="contactInfo.postalAddress.address1"/>
+                    <if condition="address1.length() &gt; 55"><set field="address1" from="address1.substring(0, 55)"/></if>
+                    <set field="address2" from="contactInfo.postalAddress.address2"/>
+                    <if condition="address2?.length() &gt; 55"><set field="address2" from="address2.substring(0, 55)"/></if>
+                    <set field="city" from="contactInfo.postalAddress.city"/>
+                    <if condition="city.length() &gt; 30"><set field="city" from="city.substring(0, 30)"/></if>
+                    <set field="state" from="contactInfo.postalAddressStateGeo?.geoCodeAlpha2"/>
+                    <set field="postalCode" from="contactInfo.postalAddress.postalCode + (contactInfo.postalAddress.postalCodeExt ?: '')"/>
+                    <set field="country" from="contactInfo.postalAddressCountryGeo?.geoCodeAlpha3"/>
+
+                    <set field="N1.N3" from="[[elements:['N3', address1, address2]]]"/>
+                    <set field="N1.N4" from="[[elements:['N4', city, state, postalCode, country]]]"/>
+                </if>
+                <script>bodyEdiMap.N1.add(N1)</script>
             </iterate>
 
 
