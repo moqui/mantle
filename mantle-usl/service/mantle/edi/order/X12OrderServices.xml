@@ -346,14 +346,46 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>bodyEdiMap.N1.add(N1)</script>
             </iterate>
 
+            <!-- TODO: SAC for non-Product items with no parent (order level adjustment) -->
 
-            <!-- TODO PO1: PID, REF, ACK -->
+            <!-- PO1: PID, ACK, N9.MSG -->
+            <set field="bodyEdiMap.PO1" from="[]"/>
+            <set field="lineItemCount" from="0"/>
             <iterate list="orderItemList" entry="orderItem">
+                <if condition="!(orderItem.itemTypeEnumId in ['ItemProduct', 'ItemInventory', 'ItemAsset'])"><continue/></if>
 
+                <set field="itemId" from="orderItem.externalItemSeqId ?: orderItem.orderItemSeqId"/>
+                <!-- NOTE: CA is Case; do some sort of mapping from OrderItem.quantityUomId (which comes from
+                    Product.amountUomId)? not really needed, unit party of Product definition -->
+                <set field="unitBasisCode" value="CA"/>
+                <set field="priceBasis" value="PE"/><!-- PE is Price per Each; support others based on unit? -->
+                <!-- NOTE: elements 06, 07 empty for now; our ID in 08/09, their ID in 10/11 -->
+                <!-- PO106 (for PO107 - optional) Product/Service ID Qualifier (UA U.P.C./EAN Case Code (2-5-5),
+                    UK U.P.C./EAN Shipping Container Code (1-2-5-5-1), UP U.P.C. Consumer Package Code (1-5-5-1)) -->
+                <!-- TODO: elements 12/13 use 'CH' for Country of Origin Code, get country from Product.originGeoId -->
+                <set field="PO1" from="[elements:['PO1', itemId, orderItem.quantity, unitBasisCode,
+                        orderItem.unitAmount, priceBasis, '', '', 'VP', orderItem.productId,
+                        'PI', orderItem.otherPartyProductId, '', '']]"/>
+                <if condition="orderItem.itemDescription">
+                    <set field="itemDescription" from="orderItem.itemDescription"/>
+                    <if condition="itemDescription.length() &gt; 80"><set field="itemDescription" from="itemDescription.substring(0, 80)"/></if>
+                    <set field="PO1.PID" from="[[elements:['PID', 'F', '', '', '', itemDescription]]]"/>
+                </if>
+
+                <!-- TODO: SAC for non-Product items with this item as parent (item level adjustment) -->
+                <!-- TODO: add ACK, N9.MSG, if/when needed... -->
+                <log message="======== PO1: ${PO1}"/>
+                <script>bodyEdiMap.PO1.add(PO1)</script>
+                <set field="lineItemCount" from="lineItemCount + 1"/>
             </iterate>
 
-            <!-- TODO CTT -->
+            <!-- CTT -->
+            <!-- FUTURE: weight in 03/04, volume in 05/06 -->
+            <!-- NOTE: what is hash total based on? leaving empty for now -->
+            <set field="hashTotal" value=""/>
+            <set field="bodyEdiMap.CTT" from="[[elements:['CTT', lineItemCount, hashTotal, '', '', '', '']]]"/>
 
+            <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
             <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
                     in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
                         envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
