@@ -74,8 +74,10 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="pickUpDateStr" from="ST.DTM?.find({it.elements[1] == '118'})?.elements?.get(2)"/>
             <set field="header.estimatedPickUpDate" from="pickUpDateStr ? ec.l10n.parseTimestamp(pickUpDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
 
-            <!-- TODO Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
+            <!-- TD5 Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T pick up?, LT Less Than Trailer Load, U Private Parcel Service -->
+            <set field="transportCodeToShipmentMethod" from="['H':'ShMthPickUp', 'T':'ShMthPickUp', 'M':'ShMthMotor', 'U':'ShMthGround']"/>
             <set field="transportMethodCode" from="ST.TD5?.get(0)?.elements?.get(4)"/>
+            <set field="header.shipmentMethodEnumId" from="transportCodeToShipmentMethod.get(transportMethodCode)"/>
 
             <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
                 OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
@@ -230,10 +232,12 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="orderHeader.externalRevision"><script>bodyEdiMap.REF.add([elements:['REF', 'ZI', orderHeader.externalRevision]])</script></if>
 
             <!-- FOB Instructions -->
-            <!-- TODO Shipment Method of Payment (BP Paid by Buyer, CC Collect, PB Customer Pick-up/Backhaul,
+            <!-- Shipment Method of Payment (BP Paid by Buyer, CC Collect, PB Customer Pick-up/Backhaul,
                 PC Prepaid but Charged to Customer, PE Prepaid and Summary Bill, PP Prepaid (by Seller), PU Pickup,
                 TP Third Party Pay -->
-            <!-- <set field="fobCode" from="ST.FOB?.get(0)?.elements?.get(1)"/> -->
+            <!-- TODO: look for shipping charge adjustment, if found use 'PC' otherwise 'PP' -->
+            <set field="fobInstr" from="orderPart.shipmentMethodEnumId == 'ShMthPickUp' ? 'PB' : 'PP'"/>
+            <set field="bodyEdiMap.FOB" from="[[elements:['FOB', fobInstr]]]"/>
 
             <!-- DTM date/time (002/017/067:estimatedDeliveryDate, 010/068:shipBeforeDate, 118:estimatedPickUpDate) -->
             <set field="bodyEdiMap.DTM" from="[]"/>
@@ -250,8 +254,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>bodyEdiMap.DTM.add([elements:['DTM', '118', ec.l10n.format(orderPart.estimatedPickUpDate, 'yyyyMMdd')]])</script>
             </if>
 
-            <!-- TODO TD5 Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
-            <!-- <set field="transportMethodCode" from="ST.TD5?.get(0)?.elements?.get(4)"/> -->
+            <!-- TD5 Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
+            <set field="shipmentMethodToTransportCode" from="['ShMthPickUp':'H', 'ShMthMotor':'M', 'ShMthGround':'U']"/>
+            <set field="transportMethodCode" from="shipmentMethodToTransportCode.get(orderPart.shipmentMethodEnumId) ?: 'H'"/>
+            <set field="bodyEdiMap.TD5" from="[[elements:['TD5', '', '', '', transportMethodCode]]]"/>
 
             <!-- N9.MSG Notes -->
             <if condition="orderNoteList">
