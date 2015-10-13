@@ -137,7 +137,7 @@ class OrderProcureToPayBasicFlow extends Specification {
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId,
                     paymentMethodTypeEnumId:'PmtCompanyCheck', shippingPostalContactMechId:'ORG_ZIZI_RTL_SA',
-                    shippingTelecomContactMechId:'ORG_ZIZI_RTL_PT', shipmentMethodEnumId:'ShMthNoShipping']).call()
+                    shippingTelecomContactMechId:'ORG_ZIZI_RTL_PT', shipmentMethodEnumId:'ShMthPickUp']).call()
 
         // one person will place the PO
         ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:purchaseOrderId]).call()
@@ -156,7 +156,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 statusId="PmntPromised" amount="23795.00" amountUomId="USD"/>
 
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="${vendorPartyId}"
-                customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_ZIZI_RTL_SA"
+                customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthPickUp" postalContactMechId="ORG_ZIZI_RTL_SA"
                 telecomContactMechId="ORG_ZIZI_RTL_PT" partTotal=""/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="400" unitAmount="8.00" isModifiedPrice="N"/>
