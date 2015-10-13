@@ -172,6 +172,9 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.service.message.SystemMessageRemote" value-field="smr"/>
             <if condition="!smr"><return error="true" message="System Message Remote not found with ID [${systemMessageRemoteId}]"/></if>
 
+            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)
+                    .setChars(smr.segmentTerminator as Character, smr.elementSeparator as Character, smr.componentDelimiter as Character, smr.escapeCharacter as Character)"/>
+
             <set field="nowTimestamp" from="ec.user.nowTimestamp"/>
             <set field="nowDate6" from="ec.l10n.format(nowTimestamp, 'yyMMdd')"/>
             <set field="nowDate8" from="ec.l10n.format(nowTimestamp, 'yyyyMMdd')"/>
@@ -184,20 +187,19 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="receiverId" from="smr.remoteId"/>
 
             <!-- NOTE: use same controlNumber for ISA, GS, ST because only one GS in ISA, one ST in GS -->
-            <!-- TODO: SE under ST -->
+            <set field="SE" from="[elements:['SE', (ediHandler.countSegments(bodyEdiMap) + 2), controlNumber]]"/>
             <set field="ST" from="[elements:['ST', docSubType, controlNumber]]"/>
-            <script>ST.putAll(bodyEdiMap)</script>
-            <!-- TODO: GE under GS -->
+            <script>ST.putAll(bodyEdiMap); ST.put('SE', [SE])</script><!-- put order is significant, put SE after all child segments -->
+
+            <set field="GE" from="[elements:['GE', 1, controlNumber]]"/>
             <set field="GS" from="[elements:['GS', docType, smr.internalAppCode, smr.remoteAppCode, nowDate8, nowTime,
-                    controlNumber, 'X', docVersion], ST:[ST]]"/>
-            <!-- TODO: IEA under ISA -->
+                    controlNumber, 'X', docVersion], ST:[ST], GE:[GE]]"/>
+            <set field="IEA" from="[elements:['IEA', 1, controlNumber]]"/>
             <set field="ISA" from="[elements:['ISA', '00', '', '00', '', smr.internalIdType, senderId, smr.remoteIdType, receiverId,
                     nowDate6, nowTime, 'U', docVersion.substring(0, 5), controlNumber, smr.ackRequested, smr.usage,
-                    smr.componentDelimiter], GS:[GS]]"/>
+                    smr.componentDelimiter], GS:[GS], IEA:[IEA]]"/>
             <set field="ediMap" from="[ISA:[ISA]]"/>
 
-            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)
-                    .setChars(smr.segmentTerminator as Character, smr.elementSeparator as Character, smr.componentDelimiter as Character, smr.escapeCharacter as Character)"/>
             <set field="messageText" from="ediHandler.generateText(ediMap)"/>
 
             <service-call name="org.moqui.impl.SystemMessageServices.queue#SystemMessage"
