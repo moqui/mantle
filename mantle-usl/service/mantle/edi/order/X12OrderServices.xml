@@ -80,7 +80,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
                 OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
             <set field="n1TypeToRoleType" from="['BO':'SalesRepresentative', 'BT':'CustomerBillTo', 'BY':'Customer', 'CA':'Carrier',
-                    'OB':'CustomerPlacing', 'PW':'VendorShipFrom', 'SF':'VendorShipFrom', 'ST':'CustomerShipTo', 'VN':'Vendor']"/>
+                    'OB':'CustomerPlacing', 'PW':'VendorPickUpFrom', 'SF':'VendorShipFrom', 'ST':'CustomerShipTo', 'VN':'Vendor']"/>
             <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
                     'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
             <set field="n1IdTypeToPartyIdType" from="['1':'PtidDuns', '9':'PtidDuns4', '91':'PtidVend', '92':'PtidCust']"/>
@@ -258,16 +258,79 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="N9" from="[elements:['N9', 'L1', 'GEN'], MSG:[]]"/>
                 <set field="bodyEdiMap.N9" from="[N9]"/>
                 <iterate list="orderNoteList" entry="orderNote">
-                    <script>N9.MSG.add([elements:['MSG', orderNote.noteText]])</script>
+                    <if condition="orderNote.internalNote == 'Y'"><continue/></if>
+                    <!-- NOTE: get fancy and split on nearest space? -->
+                    <script><![CDATA[
+                        int maxLength = 264
+                        String remainingText = orderNote.noteText
+                        while (remainingText.length() > maxLength) {
+                            String curText = remainingText.substring(0, maxLength)
+                            remainingText = remainingText.substring(maxLength)
+                            N9.MSG.add([elements:['MSG', curText]])
+                        }
+                        N9.MSG.add([elements:['MSG', remainingText]])
+                    ]]></script>
                 </iterate>
             </if>
 
-            <!-- TODO N1 -->
-            <!-- TODO: customerPartyId -->
-            <!-- TODO: vendorPartyId -->
-            <!-- TODO: for ship to party use orderPart.postalContactMechId; if no ship to use customerPartyId with postalContactMechId -->
-            <iterate list="orderPartPartyList" entry="orderPartParty">
+            <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
+                OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
+            <set field="bodyEdiMap.N1" from="[]"/>
 
+            <set field="roleTypeToN1Type" from="['SalesRepresentative':'BO', 'CustomerBillTo':'BT', 'Customer':'BY', 'Carrier':'CA',
+                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
+            <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
+                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
+            <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92']"/>
+
+            <!-- TODO: is ship or pick up? populate VendorShipFrom or VendorPickUpFrom with Vendor party and Facility address -->
+            <set field="orderPartPartyList" from="new ArrayList(orderPartPartyList)"/>
+            <set field="oppRoleTypeIdList" from="orderPartPartyList.roleTypeId"/>
+            <if condition="!oppRoleTypeIdList.contains('Customer')">
+                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'Customer'])</script></if>
+            <if condition="!oppRoleTypeIdList.contains('CustomerShipTo')">
+                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'CustomerShipTo'])</script></if>
+            <if condition="!oppRoleTypeIdList.contains('Vendor')">
+                <script>orderPartPartyList.add([partyId:orderPart.vendorPartyId, roleTypeId:'Vendor'])</script></if>
+            <iterate list="orderPartPartyList" entry="orderPartParty">
+                <set field="n1Type" from="roleTypeToN1Type.get(orderPartParty.roleTypeId)"/>
+                <if condition="!n1Type"><continue/></if>
+
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail">
+                    <field-map field-name="partyId" from="orderPartParty.partyId"/></entity-find-one>
+                <set field="n1Name" from="ec.resource.expand('PartyFullNameTemplate', '', partyDetail)"/>
+                <if condition="n1Name.length() > 60"><set field="n1Name" from="n1Name.substring(0, 60)"/></if>
+
+                <if condition="orderPartParty.roleTypeId == 'CustomerShipTo'">
+                    <then>
+                        <!-- TODO: for ship to party use orderPart.postalContactMechId -->
+
+                    </then>
+                    <else>
+
+                    </else>
+                </if>
+
+                <!-- for ID try PtidDuns4 (9), PtidDuns (1), PtidCust (92); default to partyId (91) -->
+                <set field="n1Id" from="null"/><set field="n1IdType" from="null"/>
+                <iterate list="partyIdTypeToN1IdType" key="partyIdTypeEnumId" entry="curN1IdType">
+                    <entity-find entity-name="mantle.party.PartyIdentification" list="partyIdentList">
+                        <econdition field-name="partyId" from="orderPartParty.partyId"/>
+                        <econdition field-name="partyIdTypeEnumId" from="partyIdTypeEnumId"/>
+                    </entity-find>
+                    <if condition="partyIdentList">
+                        <set field="n1Id" from="partyIdentList?.getAt(0)?.idValue"/>
+                        <set field="n1IdType" from="curN1IdType"/>
+                        <break/>
+                    </if>
+                </iterate>
+                <if condition="!n1Id">
+                    <set field="n1Id" from="orderPartParty.partyId"/>
+                    <set field="n1IdType" value="91"/>
+                    <break/>
+                </if>
+
+                <script>bodyEdiMap.N1.add([elements:['N1', n1Type, n1Name, n1IdType, n1Id], N3:[N3], N4:[N4]])</script>
             </iterate>
 
 
