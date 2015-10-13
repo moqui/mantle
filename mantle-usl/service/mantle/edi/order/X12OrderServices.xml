@@ -175,7 +175,11 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="produce" noun="PurchaseOrderAck">
-        <description>Product a PO ack/revision message (X12 855) to send updates to a sales order associated with a customer's purchase order</description>
+        <description>Product a PO ack/revision message (X12 855) to send updates to a sales order associated with a
+            customer's purchase order.
+
+            NOTE: Current supports only single-part orders.
+        </description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="systemMessageRemoteId"><description>If not specified comes from OrderHeader.systemMessageRemoteId</description></parameter>
@@ -184,15 +188,95 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="systemMessageId"/></out-parameters>
         <actions>
-            <service-call name="mantle.order.OrderServices.get#OrderDisplayInfo" in-map="[orderId:orderId]" out-map="context"/>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+            <set field="orderPart" from="orderPartList[0]"/>
+
+            <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
+                    list="orderItemList" order-by-list="['orderItemSeqId']"/>
+            <entity-find entity-name="mantle.order.OrderNote" list="orderNoteList">
+                <econdition field-name="orderId"/><order-by field-name="-noteDate"/></entity-find>
+            <entity-find entity-name="mantle.order.OrderPartParty" list="orderPartPartyList">
+                <econdition field-name="orderId"/><order-by field-name="roleTypeId"/></entity-find>
+
 
             <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="orderHeader.systemMessageRemoteId"/></if>
 
             <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
             <set field="bodyEdiMap" from="[:]"/>
 
+            <!-- BAK - PO Ack Header -->
+            <if condition="orderHeader.statusId in ['OrderCancelled', 'OrderRejected']">
+                <then><set field="tsPurpose" value="01"/></then>
+                <!-- <else-if condition="TODO has prior messages"><set field="tsPurpose" value="05"/></else-if> -->
+                <else><set field="tsPurpose" value="00"/></else>
+            </if>
+            <if condition="orderHeader.statusId in ['OrderCancelled', 'OrderRejected']">
+                <then><set field="ackType" value="RD"/></then>
+                <!-- <else-if condition="TODO changed since prior messages"><set field="tsPurpose" value="AC"/></else-if> -->
+                <else><set field="tsPurpose" value="AD"/></else>
+            </if>
+            <set field="placedDate" from="ec.l10n.format(orderHeader.placedDate ?: orderHeader.entryDate, 'yyyyMMdd')"/>
+            <set field="entryDate" from="ec.l10n.format(orderHeader.entryDate, 'yyyyMMdd')"/>
+            <set field="bodyEdiMap.BAK" from="[[elements:['BAK', tsPurpose, ackType, orderPart.otherPartyOrderId,
+                    placedDate, orderHeader.externalRevision, '', '', orderId, entryDate]]]"/>
 
-            <!-- TODO -->
+
+            <!-- REF - VN, YB required; send IL, OP, ZI if we have them -->
+            <set field="bodyEdiMap.REF" from="[[elements:['REF', 'VN', orderId]],
+                    [elements:['REF', 'YB', (orderHeader.orderRevision ?: 1)]]]"/>
+            <if condition="orderHeader.externalId"><script>bodyEdiMap.REF.add([elements:['REF', 'IL', orderHeader.externalId]])</script></if>
+            <if condition="orderPart.otherPartyOrderId"><script>bodyEdiMap.REF.add([elements:['REF', 'OP', orderPart.otherPartyOrderId]])</script></if>
+            <if condition="orderHeader.externalRevision"><script>bodyEdiMap.REF.add([elements:['REF', 'ZI', orderHeader.externalRevision]])</script></if>
+
+            <!-- FOB Instructions -->
+            <!-- TODO Shipment Method of Payment (BP Paid by Buyer, CC Collect, PB Customer Pick-up/Backhaul,
+                PC Prepaid but Charged to Customer, PE Prepaid and Summary Bill, PP Prepaid (by Seller), PU Pickup,
+                TP Third Party Pay -->
+            <!-- <set field="fobCode" from="ST.FOB?.get(0)?.elements?.get(1)"/> -->
+
+            <!-- DTM date/time (002/017/067:estimatedDeliveryDate, 010/068:shipBeforeDate, 118:estimatedPickUpDate) -->
+            <set field="bodyEdiMap.DTM" from="[]"/>
+            <if condition="orderPart.estimatedDeliveryDate">
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '002', ec.l10n.format(orderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script>
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '017', ec.l10n.format(orderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script>
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '067', ec.l10n.format(orderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script>
+            </if>
+            <if condition="orderPart.shipBeforeDate">
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '010', ec.l10n.format(orderPart.shipBeforeDate, 'yyyyMMdd')]])</script>
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '068', ec.l10n.format(orderPart.shipBeforeDate, 'yyyyMMdd')]])</script>
+            </if>
+            <if condition="orderPart.estimatedPickUpDate">
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '118', ec.l10n.format(orderPart.estimatedPickUpDate, 'yyyyMMdd')]])</script>
+            </if>
+
+            <!-- TODO TD5 Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
+            <!-- <set field="transportMethodCode" from="ST.TD5?.get(0)?.elements?.get(4)"/> -->
+
+            <!-- N9.MSG Notes -->
+            <if condition="orderNoteList">
+                <set field="N9" from="[elements:['N9', 'L1', 'GEN'], MSG:[]]"/>
+                <set field="bodyEdiMap.N9" from="[N9]"/>
+                <iterate list="orderNoteList" entry="orderNote">
+                    <script>N9.MSG.add([elements:['MSG', orderNote.noteText]])</script>
+                </iterate>
+            </if>
+
+            <!-- TODO N1 -->
+            <!-- TODO: customerPartyId -->
+            <!-- TODO: vendorPartyId -->
+            <!-- TODO: for ship to party use orderPart.postalContactMechId; if no ship to use customerPartyId with postalContactMechId -->
+            <iterate list="orderPartPartyList" entry="orderPartParty">
+
+            </iterate>
+
+
+            <!-- TODO PO1: PID, REF, ACK -->
+            <iterate list="orderItemList" entry="orderItem">
+
+            </iterate>
+
+            <!-- TODO CTT -->
 
             <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
                     in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
