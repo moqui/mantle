@@ -360,7 +360,7 @@ class OrderToCashBasicFlow extends Specification {
                 quantity="7" amount="12.12"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55500" invoiceItemSeqId="04" itemTypeEnumId="ItemShipping"
-                quantity="1" amount="5" description="Ground" itemDate="${effectiveTime}"/>
+                quantity="1" amount="5" description="Ground Parcel" itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55503" orderId="${cartOrderId}" orderItemSeqId="04"
                 invoiceId="55500" invoiceItemSeqId="04" shipmentId="${shipResult.shipmentId}" quantity="1" amount="5"/>
         </entity-facade-xml>""").check()

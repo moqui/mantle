@@ -15,32 +15,14 @@ along with this software (see the LICENSE.md file). If not, see
         xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
         default-menu-title="Message List" default-menu-include="false">
 
+    <parameter name="partyId"/>
+
     <transition name="editMessage"><default-response url="../EditMessage"/></transition>
     <transition name="messageThread"><default-response url="../MessageThread"/></transition>
-    <transition name="createMessage">
-        <service-call name="mantle.party.CommunicationServices.create#Message" in-map="context"/>
-        <default-response url="."/>
-    </transition>
+    <transition name="createMessage"><service-call name="mantle.party.CommunicationServices.create#Message"/>
+        <default-response url="."/></transition>
 
-    <transition name="getPartyList">
-        <actions>
-            <entity-find entity-name="mantle.party.PartyDetail" list="partyList" limit="20">
-                <econditions combine="or">
-                    <econdition field-name="partyId" operator="like" value="%${term}%" ignore-case="true"/>
-                    <econdition field-name="firstName" operator="like" value="%${term}%" ignore-case="true"/>
-                    <econdition field-name="lastName" operator="like" value="%${term}%" ignore-case="true"/>
-                </econditions>
-                <order-by field-name="^firstName"/><order-by field-name="^lastName"/>
-            </entity-find>
-            <script>
-                def outList = []
-                for (def party in partyList)
-                outList.add([value:party.partyId, label:ec.resource.expand('PartyNameTemplate','',party)])
-                ec.web.sendJsonResponse(outList)
-            </script>
-        </actions>
-        <default-response type="none"/>
-    </transition>
+    <transition-include name="getPartyList" location="component://mantle-usl/template/party/PartyForms.xml"/>
 
     <actions>
         <!-- <entity-find-one entity-name="mantle.party.PartyDetail" value-field="party"/> -->
@@ -55,11 +37,18 @@ along with this software (see the LICENSE.md file). If not, see
             <select-field field-name="statusId"/><select-field field-name="fromPartyId"/><select-field field-name="toPartyId"/>
             <select-field field-name="subject"/><select-field field-name="communicationEventTypeId"/>
         </entity-find>
+
+        <!-- for using this screen as an internal user looking at messages for a different party (not allowed in MyAccount) -->
+        <if condition="ec.user.userAccount.partyId != partyId"><set field="toPartyId" from="partyId"/></if>
     </actions>
     <widgets>
         <!-- <label text="Messages to or from ${ec.resource.expand('PartyNameTemplate','',party)}" type="h3"/> -->
         <container-dialog id="CreateMessageDialog" button-text="Send Message" width="800">
             <form-single name="CreateMessage" transition="createMessage">
+                <field name="partyId"><default-field><hidden/></default-field></field>
+                <field name="fromPartyId" entry-name="ec.user.userAccount.partyId"><default-field title="From">
+                    <display-entity entity-name="mantle.party.PartyDetail" text="PartyNameTemplate"/>
+                </default-field></field>
                 <field name="toPartyId"><default-field title="To">
                     <text-line ac-transition="getPartyList" ac-min-length="2" size="60"/>
                 </default-field></field>
@@ -91,36 +80,23 @@ along with this software (see the LICENSE.md file). If not, see
                 <default-field title="Status"><display-entity entity-name="moqui.basic.StatusItem" also-hidden="false"/></default-field>
             </field>
             <field name="fromPartyId">
-                <header-field title="From">
-                    <text-line ac-transition="getPartyList" ac-min-length="2" size="15"/>
-                </header-field>
-                <default-field>
-                    <display-entity entity-name="mantle.party.PartyDetail" also-hidden="false" key-field-name="partyId"
-                            text="PartyNameTemplate"/>
-                </default-field>
+                <header-field title="From"><text-line ac-transition="getPartyList" ac-min-length="2" size="25"/></header-field>
+                <default-field><display-entity entity-name="mantle.party.PartyDetail" also-hidden="false"
+                        key-field-name="partyId" text="PartyNameTemplate"/></default-field>
             </field>
             <field name="toPartyId">
-                <header-field title="To">
-                    <text-line ac-transition="getPartyList" ac-min-length="2" size="15"/>
-                </header-field>
-                <default-field>
-                    <display-entity entity-name="mantle.party.PartyDetail" also-hidden="false" key-field-name="partyId"
-                            text="PartyNameTemplate"/>
-                </default-field>
+                <header-field title="To"><text-line ac-transition="getPartyList" ac-min-length="2" size="25"/></header-field>
+                <default-field><display-entity entity-name="mantle.party.PartyDetail" also-hidden="false"
+                        key-field-name="partyId" text="PartyNameTemplate"/></default-field>
             </field>
             <field name="subject"><header-field show-order-by="case-insensitive"/><default-field>
                 <link url="messageThread" text="${subject}" link-type="anchor"/>
             </default-field></field>
             
             <field name="communicationEventTypeId">
-                <header-field title="Type">
-                    <drop-down allow-empty="true">
-                        <option key="Comment"/><option key="Email"/><option key="Message"/>
-                    </drop-down>
-                </header-field>
-                <default-field>
-                    <display-entity entity-name="mantle.party.communication.CommunicationEventType"/>
-                </default-field>
+                <header-field title="Type"><drop-down allow-empty="true"><option key="Comment"/><option key="Email"/>
+                    <option key="Message"/></drop-down></header-field>
+                <default-field><display-entity entity-name="mantle.party.communication.CommunicationEventType"/></default-field>
             </field>
             <field name="purposeEnumId">
                 <header-field title="Purpose" show-order-by="true">

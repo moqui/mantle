@@ -34,7 +34,7 @@ h2. General Order Placement and eCommerce Usage
 | split order                     | create#OrderPart |
 | confirm/complete order          | place#Order |
 
-| create order from shopping list (or other existing order) | clone#Order - TODO |
+| create order from shopping list (or other existing order) | clone#Order |
 
 -->
 
@@ -43,8 +43,8 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderId" required="true"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="orderHeader" type="EntityValue"/>
-            <parameter name="statusItem" type="EntityValue"/>
+            <parameter name="orderHeader" type="Map"/>
+            <parameter name="statusItem" type="Map"/>
             <parameter name="orderItemList" type="List"/>
             <parameter name="orderItemWithChildrenSet" type="Set"/>
             <parameter name="paymentList" type="List"/>
@@ -56,6 +56,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="requestItemOrderList" type="List"/>
             <parameter name="requestIdSet" type="Set"/>
             <parameter name="statusHistoryList" type="List"/>
+            <parameter name="orderNoteList" type="List"/>
 
             <parameter name="orderPartList" type="List"/>
             <parameter name="orderPartInfoList" type="List"/>
@@ -107,6 +108,9 @@ h2. General Order Placement and eCommerce Usage
                 <econdition field-name="pkPrimaryValue" from="orderId"/>
                 <order-by field-name="changedDate"/>
             </entity-find>
+
+            <entity-find entity-name="mantle.order.OrderNote" list="orderNoteList">
+                <econdition field-name="orderId"/><order-by field-name="-noteDate"/></entity-find>
 
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
 
@@ -175,6 +179,10 @@ h2. General Order Placement and eCommerce Usage
                 boolean isVendorInternalOrg = ec.entity.find("mantle.party.PartyRole")
                         .condition("partyId", orderPart.vendorPartyId).condition("roleTypeId", "OrgInternal").one() as boolean
 
+                EntityList orderPartPartyList = ec.entity.find("mantle.order.OrderPartPartyDetail")
+                        .condition([orderId:orderPart.orderId, orderPartSeqId:orderPart.orderPartSeqId]).orderBy("description").list()
+                EntityValue customerShipToDetail = orderPartPartyList.find({ it.roleTypeId == 'CustomerShipTo' })
+
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
                         partNoParentOrderItemList:partNoParentOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
@@ -184,6 +192,7 @@ h2. General Order Placement and eCommerce Usage
                         telecomNumber:telecomNumber, facility:facility,
                         facilityContactInfo:facilityContactInfo, customerDetail:customerDetail, vendorDetail:vendorDetail,
                         isCustomerInternalOrg:isCustomerInternalOrg, isVendorInternalOrg:isVendorInternalOrg,
+                        orderPartPartyList:orderPartPartyList, customerShipToDetail:customerShipToDetail,
                         partShipmentItemSourceList:partShipmentItemSourceList, partShipmentIdSet:partShipmentIdSet])
             }
             </script>
@@ -201,7 +210,8 @@ h2. General Order Placement and eCommerce Usage
         </actions>
     </service>
 
-    <!-- Order/Part Services -->
+    <!-- ========== Order/Part Services ========== -->
+
     <service verb="create" noun="Order">
         <description>
             Create an Order (OrderHeader and one OrderPart).
@@ -211,6 +221,8 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderName"/>
 
             <!-- parameters for the initial OrderPart -->
+            <auto-parameters entity-name="mantle.order.OrderHeader" include="nonpk"><exclude field-name="remainingSubTotal"/>
+                <exclude field-name="grandTotal"/></auto-parameters>
             <auto-parameters entity-name="mantle.order.OrderPart" include="nonpk"/>
 
             <parameter name="statusId" default-value="OrderOpen">
@@ -219,14 +231,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="visitId" default="ec.user.visitId"/>
             <parameter name="currencyUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for whichever
                 Party (customer or vendor) is an internal organization with an accounting preference record.</description></parameter>
-            <parameter name="billingAccountId"/>
-            <parameter name="productStoreId"/>
-            <parameter name="salesChannelEnumId"/>
-
-            <parameter name="terminalId"/>
-            <parameter name="externalId"/>
-            <parameter name="syncStatusId"/>
-            <parameter name="firstAttemptOrderId"/>
+            <parameter name="orderRevision" type="Integer" default="1"/>
         </in-parameters>
         <out-parameters>
             <parameter name="orderId" required="true"/>
@@ -258,6 +263,21 @@ h2. General Order Placement and eCommerce Usage
             <service-call name="create#mantle.order.OrderPart" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="update" noun="OrderHeader">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <auto-parameters entity-name="mantle.order.OrderHeader" include="nonpk"><exclude field-name="statusId"/>
+                <exclude field-name="orderRevision"/><exclude field-name="remainingSubTotal"/>
+                <exclude field-name="grandTotal"/></auto-parameters>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-set value-field="orderHeader" include="nonpk"/>
+            <set field="orderHeader.orderRevision" from="orderHeader.orderRevision + 1"/>
+            <entity-update value-field="orderHeader"/>
+            <!-- <service-call name="update#mantle.order.OrderHeader" in-map="context"/> -->
+        </actions>
+    </service>
     <service verb="create" noun="OrderPart">
         <in-parameters>
             <parameter name="orderId" required="true"/>
@@ -284,10 +304,18 @@ h2. General Order Placement and eCommerce Usage
         </actions>
     </service>
 
+    <service verb="increment" noun="OrderRevision">
+        <in-parameters><parameter name="orderId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <set field="orderHeader.orderRevision" from="orderHeader.orderRevision + 1"/>
+            <entity-update value-field="orderHeader"/>
+        </actions>
+    </service>
     <service verb="update" noun="OrderHeaderTotal">
-        <in-parameters>
-            <parameter name="orderId"/>
-        </in-parameters>
+        <description>Update OrderHeader.grandTotal based on OrderPart.partTotal values, called by update#OrderPartTotal
+            which is called by EECA on OrderItem</description>
+        <in-parameters><parameter name="orderId"/></in-parameters>
         <actions>
             <set field="totalSum" from="0.0" type="BigDecimal"/>
             <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
@@ -302,6 +330,7 @@ h2. General Order Placement and eCommerce Usage
         </actions>
     </service>
     <service verb="update" noun="OrderPartTotal">
+        <description>Updated OrderPart.partTotal, called by EECA rule on OrderItem create/update/delete</description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
@@ -956,6 +985,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="statusId" default-value="OrderOpen"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="visitId" default="ec.user.visitId"/>
+            <parameter name="orderRevision" type="Integer" default="1"/>
 
             <parameter name="clearDates" type="Boolean" default="true"/>
             <parameter name="copyContactMech" type="Boolean" default="true"/>
@@ -1068,6 +1098,7 @@ h2. General Order Placement and eCommerce Usage
     </service>
 
     <!-- ========== OrderContent Services ========== -->
+
     <service verb="create" noun="OrderContent">
         <in-parameters>
             <auto-parameters entity-name="mantle.order.OrderContent" include="nonpk">
@@ -1123,6 +1154,7 @@ h2. General Order Placement and eCommerce Usage
     </service>
 
     <!-- ========== Order-Request Services ========== -->
+
     <service verb="create" noun="PurchaseRequestOrder">
         <in-parameters>
             <parameter name="requestId" required="true"/>
@@ -1130,7 +1162,7 @@ h2. General Order Placement and eCommerce Usage
                 <description>The customer for the PO. Should be an Internal Org.</description></parameter>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
             <parameter name="paymentMethodId"/>
-            <parameter name="shipmentMethodEnumId" default-value="ShMthNoShipping"/>
+            <parameter name="shipmentMethodEnumId" default-value="ShMthPickUp"/>
             <parameter name="placeAndApproveOrders" type="Boolean" default="false"/>
         </in-parameters>
         <out-parameters>

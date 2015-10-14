@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <service verb="receive" noun="EdiMessage">
+        <implements service="org.moqui.impl.SystemMessageServices.receive#SystemMessage"/>
+        <in-parameters>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+        </in-parameters>
+        <actions>
+            <set field="messageText" from="messageText.trim()"/>
+            <set field="systemMessageIdList" from="[]"/>
+            <!-- TODO: save message as-is if there is a parse/etc error -->
+            <if condition="messageText.startsWith('ISA')">
+                <then>
+                    <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation)"/>
+                    <set field="splitList" from="ediHandler.splitMessage('ISA', 'IEA', messageText)"/>
+                    <!-- <log message="======== splitList: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(splitList))} "/> -->
+                    <!-- create new SystemMessage for each ISA in a bulk message, if there is more than one (so they can be processed with individual status) -->
+                    <iterate list="splitList" entry="splitMessage">
+                        <set field="ediMap" from="ediHandler.parseText(splitMessage)"/>
+                        <log message="======== EDI Map: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))} "/>
+                        <!-- with split message should always be a single ISA segment -->
+                        <set field="ISA" from="ediMap.ISA[0]"/>
+                        <set field="GS" from="ISA.GS[0]"/>
+                        <set field="ST" from="GS.ST[0]"/>
+
+                        <set field="senderId" from="ISA.elements[6]"/>
+                        <set field="receiverId" from="ISA.elements[8]"/>
+                        <set field="messageId" from="ISA.elements[13]"/>
+                        <if condition="GS.elements[4] &amp;&amp; GS.elements[5]">
+                            <set field="dateString" value="${GS.elements[4]} ${GS.elements[5]}"/>
+                            <!-- support 4, 6, 7, or 8 character time (pad with zeroes, parse) -->
+                            <script>while (dateString.length() &lt; 17) { dateString = dateString + "0" }</script>
+                            <set field="messageDate" from="ec.l10n.parseTimestamp(dateString, 'yyyyMMdd HHmmssSS')"/>
+                        </if>
+                        <set field="docType" from="GS.elements[1]"/><!-- GS01 -->
+                        <set field="docSubType" from="ST.elements[1]"/><!-- ST01 -->
+                        <set field="docVersion" from="GS.elements[8]"/><!-- GS08 -->
+
+                        <!-- find corresponding SystemMessageRemote -->
+                        <entity-find entity-name="moqui.service.message.SystemMessageRemote" list="smrList">
+                            <econdition field-name="systemMessageTypeId" value="EdiMessage"/>
+                            <econdition field-name="remoteId" from="senderId"/>
+                        </entity-find>
+                        <set field="systemMessageRemoteId" from="smrList ? smrList[0].systemMessageRemoteId : null"/>
+
+                        <!-- see if there is an existing message with the same IDs and fairly recent -->
+                        <entity-find entity-name="moqui.service.message.SystemMessage" list="existingMessageList">
+                            <econdition field-name="senderId"/><econdition field-name="receiverId"/>
+                            <econdition field-name="messageId"/><order-by field-name="-messageDate"/>
+                        </entity-find>
+                        <if condition="existingMessageList">
+                            <!-- how to handle duplicates? create a SystemMessage in an error state and handle manually -->
+                            <set field="existingMessage" from="existingMessageList[0]"/>
+                            <!-- if messageDate is the same or initDate (received date) is within 1 year, consider it a
+                                duplicate; outside 1 year allow messageId to be reused -->
+                            <if condition="existingMessage.messageDate == messageDate ||
+                                    (existingMessage.initDate.time - ec.user.nowTimestamp.time) &lt; (365*24*60*60*1000)">
+                                <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                                        in-map="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
+                                            systemMessageRemoteId:systemMessageRemoteId,
+                                            senderId:senderId, receiverId:receiverId, messageId:messageId, messageDate:messageDate,
+                                            docType:docType, docSubType:docSubType, docVersion:docVersion,
+                                            statusId:'SmsgError', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+                                <set field="errorText" value="Found duplicate EDI message for sender ${senderId}, receiver ${receiverId}, message ${messageId}; duplicate SystemMessage ID [${existingMessage.systemMessageId}]"/>
+                                <service-call name="create#moqui.service.message.SystemMessageError"
+                                        in-map="[systemMessageId:createOut.systemMessageId, errorDate:ec.user.nowTimestamp,
+                                            attemptedStatusId:'SmsgReceived', errorText:errorText]"/>
+                                <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+                                <continue/>
+                            </if>
+                        </if>
+
+                        <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                                in-map="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
+                                    systemMessageRemoteId:systemMessageRemoteId,
+                                    senderId:senderId, receiverId:receiverId, messageId:messageId, messageDate:messageDate,
+                                    docType:docType, docSubType:docSubType, docVersion:docVersion,
+                                    statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+                        <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+                    </iterate>
+                </then>
+                <!-- FUTURE: identify and handle EDIFACT, etc; splitting and message field population -->
+                <else>
+                    <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                            in-map="[systemMessageTypeId:systemMessageTypeId, messageText:messageText,
+                                statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+                    <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+                </else>
+            </if>
+        </actions>
+    </service>
+    <service verb="consume" noun="EdiMessage">
+        <implements service="org.moqui.impl.SystemMessageServices.consume#SystemMessage"/>
+        <in-parameters>
+            <parameter name="x12EnvelopeLocation" default-value="component://mantle-usl/service/edi/X12Envelope.groovy"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage" for-update="true"/>
+            <set field="messageText" from="systemMessage.messageText.trim()"/>
+
+            <if condition="messageText.startsWith('ISA')">
+                <then>
+                    <!-- no need to do this here, done in the receive service
+                    <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(x12EnvelopeLocation)"/>
+                    <set field="ediMap" from="ediHandler.parseText(messageText)"/>
+                    <set field="ISA" from="ediMap.ISA[0]"/>
+                    <set field="GS" from="ISA.GS[0]"/>
+                    <set field="ST" from="GS.ST[0]"/>
+                    <set field="docType" from="GS.elements[1]"/>
+                    <set field="docSubType" from="ST.elements[1]"/>
+                    <set field="docVersion" from="GS.elements[8]"/>
+                    <if condition="!systemMessage.messageId">
+                        <set field="systemMessage.senderId" from="ISA.elements[6]"/>
+                        <set field="systemMessage.receiverId" from="ISA.elements[8]"/>
+                        <set field="systemMessage.messageId" from="ISA.elements[13]"/>
+                        <if condition="ISA.elements[9] &amp;&amp; ISA.elements[10]">
+                            <set field="systemMessage.messageDate"
+                                    from="ec.l10.parseTimestamp(ISA.elements[9] + ISA.elements[10], 'yyyyMMddHHmm')"/>
+                        </if>
+                        <set field="systemMessage.docType" from="docType"/>
+                        <set field="systemMessage.docSubType" from="docSubType"/>
+                        <set field="systemMessage.docVersion" from="docVersion"/>
+                        <entity-update value-field="systemMessage"/>
+                    </if>
+                    -->
+
+                    <if condition="systemMessage.docType == 'PO' &amp;&amp; systemMessage.docSubType == '850'">
+                        <then>
+                            <service-call name="mantle.edi.order.X12OrderServices.consume#PurchaseOrder"
+                                    in-map="[systemMessageId:systemMessageId, messageText:messageText]"/>
+                        </then>
+                        <else>
+                            <message error="true">X12 Functional ID Code at GS01 [${funcIdCode}] and Transaction Set ID Code as ST01 [${transSetIdCode}] not supported.</message>
+                        </else>
+                    </if>
+                </then>
+                <!-- FUTURE: identify and handle EDIFACT, etc -->
+                <else>
+                    <return error="true" message="Could not identify EDI type, message starts with [${messageText.substring(0,3)}]"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="produce" noun="EdiMessageX12">
+        <in-parameters>
+            <parameter name="systemMessageRemoteId" required="true"/>
+            <parameter name="systemMessageTypeId" default-value="EdiMessage"/>
+            <parameter name="messageDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="bodyEdiMap" type="Map" required="true"><description>A Map with NO elements entry, only
+                sub-segment entries depending on the message. Will be put under the ST segment (added to the ST Map).</description></parameter>
+            <parameter name="docType" required="true"><description>Goes in GS01 (such as PO, PR, etc)</description></parameter>
+            <parameter name="docSubType" required="true"><description>Goes in ST01 (such as 850, 855, etc)</description></parameter>
+            <parameter name="docVersion" default-value="004010"><description>Goes in GS08, and ISA12 (truncated to 5 characters)</description></parameter>
+
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" required="true"/>
+
+            <parameter name="orderId"/>
+            <parameter name="orderRevision" type="Long"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessageRemote" value-field="smr"/>
+            <if condition="!smr"><return error="true" message="System Message Remote not found with ID [${systemMessageRemoteId}]"/></if>
+
+            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)
+                    .setChars(smr.segmentTerminator as Character, smr.elementSeparator as Character, smr.componentDelimiter as Character, smr.escapeCharacter as Character)"/>
+
+            <set field="nowDate6" from="ec.l10n.format(messageDate, 'yyMMdd')"/>
+            <set field="nowDate8" from="ec.l10n.format(messageDate, 'yyyyMMdd')"/>
+            <set field="nowTime" from="ec.l10n.format(messageDate, 'HHmm')"/>
+
+            <set field="systemMessageId" from="ec.entity.sequencedIdPrimary('moqui.service.message.SystemMessage', null, null)"/>
+            <set field="controlNumber" from="systemMessageId"/>
+
+            <set field="senderId" from="smr.internalId"/>
+            <set field="receiverId" from="smr.remoteId"/>
+
+            <!-- NOTE: use same controlNumber for ISA, GS, ST because only one GS in ISA, one ST in GS -->
+            <set field="SE" from="[elements:['SE', (ediHandler.countSegments(bodyEdiMap) + 2), controlNumber]]"/>
+            <set field="ST" from="[elements:['ST', docSubType, controlNumber]]"/>
+            <script>ST.putAll(bodyEdiMap); ST.put('SE', [SE])</script><!-- put order is significant, put SE after all child segments -->
+
+            <set field="GE" from="[elements:['GE', 1, controlNumber]]"/>
+            <set field="GS" from="[elements:['GS', docType, smr.internalAppCode, smr.remoteAppCode, nowDate8, nowTime,
+                    controlNumber, 'X', docVersion], ST:[ST], GE:[GE]]"/>
+            <set field="IEA" from="[elements:['IEA', 1, controlNumber]]"/>
+            <set field="ISA" from="[elements:['ISA', '00', '', '00', '', smr.internalIdType, senderId, smr.remoteIdType, receiverId,
+                    nowDate6, nowTime, 'U', docVersion.substring(0, 5), controlNumber, smr.ackRequested, smr.usage,
+                    smr.componentDelimiter], GS:[GS], IEA:[IEA]]"/>
+            <set field="ediMap" from="[ISA:[ISA]]"/>
+
+            <set field="messageText" from="ediHandler.generateText(ediMap)"/>
+
+            <set field="messageId" from="controlNumber"/>
+            <service-call name="org.moqui.impl.SystemMessageServices.queue#SystemMessage" in-map="context"/>
+        </actions>
+    </service>
+</services>
