@@ -29,14 +29,6 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.order.OrderHeader"/>
         <relationship type="one" related-entity-name="mantle.party.communication.CommunicationEvent"/>
     </entity>
-    <entity entity-name="OrderContactMech" package-name="mantle.order">
-        <field name="orderId" type="id" is-pk="true"/>
-        <field name="contactMechPurposeId" type="id" is-pk="true"/>
-        <field name="contactMechId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="mantle.order.OrderHeader"/>
-        <relationship type="one" related-entity-name="mantle.party.contact.ContactMechPurpose"/>
-        <relationship type="one" related-entity-name="mantle.party.contact.ContactMech"/>
-    </entity>
     <entity entity-name="OrderContent" package-name="mantle.order">
         <field name="orderContentId" type="id" is-pk="true"/>
         <field name="orderContentTypeEnumId" type="id"/>
@@ -95,9 +87,11 @@ along with this software (see the LICENSE.md file). If not, see
 
         <!-- These are not generally necessary, reverse relationships are created automatically, but needed to specify
             the short-alias for use in entity REST requests and quick path look ups -->
+        <relationship type="many" related-entity-name="mantle.order.OrderPart" short-alias="parts">
+            <key-map field-name="orderId"/></relationship>
         <relationship type="many" related-entity-name="mantle.order.OrderItem" short-alias="items">
             <key-map field-name="orderId"/></relationship>
-        <relationship type="many" related-entity-name="mantle.order.OrderPart" short-alias="parts">
+        <relationship type="many" related-entity-name="mantle.order.OrderNote" short-alias="notes">
             <key-map field-name="orderId"/></relationship>
 
         <index name="ORDEREXT_ID_IDX"><index-field name="externalId"/></index>
@@ -181,6 +175,27 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- Sync Status -->
             <moqui.basic.StatusType description="Sync Status" statusTypeId="Sync"/>
         </seed-data>
+        <master>
+            <detail relationship="parts">
+                <detail relationship="items">
+                    <!-- TODO: product, uom, etc -->
+                </detail>
+                <detail relationship="parties">
+                    <!-- NOTE: Party is also a master entity, could use mechanism to inherit detail but better to
+                        be explicit about what is relevant in a Party for orders -->
+                    <detail relationship="party"/>
+                    <!-- TODO: put organization and person under party -->
+                    <!-- TODO: add contact info, other under party? -->
+                    <detail relationship="roleType"/>
+                </detail>
+                <detail relationship="contactMechs">
+                    <detail relationship="contactMech" use-master="true"/>
+                </detail>
+                <detail relationship="terms"/>
+                <!-- TODO other fields: customer, vendor, postal, telecom, etc -->
+            </detail>
+            <detail relationship="notes"/>
+        </master>
     </entity>
     <extend-entity entity-name="SystemMessage" package-name="moqui.service.message">
         <field name="orderId" type="id"/>
@@ -383,6 +398,15 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.party.contact.TelecomNumber">
             <key-map field-name="telecomContactMechId"/></relationship>
 
+        <relationship type="many" related-entity-name="mantle.order.OrderItem" short-alias="items">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.order.OrderPartParty" short-alias="parties">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.order.OrderPartContactMech" short-alias="contactMechs">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.order.OrderPartTerm" short-alias="terms">
+            <key-map field-name="orderId"/><key-map field-name="orderPartSeqId"/></relationship>
+
         <index name="ORDPTOPTY_ID_IDX"><index-field name="otherPartyOrderId"/></index>
     </entity>
     <entity entity-name="OrderPartParty" package-name="mantle.order">
@@ -391,15 +415,27 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="partyId" type="id" is-pk="true"/>
         <field name="roleTypeId" type="id" is-pk="true"/>
         <relationship type="one" related-entity-name="mantle.order.OrderPart"/>
-        <relationship type="one" related-entity-name="mantle.party.Party"/>
-        <relationship type="one" related-entity-name="mantle.party.RoleType"/>
+        <relationship type="one" related-entity-name="mantle.party.Party" short-alias="party"/>
+        <relationship type="one-nofk" related-entity-name="mantle.party.Person" short-alias="person"/>
+        <relationship type="one-nofk" related-entity-name="mantle.party.Organization" short-alias="organization"/>
+        <relationship type="one" related-entity-name="mantle.party.RoleType" short-alias="roleType"/>
     </entity>
-    <entity entity-name="OrderTerm" package-name="mantle.order">
+    <entity entity-name="OrderPartContactMech" package-name="mantle.order">
         <field name="orderId" type="id" is-pk="true"/>
-        <field name="orderItemSeqId" type="id" is-pk="true"/>
+        <field name="orderPartSeqId" type="id" is-pk="true"/>
+        <field name="contactMechPurposeId" type="id" is-pk="true"/>
+        <field name="contactMechId" type="id" is-pk="true"/>
+        <relationship type="one" related-entity-name="mantle.order.OrderPart"/>
+        <relationship type="one" related-entity-name="mantle.party.contact.ContactMechPurpose" short-alias="purpose"/>
+        <relationship type="one" related-entity-name="mantle.party.contact.ContactMech" short-alias="contactMech"/>
+        <relationship type="one-nofk" related-entity-name="mantle.party.contact.TelecomNumber" short-alias="telecomNumber"/>
+        <relationship type="one-nofk" related-entity-name="mantle.party.contact.PostalAddress" short-alias="postalAddress"/>
+    </entity>
+    <entity entity-name="OrderPartTerm" package-name="mantle.order">
+        <field name="orderId" type="id" is-pk="true"/>
+        <field name="orderPartSeqId" type="id" is-pk="true"/>
         <field name="settlementTermId" type="id" is-pk="true"/>
-        <relationship type="one" related-entity-name="mantle.order.OrderHeader"/>
-        <relationship type="one-nofk" related-entity-name="mantle.order.OrderItem"/>
+        <relationship type="one" related-entity-name="mantle.order.OrderPart"/>
         <relationship type="one" related-entity-name="SettlementTerm"/>
     </entity>
     <entity entity-name="OrderItemWorkEffort" package-name="mantle.order">
