@@ -18,6 +18,9 @@ along with this software (see the LICENSE.md file). If not, see
 <#macro showClass classInfo depth>
     <tr>
         <td style="padding-left: ${(depth-1) * 2}.3em;">${ec.l10n.localize(classInfo.className)}</td>
+        <#if (timePeriodIdList?size > 1)>
+            <td class="text-right">${ec.l10n.formatCurrency(classInfo.postedByTimePeriod['ALL']!0, currencyUomId, 2)}</td>
+        </#if>
         <#list timePeriodIdList as timePeriodId>
             <td class="text-right">${ec.l10n.formatCurrency(classInfo.postedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
         </#list>
@@ -26,6 +29,9 @@ along with this software (see the LICENSE.md file). If not, see
         <#if showDetail>
             <tr>
                 <td style="padding-left: ${(depth-1) * 2 + 3}.3em;">${glAccountInfo.accountCode}: ${glAccountInfo.accountName}</td>
+                <#if (timePeriodIdList?size > 1)>
+                    <td class="text-right">${ec.l10n.formatCurrency(glAccountInfo.postedByTimePeriod['ALL']!0, currencyUomId, 2)}</td>
+                </#if>
                 <#list timePeriodIdList as timePeriodId>
                     <td class="text-right">${ec.l10n.formatCurrency(glAccountInfo.postedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</td>
                 </#list>
@@ -37,12 +43,26 @@ along with this software (see the LICENSE.md file). If not, see
     <#list classInfo.childClassInfoList as childClassInfo>
         <@showClass childClassInfo depth + 1/>
     </#list>
+    <#if classInfo.childClassInfoList?has_content>
+        <tr<#if depth == 1> class="text-info"</#if>>
+            <td style="padding-left: ${(depth-1) * 2}.3em;"><strong>${ec.l10n.localize(classInfo.className + " Total")}</strong></td>
+            <#if (timePeriodIdList?size > 1)>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfo.totalPostedByTimePeriod['ALL']!0, currencyUomId, 2)}</strong></td>
+            </#if>
+            <#list timePeriodIdList as timePeriodId>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfo.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+            </#list>
+        </tr>
+    </#if>
 </#macro>
 
 <table class="table table-striped table-hover table-condensed">
     <thead>
         <tr>
-            <th>${ec.l10n.localize("Income and Expense Statement")}</th>
+            <th>${ec.l10n.localize("Income Statement")}</th>
+            <#if (timePeriodIdList?size > 1)>
+                <th class="text-right">All Periods</th>
+            </#if>
             <#list timePeriodIdList as timePeriodId>
                 <th class="text-right">${timePeriodIdMap[timePeriodId].periodName} (Closed: ${timePeriodIdMap[timePeriodId].isClosed})</th>
             </#list>
@@ -50,45 +70,36 @@ along with this software (see the LICENSE.md file). If not, see
     </thead>
     <tbody>
 
-        <@showClass revenueInfoMap 1/>
-        <@showClass contraRevenueInfoMap 1/>
-        <tr>
+        <@showClass classInfoById.REVENUE 1/>
+        <@showClass classInfoById.CONTRA_REVENUE 1/>
+        <tr class="text-info">
             <td><strong>${ec.l10n.localize("Net Sales")}</strong></td>
+            <#if (timePeriodIdList?size > 1)>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.REVENUE.totalPostedByTimePeriod['ALL']!0 + classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod['ALL']!0, currencyUomId, 2)}</strong></td>
+            </#if>
             <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(revenueInfoMap.totalPostedByTimePeriod[timePeriodId]!0 - contraRevenueInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(classInfoById.REVENUE.totalPostedByTimePeriod[timePeriodId]!0 + classInfoById.CONTRA_REVENUE.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
         </tr>
 
-        <@showClass costOfSalesInfoMap 1/>
-        <tr>
-            <td><strong>${ec.l10n.localize("Cost of Sales Total")}</strong></td>
-            <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(costOfSalesInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
-            </#list>
-        </tr>
-        <tr class="text-info" style="border-bottom: solid black;">
+        <@showClass classInfoById.COST_OF_SALES 1/>
+        <tr class="text-success" style="border-bottom: solid black;">
             <td><strong>${ec.l10n.localize("Gross Profit On Sales")}</strong></td>
+            <#if (timePeriodIdList?size > 1)>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(grossProfitOnSalesMap['ALL']!0, currencyUomId, 2)}</strong></td>
+            </#if>
             <#list timePeriodIdList as timePeriodId>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(grossProfitOnSalesMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
         </tr>
 
-        <@showClass incomeInfoMap 1/>
-        <tr>
-            <td><strong>${ec.l10n.localize("Income Total")}</strong></td>
-            <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(incomeInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
-            </#list>
-        </tr>
-        <@showClass expenseInfoMap 1/>
-        <tr>
-            <td><strong>${ec.l10n.localize("Expense Total")}</strong></td>
-            <#list timePeriodIdList as timePeriodId>
-                <td class="text-right"><strong>${ec.l10n.formatCurrency(expenseInfoMap.totalPostedByTimePeriod[timePeriodId]!0, currencyUomId, 2)}</strong></td>
-            </#list>
-        </tr>
-        <tr class="text-info" style="border-bottom: solid black;">
+        <@showClass classInfoById.INCOME 1/>
+        <@showClass classInfoById.EXPENSE 1/>
+        <tr class="text-success" style="border-bottom: solid black;">
             <td><strong>${ec.l10n.localize("Net Operating Income")}</strong></td>
+            <#if (timePeriodIdList?size > 1)>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(netOperatingIncomeMap['ALL']!0, currencyUomId, 2)}</strong></td>
+            </#if>
             <#list timePeriodIdList as timePeriodId>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(netOperatingIncomeMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>
@@ -96,6 +107,9 @@ along with this software (see the LICENSE.md file). If not, see
 
         <tr class="text-success" style="border-bottom: solid black;">
             <td><strong>${ec.l10n.localize("Net Income")}</strong></td>
+            <#if (timePeriodIdList?size > 1)>
+                <td class="text-right"><strong>${ec.l10n.formatCurrency(netIncomeMap['ALL']!0, currencyUomId, 2)}</strong></td>
+            </#if>
             <#list timePeriodIdList as timePeriodId>
                 <td class="text-right"><strong>${ec.l10n.formatCurrency(netIncomeMap[timePeriodId]!0, currencyUomId, 2)}</strong></td>
             </#list>

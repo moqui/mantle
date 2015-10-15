@@ -28,14 +28,15 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="communicationEventId" from="parentCommEventId"/>
             </entity-find-one>
             <set field="rootCommEventId" from="parentCe?.rootCommEventId ?: parentCommEventId"/>
+            <!-- if the from Party for this reply is the from Party on this message, send it to the to Party instead -->
+            <set field="toPartyId" from="parentCe.fromPartyId == fromPartyId ? parentCe.toPartyId : parentCe.fromPartyId"/>
             <service-call name="create#mantle.party.communication.CommunicationEvent" out-map="context"
                     in-map="[communicationEventTypeId:'Comment', contactMechTypeEnumId:'CmtWebForm', statusId:statusId,
                         parentCommEventId:parentCommEventId, rootCommEventId:rootCommEventId,
-                        fromPartyId:fromPartyId, toPartyId:parentCe.fromPartyId,
-                        entryDate:ec.user.nowTimestamp, contentType:contentType, subject:subject, body:body]"/>
+                        fromPartyId:fromPartyId, toPartyId:toPartyId, entryDate:ec.user.nowTimestamp,
+                        contentType:contentType, subject:subject, body:body]"/>
         </actions>
     </service>
-
     <service verb="create" noun="Message">
         <in-parameters>
             <auto-parameters entity-name="mantle.party.communication.CommunicationEvent" include="nonpk"/>

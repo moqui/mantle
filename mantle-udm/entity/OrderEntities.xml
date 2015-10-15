@@ -58,6 +58,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="entryDate" type="date-time"/>
         <field name="placedDate" type="date-time"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
+        <field name="orderRevision" type="number-integer"/>
 
         <field name="currencyUomId" type="id"/>
         <field name="billingAccountId" type="id"/>
@@ -65,8 +66,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="salesChannelEnumId" type="id"/>
 
         <field name="terminalId" type="id-long"/>
-        <field name="externalId" type="id"/>
+        <field name="externalId" type="text-short"/>
+        <field name="externalRevision" type="text-short"/>
         <field name="syncStatusId" type="id"/>
+        <field name="systemMessageRemoteId" type="id"/>
 
         <field name="visitId" type="id"/>
         <field name="parentOrderId" type="id"/>
@@ -85,6 +88,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="salesChannelEnumId"/></relationship>
         <relationship type="one" title="Sync" related-entity-name="moqui.basic.StatusItem">
             <key-map field-name="syncStatusId"/></relationship>
+        <relationship type="one" related-entity-name="moqui.service.message.SystemMessageRemote"/>
         <relationship type="one" related-entity-name="moqui.server.Visit"/>
         <relationship type="one" title="Parent" related-entity-name="mantle.order.OrderHeader">
             <key-map field-name="parentOrderId" related-field-name="orderId"/></relationship>
@@ -170,12 +174,20 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Postal Mail" enumId="ScPostal" enumTypeId="SalesChannel"/>
             <moqui.basic.Enumeration description="Affiliate" enumId="ScAffiliate" enumTypeId="SalesChannel"/>
             <moqui.basic.Enumeration description="eBay" enumId="ScEbay" enumTypeId="SalesChannel"/>
+            <moqui.basic.Enumeration description="EDI" enumId="ScEdi" enumTypeId="SalesChannel"/>
+            <moqui.basic.Enumeration description="OAGIS" enumId="ScOagis" enumTypeId="SalesChannel"/>
             <moqui.basic.Enumeration description="Unknown" enumId="ScUnknown" enumTypeId="SalesChannel"/>
 
             <!-- Sync Status -->
             <moqui.basic.StatusType description="Sync Status" statusTypeId="Sync"/>
         </seed-data>
     </entity>
+    <extend-entity entity-name="SystemMessage" package-name="moqui.service.message">
+        <field name="orderId" type="id"/>
+        <field name="orderRevision" type="number-integer"/>
+        <relationship type="one" related-entity-name="mantle.order.OrderHeader"/>
+        <!-- should have auto based on FK: <index name="SYSMSG_ORDER"><index-field name="orderId"/></index> -->
+    </extend-entity>
     <entity entity-name="OrderItem" package-name="mantle.order" short-alias="orderItems">
         <field name="orderId" type="id" is-pk="true"/>
         <field name="orderItemSeqId" type="id" is-pk="true"/>
@@ -186,6 +198,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="productId" type="id"/>
         <field name="productConfigSavedId" type="id"/>
         <field name="productFeatureId" type="id"/>
+        <field name="otherPartyProductId" type="text-short"/>
 
         <field name="itemDescription" type="text-medium"/>
         <field name="comments" type="text-medium"/>
@@ -204,7 +217,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="unitListPrice" type="currency-precise"/>
         <field name="isModifiedPrice" type="text-indicator"/>
 
-        <field name="externalItemId" type="id"/>
+        <field name="externalItemSeqId" type="id"/>
         <field name="fromAssetId" type="id"><description>Order for a particular Asset, not just any associated with
             the Product.</description></field>
         <field name="budgetId" type="id"/>
@@ -262,7 +275,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="Secondary" related-entity-name="moqui.basic.Geo">
             <key-map field-name="secondaryGeoId"/></relationship>
 
-        <index name="ORDITMEXT_ID_IDX"><index-field name="externalItemId"/></index>
+        <index name="ORDITMEXT_ID_IDX"><index-field name="externalItemSeqId"/></index>
     </entity>
     <entity entity-name="OrderItemBilling" package-name="mantle.order">
         <field name="orderItemBillingId" type="id" is-pk="true"/>
@@ -303,7 +316,7 @@ along with this software (see the LICENSE.md file). If not, see
 
         <field name="vendorPartyId" type="id"><description>The vendor (seller) of the items in the order part.</description></field>
         <field name="customerPartyId" type="id"><description>The customer (buyer) of the items in the order part.</description></field>
-        <field name="otherPartyOrderId" type="id"/>
+        <field name="otherPartyOrderId" type="text-short"/>
         <!-- Planning to remove these, use OrderPartParty for all parties other than vendor and customer:
         <field name="vendorAgentPartyId" type="id"><description>The agent (sales representative) of the vendor of the items in the group.</description></field>
         <field name="customerAgentPartyId" type="id"><description>The customer agent who placed the order.</description></field>
@@ -330,6 +343,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="shipBeforeDate" type="date-time"/>
         <field name="estimatedShipDate" type="date-time"/>
         <field name="estimatedDeliveryDate" type="date-time"/>
+        <field name="estimatedPickUpDate" type="date-time"/>
 
         <field name="validFromDate" type="date-time"/>
         <field name="validThruDate" type="date-time"/>
@@ -368,6 +382,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="telecomContactMechId"/></relationship>
         <relationship type="one" related-entity-name="mantle.party.contact.TelecomNumber">
             <key-map field-name="telecomContactMechId"/></relationship>
+
+        <index name="ORDPTOPTY_ID_IDX"><index-field name="otherPartyOrderId"/></index>
     </entity>
     <entity entity-name="OrderPartParty" package-name="mantle.order">
         <field name="orderId" type="id" is-pk="true"/>
