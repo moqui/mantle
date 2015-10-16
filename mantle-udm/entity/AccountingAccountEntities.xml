@@ -563,21 +563,21 @@ along with this software (see the LICENSE.md file). If not, see
             immutable (except for certain fields) they are cloned and expired on update and this field will have the
             paymentMethodId of the original record.</description></field>
 
-        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration" short-alias="methodType">
             <key-map field-name="paymentMethodTypeEnumId"/></relationship>
-        <relationship type="one" title="Owner" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="Owner" related-entity-name="mantle.party.Party" short-alias="ownerParty">
             <key-map field-name="ownerPartyId"/></relationship>
-        <relationship type="one" title="Postal" related-entity-name="mantle.party.contact.ContactMech">
+        <relationship type="one" title="Postal" related-entity-name="mantle.party.contact.ContactMech" short-alias="postal">
             <key-map field-name="postalContactMechId"/></relationship>
         <relationship type="one" related-entity-name="mantle.party.contact.PostalAddress">
             <key-map field-name="postalContactMechId"/></relationship>
-        <relationship type="one" title="Telecom" related-entity-name="mantle.party.contact.ContactMech">
+        <relationship type="one" title="Telecom" related-entity-name="mantle.party.contact.ContactMech" short-alias="telecom">
             <key-map field-name="telecomContactMechId"/></relationship>
         <relationship type="one" related-entity-name="mantle.party.contact.TelecomNumber">
             <key-map field-name="telecomContactMechId"/></relationship>
-        <relationship type="one" title="Email" related-entity-name="mantle.party.contact.ContactMech">
+        <relationship type="one" title="Email" related-entity-name="mantle.party.contact.ContactMech" short-alias="email">
             <key-map field-name="emailContactMechId"/></relationship>
-        <relationship type="one" title="ContactPaymentTrustLevel" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="ContactPaymentTrustLevel" related-entity-name="moqui.basic.Enumeration" short-alias="trustLevel">
             <key-map field-name="trustLevelEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.payment.PaymentFraudEvidence"/>
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
@@ -605,6 +605,18 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Discount" enumId="PmtDiscount" enumTypeId="PaymentMethodType"/>
             <!-- really need this? implied by various more specific others... <moqui.basic.Enumeration description="Offline Payment" enumId="PmtOffline" enumTypeId="PaymentMethodType"/> -->
         </seed-data>
+
+        <master>
+            <detail relationship="methodType"/>
+            <detail relationship="ownerParty">
+                <detail relationship="organization"/>
+                <detail relationship="person"/>
+            </detail>
+            <detail relationship="postal" use-master="true"/>
+            <detail relationship="telecom" use-master="true"/>
+            <detail relationship="email" use-master="true"/>
+            <detail relationship="trustLevel"/>
+        </master>
     </entity>
     <entity entity-name="BitcoinWallet" package-name="mantle.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
@@ -839,20 +851,22 @@ along with this software (see the LICENSE.md file). If not, see
             for audit and fraud purposes.</description></field>
         <field name="acctgTransResultEnumId" type="id"/>
 
-        <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="paymentTypeEnumId"/></relationship>
-        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration" short-alias="methodType">
             <key-map field-name="paymentMethodTypeEnumId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
+        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod" short-alias="method"/>
         <relationship type="one-nofk" related-entity-name="mantle.account.method.CreditCard"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentGatewayConfig"/>
         <relationship type="one" related-entity-name="mantle.order.OrderHeader"/>
 
-        <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom" short-alias="amountUom">
             <key-map field-name="amountUomId"/></relationship>
-        <relationship type="one" title="From" related-entity-name="mantle.party.Party"><key-map field-name="fromPartyId"/></relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.Party"><key-map field-name="toPartyId"/></relationship>
-        <relationship type="one" title="Payment" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" title="From" related-entity-name="mantle.party.Party" short-alias="fromParty">
+            <key-map field-name="fromPartyId"/></relationship>
+        <relationship type="one" title="To" related-entity-name="mantle.party.Party" short-alias="toParty">
+            <key-map field-name="toPartyId"/></relationship>
+        <relationship type="one" title="Payment" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
 
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccount"/>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountAuth"/>
@@ -911,6 +925,23 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntDelivered" toStatusId="PmntPromised" transitionName="Undeliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntConfirmed" toStatusId="PmntDelivered" transitionName="Uncomfirm"/>
         </seed-data>
+
+        <master>
+            <detail relationship="type"/>
+            <detail relationship="methodType"/>
+            <detail relationship="method" use-master="true"/>
+            <detail relationship="amountUom"/>
+            <detail relationship="fromParty">
+                <detail relationship="organization"/>
+                <detail relationship="person"/>
+            </detail>
+            <detail relationship="toParty">
+                <detail relationship="organization"/>
+                <detail relationship="person"/>
+            </detail>
+            <detail relationship="status"/>
+            <!-- TODO: add PaymentApplication, other? -->
+        </master>
     </entity>
     <entity entity-name="PaymentFraudEvidence" package-name="mantle.account.payment">
         <description>
