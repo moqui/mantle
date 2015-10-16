@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- EDI X12 V4010 Order Message Services -->
+
+    <service verb="consume" noun="PurchaseOrder">
+        <description>Consume a PO message (X12 850) from a Customer, ie create a Sales Order for a Customer's Purchase Order (internal org is the vendor)</description>
+        <in-parameters>
+            <parameter name="messageText" required="true"/>
+            <parameter name="systemMessageId"/>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS850.groovy"/>
+        </in-parameters>
+        <actions>
+            <set field="header" from="[:]"/>
+            <set field="parties" from="[]"/>
+            <set field="notes" from="[]"/>
+            <set field="items" from="[]"/>
+
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
+            <set field="ediMap" from="ediHandler.parseText(messageText)"/>
+
+            <log message="======== PO EDI Map:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))}"/>
+            <log message="======== PO EDI Generated:\n${ediHandler.generateText(ediMap)}"/>
+
+            <set field="ISA" from="ediMap.ISA[0]"/>
+            <set field="GS" from="ISA.GS[0]"/>
+            <set field="ST" from="GS.ST[0]"/>
+            <set field="BEG" from="ST.BEG[0]"/>
+
+            <!-- Validate GS01=PO? isa.GS[0].elements[0] == 'PO' -->
+
+            <set field="header.otherPartyOrderId" from="BEG.elements[3]"/><!-- BEG03 -->
+            <!-- don't care about this <set field="poRelease" from="BEG.elements[4]"/><!- - BEG04 - -> -->
+            <set field="header.placedDate" from="ec.l10n.parseTimestamp(BEG.elements[5] + ' 12:00', 'yyyyMMdd HH:mm')"/>
+            <set field="header.systemMessageRemoteId" from="systemMessage?.systemMessageRemoteId"/>
+            <set field="header.salesChannelEnumId" value="ScEdi"/>
+
+            <iterate list="ST.REF" entry="REF">
+                <set field="refType" from="REF.elements[1]"/>
+                <if condition="refType == 'IL'"><then><set field="header.externalId" from="REF.elements[2]"/></then><!-- Internal Order Number: always there for iTrade, use in 855 PO Ack -->
+                    <else-if condition="refType == 'VN'"><set field="vendorOrderId" from="REF.elements[2]"/></else-if><!-- OrderHeader.orderId, use for send more than receive -->
+                    <else-if condition="refType == 'VR'"><set field="vendorIdNum" from="REF.elements[2]"/></else-if>
+                    <else-if condition="refType == 'YB'"><set field="vendorRevision" from="REF.elements[2]"/></else-if>
+                    <else-if condition="refType == 'YD'"><set field="buyerIdNum" from="REF.elements[2]"/></else-if>
+                    <else-if condition="refType == 'ZI'"><set field="header.externalRevision" from="REF.elements[2]"/></else-if><!-- required for order change -->
+                    <!-- TODO: handle other REF types? -->
+                </if>
+            </iterate>
+
+            <!-- TODO Shipment Method of Payment (BP Paid by Buyer, CC Collect, PB Customer Pick-up/Backhaul,
+                PC Prepaid but Charged to Customer, PE Prepaid and Summary Bill, PP Prepaid (by Seller), PU Pickup,
+                TP Third Party Pay -->
+            <set field="fobCode" from="ST.FOB?.get(0)?.elements?.get(1)"/>
+
+            <!-- Dates from DTM -->
+            <set field="deliveryDateStr" from="ST.DTM?.find({it.elements[1] == '002'})?.elements?.get(2)"/>
+            <set field="header.estimatedDeliveryDate" from="deliveryDateStr ? ec.l10n.parseTimestamp(deliveryDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="shipDateStr" from="ST.DTM?.find({it.elements[1] == '010'})?.elements?.get(2)"/>
+            <set field="header.shipBeforeDate" from="shipDateStr ? ec.l10n.parseTimestamp(shipDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+            <set field="pickUpDateStr" from="ST.DTM?.find({it.elements[1] == '118'})?.elements?.get(2)"/>
+            <set field="header.estimatedPickUpDate" from="pickUpDateStr ? ec.l10n.parseTimestamp(pickUpDateStr + ' 12:00', 'yyyyMMdd HH:mm') : null"/>
+
+            <!-- TD5 Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T pick up?, LT Less Than Trailer Load, U Private Parcel Service -->
+            <set field="transportCodeToShipmentMethod" from="['H':'ShMthPickUp', 'T':'ShMthPickUp', 'M':'ShMthMotor', 'U':'ShMthGround']"/>
+            <set field="transportMethodCode" from="ST.TD5?.get(0)?.elements?.get(4)"/>
+            <set field="header.shipmentMethodEnumId" from="transportCodeToShipmentMethod.get(transportMethodCode)"/>
+
+            <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
+                OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
+            <set field="n1TypeToRoleType" from="['BO':'SalesRepresentative', 'BT':'CustomerBillTo', 'BY':'Customer', 'CA':'Carrier',
+                    'OB':'CustomerPlacing', 'PW':'VendorPickUpFrom', 'SF':'VendorShipFrom', 'ST':'CustomerShipTo', 'VN':'Vendor']"/>
+            <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
+                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
+            <set field="n1IdTypeToPartyIdType" from="['1':'PtidDuns', '9':'PtidDuns4', '91':'PtidVend', '92':'PtidCust']"/>
+
+            <iterate list="ST.N1" entry="N1">
+                <set field="party" from="[:]"/>
+                <script>parties.add(party)</script>
+
+                <set field="n1Type" from="N1.elements[1]"/>
+                <set field="n1Name" from="N1.elements[2]"/>
+                <!-- N104 is ID, N103 is ID type: 1 D-U-N-S Number (PtidDuns), 9 D-U-N-S+4 (PtidDuns4), 54 Warehouse?,
+                    91 Assigned by Seller or Seller's Agent (that's us, so this is the partyId, try PtidVend too),
+                    92 Assigned by Buyer or Buyer's Agent (PtidCust) -->
+                <set field="n1IdType" from="N1.elements[3]"/>
+                <set field="n1Id" from="N1.elements[4]"/>
+
+                <set field="party.partyIdTypeEnumId" from="n1IdTypeToPartyIdType.get(n1IdType)"/>
+                <set field="party.idValue" from="n1Id"/>
+                <set field="party.roleTypeId" from="n1TypeToRoleType.get(n1Type)"/>
+                <set field="party.organizationName" from="n1Name"/>
+
+                <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
+
+                <if condition="N1.N3 &amp;&amp; N1.N4">
+                    <set field="N3" from="N1.N3[0]"/><set field="N4" from="N1.N4[0]"/>
+                    <set field="postalCode" from="N4.elements[3]"/><set field="postalCodeExt" from="null"/>
+                    <if condition="N4.elements[4] == 'USA' &amp;&amp; postalCode.length() == 9">
+                        <then>
+                            <set field="postalCodeExt" from="postalCode.substring(5)"/>
+                            <set field="postalCode" from="postalCode.substring(0,5)"/>
+                        </then>
+                        <else-if condition="postalCode.contains('-') &amp;&amp; postalCode.length() &gt; 9">
+                            <set field="postalCodeExt" from="postalCode.substring(postalCode.indexOf('-') + 1)"/>
+                            <set field="postalCode" from="postalCode.substring(0, postalCode.indexOf('-'))"/>
+                        </else-if>
+                    </if>
+                    <set field="party.address" from="[toName:n1Name, address1:N3.elements[1], city:N4.elements[1],
+                            address2:(N3.elements.size() &gt; 2 ? N3.elements[2] : null),
+                            stateProvinceGeoId:(N4.elements[4] + '_' + N4.elements[2]), countryGeoId:N4.elements[4],
+                            postalCode:postalCode, postalCodeExt:postalCodeExt, contactMechPurposeId:contactMechPurposeId]"/>
+                </if>
+
+                <!-- TODO: handle PER segments? (Contact Name, Communication Number) -->
+            </iterate>
+
+            <!-- Handle N9*L1*GEN, just a note saying MSG has general notes; handle other N9 (Reference Information) segments? -->
+            <if condition="ST.N9"><iterate list="ST.N9" entry="N9"><if condition="N9.elements[1] == 'L1'">
+                <!-- MSG segments, just order notes in MSG01 -->
+                <iterate list="N9.MSG" entry="MSG"><script>notes.add([noteText:MSG.elements[1]])</script></iterate>
+            </if></iterate></if>
+
+            <!-- TODO: ST.SAC (Service, Promotion, Allowance, or Charge Info; header adjustments as OrderItem with no parent) -->
+
+            <!-- ST.PO1 (Baseline Item Data; product OrderItem) -->
+            <iterate list="ST.PO1" entry="PO1">
+                <!-- PO103 Unit/Basis, do anything with it? -->
+                <!-- PO105 Basis of Unit Price Code (PE Price per Each, PK Price per Kilogram, PP Price per Pound); only PE supported... -->
+                <!-- PO106 (for PO107 - optional) Product/Service ID Qualifier (UA U.P.C./EAN Case Code (2-5-5),
+                    UK U.P.C./EAN Shipping Container Code (1-2-5-5-1), UP U.P.C. Consumer Package Code (1-5-5-1)) -->
+                <!-- PO108 (for PO109 - mandatory) Product/Service ID Qualifier (MG Manufacturer's Part Number,
+                    VN Vendor's (Seller's) Item Number, VP Vendor's (Seller's) Part Number); ==> productId -->
+                <!-- PO110 (for PO111 - mandatory) Product/Service ID Qualifier (PI Purchaser's Item Code) ==> otherPartyProductId -->
+                <!-- PID: description -->
+                <if condition="PO1.PID"><set field="itemDescription" from="PO1.PID[0].elements[5]"/>
+                    <else><set field="itemDescription" from="null"/></else></if>
+                <!-- PO109 is our product ID, make sure it exists -->
+                <set field="item" from="[itemTypeEnumId:'ItemProduct', externalItemSeqId:PO1.elements[1],
+                        quantity:PO1.elements[2], unitAmount:PO1.elements[4], productId:PO1.elements[9],
+                        otherPartyProductId:PO1.elements[11], itemDescription:itemDescription]"/>
+                <script>items.add(item)</script>
+                <!-- TODO: ST.PO1.SAC (Service, Promotion, Allowance, or Charge Info; item adjustments as OrderItem WITH parent) -->
+
+            </iterate>
+
+            <!-- NOTE: ignoring these for now, always want to create order or update matching order, unless cancel comes through -->
+            <!-- TS Purpose BEG01 (00 Original, 01 Cancellation, 05 Replace) -->
+            <set field="tsPurpose" from="BEG.elements[1]"/>
+            <!-- PO Type BEG02 (CP Change to Purchase Order, DS Dropship, IN Information Copy, NE New Order) -->
+            <set field="poType" from="BEG.elements[2]"/>
+
+            <if condition="tsPurpose == '01'">
+                <then>
+                    <set field="header.statusId" value="OrderCancelled"/>
+                    <entity-find entity-name="mantle.order.OrderHeaderAndPart" list="existingOrderList">
+                        <econditions combine="or">
+                            <econdition field-name="externalId" from="header.externalId"/>
+                            <econdition field-name="otherPartyOrderId" from="header.otherPartyOrderId"/>
+                        </econditions>
+                        <econdition field-name="customerPartyId" from="header.customerPartyId"/>
+                    </entity-find>
+                    <set field="existingOrder" from="existingOrderList ? existingOrderList[0] : null"/>
+                    <if condition="existingOrder">
+                        <service-call name="mantle.order.OrderServices.cancel#Order" in-map="[orderId:existingOrder.orderId]"/>
+                        <!-- save orderId and orderRevision on SystemMessage -->
+                        <if condition="systemMessageId"><service-call name="update#" in-map="[systemMessageId:systemMessageId,
+                                orderId:existingOrder.orderId, orderRevision:existingOrder.orderRevision]"/></if>
+                    </if>
+                </then>
+                <else>
+                    <service-call name="mantle.order.OrderBulkServices.store#Order" out-map="storeOut"
+                            in-map="[header:header, parties:parties, notes:notes, items:items]"/>
+                    <!-- save orderId and orderRevision on SystemMessage -->
+                    <if condition="systemMessageId"><service-call name="update#moqui.service.message.SystemMessage"
+                            in-map="[systemMessageId:systemMessageId, orderId:storeOut.orderId, orderRevision:storeOut.orderRevision]"/></if>
+                </else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="produce" noun="PurchaseOrderAck">
+        <description>Product a PO ack/revision message (X12 855) to send updates to a sales order associated with a
+            customer's purchase order.
+
+            NOTE: Current supports only single-part orders.
+        </description>
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>If not specified comes from OrderHeader.systemMessageRemoteId</description></parameter>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS855.groovy"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+            <set field="orderPart" from="orderPartList[0]"/>
+
+            <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
+                    list="orderItemList" order-by-list="['orderItemSeqId']"/>
+            <entity-find entity-name="mantle.order.OrderNote" list="orderNoteList">
+                <econdition field-name="orderId"/><order-by field-name="-noteDate"/></entity-find>
+            <entity-find entity-name="mantle.order.OrderPartParty" list="orderPartPartyList">
+                <econdition field-name="orderId"/><order-by field-name="roleTypeId"/></entity-find>
+
+            <!-- get previous SystemMessage records for order -->
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
+                <econdition field-name="orderId"/><econdition field-name="isOutgoing" value="Y"/>
+                <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
+                <order-by field-name="-orderRevision"/>
+            </entity-find>
+            <set field="lastOutRevision" from="outMessageList ? outMessageList[0].orderRevision : null"/>
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="inMessageList">
+                <econdition field-name="orderId"/><econdition field-name="isOutgoing" value="N"/>
+                <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
+                <order-by field-name="-orderRevision"/>
+            </entity-find>
+            <set field="lastInRevision" from="inMessageList ? inMessageList[0].orderRevision : null"/>
+
+
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="orderHeader.systemMessageRemoteId"/></if>
+
+            <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
+            <set field="bodyEdiMap" from="[:]"/>
+
+            <!-- BAK - PO Ack Header -->
+            <if condition="orderHeader.statusId in ['OrderCancelled', 'OrderRejected']">
+                <then><set field="tsPurpose" value="01"/></then>
+                <else-if condition="outMessageList"><set field="tsPurpose" value="05"/></else-if>
+                <else><set field="tsPurpose" value="00"/></else>
+            </if>
+            <if condition="orderHeader.statusId in ['OrderCancelled', 'OrderRejected']">
+                <then><set field="ackType" value="RD"/></then>
+                <else-if condition="(lastOutRevision &amp;&amp; orderHeader.orderRevision &gt; lastOutRevision) ||
+                        (!lastOutRevision &amp;&amp; lastInRevision &amp;&amp; orderHeader.orderRevision &gt; lastInRevision)">
+                    <set field="ackType" value="AC"/></else-if>
+                <else><set field="ackType" value="AD"/></else>
+            </if>
+            <set field="placedDate" from="ec.l10n.format(orderHeader.placedDate ?: orderHeader.entryDate, 'yyyyMMdd')"/>
+            <set field="entryDate" from="ec.l10n.format(orderHeader.entryDate, 'yyyyMMdd')"/>
+            <set field="bodyEdiMap.BAK" from="[[elements:['BAK', tsPurpose, ackType, orderPart.otherPartyOrderId,
+                    placedDate, orderHeader.externalRevision, '', '', orderId, entryDate]]]"/>
+
+
+            <!-- REF - VN, YB required; send IL, OP, ZI if we have them -->
+            <set field="bodyEdiMap.REF" from="[[elements:['REF', 'VN', orderId]],
+                    [elements:['REF', 'YB', (orderHeader.orderRevision ?: 1)]]]"/>
+            <if condition="orderHeader.externalId"><script>bodyEdiMap.REF.add([elements:['REF', 'IL', orderHeader.externalId]])</script></if>
+            <if condition="orderPart.otherPartyOrderId"><script>bodyEdiMap.REF.add([elements:['REF', 'OP', orderPart.otherPartyOrderId]])</script></if>
+            <if condition="orderHeader.externalRevision"><script>bodyEdiMap.REF.add([elements:['REF', 'ZI', orderHeader.externalRevision]])</script></if>
+
+            <!-- FOB Instructions -->
+            <!-- Shipment Method of Payment (BP Paid by Buyer, CC Collect, PB Customer Pick-up/Backhaul,
+                PC Prepaid but Charged to Customer, PE Prepaid and Summary Bill, PP Prepaid (by Seller), PU Pickup,
+                TP Third Party Pay -->
+            <!-- TODO: look for shipping charge adjustment, if found use 'PC' otherwise 'PP' -->
+            <set field="fobInstr" from="orderPart.shipmentMethodEnumId == 'ShMthPickUp' ? 'PB' : 'PP'"/>
+            <set field="bodyEdiMap.FOB" from="[[elements:['FOB', fobInstr]]]"/>
+
+            <!-- DTM date/time (002/017/067:estimatedDeliveryDate, 010/068:shipBeforeDate, 118:estimatedPickUpDate) -->
+            <set field="bodyEdiMap.DTM" from="[]"/>
+            <if condition="orderPart.estimatedDeliveryDate">
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '002', ec.l10n.format(orderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script>
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '017', ec.l10n.format(orderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script>
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '067', ec.l10n.format(orderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script>
+            </if>
+            <if condition="orderPart.shipBeforeDate">
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '010', ec.l10n.format(orderPart.shipBeforeDate, 'yyyyMMdd')]])</script>
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '068', ec.l10n.format(orderPart.shipBeforeDate, 'yyyyMMdd')]])</script>
+            </if>
+            <if condition="orderPart.estimatedPickUpDate">
+                <script>bodyEdiMap.DTM.add([elements:['DTM', '118', ec.l10n.format(orderPart.estimatedPickUpDate, 'yyyyMMdd')]])</script>
+            </if>
+
+            <!-- TD5 Transportation Type/Method Code (H Customer Pickup, M Motor (Common Carrier)), T ?, LT Less Than Trailer Load, U Private Parcel Service -->
+            <set field="shipmentMethodToTransportCode" from="['ShMthPickUp':'H', 'ShMthMotor':'M', 'ShMthGround':'U']"/>
+            <set field="transportMethodCode" from="shipmentMethodToTransportCode.get(orderPart.shipmentMethodEnumId) ?: 'H'"/>
+            <set field="bodyEdiMap.TD5" from="[[elements:['TD5', '', '', '', transportMethodCode]]]"/>
+
+            <!-- N9.MSG Notes -->
+            <if condition="orderNoteList">
+                <set field="N9" from="[elements:['N9', 'L1', 'GEN'], MSG:[]]"/>
+                <set field="bodyEdiMap.N9" from="[N9]"/>
+                <iterate list="orderNoteList" entry="orderNote">
+                    <if condition="orderNote.internalNote == 'Y'"><continue/></if>
+                    <!-- NOTE: get fancy and split on nearest space? -->
+                    <script><![CDATA[
+                        int maxLength = 264
+                        String remainingText = orderNote.noteText
+                        while (remainingText.length() > maxLength) {
+                            String curText = remainingText.substring(0, maxLength)
+                            remainingText = remainingText.substring(maxLength)
+                            N9.MSG.add([elements:['MSG', curText]])
+                        }
+                        N9.MSG.add([elements:['MSG', remainingText]])
+                    ]]></script>
+                </iterate>
+            </if>
+
+            <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
+                OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
+            <set field="bodyEdiMap.N1" from="[]"/>
+
+            <set field="roleTypeToN1Type" from="['SalesRepresentative':'BO', 'CustomerBillTo':'BT', 'Customer':'BY', 'Carrier':'CA',
+                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
+            <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
+                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
+            <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92']"/>
+
+            <!-- TODO: is ship or pick up? populate VendorShipFrom or VendorPickUpFrom with Vendor party and Facility address -->
+            <set field="orderPartPartyList" from="new ArrayList(orderPartPartyList)"/>
+            <set field="oppRoleTypeIdList" from="orderPartPartyList.roleTypeId"/>
+            <if condition="!oppRoleTypeIdList.contains('Customer')">
+                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'Customer'])</script></if>
+            <if condition="!oppRoleTypeIdList.contains('CustomerShipTo')">
+                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'CustomerShipTo'])</script></if>
+            <if condition="!oppRoleTypeIdList.contains('Vendor')">
+                <script>orderPartPartyList.add([partyId:orderPart.vendorPartyId, roleTypeId:'Vendor'])</script></if>
+            <iterate list="orderPartPartyList" entry="orderPartParty">
+                <set field="n1Type" from="roleTypeToN1Type.get(orderPartParty.roleTypeId)"/>
+                <if condition="!n1Type"><continue/></if>
+
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail">
+                    <field-map field-name="partyId" from="orderPartParty.partyId"/></entity-find-one>
+                <set field="n1Name" from="ec.resource.expand('PartyFullNameTemplate', '', partyDetail)"/>
+                <if condition="n1Name.length() > 60"><set field="n1Name" from="n1Name.substring(0, 60)"/></if>
+
+                <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
+                <!-- for ship to party use orderPart.postalContactMechId -->
+                <set field="postalContactMechId" from="orderPartParty.roleTypeId == 'CustomerShipTo' ? orderPart.postalContactMechId : null"/>
+                <service-call name="mantle.party.ContactServices.get#PartyContactInfo"
+                        out-map="contactInfo" out-map-add-to-existing="false"
+                        in-map="[partyId:orderPartParty.partyId, postalContactMechPurposeId:contactMechPurposeId,
+                            postalContactMechId:postalContactMechId]"/>
+
+                <!-- for ID try PtidDuns4 (9), PtidDuns (1), PtidCust (92); default to partyId (91) -->
+                <set field="n1Id" from="null"/><set field="n1IdType" from="null"/>
+                <iterate list="partyIdTypeToN1IdType" key="partyIdTypeEnumId" entry="curN1IdType">
+                    <entity-find entity-name="mantle.party.PartyIdentification" list="partyIdentList">
+                        <econdition field-name="partyId" from="orderPartParty.partyId"/>
+                        <econdition field-name="partyIdTypeEnumId" from="partyIdTypeEnumId"/>
+                    </entity-find>
+                    <if condition="partyIdentList">
+                        <set field="n1Id" from="partyIdentList?.getAt(0)?.idValue"/>
+                        <set field="n1IdType" from="curN1IdType"/>
+                        <break/>
+                    </if>
+                </iterate>
+                <if condition="!n1Id">
+                    <set field="n1Id" from="orderPartParty.partyId"/>
+                    <set field="n1IdType" value="91"/>
+                    <break/>
+                </if>
+
+                <set field="N1" from="[elements:['N1', n1Type, n1Name, n1IdType, n1Id]]"/>
+                <if condition="contactInfo">
+                    <set field="address1" from="contactInfo.postalAddress.address1"/>
+                    <if condition="address1.length() &gt; 55"><set field="address1" from="address1.substring(0, 55)"/></if>
+                    <set field="address2" from="contactInfo.postalAddress.address2"/>
+                    <if condition="address2?.length() &gt; 55"><set field="address2" from="address2.substring(0, 55)"/></if>
+                    <set field="city" from="contactInfo.postalAddress.city"/>
+                    <if condition="city.length() &gt; 30"><set field="city" from="city.substring(0, 30)"/></if>
+                    <set field="state" from="contactInfo.postalAddressStateGeo?.geoCodeAlpha2"/>
+                    <set field="postalCode" from="contactInfo.postalAddress.postalCode + (contactInfo.postalAddress.postalCodeExt ?: '')"/>
+                    <set field="country" from="contactInfo.postalAddressCountryGeo?.geoCodeAlpha3"/>
+
+                    <set field="N1.N3" from="[[elements:['N3', address1, address2]]]"/>
+                    <set field="N1.N4" from="[[elements:['N4', city, state, postalCode, country]]]"/>
+                </if>
+                <script>bodyEdiMap.N1.add(N1)</script>
+            </iterate>
+
+            <!-- TODO: SAC for non-Product items with no parent (order level adjustment) -->
+
+            <!-- PO1: PID, ACK, N9.MSG -->
+            <set field="bodyEdiMap.PO1" from="[]"/>
+            <set field="lineItemCount" from="0"/>
+            <iterate list="orderItemList" entry="orderItem">
+                <if condition="!(orderItem.itemTypeEnumId in ['ItemProduct', 'ItemInventory', 'ItemAsset'])"><continue/></if>
+
+                <set field="itemId" from="orderItem.externalItemSeqId ?: orderItem.orderItemSeqId"/>
+                <!-- NOTE: CA is Case; do some sort of mapping from OrderItem.quantityUomId (which comes from
+                    Product.amountUomId)? not really needed, unit party of Product definition -->
+                <set field="unitBasisCode" value="CA"/>
+                <set field="priceBasis" value="PE"/><!-- PE is Price per Each; support others based on unit? -->
+                <!-- NOTE: elements 06, 07 empty for now; our ID in 08/09, their ID in 10/11 -->
+                <!-- PO106 (for PO107 - optional) Product/Service ID Qualifier (UA U.P.C./EAN Case Code (2-5-5),
+                    UK U.P.C./EAN Shipping Container Code (1-2-5-5-1), UP U.P.C. Consumer Package Code (1-5-5-1)) -->
+                <!-- TODO: elements 12/13 use 'CH' for Country of Origin Code, get country from Product.originGeoId -->
+                <set field="PO1" from="[elements:['PO1', itemId, orderItem.quantity, unitBasisCode,
+                        orderItem.unitAmount, priceBasis, '', '', 'VP', orderItem.productId,
+                        'PI', orderItem.otherPartyProductId, '', '']]"/>
+                <if condition="orderItem.itemDescription">
+                    <set field="itemDescription" from="orderItem.itemDescription"/>
+                    <if condition="itemDescription.length() &gt; 80"><set field="itemDescription" from="itemDescription.substring(0, 80)"/></if>
+                    <set field="PO1.PID" from="[[elements:['PID', 'F', '', '', '', itemDescription]]]"/>
+                </if>
+
+                <!-- TODO: SAC for non-Product items with this item as parent (item level adjustment) -->
+                <!-- TODO: add ACK, N9.MSG, if/when needed... -->
+                <log message="======== PO1: ${PO1}"/>
+                <script>bodyEdiMap.PO1.add(PO1)</script>
+                <set field="lineItemCount" from="lineItemCount + 1"/>
+            </iterate>
+
+            <!-- CTT -->
+            <!-- FUTURE: weight in 03/04, volume in 05/06 -->
+            <!-- NOTE: what is hash total based on? leaving empty for now -->
+            <set field="hashTotal" value=""/>
+            <set field="bodyEdiMap.CTT" from="[[elements:['CTT', lineItemCount, hashTotal, '', '', '', '']]]"/>
+
+            <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
+            <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
+                    in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
+                        envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
+                        docType:'PR', docSubType:'855', orderId:orderId, orderRevision:orderHeader.orderRevision]"/>
+        </actions>
+    </service>
+</services>
