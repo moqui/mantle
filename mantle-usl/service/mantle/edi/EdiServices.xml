@@ -278,9 +278,15 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="origMessage"/>
             <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="origMessage.systemMessageRemoteId"/></if>
 
-            <if condition="!(origMessage.statusId in ['SmsgConsumed', 'SmsgRejected', 'SmsgError'])">
-                <return error="true" message="Cannot send functional ack (X12 997) for SystemMessage [${systemMessageId}], in status [${origMessage.statusId}] and must be in Consumed, Rejected, or Error"/>
+            <if condition="origMessage.ackMessageId">
+                <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="ackMessage">
+                    <field-map field-name="systemMessageId" from="origMessage.ackMessageId"/></entity-find-one>
+                <if condition="ackMessage.statusId != 'SmsgCancelled'">
+                    <return error="true" message="Functional ack (X12 997) already sent [${origMessage.ackMessageId}] for SystemMessage [${systemMessageId}]"/></if>
             </if>
+            <if condition="!(origMessage.statusId in ['SmsgConsumed', 'SmsgRejected', 'SmsgError'])">
+                <return error="true" message="Cannot send functional ack (X12 997) for SystemMessage [${systemMessageId}], in status [${origMessage.statusId}] and must be in Consumed, Rejected, or Error"/></if>
+
 
             <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
             <set field="bodyEdiMap" from="[:]"/>
@@ -290,7 +296,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- ST.AK2 -->
             <set field="AK2" from="[elements:['AK2', origMessage.docSubType, origMessage.docSubControl]]"/>
-            <set field="bodyEdiMap.AK1" from="[AK2]"/>
+            <set field="bodyEdiMap.AK2" from="[AK2]"/>
 
             <!-- NOTE: no AK2.AK3 (segment note), AK3.AK4 (element note): we aren't validating incoming messages to that level -->
 
@@ -333,6 +339,10 @@ along with this software (see the LICENSE.md file). If not, see
                         envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
                         docType:'FA', docSubType:'997']"/>
             <set field="systemMessageId" from="produceEdiOut.systemMessageId"/>
+
+            <!-- set ackMessageId on the original SystemMessage -->
+            <set field="origMessage.ackMessageId" from="systemMessageId"/>
+            <entity-update value-field="origMessage"/>
         </actions>
     </service>
 </services>
