@@ -13,6 +13,8 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
+    <!-- ========== General EDI Services, delegate to specific services based on message type ========== -->
+
     <service verb="receive" noun="EdiMessage">
         <implements service="org.moqui.impl.SystemMessageServices.receive#SystemMessage"/>
         <in-parameters>
@@ -133,11 +135,49 @@ along with this software (see the LICENSE.md file). If not, see
                 </then>
                 <!-- FUTURE: identify and handle EDIFACT, etc -->
                 <else>
-                    <return error="true" message="Could not identify EDI type, message starts with [${messageText.substring(0,3)}]"/>
+                    <return error="true" message="EDI message type not supported, message starts with [${messageText.substring(0,3)}]"/>
                 </else>
             </if>
         </actions>
     </service>
+
+    <service verb="produce" noun="FunctionalAck">
+        <description>Produce and queue a functional ack message</description>
+        <implements service="org.moqui.impl.SystemMessageServices.produce#AckSystemMessage"/>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="origMessage"/>
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="origMessage.systemMessageRemoteId"/></if>
+
+            <if condition="origMessage.ackMessageId">
+                <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="ackMessage">
+                    <field-map field-name="systemMessageId" from="origMessage.ackMessageId"/></entity-find-one>
+                <if condition="ackMessage.statusId != 'SmsgCancelled'">
+                    <return error="true" message="Functional ack (X12 997) already sent [${origMessage.ackMessageId}] for SystemMessage [${systemMessageId}]"/></if>
+            </if>
+            <if condition="!(origMessage.statusId in ['SmsgConsumed', 'SmsgRejected', 'SmsgError'])">
+                <return error="true" message="Cannot send functional ack (X12 997) for SystemMessage [${systemMessageId}], in status [${origMessage.statusId}] and must be in Consumed, Rejected, or Error"/></if>
+
+            <set field="messageText" from="origMessage.messageText"/>
+
+            <if condition="messageText.startsWith('ISA')">
+                <then>
+                    <service-call name="mantle.edi.EdiServices.produce#X12FunctionalAck" out-map="produceEdiOut"
+                            in-map="[systemMessageId:systemMessageId, systemMessageRemoteId:systemMessageRemoteId]"/>
+                    <set field="systemMessageId" from="produceEdiOut.systemMessageId"/>
+                </then>
+                <!-- FUTURE: identify and handle EDIFACT, etc -->
+                <else>
+                    <return error="true" message="EDI message type not supported, message starts with [${messageText.substring(0,3)}]"/>
+                </else>
+            </if>
+
+            <!-- set ackMessageId on the original SystemMessage -->
+            <set field="origMessage.ackMessageId" from="systemMessageId"/>
+            <entity-update value-field="origMessage"/>
+        </actions>
+    </service>
+
+    <!-- ========== X12 Message Wrapper Produce and Queue Service ========== -->
 
     <service verb="produce" noun="EdiMessageX12">
         <in-parameters>
@@ -266,27 +306,17 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="produce" noun="X12FunctionalAck">
-        <description>Product a functional ack message (X12 997).</description>
+        <description>Produce and queue a functional ack message (X12 997).</description>
+        <implements service="org.moqui.impl.SystemMessageServices.produce#AckSystemMessage"/>
         <in-parameters>
-            <parameter name="systemMessageId" required="true"/>
-            <parameter name="systemMessageRemoteId"><description>If not specified comes from SystemMessage.systemMessageRemoteId</description></parameter>
             <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
             <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS997.groovy"/>
         </in-parameters>
-        <out-parameters><parameter name="systemMessageId"/></out-parameters>
         <actions>
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="origMessage"/>
             <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="origMessage.systemMessageRemoteId"/></if>
 
-            <if condition="origMessage.ackMessageId">
-                <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="ackMessage">
-                    <field-map field-name="systemMessageId" from="origMessage.ackMessageId"/></entity-find-one>
-                <if condition="ackMessage.statusId != 'SmsgCancelled'">
-                    <return error="true" message="Functional ack (X12 997) already sent [${origMessage.ackMessageId}] for SystemMessage [${systemMessageId}]"/></if>
-            </if>
-            <if condition="!(origMessage.statusId in ['SmsgConsumed', 'SmsgRejected', 'SmsgError'])">
-                <return error="true" message="Cannot send functional ack (X12 997) for SystemMessage [${systemMessageId}], in status [${origMessage.statusId}] and must be in Consumed, Rejected, or Error"/></if>
-
+            <!-- NOTE: no validation here, should be called through produce#FunctionalAck which does status, etc validations -->
 
             <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
             <set field="bodyEdiMap" from="[:]"/>
@@ -340,9 +370,7 @@ along with this software (see the LICENSE.md file). If not, see
                         docType:'FA', docSubType:'997']"/>
             <set field="systemMessageId" from="produceEdiOut.systemMessageId"/>
 
-            <!-- set ackMessageId on the original SystemMessage -->
-            <set field="origMessage.ackMessageId" from="systemMessageId"/>
-            <entity-update value-field="origMessage"/>
+            <!-- NOTE: don't need to set ackMessageId on the original SystemMessage, done by produce#FuncationalAck service -->
         </actions>
     </service>
 </services>
