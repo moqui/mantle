@@ -197,6 +197,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ========== X12 997 Functional Acknowledgement Services ========== -->
+
     <service verb="consume" noun="X12FunctionalAck">
         <description>Consume a Functional Acknowledgement message (X12 997)</description>
         <in-parameters>
@@ -254,13 +256,83 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <!-- AK901 should be consistent with AK501, so we'll just look at AK501 in case there are multiple AK2/AK5 -->
 
-                <!-- A Accepted, E Accepted But Errors Were Noted, R Rejected -->
+                <!-- AK501: A Accepted, E Accepted But Errors Were Noted, R Rejected -->
                 <set field="ackCode" from="AK5.elements[1]"/>
 
                 <set field="origMessage.statusId" from="ackCode == 'R' ? 'SmsgRejected' : 'SmsgConfirmed'"/>
                 <set field="origMessage.ackMessageId" from="systemMessageId"/>
                 <entity-update value-field="origMessage"/>
             </iterate>
+        </actions>
+    </service>
+    <service verb="produce" noun="X12FunctionalAck">
+        <description>Product a functional ack message (X12 997).</description>
+        <in-parameters>
+            <parameter name="systemMessageId" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>If not specified comes from SystemMessage.systemMessageRemoteId</description></parameter>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS997.groovy"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="origMessage"/>
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="origMessage.systemMessageRemoteId"/></if>
+
+            <if condition="!(origMessage.statusId in ['SmsgConsumed', 'SmsgRejected', 'SmsgError'])">
+                <return error="true" message="Cannot send functional ack (X12 997) for SystemMessage [${systemMessageId}], in status [${origMessage.statusId}] and must be in Consumed, Rejected, or Error"/>
+            </if>
+
+            <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
+            <set field="bodyEdiMap" from="[:]"/>
+
+            <!-- ST.AK1 -->
+            <set field="bodyEdiMap.AK1" from="[[elements:['AK1', origMessage.docType, origMessage.docControl]]]"/>
+
+            <!-- ST.AK2 -->
+            <set field="AK2" from="[elements:['AK2', origMessage.docSubType, origMessage.docSubControl]]"/>
+            <set field="bodyEdiMap.AK1" from="[AK2]"/>
+
+            <!-- NOTE: no AK2.AK3 (segment note), AK3.AK4 (element note): we aren't validating incoming messages to that level -->
+
+            <!-- AK2.AK5 -->
+            <!-- AK501: A Accepted, E Accepted But Errors Were Noted, R Rejected -->
+            <set field="ackCode" from="origMessage.statusId == 'SmsgConsumed' ? 'A' : 'R' "/>
+            <!-- TODO AK502-06:
+                1 Transaction Set Not Supported
+                2 Transaction Set Trailer Missing,
+                3 Transaction Set Control Number in Header and Trailer Do Not Match
+                4 Number of Included Segments Does Not Match Actual Count
+                5 One or More Segments in Error
+                6 Missing or Invalid Transaction Set Identifier
+                7 Missing or Invalid Transaction Set Control Number
+                10 Requested Service (Authentication or Encrypted) Not Available
+                17 Security Not Supported
+                23 Transaction Set Control Number Not Unique within the Functional Group
+            -->
+            <set field="txSetErrorCode" value=""/>
+            <set field="AK2.AK5" from="[[elements:['AK5', ackCode, txSetErrorCode, '', '', '', '']]]"/>
+
+            <!-- ST.AK9 -->
+            <!-- TODO AK905-09:
+                1 Functional Group Not Supported
+                2 Functional Group Version Not Supported
+                3 Functional Group Trailer Missing
+                4 Group Control Number in the Functional Group Header and Trailer Do Not Agree
+                5 Number of Included Transaction Sets Does Not Match Actual Count
+                6 Group Control Number Violates Syntax
+                12 Requested Service (Authentication or Encryption) Not Available
+                16 Security Not Supported
+            -->
+            <set field="groupErrorCode" value=""/>
+            <set field="numAccepted" from="ackCode == 'R' ? '0' : '1'"/>
+            <set field="bodyEdiMap.AK9" from="[[elements:['AK9', ackCode, '1', '1', numAccepted, groupErrorCode, '', '', '', '']]]"/>
+
+            <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
+            <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="produceEdiOut"
+                    in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
+                        envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
+                        docType:'FA', docSubType:'997']"/>
+            <set field="systemMessageId" from="produceEdiOut.systemMessageId"/>
         </actions>
     </service>
 </services>
