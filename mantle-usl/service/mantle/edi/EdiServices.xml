@@ -46,7 +46,9 @@ along with this software (see the LICENSE.md file). If not, see
                             <set field="messageDate" from="ec.l10n.parseTimestamp(dateString, 'yyyyMMdd HHmmssSS')"/>
                         </if>
                         <set field="docType" from="GS.elements[1]"/><!-- GS01 -->
+                        <set field="docControl" from="GS.elements[6]"/>
                         <set field="docSubType" from="ST.elements[1]"/><!-- ST01 -->
+                        <set field="docSubControl" from="ST.elements[2]"/>
                         <set field="docVersion" from="GS.elements[8]"/><!-- GS08 -->
 
                         <!-- find corresponding SystemMessageRemote -->
@@ -71,7 +73,8 @@ along with this software (see the LICENSE.md file). If not, see
                                 <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
                                         in-map="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
                                             systemMessageRemoteId:systemMessageRemoteId,
-                                            senderId:senderId, receiverId:receiverId, messageId:messageId, messageDate:messageDate,
+                                            senderId:senderId, receiverId:receiverId, messageId:messageId,
+                                            docControl:docControl, docSubControl:docSubControl, messageDate:messageDate,
                                             docType:docType, docSubType:docSubType, docVersion:docVersion,
                                             statusId:'SmsgError', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
                                 <set field="errorText" value="Found duplicate EDI message for sender ${senderId}, receiver ${receiverId}, message ${messageId}; duplicate SystemMessage ID [${existingMessage.systemMessageId}]"/>
@@ -86,7 +89,8 @@ along with this software (see the LICENSE.md file). If not, see
                         <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
                                 in-map="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
                                     systemMessageRemoteId:systemMessageRemoteId,
-                                    senderId:senderId, receiverId:receiverId, messageId:messageId, messageDate:messageDate,
+                                    senderId:senderId, receiverId:receiverId, messageId:messageId,
+                                    docControl:docControl, docSubControl:docSubControl, messageDate:messageDate,
                                     docType:docType, docSubType:docSubType, docVersion:docVersion,
                                     statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
                         <script>systemMessageIdList.add(createOut.systemMessageId)</script>
@@ -113,37 +117,17 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="messageText.startsWith('ISA')">
                 <then>
-                    <!-- no need to do this here, done in the receive service
-                    <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(x12EnvelopeLocation)"/>
-                    <set field="ediMap" from="ediHandler.parseText(messageText)"/>
-                    <set field="ISA" from="ediMap.ISA[0]"/>
-                    <set field="GS" from="ISA.GS[0]"/>
-                    <set field="ST" from="GS.ST[0]"/>
-                    <set field="docType" from="GS.elements[1]"/>
-                    <set field="docSubType" from="ST.elements[1]"/>
-                    <set field="docVersion" from="GS.elements[8]"/>
-                    <if condition="!systemMessage.messageId">
-                        <set field="systemMessage.senderId" from="ISA.elements[6]"/>
-                        <set field="systemMessage.receiverId" from="ISA.elements[8]"/>
-                        <set field="systemMessage.messageId" from="ISA.elements[13]"/>
-                        <if condition="ISA.elements[9] &amp;&amp; ISA.elements[10]">
-                            <set field="systemMessage.messageDate"
-                                    from="ec.l10.parseTimestamp(ISA.elements[9] + ISA.elements[10], 'yyyyMMddHHmm')"/>
-                        </if>
-                        <set field="systemMessage.docType" from="docType"/>
-                        <set field="systemMessage.docSubType" from="docSubType"/>
-                        <set field="systemMessage.docVersion" from="docVersion"/>
-                        <entity-update value-field="systemMessage"/>
-                    </if>
-                    -->
-
                     <if condition="systemMessage.docType == 'PO' &amp;&amp; systemMessage.docSubType == '850'">
                         <then>
                             <service-call name="mantle.edi.order.X12OrderServices.consume#PurchaseOrder"
                                     in-map="[systemMessageId:systemMessageId, messageText:messageText]"/>
                         </then>
+                        <else-if condition="systemMessage.docType == 'FA' &amp;&amp; systemMessage.docSubType == '997'">
+                            <service-call name="mantle.edi.EdiServices.consume#X12FunctionalAck"
+                                    in-map="[systemMessageId:systemMessageId, messageText:messageText]"/>
+                        </else-if>
                         <else>
-                            <message error="true">X12 Functional ID Code at GS01 [${funcIdCode}] and Transaction Set ID Code as ST01 [${transSetIdCode}] not supported.</message>
+                            <message error="true">X12 Functional ID Code at GS01 [${systemMessage.docType}] and Transaction Set ID Code as ST01 [${systemMessage.docSubType}] not supported.</message>
                         </else>
                     </if>
                 </then>
@@ -208,6 +192,39 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="messageId" from="controlNumber"/>
             <service-call name="org.moqui.impl.SystemMessageServices.queue#SystemMessage" in-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="consume" noun="X12FunctionalAck">
+        <description>Consume a Functional Acknowledgement message (X12 997)</description>
+        <in-parameters>
+            <parameter name="messageText" required="true"/>
+            <parameter name="systemMessageId"/>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS997.groovy"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
+            <set field="ediMap" from="ediHandler.parseText(messageText)"/>
+
+            <!-- <log message="======== PO EDI Map:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))}"/> -->
+            <!-- <log message="======== PO EDI Generated:\n${ediHandler.generateText(ediMap)}"/> -->
+
+            <set field="ISA" from="ediMap.ISA[0]"/>
+            <set field="GS" from="ISA.GS[0]"/>
+            <set field="ST" from="GS.ST[0]"/>
+            <set field="AK1" from="ST.AK1[0]"/>
+
+            <set field="origDocType" from="AK1.elements[1]"/><!-- original functional ID code -->
+            <set field="origDocControl" from="AK1.elements[2]"/><!-- original group control number -->
+
+            <iterate list="ST.AK2" entry="AK2">
+                <set field="origDocSubType" from="AK2.elements[1]"/><!-- original tx set ID code -->
+                <set field="origDocSubControl" from="AK2.elements[2]"/><!-- original tx set control number -->
+
+
+            </iterate>
         </actions>
     </service>
 </services>
