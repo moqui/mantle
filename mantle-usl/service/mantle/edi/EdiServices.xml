@@ -217,15 +217,49 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="GS" from="ISA.GS[0]"/>
             <set field="ST" from="GS.ST[0]"/>
             <set field="AK1" from="ST.AK1[0]"/>
+            <set field="AK9" from="ST.AK9[0]"/>
 
             <set field="origDocType" from="AK1.elements[1]"/><!-- original functional ID code -->
             <set field="origDocControl" from="AK1.elements[2]"/><!-- original group control number -->
 
             <iterate list="ST.AK2" entry="AK2">
+                <set field="AK5" from="AK2.AK5[0]"/>
+
                 <set field="origDocSubType" from="AK2.elements[1]"/><!-- original tx set ID code -->
                 <set field="origDocSubControl" from="AK2.elements[2]"/><!-- original tx set control number -->
 
+                <!-- find the original message this is an ack of -->
+                <entity-find entity-name="moqui.service.message.SystemMessage" list="existingMessageList">
+                    <econdition field-name="senderId" from="systemMessage.receiverId"/>
+                    <econdition field-name="receiverId" from="systemMessage.senderId"/>
+                    <!-- all of these needed, even wanted? -->
+                    <econdition field-name="docSubType" from="origDocSubType"/>
+                    <econdition field-name="docControl" from="origDocControl"/>
+                    <econdition field-name="docSubControl" from="origDocSubControl"/>
+                    <order-by field-name="-messageDate"/>
+                </entity-find>
+                <if condition="!existingMessageList">
+                    <message error="true">Could not find original message for functional ack; tried senderId=${systemMessage.receiverId}, receiverId=${systemMessage.senderId}, docSubType=${origDocSubType}, docControl=${origDocControl}, docSubControl=${origDocSubControl}</message>
+                    <continue/>
+                </if>
+                <set field="origMessage" from="existingMessageList[0]"/>
 
+                <!-- NOTE: we could go through all of these and add semi-structured error messages in SystemMessageError,
+                    but for now all we care about is the status codes, can look up detail in the original message
+                <iterate list="AK2.AK3" entry="AK3">
+                    <iterate list="AK3.AK4" entry="AK4">
+                    </iterate>
+                </iterate>
+                -->
+
+                <!-- AK901 should be consistent with AK501, so we'll just look at AK501 in case there are multiple AK2/AK5 -->
+
+                <!-- A Accepted, E Accepted But Errors Were Noted, R Rejected -->
+                <set field="ackCode" from="AK5.elements[1]"/>
+
+                <set field="origMessage.statusId" from="ackCode == 'R' ? 'SmsgRejected' : 'SmsgConfirmed'"/>
+                <set field="origMessage.ackMessageId" from="systemMessageId"/>
+                <entity-update value-field="origMessage"/>
             </iterate>
         </actions>
     </service>
