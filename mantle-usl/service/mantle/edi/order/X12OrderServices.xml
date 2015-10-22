@@ -16,10 +16,9 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- EDI X12 V4010 Order Message Services -->
 
     <service verb="consume" noun="PurchaseOrder">
+        <implements service="org.moqui.impl.SystemMessageServices.consume#SystemMessage"/>
         <description>Consume a PO message (X12 850) from a Customer, ie create a Sales Order for a Customer's Purchase Order (internal org is the vendor)</description>
         <in-parameters>
-            <parameter name="messageText" required="true"/>
-            <parameter name="systemMessageId"/>
             <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
             <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS850.groovy"/>
         </in-parameters>
@@ -30,11 +29,30 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="items" from="[]"/>
 
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="messageText" from="systemMessage.messageText.trim()"/>
+
             <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
             <set field="ediMap" from="ediHandler.parseText(messageText)"/>
 
             <!-- <log message="======== PO EDI Map:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))}"/> -->
             <!-- <log message="======== PO EDI Generated:\n${ediHandler.generateText(ediMap)}"/> -->
+
+            <!-- check for segment errors, if so send reject ack -->
+            <set field="segmentErrors" from="ediHandler.getSegmentErrors()"/>
+            <if condition="segmentErrors">
+                <service-call name="mantle.edi.EdiServices.produce#FunctionalAck" out-map="faOut"
+                        in-map="[systemMessageId:systemMessageId, segmentErrors:segmentErrors]"/>
+                <!-- update SystemMessage.statusId and create a SystemMessageError record -->
+                <set field="errorText" value="Error parsing X12 PO 850 EDI message for sender ${systemMessage.senderId}, receiver ${systemMessage.receiverId}, message ${systemMessage.messageId}], sent reject ack message [${faOut.systemMessageId}]; see that message for details"/>
+                <service-call name="update#moqui.service.message.SystemMessage"
+                        in-map="[systemMessageId:systemMessageId, statusId:'SmsgError', lastAttemptDate:ec.user.nowTimestamp,
+                            failCount:((systemMessage.failCount ?: 0) + 1)]"/>
+                <service-call name="create#moqui.service.message.SystemMessageError"
+                        in-map="[systemMessageId:systemMessageId, errorDate:ec.user.nowTimestamp, attemptedStatusId:'SmsgConsumed',
+                            errorText:errorText]"/>
+                <set field="noStatusUpdate" from="true"/>
+                <return/>
+            </if>
 
             <set field="ISA" from="ediMap.ISA[0]"/>
             <set field="GS" from="ISA.GS[0]"/>
