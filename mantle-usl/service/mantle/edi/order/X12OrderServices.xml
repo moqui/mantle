@@ -226,6 +226,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+            <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part, cannot produce Purchase Order Ack message"/></if>
             <set field="orderPart" from="orderPartList[0]"/>
 
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
@@ -334,9 +335,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="bodyEdiMap.N1" from="[]"/>
 
             <set field="roleTypeToN1Type" from="['SalesRepresentative':'BO', 'CustomerBillTo':'BT', 'Customer':'BY', 'Carrier':'CA',
-                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
+                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorBillFrom':'RE', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
             <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
-                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
+                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'RE':'PostalPayment', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
             <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92']"/>
 
             <!-- TODO: is ship or pick up? populate VendorShipFrom or VendorPickUpFrom with Vendor party and Facility address -->
@@ -402,7 +403,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>bodyEdiMap.N1.add(N1)</script>
             </iterate>
 
-            <!-- TODO: SAC for non-Product items with no parent (order level adjustment) -->
+            <!-- FUTURE: SAC for non-Product items with no parent (order level adjustment) -->
 
             <!-- PO1: PID, ACK, N9.MSG -->
             <set field="bodyEdiMap.PO1" from="[]"/>
@@ -428,8 +429,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="PO1.PID" from="[[elements:['PID', 'F', '', '', '', itemDescription]]]"/>
                 </if>
 
-                <!-- TODO: SAC for non-Product items with this item as parent (item level adjustment) -->
-                <!-- TODO: add ACK, N9.MSG, if/when needed... -->
+                <!-- FUTURE: SAC for non-Product items with this item as parent (item level adjustment) -->
+                <!-- FUTURE: add ACK, N9.MSG, if/when needed... -->
                 <script>bodyEdiMap.PO1.add(PO1)</script>
                 <set field="lineItemCount" from="lineItemCount + 1"/>
             </iterate>
