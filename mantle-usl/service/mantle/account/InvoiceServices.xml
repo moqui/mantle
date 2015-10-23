@@ -17,6 +17,8 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <out-parameters>
             <parameter name="invoice" type="EntityValue"/>
+            <parameter name="isFromPartyOrgInternal" type="Boolean"><description>If true invoice is receivable</description></parameter>
+            <parameter name="isToPartyOrgInternal" type="Boolean"><description>If true invoice is payable</description></parameter>
 
             <parameter name="invoiceTotal" type="BigDecimal"/>
             <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
@@ -35,6 +37,16 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+
+            <entity-find entity-name="mantle.party.PartyRole" list="fromOrgInternalList">
+                <econdition field-name="partyId" from="invoice.fromPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <set field="isFromPartyOrgInternal" from="fromOrgInternalList as boolean"/>
+            <entity-find entity-name="mantle.party.PartyRole" list="toOrgInternalList">
+                <econdition field-name="partyId" from="invoice.toPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <set field="isToPartyOrgInternal" from="toOrgInternalList as boolean"/>
+
             <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="context"/>
 
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
@@ -296,7 +308,7 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:initialStatusId,
                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
                         invoiceDate:invoiceDate, currencyUomId:orderHeader.currencyUomId,
-                        description:description]"/>
+                        description:description, systemMessageRemoteId:orderHeader.systemMessageRemoteId]"/>
 
             <if condition="partialOrderItemList">
                 <set field="orderItemList" from="partialOrderItemList"/>
@@ -400,7 +412,7 @@ along with this software (see the LICENSE.md file). If not, see
                                     in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:initialStatusId,
                                         fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
                                         invoiceDate:invoiceDate, currencyUomId:orderHeader.currencyUomId,
-                                        description:description]"/>
+                                        description:description, systemMessageRemoteId:orderHeader.systemMessageRemoteId]"/>
                             <set field="invoiceId" from="invOut.invoiceId"/>
                             <script>invoiceIdByOrderPartIdMap.put(orderItem.orderId + ':' + orderItem.orderPartSeqId, invoiceId)</script>
                         </if>

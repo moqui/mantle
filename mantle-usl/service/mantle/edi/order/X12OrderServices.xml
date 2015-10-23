@@ -17,9 +17,8 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="consume" noun="PurchaseOrder">
         <description>Consume a PO message (X12 850) from a Customer, ie create a Sales Order for a Customer's Purchase Order (internal org is the vendor)</description>
+        <implements service="org.moqui.impl.SystemMessageServices.consume#SystemMessage"/>
         <in-parameters>
-            <parameter name="messageText" required="true"/>
-            <parameter name="systemMessageId"/>
             <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
             <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS850.groovy"/>
         </in-parameters>
@@ -30,11 +29,30 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="items" from="[]"/>
 
             <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="messageText" from="systemMessage.messageText.trim()"/>
+
             <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
             <set field="ediMap" from="ediHandler.parseText(messageText)"/>
 
-            <log message="======== PO EDI Map:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))}"/>
-            <log message="======== PO EDI Generated:\n${ediHandler.generateText(ediMap)}"/>
+            <!-- <log message="======== PO EDI Map:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))}"/> -->
+            <!-- <log message="======== PO EDI Generated:\n${ediHandler.generateText(ediMap)}"/> -->
+
+            <!-- check for segment errors, if so send reject ack -->
+            <set field="segmentErrors" from="ediHandler.getSegmentErrors()"/>
+            <if condition="segmentErrors">
+                <service-call name="mantle.edi.EdiServices.produce#FunctionalAck" out-map="faOut"
+                        in-map="[systemMessageId:systemMessageId, segmentErrors:segmentErrors]"/>
+                <!-- update SystemMessage.statusId and create a SystemMessageError record -->
+                <set field="errorText" value="Error parsing X12 PO 850 EDI message for sender ${systemMessage.senderId}, receiver ${systemMessage.receiverId}, message ${systemMessage.messageId}], sent reject ack message [${faOut.systemMessageId}]; see that message for details"/>
+                <service-call name="update#moqui.service.message.SystemMessage"
+                        in-map="[systemMessageId:systemMessageId, statusId:'SmsgError', lastAttemptDate:ec.user.nowTimestamp,
+                            failCount:((systemMessage.failCount ?: 0) + 1)]"/>
+                <service-call name="create#moqui.service.message.SystemMessageError"
+                        in-map="[systemMessageId:systemMessageId, errorDate:ec.user.nowTimestamp, attemptedStatusId:'SmsgConsumed',
+                            errorText:errorText]"/>
+                <set field="noStatusUpdate" from="true"/>
+                <return/>
+            </if>
 
             <set field="ISA" from="ediMap.ISA[0]"/>
             <set field="GS" from="ISA.GS[0]"/>
@@ -208,6 +226,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+            <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part, cannot produce Purchase Order Ack message"/></if>
             <set field="orderPart" from="orderPartList[0]"/>
 
             <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
@@ -316,9 +335,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="bodyEdiMap.N1" from="[]"/>
 
             <set field="roleTypeToN1Type" from="['SalesRepresentative':'BO', 'CustomerBillTo':'BT', 'Customer':'BY', 'Carrier':'CA',
-                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
+                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorBillFrom':'RE', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
             <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
-                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
+                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'RE':'PostalPayment', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
             <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92']"/>
 
             <!-- TODO: is ship or pick up? populate VendorShipFrom or VendorPickUpFrom with Vendor party and Facility address -->
@@ -384,7 +403,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>bodyEdiMap.N1.add(N1)</script>
             </iterate>
 
-            <!-- TODO: SAC for non-Product items with no parent (order level adjustment) -->
+            <!-- FUTURE: SAC for non-Product items with no parent (order level adjustment) -->
 
             <!-- PO1: PID, ACK, N9.MSG -->
             <set field="bodyEdiMap.PO1" from="[]"/>
@@ -410,9 +429,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="PO1.PID" from="[[elements:['PID', 'F', '', '', '', itemDescription]]]"/>
                 </if>
 
-                <!-- TODO: SAC for non-Product items with this item as parent (item level adjustment) -->
-                <!-- TODO: add ACK, N9.MSG, if/when needed... -->
-                <log message="======== PO1: ${PO1}"/>
+                <!-- FUTURE: SAC for non-Product items with this item as parent (item level adjustment) -->
+                <!-- FUTURE: add ACK, N9.MSG, if/when needed... -->
                 <script>bodyEdiMap.PO1.add(PO1)</script>
                 <set field="lineItemCount" from="lineItemCount + 1"/>
             </iterate>
