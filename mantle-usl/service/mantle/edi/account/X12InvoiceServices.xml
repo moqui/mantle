@@ -33,6 +33,8 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find entity-name="mantle.account.invoice.InvoiceItem" list="invoiceItemList">
                 <econdition field-name="invoiceId"/><order-by field-name="invoiceItemSeqId"/></entity-find>
 
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="totalOut"/>
+
             <!-- FUTURE: could put these in NTE segments (right after BIG element)
             <entity-find entity-name="mantle.account.invoice.InvoiceContent" list="invoiceContentList">
                 <econdition field-name="invoiceId"/><econdition field-name="contentTypeEnumId" value="IctNote"/>
@@ -70,8 +72,8 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="tsPurpose" from="outMessageList ? '05' : '00'"/>
             <set field="invoiceDate" from="ec.l10n.format(invoice.invoiceDate, 'yyyyMMdd')"/>
             <set field="poDate" from="ec.l10n.format(orderHeader.entryDate, 'yyyyMMdd')"/>
-            <set field="bodyEdiMap.BIG" from="[[elements:['BIG', invoiceDate, invoiceId, poDate, orderPart?.otherPartyOrderId,
-                    '', '', '', tsPurpose]]]"/>
+            <set field="bodyEdiMap.BIG" from="[[elements:['BIG', invoiceDate, invoiceId, poDate,
+                    orderPart?.otherPartyOrderId, '', '', '', tsPurpose]]]"/>
 
             <!-- REF - IL Internal Order Number VN Vendor Order Number -->
             <if condition="orderId">
@@ -90,10 +92,10 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92']"/>
 
             <set field="partyInfoList" from="[]"/>
-            <script>partyInfoList.add([partyId:invoice.toPartyId, roleTypeId:'Customer'])</script>
             <script>partyInfoList.add([partyId:invoice.toPartyId, roleTypeId:'CustomerBillTo'])</script>
-            <script>partyInfoList.add([partyId:invoice.fromPartyId, roleTypeId:'Vendor'])</script>
+            <script>partyInfoList.add([partyId:invoice.toPartyId, roleTypeId:'Customer'])</script>
             <script>partyInfoList.add([partyId:invoice.fromPartyId, roleTypeId:'VendorBillFrom'])</script>
+            <script>partyInfoList.add([partyId:invoice.fromPartyId, roleTypeId:'Vendor'])</script>
 
             <iterate list="partyInfoList" entry="partyInfo">
                 <!-- TODO: refactor (extract), this is the same as code in X12OrderServices.produce#PurchaseOrderAck -->
@@ -150,13 +152,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <script>bodyEdiMap.N1.add(N1)</script>
             </iterate>
 
-            <!-- TODO: ITD -->
+            <!-- ITD (with dueDate) -->
+            <set field="dueDate" from="ec.l10n.format(invoice.dueDate, 'yyyyMMdd')"/>
+            <set field="bodyEdiMap.ITD" from="[[elements:['ITD', '01', '3', '', '', '', dueDate, '', '', '', '', '', '']]]"/>
 
-            <!-- TODO: DTM -->
+            <!-- FUTURE: DTM 011 Shipped 118 Requested Pick-up -->
+            <!-- FUTURE: FOB? -->
 
-            <!-- TODO: FOB? -->
-
-            <!-- TODO: IT1: IT3, PID, SAC? -->
+            <!-- IT1: IT3, PID, SAC, etc -->
             <set field="bodyEdiMap.IT1" from="[]"/>
             <set field="lineItemCount" from="0"/>
             <iterate list="invoiceItemList" entry="invoiceItem">
@@ -199,17 +202,18 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="lineItemCount" from="lineItemCount + 1"/>
             </iterate>
 
-            <!-- TODO: TDS Total Monetary Value Summary -->
+            <!-- TDS Total Monetary Value Summary -->
+            <set field="bodyEdiMap.TDS" from="[[elements:['TDS', totalOut.invoiceTotal, '', '', '']]]"/>
 
             <!-- TODO: CAD Carrier Detail; needed? -->
             <!-- TODO: SAC for non-product items not under a product item -->
             <!-- TODO: ISS Invoice Shipment Summary; needed? -->
 
-            <!-- TODO: CTT -->
+            <!-- CTT -->
             <!-- FUTURE: weight in 03/04, volume in 05/06 -->
             <!-- NOTE: what is hash total based on? leaving empty for now -->
             <set field="hashTotal" value=""/>
-            <set field="bodyEdiMap.CTT" from="[[elements:['CTT', lineItemCount, hashTotal, '', '', '', '']]]"/>
+            <set field="bodyEdiMap.CTT" from="[[elements:['CTT', lineItemCount, hashTotal, '', '', '', '', '']]]"/>
 
             <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
             <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
