@@ -83,74 +83,14 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
                 OB Ordered By, PW Pick Up Address, RE* Party to receive commercial invoice remittance, SF Ship From, ST Ship To, VN* Vendor) -->
-            <set field="bodyEdiMap.N1" from="[]"/>
-
-            <set field="roleTypeToN1Type" from="['SalesRepresentative':'BO', 'CustomerBillTo':'BT', 'Customer':'BY', 'Carrier':'CA',
-                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorBillFrom':'RE', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
-            <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
-                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'RE':'PostalPayment', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
-            <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92']"/>
-
             <set field="partyInfoList" from="[]"/>
             <script>partyInfoList.add([partyId:invoice.toPartyId, roleTypeId:'CustomerBillTo'])</script>
             <script>partyInfoList.add([partyId:invoice.toPartyId, roleTypeId:'Customer'])</script>
             <script>partyInfoList.add([partyId:invoice.fromPartyId, roleTypeId:'VendorBillFrom'])</script>
             <script>partyInfoList.add([partyId:invoice.fromPartyId, roleTypeId:'Vendor'])</script>
-
-            <iterate list="partyInfoList" entry="partyInfo">
-                <!-- TODO: refactor (extract), this is the same as code in X12OrderServices.produce#PurchaseOrderAck -->
-                <set field="n1Type" from="roleTypeToN1Type.get(partyInfo.roleTypeId)"/>
-                <if condition="!n1Type"><continue/></if>
-
-                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail">
-                    <field-map field-name="partyId" from="partyInfo.partyId"/></entity-find-one>
-                <set field="n1Name" from="ec.resource.expand('PartyFullNameTemplate', '', partyDetail)"/>
-                <if condition="n1Name.length() > 60"><set field="n1Name" from="n1Name.substring(0, 60)"/></if>
-
-                <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
-                <!-- for ship to party use orderPart.postalContactMechId -->
-                <set field="postalContactMechId" from="partyInfo.roleTypeId == 'CustomerShipTo' ? orderPart.postalContactMechId : null"/>
-                <service-call name="mantle.party.ContactServices.get#PartyContactInfo"
-                        out-map="contactInfo" out-map-add-to-existing="false"
-                        in-map="[partyId:partyInfo.partyId, postalContactMechPurposeId:contactMechPurposeId,
-                            postalContactMechId:postalContactMechId]"/>
-
-                <!-- for ID try PtidDuns4 (9), PtidDuns (1), PtidCust (92); default to partyId (91) -->
-                <set field="n1Id" from="null"/><set field="n1IdType" from="null"/>
-                <iterate list="partyIdTypeToN1IdType" key="partyIdTypeEnumId" entry="curN1IdType">
-                    <entity-find entity-name="mantle.party.PartyIdentification" list="partyIdentList">
-                        <econdition field-name="partyId" from="partyInfo.partyId"/>
-                        <econdition field-name="partyIdTypeEnumId" from="partyIdTypeEnumId"/>
-                    </entity-find>
-                    <if condition="partyIdentList">
-                        <set field="n1Id" from="partyIdentList?.getAt(0)?.idValue"/>
-                        <set field="n1IdType" from="curN1IdType"/>
-                        <break/>
-                    </if>
-                </iterate>
-                <if condition="!n1Id">
-                    <set field="n1Id" from="partyInfo.partyId"/>
-                    <set field="n1IdType" value="91"/>
-                    <break/>
-                </if>
-
-                <set field="N1" from="[elements:['N1', n1Type, n1Name, n1IdType, n1Id]]"/>
-                <if condition="contactInfo">
-                    <set field="address1" from="contactInfo.postalAddress.address1"/>
-                    <if condition="address1.length() &gt; 55"><set field="address1" from="address1.substring(0, 55)"/></if>
-                    <set field="address2" from="contactInfo.postalAddress.address2"/>
-                    <if condition="address2?.length() &gt; 55"><set field="address2" from="address2.substring(0, 55)"/></if>
-                    <set field="city" from="contactInfo.postalAddress.city"/>
-                    <if condition="city.length() &gt; 30"><set field="city" from="city.substring(0, 30)"/></if>
-                    <set field="state" from="contactInfo.postalAddressStateGeo?.geoCodeAlpha2"/>
-                    <set field="postalCode" from="contactInfo.postalAddress.postalCode + (contactInfo.postalAddress.postalCodeExt ?: '')"/>
-                    <set field="country" from="contactInfo.postalAddressCountryGeo?.geoCodeAlpha3"/>
-
-                    <set field="N1.N3" from="[[elements:['N3', address1, address2]]]"/>
-                    <set field="N1.N4" from="[[elements:['N4', city, state, postalCode, country]]]"/>
-                </if>
-                <script>bodyEdiMap.N1.add(N1)</script>
-            </iterate>
+            <service-call name="mantle.edi.order.X12OrderServices.produce#N1Segments" out-map="n1Out"
+                    in-map="[partyInfoList:partyInfoList]"/>
+            <set field="bodyEdiMap.N1" from="n1Out.n1List"/>
 
             <!-- ITD (with dueDate) -->
             <set field="dueDate" from="ec.l10n.format(invoice.dueDate, 'yyyyMMdd')"/>
