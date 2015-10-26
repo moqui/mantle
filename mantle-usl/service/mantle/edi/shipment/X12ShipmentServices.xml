@@ -19,7 +19,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Produce a Ship Notice message (X12 856).
 
             NOTE: Currently supports only one ShipmentRouteSegment per Shipment.
-            NOTE: Currently supports only one OrderHeader/OrderPart per Shipment.
+            NOTE: Currently supports more than one order but only one OrderPart per order.
         </description>
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
@@ -32,8 +32,12 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
             <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
                 <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+
             <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
                 <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+            <if condition="!shipmentItemSourceList"><return error="true" message="Shipment [${shipmentId}] has more no item source records, cannot produce Ship Notice message"/></if>
+            <set field="orderIdList" from="shipmentItemSourceList.orderId"/>
+            <set field="orderIdSet" from="new TreeSet(orderIdList)"/>
 
             <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
                 <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
@@ -42,19 +46,6 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackage"
                     list="shipmentPackageList" order-by-list="['shipmentPackageSeqId']"/>
-
-            <!-- get all OrderItemBilling records, used to find OrderHeader, OrderPart and filtered as needed per ShipmentItem -->
-            <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
-                <econdition field-name="shipmentId"/></entity-find>
-
-            <if condition="shipmentItemSourceList">
-                <!-- find the OrderHeader and OrderPart -->
-                <set field="orderId" from="shipmentItemSourceList[0].orderId"/>
-                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
-                <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
-                <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Invoice [${invoiceId}]), cannot produce Ship Notice message"/></if>
-                <set field="orderPart" from="orderPartList[0]"/>
-            </if>
 
             <!-- get previous SystemMessage records for invoice -->
             <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
@@ -82,28 +73,39 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="HLS" from="[elements:['HL', shipmentIndex, '', 'S']]"/>
             <set field="bodyEdiMap.HL" from="[HLS]"/>
 
-            <!-- TODO HL(O Order).(PRF*, REF*, N1.(N3, N4)) - one for each order -->
-            <!-- N1 BY* Buying Party (Purchaser) RE Party to receive commercial invoice remittance VN* Vendor -->
-            <set field="orderIndex" from="hlIndex++"/>
-            <set field="HLO" from="[elements:['HL', orderIndex, shipmentIndex, 'O']]"/>
-            <script>bodyEdiMap.HL.add(HLO)</script>
+            <iterate list="orderIdSet" entry="orderId">
+                <!-- find the OrderHeader and OrderPart -->
+                <set field="orderId" from="shipmentItemSourceList[0].orderId"/>
+                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+                <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Invoice [${invoiceId}]), cannot produce Ship Notice message"/></if>
+                <set field="orderPart" from="orderPartList[0]"/>
 
-            <!-- TODO HL(T Shipping Tare).(TD1, MAN*, PAL*) - Hierarchical Level (everything goes below this) -->
-            <!-- TODO: need more than one of this? group items under multiple -->
-            <set field="tareIndex" from="hlIndex++"/>
-            <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
-            <script>bodyEdiMap.HL.add(HLT)</script>
+                <!-- TODO HL(O Order).(PRF*, REF*, N1.(N3, N4)) - one for each order -->
+                <!-- N1 BY* Buying Party (Purchaser) RE Party to receive commercial invoice remittance VN* Vendor -->
+                <set field="orderIndex" from="hlIndex++"/>
+                <set field="HLO" from="[elements:['HL', orderIndex, shipmentIndex, 'O']]"/>
+                <script>bodyEdiMap.HL.add(HLO)</script>
 
-            <!-- TODO HL(I Item).(LIN, SN1, PID, MEA, MAN) - Hierarchical Level (everything goes below this) -->
-            <set field="lineItemCount" from="0"/>
-            <iterate list="shipmentItemList" entry="shipmentItem">
-                <set field="itemIndex" from="hlIndex++"/>
-                <set field="HLI" from="[elements:['HL', itemIndex, tareIndex, 'I']]"/>
-                <script>bodyEdiMap.HL.add(HLI)</script>
+                <!-- TODO HL(T Shipping Tare).(TD1, MAN*, PAL*) - Hierarchical Level (everything goes below this) -->
+                <!-- TODO: need more than one of this? group items under multiple -->
+                <set field="tareIndex" from="hlIndex++"/>
+                <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
+                <script>bodyEdiMap.HL.add(HLT)</script>
 
-                <!-- TODO -->
+                <!-- TODO HL(I Item).(LIN, SN1, PID, MEA, MAN) - Hierarchical Level (everything goes below this) -->
+                <set field="lineItemCount" from="0"/>
+                <filter-map-list list="shipmentItemSourceList" to-list="curShipmentItemSourceList">
+                    <field-map field-name="orderId"/></filter-map-list>
+                <iterate list="curShipmentItemSourceList" entry="curSis">
+                    <set field="itemIndex" from="hlIndex++"/>
+                    <set field="HLI" from="[elements:['HL', itemIndex, tareIndex, 'I']]"/>
+                    <script>bodyEdiMap.HL.add(HLI)</script>
 
-                <set field="lineItemCount" from="lineItemCount + 1"/>
+                    <!-- TODO -->
+
+                    <set field="lineItemCount" from="lineItemCount + 1"/>
+                </iterate>
             </iterate>
 
             <!-- CTT -->
