@@ -333,12 +333,22 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
                 OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
             <!-- TODO: is ship or pick up? populate VendorShipFrom or VendorPickUpFrom with Vendor party and Facility address -->
-            <set field="orderPartPartyList" from="new ArrayList(orderPartPartyList)"/>
+            <set field="orderPartPartyList" from="orderPartPartyList.getPlainValueList(0)"/>
             <set field="oppRoleTypeIdList" from="orderPartPartyList.roleTypeId"/>
             <if condition="!oppRoleTypeIdList.contains('Customer')">
                 <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'Customer'])</script></if>
             <if condition="!oppRoleTypeIdList.contains('CustomerShipTo')">
-                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'CustomerShipTo'])</script></if>
+                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'CustomerShipTo',
+                                                postalContactMechId:orderPart.postalContactMechId])</script>
+                <else>
+                    <iterate list="orderPartPartyList" entry="orderPartParty">
+                        <if condition="orderPartParty.roleTypeId == 'CustomerShipTo'">
+                            <set field="orderPartParty.postalContactMechId" from="orderPart.postalContactMechId"/>
+                            <break/>
+                        </if>
+                    </iterate>
+                </else>
+            </if>
             <if condition="!oppRoleTypeIdList.contains('Vendor')">
                 <script>orderPartPartyList.add([partyId:orderPart.vendorPartyId, roleTypeId:'Vendor'])</script></if>
 
@@ -394,7 +404,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="produce" noun="N1Segments">
         <in-parameters>
-            <parameter name="partyInfoList" type="List"><description>Contains Maps with partyId, roleTypeId</description></parameter>
+            <parameter name="partyInfoList" type="List"><description>Contains Maps with partyId, roleTypeId, postalContactMechId</description></parameter>
         </in-parameters>
         <out-parameters>
             <parameter name="n1List"/>
@@ -417,12 +427,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="n1Name.length() > 60"><set field="n1Name" from="n1Name.substring(0, 60)"/></if>
 
                 <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
-                <!-- for ship to party use orderPart.postalContactMechId -->
-                <set field="postalContactMechId" from="partyInfo.roleTypeId == 'CustomerShipTo' ? orderPart.postalContactMechId : null"/>
                 <service-call name="mantle.party.ContactServices.get#PartyContactInfo"
                         out-map="contactInfo" out-map-add-to-existing="false"
                         in-map="[partyId:partyInfo.partyId, postalContactMechPurposeId:contactMechPurposeId,
-                            postalContactMechId:postalContactMechId]"/>
+                            postalContactMechId:partyInfo.postalContactMechId]"/>
 
                 <!-- for ID try PtidDuns4 (9), PtidDuns (1), PtidCust (92); default to partyId (91) -->
                 <set field="n1Id" from="null"/><set field="n1IdType" from="null"/>
