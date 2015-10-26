@@ -46,6 +46,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackage"
                     list="shipmentPackageList" order-by-list="['shipmentPackageSeqId']"/>
+            <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackageContent"
+                    list="shipmentPackageContentList" order-by-list="['shipmentPackageSeqId']"/>
 
             <!-- get previous SystemMessage records for invoice -->
             <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
@@ -65,13 +67,53 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="shipTime" from="ec.l10n.format(shipment.estimatedShipDate, 'HHmm')"/>
             <set field="bodyEdiMap.BSN" from="[[elements:['BSN', tsPurpose, shipmentId, shipDate, shipTime]]]"/>
 
-            <!-- TODO HL(S Shipment).(TD1, TD5, TD3, REF (2I Tracking Number), DTM, N1.(N3, N4)) - Hierarchical Level (everything goes below this) -->
-            <!-- N1 BR Broker BT Bill-to-Party CA* Carrier PW* Pick Up Address SF** Ship From ST** Ship To -->
+            <!-- TODO HL(S Shipment).(TD1, TD5, TD3, REF*, DTM*, N1*.(N3, N4)) - Hierarchical Level (everything goes below this) -->
             <!-- HL03 S Shipment -->
             <set field="hlIndex" from="0"/>
             <set field="shipmentIndex" from="hlIndex++"/>
             <set field="HLS" from="[elements:['HL', shipmentIndex, '', 'S']]"/>
             <set field="bodyEdiMap.HL" from="[HLS]"/>
+
+            <!-- TD1 total quantity and weight (add all packages) -->
+            <if condition="shipmentPackageList">
+                <set field="weightTotal" from="0"/>
+                <iterate list="shipmentPackageList" entry="shipmentPackage">
+                    <set field="weightTotal" from="weightTotal + shipmentPackage.weight"/></iterate>
+                <set field="quantityTotal" from="0"/>
+                <iterate list="shipmentPackageContentList" entry="spc">
+                    <set field="quantityTotal" from="quantityTotal + spc.quantity"/></iterate>
+                <set field="weightUomId" from="shipmentPackageList[0].weightUomId"/>
+                <set field="weightUomToCode" from="['WT_kg':'KG', 'WT_lb':'LB']"/>
+                <set field="weightUnit" from="weightUomToCode.get(weightUomId)"/>
+                <set field="HLS.TD1" from="[[elements:['TD1', '', quantityTotal, '', '', '', 'G', weightTotal, weightUnit]]]"/>
+            </if>
+            <!-- FUTURE: TD5, TD3 -->
+
+            <!-- REF (2I Tracking Number, BM Bill of Lading Number, CN Carrier Reference Number) -->
+            <if condition="shipmentRouteSegment.trackingIdNumber">
+                <set field="HLS.REF" from="[[elements:['REF', '2I', shipmentRouteSegment.trackingIdNumber]]]"/>
+            </if>
+
+            <!-- DTM (002 Delivery Requested (PO delivery date), 010 Requested Ship PO ship date, 011 Shipped (Actual shipped date)
+                065 1st Schedule Delivery (Arrival appointment date) 371 Estimated Arrival Date (Estimated arrival based upon actual shipped (011) date)) -->
+            <set field="firstOrderId" from="orderIdList[0]"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="firstOrderPart">
+                <field-map field-name="orderId" from="firstOrderId"/></entity-find-one>
+            <set field="HLS.DTM" from="[]"/>
+            <if condition="firstOrderPart?.estimatedDeliveryDate">
+                <script>HLS.DTM.add([elements:['DTM', '002', ec.l10n.format(firstOrderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script></if>
+            <if condition="firstOrderPart?.shipBeforeDate">
+                <script>HLS.DTM.add([elements:['DTM', '010', ec.l10n.format(firstOrderPart.shipBeforeDate, 'yyyyMMdd')]])</script></if>
+            <set field="shippedDate" from="shipmentRouteSegment.actualStartDate ?: shipment.estimatedShipDate"/>
+            <if condition="shippedDate">
+                <script>HLS.DTM.add([elements:['DTM', '011', ec.l10n.format(shippedDate, 'yyyyMMdd')]])</script></if>
+            <!-- FUTURE: 065 (1st Schedule Delivery) -->
+            <set field="estimatedArrivalDate" from="shipmentRouteSegment.estimatedArrivalDate ?: shipment.estimatedArrivalDate"/>
+            <if condition="estimatedArrivalDate">
+                <script>HLS.DTM.add([elements:['DTM', '371', ec.l10n.format(estimatedArrivalDate, 'yyyyMMdd')]])</script></if>
+
+            <!-- TODO N1.(N3, N4) BR Broker BT Bill-to-Party CA* Carrier PW* Pick Up Address SF** Ship From ST** Ship To -->
+
 
             <iterate list="orderIdSet" entry="orderId">
                 <!-- find the OrderHeader and OrderPart -->
@@ -86,6 +128,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="orderIndex" from="hlIndex++"/>
                 <set field="HLO" from="[elements:['HL', orderIndex, shipmentIndex, 'O']]"/>
                 <script>bodyEdiMap.HL.add(HLO)</script>
+
 
                 <!-- TODO HL(T Shipping Tare).(TD1, MAN*, PAL*) - Hierarchical Level (everything goes below this) -->
                 <!-- TODO: need more than one of this? group items under multiple -->
