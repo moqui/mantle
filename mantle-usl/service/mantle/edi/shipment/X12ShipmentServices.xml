@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- EDI X12 V4010 Shipment Message Services -->
+
+    <service verb="produce" noun="ShipNotice">
+        <description>Produce a Ship Notice message (X12 856).
+
+            NOTE: Currently supports only one ShipmentRouteSegment per Shipment.
+            NOTE: Currently supports only one OrderHeader/OrderPart per Shipment.
+        </description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>If not specified comes from Invoice.systemMessageRemoteId (copied from OrderHeader if applicable)</description></parameter>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/shipment/X12V4010TS856.groovy"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
+                <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
+                <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
+                <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+            <if condition="shipmentRouteSegmentList.size() &gt; 1"><return error="true" message="Shipment [${shipmentId}] has more than one route segment, cannot produce Ship Notice message"/></if>
+            <set field="shipmentRouteSegment" from="shipmentRouteSegmentList ? shipmentRouteSegmentList[0] : null"/>
+
+            <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackage"
+                    list="shipmentPackageList" order-by-list="['shipmentPackageSeqId']"/>
+
+            <!-- get all OrderItemBilling records, used to find OrderHeader, OrderPart and filtered as needed per ShipmentItem -->
+            <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                <econdition field-name="shipmentId"/></entity-find>
+
+            <if condition="shipmentItemSourceList">
+                <!-- find the OrderHeader and OrderPart -->
+                <set field="orderId" from="shipmentItemSourceList[0].orderId"/>
+                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+                <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Invoice [${invoiceId}]), cannot produce Ship Notice message"/></if>
+                <set field="orderPart" from="orderPartList[0]"/>
+            </if>
+
+            <!-- get previous SystemMessage records for invoice -->
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
+                <econdition field-name="shipmentId"/><econdition field-name="isOutgoing" value="Y"/>
+                <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
+            </entity-find>
+
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="invoice.systemMessageRemoteId"/></if>
+
+            <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
+            <set field="bodyEdiMap" from="[:]"/>
+
+            <!-- BSN - Begin Ship Notice -->
+            <!-- BSN01 TS Purpose Code: 00 Original 02 Add? 05 Replace? -->
+            <set field="tsPurpose" from="outMessageList ? '05' : '00'"/>
+            <set field="shipDate" from="ec.l10n.format(shipment.estimatedShipDate, 'yyyyMMdd')"/>
+            <set field="shipTime" from="ec.l10n.format(shipment.estimatedShipDate, 'HHmm')"/>
+            <set field="bodyEdiMap.BSN" from="[[elements:['BSN', tsPurpose, shipmentId, shipDate, shipTime]]]"/>
+
+            <!-- TODO HL(S Shipment).(TD1, TD5, TD3, REF (2I Tracking Number), DTM, N1.(N3, N4)) - Hierarchical Level (everything goes below this) -->
+            <!-- N1 BR Broker BT Bill-to-Party CA* Carrier PW* Pick Up Address SF** Ship From ST** Ship To -->
+            <!-- HL03 S Shipment -->
+            <set field="hlIndex" from="0"/>
+            <set field="shipmentIndex" from="hlIndex++"/>
+            <set field="HLS" from="[elements:['HL', shipmentIndex, '', 'S']]"/>
+            <set field="bodyEdiMap.HL" from="[HLS]"/>
+
+            <!-- TODO HL(O Order).(PRF*, REF*, N1.(N3, N4)) - one for each order -->
+            <!-- N1 BY* Buying Party (Purchaser) RE Party to receive commercial invoice remittance VN* Vendor -->
+            <set field="orderIndex" from="hlIndex++"/>
+            <set field="HLO" from="[elements:['HL', orderIndex, shipmentIndex, 'O']]"/>
+            <script>bodyEdiMap.HL.add(HLO)</script>
+
+            <!-- TODO HL(T Shipping Tare).(TD1, MAN*, PAL*) - Hierarchical Level (everything goes below this) -->
+            <!-- TODO: need more than one of this? group items under multiple -->
+            <set field="tareIndex" from="hlIndex++"/>
+            <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
+            <script>bodyEdiMap.HL.add(HLT)</script>
+
+            <!-- TODO HL(I Item).(LIN, SN1, PID, MEA, MAN) - Hierarchical Level (everything goes below this) -->
+            <set field="lineItemCount" from="0"/>
+            <iterate list="shipmentItemList" entry="shipmentItem">
+                <set field="itemIndex" from="hlIndex++"/>
+                <set field="HLI" from="[elements:['HL', itemIndex, tareIndex, 'I']]"/>
+                <script>bodyEdiMap.HL.add(HLI)</script>
+
+                <!-- TODO -->
+
+                <set field="lineItemCount" from="lineItemCount + 1"/>
+            </iterate>
+
+            <!-- CTT -->
+            <!-- FUTURE: weight in 03/04, volume in 05/06 -->
+            <!-- NOTE: what is hash total based on? leaving empty for now -->
+            <set field="hashTotal" value=""/>
+            <set field="bodyEdiMap.CTT" from="[[elements:['CTT', lineItemCount, hashTotal, '', '', '', '', '']]]"/>
+
+            <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
+            <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
+                    in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
+                        envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
+                        docType:'SH', docSubType:'856', shipmentId:shipmentId]"/>
+        </actions>
+    </service>
+</services>
