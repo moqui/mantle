@@ -107,12 +107,27 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="shippedDate" from="shipmentRouteSegment.actualStartDate ?: shipment.estimatedShipDate"/>
             <if condition="shippedDate">
                 <script>HLS.DTM.add([elements:['DTM', '011', ec.l10n.format(shippedDate, 'yyyyMMdd')]])</script></if>
-            <!-- FUTURE: 065 (1st Schedule Delivery) -->
+            <!-- FUTURE: 065 (1st Schedule Delivery (Arrival appointment date)) -->
             <set field="estimatedArrivalDate" from="shipmentRouteSegment.estimatedArrivalDate ?: shipment.estimatedArrivalDate"/>
             <if condition="estimatedArrivalDate">
                 <script>HLS.DTM.add([elements:['DTM', '371', ec.l10n.format(estimatedArrivalDate, 'yyyyMMdd')]])</script></if>
 
-            <!-- TODO N1.(N3, N4) BR Broker BT Bill-to-Party CA* Carrier PW* Pick Up Address SF** Ship From ST** Ship To -->
+            <!-- N1.(N3, N4) BR Broker BT Bill-to-Party, CA* Carrier (Carrier), PW* Pick Up Address (VendorPickUpFrom),
+                SF** Ship From (VendorShipFrom), ST** Ship To (CustomerShipTo) -->
+            <set field="partyInfoList" from="[]"/>
+            <if condition="shipmentRouteSegment.carrierPartyId">
+                <script>partyInfoList.add([partyId:shipmentRouteSegment.carrierPartyId, roleTypeId:'Carrier'])</script></if>
+            <if condition="shipmentRouteSegment.shipmentMethodEnumId == 'ShMthPickUp'">
+                <script>partyInfoList.add([partyId:shipment.fromPartyId, roleTypeId:'VendorPickUpFrom',
+                                           postalContactMechId:shipmentRouteSegment.originPostalContactMechId])</script>
+            </if>
+            <script>partyInfoList.add([partyId:shipment.fromPartyId, roleTypeId:'VendorShipFrom',
+                                       postalContactMechId:shipmentRouteSegment.originPostalContactMechId])</script>
+            <script>partyInfoList.add([partyId:shipment.toPartyId, roleTypeId:'CustomerShipTo',
+                                       postalContactMechId:shipmentRouteSegment.destPostalContactMechId])</script>
+            <service-call name="mantle.edi.order.X12OrderServices.produce#N1Segments" out-map="n1Out"
+                    in-map="[partyInfoList:partyInfoList]"/>
+            <set field="HLS.N1" from="n1Out.n1List"/>
 
 
             <iterate list="orderIdSet" entry="orderId">
