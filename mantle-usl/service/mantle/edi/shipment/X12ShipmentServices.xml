@@ -138,20 +138,42 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Invoice [${invoiceId}]), cannot produce Ship Notice message"/></if>
                 <set field="orderPart" from="orderPartList[0]"/>
 
-                <!-- TODO HL(O Order).(PRF*, REF*, N1.(N3, N4)) - one for each order -->
-                <!-- N1 BY* Buying Party (Purchaser) RE Party to receive commercial invoice remittance VN* Vendor -->
+                <!-- HL(O Order).(PRF*, REF*, N1.(N3, N4)) - one for each order -->
+
                 <set field="orderIndex" from="hlIndex++"/>
                 <set field="HLO" from="[elements:['HL', orderIndex, shipmentIndex, 'O']]"/>
                 <script>bodyEdiMap.HL.add(HLO)</script>
 
+                <!-- HL(O).PRF PO Reference -->
+                <set field="placedDate" from="ec.l10n.format(orderHeader.placedDate ?: orderHeader.entryDate, 'yyyyMMdd')"/>
+                <set field="HLO.PRF" from="[[elements:['PRF', orderPart.otherPartyOrderId, orderHeader.externalRevision,
+                        '', placedDate, '', '', 'SO']]]"/>
 
-                <!-- TODO HL(T Shipping Tare).(TD1, MAN*, PAL*) - Hierarchical Level (everything goes below this) -->
+                <!-- HL(O).REF CR Customer Reference Number (Order Control Number), IL Internal Order Number,
+                    VN Vendor Order Number, VR Vendor ID Number, YD Buyer Identification -->
+                <set field="HLO.REF" from="[[elements:['REF', 'VN', orderId]],
+                        [elements:['REF', 'YB', (orderHeader.orderRevision ?: 1)]]]"/>
+                <if condition="orderHeader.externalId"><script>HLO.REF.add([elements:['REF', 'IL', orderHeader.externalId]])</script></if>
+
+                <!-- HL(O).N1 BY* Buying Party (Purchaser) (Customer), RE Party to receive commercial invoice
+                    remittance (VendorBillFrom), VN* Vendor (Vendor) -->
+                <set field="partyInfoList" from="[]"/>
+                <script>partyInfoList.add([partyId:orderPart.vendorPartyId, roleTypeId:'Vendor'])</script>
+                <script>partyInfoList.add([partyId:orderPart.vendorPartyId, roleTypeId:'VendorBillFrom'])</script>
+                <script>partyInfoList.add([partyId:orderPart.customerPartyId, roleTypeId:'Customer'])</script>
+                <service-call name="mantle.edi.order.X12OrderServices.produce#N1Segments" out-map="n1Out"
+                        in-map="[partyInfoList:partyInfoList]"/>
+                <set field="HLS.N1" from="n1Out.n1List"/>
+
+                <!-- TODO HL(T Shipping Tare).(TD1, MAN*, PAL*) -->
+
                 <!-- TODO: need more than one of this? group items under multiple -->
                 <set field="tareIndex" from="hlIndex++"/>
                 <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
                 <script>bodyEdiMap.HL.add(HLT)</script>
 
-                <!-- TODO HL(I Item).(LIN, SN1, PID, MEA, MAN) - Hierarchical Level (everything goes below this) -->
+                <!-- TODO HL(I Item).(LIN, SN1, PID, MEA, MAN) -->
+
                 <set field="lineItemCount" from="0"/>
                 <filter-map-list list="shipmentItemSourceList" to-list="curShipmentItemSourceList">
                     <field-map field-name="orderId"/></filter-map-list>
