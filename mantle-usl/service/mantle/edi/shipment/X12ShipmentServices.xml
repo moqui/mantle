@@ -132,11 +132,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <iterate list="orderIdSet" entry="orderId">
                 <!-- find the OrderHeader and OrderPart -->
-                <set field="orderId" from="shipmentItemSourceList[0].orderId"/>
                 <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
                 <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
                 <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Invoice [${invoiceId}]), cannot produce Ship Notice message"/></if>
                 <set field="orderPart" from="orderPartList[0]"/>
+
+                <filter-map-list list="shipmentItemSourceList" to-list="curShipmentItemSourceList">
+                    <field-map field-name="orderId"/></filter-map-list>
 
                 <!-- HL(O Order).(PRF*, REF*, N1.(N3, N4)) - one for each order -->
 
@@ -165,24 +167,57 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[partyInfoList:partyInfoList]"/>
                 <set field="HLS.N1" from="n1Out.n1List"/>
 
-                <!-- TODO HL(T Shipping Tare).(TD1, MAN*, PAL*) -->
+                <!-- ========== HL(T Shipping Tare).(TD1*, MAN*, PAL*) -->
 
-                <!-- TODO: need more than one of this? group items under multiple -->
+                <!-- TODO: if need more than one (shipping containers, pallet types) group items under multiple -->
                 <set field="tareIndex" from="hlIndex++"/>
                 <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
                 <script>bodyEdiMap.HL.add(HLT)</script>
 
-                <!-- TODO HL(I Item).(LIN, SN1, PID, MEA, MAN) -->
+                <!-- HL(T).TD1 -->
+                <set field="orderQuantity" from="0"/>
+                <iterate list="curShipmentItemSourceList" entry="curSis"><set field="orderQuantity" from="orderQuantity + curSis.quantity"/></iterate>
+                <set field="HLT.TD1" from="[[elements:['TD1', 'CAS', quantityTotal, '', '', '', '', '', '']]]"/>
+
+                <!-- HL(T).MAN -->
+                <!-- MAN01 GM SSCC-18 (Serial Shipping Container Code) and Application Identifier -->
+                <!-- TODO: where to put/get SSCC or trailer LPN? Equipment associated with Shipment Load? -->
+                <set field="sscc" value=""/>
+                <!-- FUTURE: MAN04 (for MAN05) SI Self-Identifying Container via Radio Frequency ID Device -->
+                <set field="HLT.MAN" from="[[elements:['MAN', 'GM', sscc, '', '', '']]]"/>
+
+                <!-- HL(T).PAL -->
+                <!-- PAL01 4 Standard -->
+                <!-- TODO: where to get tiers/blocks (Tie/Hi)? -->
+                <set field="palletTiers" value=""/>
+                <set field="palletBlocks" value=""/>
+                <set field="HLT.PAL" from="[[elements:['PAL', '4', palletTiers, palletBlocks]]]"/>
+
+                <!-- ========== HL(I Item).(LIN, SN1, PID, MEA, MAN) -->
 
                 <set field="lineItemCount" from="0"/>
-                <filter-map-list list="shipmentItemSourceList" to-list="curShipmentItemSourceList">
-                    <field-map field-name="orderId"/></filter-map-list>
                 <iterate list="curShipmentItemSourceList" entry="curSis">
+                    <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem">
+                        <field-map field-name="orderId" from="curSis.orderId"/>
+                        <field-map field-name="orderItemSeqId" from="curSis.orderItemSeqId"/>
+                    </entity-find-one>
+
                     <set field="itemIndex" from="hlIndex++"/>
                     <set field="HLI" from="[elements:['HL', itemIndex, tareIndex, 'I']]"/>
                     <script>bodyEdiMap.HL.add(HLI)</script>
 
-                    <!-- TODO -->
+                    <!-- HL(I).LIN -->
+                    <!-- LIN01 should match PO101 (OrderItem.externalItemSeqId) -->
+                    <set field="itemId" from="orderItem.externalItemSeqId ?: orderItem.orderItemSeqId"/>
+                    <!-- FUTURE: LIN22/23 to LIN30/31 CH Country of Origin Code -->
+                    <set field="HLI.LIN" from="[[elements:['LIN', itemId, '', '', 'VN', orderItem.productId,
+                        'PI', orderItem.otherPartyProductId, '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+                        '', '', '', '', '', '', '', '', '', '', '']]]"/>
+
+                    <!-- TODO HL(I).SN1 -->
+                    <!-- TODO HL(I).PID -->
+                    <!-- TODO HL(I).MEA -->
+                    <!-- TODO HL(I).MAN -->
 
                     <set field="lineItemCount" from="lineItemCount + 1"/>
                 </iterate>
