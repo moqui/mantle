@@ -49,13 +49,13 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackageContent"
                     list="shipmentPackageContentList" order-by-list="['shipmentPackageSeqId']"/>
 
-            <!-- get previous SystemMessage records for invoice -->
+            <!-- get previous SystemMessage records for shipment -->
             <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
                 <econdition field-name="shipmentId"/><econdition field-name="isOutgoing" value="Y"/>
                 <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
             </entity-find>
 
-            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="invoice.systemMessageRemoteId"/></if>
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="shipment.systemMessageRemoteId"/></if>
 
             <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
             <set field="bodyEdiMap" from="[:]"/>
@@ -67,7 +67,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="shipTime" from="ec.l10n.format(shipment.estimatedShipDate, 'HHmm')"/>
             <set field="bodyEdiMap.BSN" from="[[elements:['BSN', tsPurpose, shipmentId, shipDate, shipTime]]]"/>
 
-            <!-- TODO HL(S Shipment).(TD1, TD5, TD3, REF*, DTM*, N1*.(N3, N4)) - Hierarchical Level (everything goes below this) -->
+            <!-- HL(S Shipment).(TD1, TD5, TD3, REF*, DTM*, N1*.(N3, N4)) - Hierarchical Level (everything goes below this) -->
             <!-- HL03 S Shipment -->
             <set field="hlIndex" from="0"/>
             <set field="shipmentIndex" from="hlIndex++"/>
@@ -78,10 +78,10 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="shipmentPackageList">
                 <set field="weightTotal" from="0"/>
                 <iterate list="shipmentPackageList" entry="shipmentPackage">
-                    <set field="weightTotal" from="weightTotal + shipmentPackage.weight"/></iterate>
+                    <set field="weightTotal" from="weightTotal + (shipmentPackage.weight ?: 0)"/></iterate>
                 <set field="quantityTotal" from="0"/>
                 <iterate list="shipmentPackageContentList" entry="spc">
-                    <set field="quantityTotal" from="quantityTotal + spc.quantity"/></iterate>
+                    <set field="quantityTotal" from="quantityTotal + (spc.quantity ?: 0)"/></iterate>
                 <set field="weightUomId" from="shipmentPackageList[0].weightUomId"/>
                 <set field="weightUomToCode" from="['WT_kg':'KG', 'WT_lb':'LB']"/>
                 <set field="weightUnit" from="weightUomToCode.get(weightUomId)"/>
@@ -134,7 +134,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- find the OrderHeader and OrderPart -->
                 <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
                 <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
-                <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Invoice [${invoiceId}]), cannot produce Ship Notice message"/></if>
+                <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Shipment [${shipmentId}]), cannot produce Ship Notice message"/></if>
                 <set field="orderPart" from="orderPartList[0]"/>
 
                 <filter-map-list list="shipmentItemSourceList" to-list="curShipmentItemSourceList">
@@ -176,7 +176,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <!-- HL(T).TD1 -->
                 <set field="orderQuantity" from="0"/>
-                <iterate list="curShipmentItemSourceList" entry="curSis"><set field="orderQuantity" from="orderQuantity + curSis.quantity"/></iterate>
+                <iterate list="curShipmentItemSourceList" entry="curSis"><set field="orderQuantity" from="orderQuantity + (curSis.quantity ?: 0)"/></iterate>
                 <set field="HLT.TD1" from="[[elements:['TD1', 'CAS', quantityTotal, '', '', '', '', '', '']]]"/>
 
                 <!-- HL(T).MAN -->
