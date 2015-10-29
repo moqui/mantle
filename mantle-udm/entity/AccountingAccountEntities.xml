@@ -591,6 +591,12 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccount"/>
 
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.BitcoinWallet" short-alias="bitcoinWallet"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.CreditCard" short-alias="creditCard"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.EftAccount" short-alias="eftAccount"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.GiftCard" short-alias="giftCard"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.PayPalAccount" short-alias="payPalAccount"/>
+
         <seed-data>
             <!-- Payment Method Type -->
             <moqui.basic.EnumerationType description="Payment Method Type" enumTypeId="PaymentMethodType"/>
@@ -624,6 +630,11 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="telecom" use-master="default"/>
             <detail relationship="email" use-master="default"/>
             <detail relationship="trustLevel"/>
+            <detail relationship="bitcoinWallet"/>
+            <detail relationship="creditCard"><detail relationship="type"/></detail>
+            <detail relationship="eftAccount"/>
+            <detail relationship="giftCard"/>
+            <detail relationship="payPalAccount"/>
         </master>
     </entity>
     <entity entity-name="BitcoinWallet" package-name="mantle.account.method">
@@ -658,7 +669,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="consecutiveFailedNsf" type="number-integer"/>
         <field name="lastFailedNsfDate" type="date-time"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
-        <relationship type="one" title="CreditCardType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="CreditCardType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="creditCardTypeEnumId"/></relationship>
         <index name="CC_NUMBER_LOOKUP"><index-field name="cardNumberLookupHash"/></index>
         <seed-data>
@@ -893,6 +904,11 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="AcctgTransResult" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="acctgTransResultEnumId"/></relationship>
 
+        <relationship type="many" related-entity-name="mantle.account.payment.PaymentApplication" short-alias="applications">
+            <key-map field-name="paymentId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.account.payment.PaymentContent" short-alias="contents">
+            <key-map field-name="paymentId"/></relationship>
+
         <seed-data>
             <!-- Payment Type -->
             <moqui.basic.EnumerationType description="Payment Type" enumTypeId="PaymentType"/>
@@ -939,16 +955,11 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="methodType"/>
             <detail relationship="method" use-master="default"/>
             <detail relationship="amountUom"/>
-            <detail relationship="fromParty">
-                <detail relationship="organization"/>
-                <detail relationship="person"/>
-            </detail>
-            <detail relationship="toParty">
-                <detail relationship="organization"/>
-                <detail relationship="person"/>
-            </detail>
+            <detail relationship="fromParty" use-master="basic"/>
+            <detail relationship="toParty" use-master="basic"/>
             <detail relationship="status"/>
-            <!-- TODO: add PaymentApplication, other? -->
+            <detail relationship="applications"/>
+            <detail relationship="contents"/>
         </master>
     </entity>
     <entity entity-name="PaymentFraudEvidence" package-name="mantle.account.payment">
