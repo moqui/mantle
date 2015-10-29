@@ -87,7 +87,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="weightUnit" from="weightUomToCode.get(weightUomId)"/>
                 <set field="HLS.TD1" from="[[elements:['TD1', '', quantityTotal, '', '', '', 'G', weightTotal, weightUnit]]]"/>
             </if>
-            <!-- FUTURE: TD5, TD3 -->
+            <!-- FUTURE: TD5 -->
+
+            <!-- TODO: TD3 with equipment detail (ID, seal state and ID) from Shipment Load WorkEffort -->
 
             <!-- REF (2I Tracking Number, BM Bill of Lading Number, CN Carrier Reference Number) -->
             <if condition="shipmentRouteSegment.trackingIdNumber">
@@ -167,40 +169,44 @@ along with this software (see the LICENSE.md file). If not, see
                         in-map="[partyInfoList:partyInfoList]"/>
                 <set field="HLS.N1" from="n1Out.n1List"/>
 
-                <!-- ========== HL(T Shipping Tare).(TD1*, MAN*, PAL*) -->
-
-                <!-- TODO: if need more than one (shipping containers, pallet types) group items under multiple -->
-                <set field="tareIndex" from="hlIndex++"/>
-                <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
-                <script>bodyEdiMap.HL.add(HLT)</script>
-
-                <!-- HL(T).TD1 -->
-                <set field="orderQuantity" from="0"/>
-                <iterate list="curShipmentItemSourceList" entry="curSis"><set field="orderQuantity" from="orderQuantity + (curSis.quantity ?: 0)"/></iterate>
-                <set field="HLT.TD1" from="[[elements:['TD1', 'CAS', quantityTotal, '', '', '', '', '', '']]]"/>
-
-                <!-- HL(T).MAN -->
-                <!-- MAN01 GM SSCC-18 (Serial Shipping Container Code) and Application Identifier -->
-                <!-- TODO: where to put/get SSCC or trailer LPN? Equipment associated with Shipment Load? -->
-                <set field="sscc" value=""/>
-                <!-- FUTURE: MAN04 (for MAN05) SI Self-Identifying Container via Radio Frequency ID Device -->
-                <set field="HLT.MAN" from="[[elements:['MAN', 'GM', sscc, '', '', '']]]"/>
-
-                <!-- HL(T).PAL -->
-                <!-- PAL01 4 Standard -->
-                <!-- TODO: where to get tiers/blocks (Tie/Hi)? -->
-                <set field="palletTiers" value=""/>
-                <set field="palletBlocks" value=""/>
-                <set field="HLT.PAL" from="[[elements:['PAL', '4', palletTiers, palletBlocks]]]"/>
-
-                <!-- ========== HL(I Item).(LIN, SN1, PID, MEA, MAN) -->
-
                 <set field="lineItemCount" from="0"/>
                 <iterate list="curShipmentItemSourceList" entry="curSis">
                     <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem">
                         <field-map field-name="orderId" from="curSis.orderId"/>
                         <field-map field-name="orderItemSeqId" from="curSis.orderItemSeqId"/>
                     </entity-find-one>
+                    <!-- <set field="product" from="orderItem.'mantle.product.Product'"/> -->
+                    <entity-find entity-name="mantle.product.feature.ProductFeatureAndAppl" list="packagingTypeFeatureList">
+                        <econdition field-name="productId" from="orderItem.productId"/>
+                        <econdition field-name="productFeatureTypeEnumId" value="PftPackagingType"/>
+                    </entity-find>
+                    <set field="packagingTypeFeature" from="packagingTypeFeatureList ? packagingTypeFeatureList[0] : 0"/>
+
+                    <!-- ========== HL(T Shipping Tare).(TD1*, MAN*, PAL*) -->
+
+                    <set field="tareIndex" from="hlIndex++"/>
+                    <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
+                    <script>bodyEdiMap.HL.add(HLT)</script>
+
+                    <!-- HL(T).TD1 -->
+                    <set field="orderQuantity" from="0"/>
+                    <iterate list="curShipmentItemSourceList" entry="curSis"><set field="orderQuantity" from="orderQuantity + (curSis.quantity ?: 0)"/></iterate>
+                    <set field="HLT.TD1" from="[[elements:['TD1', 'CAS', quantityTotal, '', '', '', '', '', '']]]"/>
+
+                    <!-- HL(T).MAN -->
+                    <!-- MAN01 GM SSCC-18 (Serial Shipping Container Code) and Application Identifier -->
+                    <!-- TODO: where to put/get SSCC or trailer LPN? Equipment associated with Shipment Load? -->
+                    <set field="sscc" value=""/>
+                    <!-- FUTURE: MAN04 (for MAN05) SI Self-Identifying Container via Radio Frequency ID Device -->
+                    <set field="HLT.MAN" from="[[elements:['MAN', 'GM', sscc, '', '', '']]]"/>
+
+                    <!-- HL(T).PAL -->
+                    <!-- PAL01 4 Standard -->
+                    <set field="palletTiers" from="packagingTypeFeature?.tiersPerPallet"/>
+                    <set field="palletBlocks" from="packagingTypeFeature?.perPalletTier"/>
+                    <set field="HLT.PAL" from="[[elements:['PAL', '4', palletTiers, palletBlocks]]]"/>
+
+                    <!-- ========== HL(I Item).(LIN, SN1, PID, MEA, MAN) -->
 
                     <set field="itemIndex" from="hlIndex++"/>
                     <set field="HLI" from="[elements:['HL', itemIndex, tareIndex, 'I']]"/>
@@ -225,7 +231,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
 
                     <!-- FUTURE: HL(I).MEA for item total weight and volume -->
-                    <!-- FUTURE: HL(I).MAN for SSCC and/or RFID; used for bar codes, etc with multiple segments (one per Asset) too? -->
+                    <!-- FUTURE: HL(I).MAN for SSCC and/or RFID; used for bar codes, etc; with multiple segments (one per Asset) too? -->
 
                     <set field="lineItemCount" from="lineItemCount + 1"/>
                 </iterate>
