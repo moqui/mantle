@@ -151,6 +151,11 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="expireDate" default-value="${expireMonth}/${expireYear}">
                 <time-range after="now" format="MM/yyyy"/></parameter>
 
+            <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk">
+                <exclude field-name="lastCheckNumber"/><exclude field-name="ledgerBalance"/>
+                <exclude field-name="availableBalance"/><exclude field-name="balanceDate"/>
+            </auto-parameters>
+
             <parameter name="postalContactMechId"/>
             <parameter name="postalContactMechPurposeId" default-value="PostalBilling"/>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
@@ -175,6 +180,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <if condition="paymentMethodId">
                 <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+                <set field="paymentMethodTypeEnumId" from="paymentMethod.paymentMethodTypeEnumId"/>
                 <if condition="!postalContactMechId"><set field="postalContactMechId" from="paymentMethod.postalContactMechId"/></if>
                 <if condition="!telecomContactMechId"><set field="telecomContactMechId" from="paymentMethod.telecomContactMechId"/></if>
                 <if condition="!emailContactMechId"><set field="emailContactMechId" from="paymentMethod.emailContactMechId"/></if>
@@ -185,19 +191,71 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- update PaymentMethod last so we know new postalContactMechId and telecomContactMechId updates (if applicable) -->
             <if condition="paymentMethodId">
                 <!-- TODO: support other payment method types! -->
-                <service-call name="mantle.account.PaymentMethodServices.update#CreditCard" in-map="context" out-map="ccOut"/>
-
+                <then>
+                    <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
+                        <then>
+                            <service-call name="mantle.account.PaymentMethodServices.update#CreditCard" in-map="context" out-map="context"/>
+                        </then>
+                        <else-if condition="paymentMethodTypeEnumId == 'PmtBank'">
+                            <service-call name="mantle.account.PaymentMethodServices.update#BankAccount" in-map="context" out-map="context"/>
+                        </else-if>
+                    </if>
+                </then>
                 <else>
-                    <service-call name="mantle.account.PaymentMethodServices.create#CreditCard" in-map="context" out-map="ccOut">
-                        <field-map field-name="ownerPartyId" from="ec.user.userAccount.partyId"/>
-                    </service-call>
+                    <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
+                        <then>
+                            <service-call name="mantle.account.PaymentMethodServices.create#CreditCard" in-map="context" out-map="context">
+                                <field-map field-name="ownerPartyId" from="ec.user.userAccount.partyId"/></service-call>
+                        </then>
+                        <else-if condition="paymentMethodTypeEnumId == 'PmtBank'">
+                            <service-call name="mantle.account.PaymentMethodServices.create#BankAccount" in-map="context" out-map="context">
+                                <field-map field-name="ownerPartyId" from="ec.user.userAccount.partyId"/></service-call>
+                        </else-if>
+                    </if>
                 </else>
             </if>
-            <set field="paymentMethodId" from="ccOut?.paymentMethodId ?: paymentMethodId"/>
+            <!-- NOTE: out paymentMethodId set from service-call.out-map=context -->
         </actions>
     </service>
 
-    <!-- TODO: expire#PaymentMethod and delete#PaymentMethod services -->
+    <service verb="delete" noun="PaymentMethod">
+        <description>Expire the PaymentMethod, effectively deleting it without an actual delete.</description>
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.account.method.PaymentMethod" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="expunge" noun="PaymentMethod">
+        <description>This does an actual delete to remove payment method information from the system. It will delete the
+            record with the specified ID and all cloned records back to the original (because of the clone on update
+            to make immutable). This should only be used when total removal of data is needed.</description>
+        <in-parameters><parameter name="paymentMethodId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+
+            <entity-find entity-name="mantle.account.method.PaymentMethod" list="pmList">
+                <econdition field-name="originalPaymentMethodId" from="paymentMethod.originalPaymentMethodId"/>
+            </entity-find>
+
+            <iterate list="pmList" entry="pmValue">
+                <service-call name="delete#mantle.account.method.BankAccount" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
+                <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
+                <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
+            </iterate>
+
+            <!-- if the original record doesn't have originalPaymentMethodId populated it won't have been deleted above -->
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="origPm">
+                <field-map field-name="paymentMethodId" from="paymentMethod.originalPaymentMethodId"/></entity-find-one>
+            <if condition="origPm">
+                <service-call name="delete#mantle.account.method.BankAccount" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
+                <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
+                <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
+            </if>
+        </actions>
+    </service>
 
     <!-- ========================================= -->
     <!-- ========== CreditCard Services ========== -->
@@ -303,31 +361,6 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-create value-field="newCreditCard"/>
 
             <set field="paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
-        </actions>
-    </service>
-    <service verb="delete" noun="CreditCard">
-        <description>This does an actual delete to remove credit card information from the system. It will delete the
-            record with the specified ID and all cloned records back to the original (because of the clone on update
-            to make immutable).</description>
-        <in-parameters><parameter name="paymentMethodId"/></in-parameters>
-        <actions>
-            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
-            <entity-find entity-name="mantle.account.method.PaymentMethod" list="pmList">
-                <econdition field-name="originalPaymentMethodId" from="paymentMethod.originalPaymentMethodId"/>
-            </entity-find>
-
-            <iterate list="pmList" entry="pmValue">
-                <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
-                <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
-            </iterate>
-
-            <!-- if the original record doesn't have originalPaymentMethodId populated it won't have been deleted above -->
-            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="origPm">
-                <field-map field-name="paymentMethodId" from="paymentMethod.originalPaymentMethodId"/></entity-find-one>
-            <if condition="origPm">
-                <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
-                <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
-            </if>
         </actions>
     </service>
 
