@@ -21,16 +21,18 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="paymentMethodId"/>
-            <parameter name="paymentMethod" type="EntityValue"/>
-            <parameter name="creditCard" type="EntityValue"/>
-            <parameter name="creditCardTypeEnum" type="EntityValue"/>
+            <parameter name="paymentMethod" type="Map"/>
+            <parameter name="bankAccount" type="Map"/>
+            <parameter name="bankAccountTypeEnum" type="Map"/>
+            <parameter name="creditCard" type="Map"/>
+            <parameter name="creditCardTypeEnum" type="Map"/>
             <parameter name="expireMonth"/><parameter name="expireYear"/>
             <parameter name="maskedCardNumber"/>
             <parameter name="postalContactMechId"/>
-            <parameter name="postalAddress" type="EntityValue"/>
-            <parameter name="postalAddressStateGeo" type="EntityValue"/>
+            <parameter name="postalAddress" type="Map"/>
+            <parameter name="postalAddressStateGeo" type="Map"/>
             <parameter name="telecomContactMechId"/>
-            <parameter name="telecomNumber" type="EntityValue"/>
+            <parameter name="telecomNumber" type="Map"/>
             <parameter name="emailContactMechId"/>
             <parameter name="emailAddress"/>
         </out-parameters>
@@ -50,16 +52,17 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <set field="paymentMethodId" from="paymentMethod?.paymentMethodId"/>
 
-            <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.account.method.CreditCard" to-value-field="creditCard"/>
-            <entity-find-related-one value-field="creditCard" relationship-name="CreditCardType#moqui.basic.Enumeration" to-value-field="creditCardTypeEnum"/>
+            <set field="bankAccount" from="paymentMethod.'mantle.account.method.BankAccount'"/>
+            <set field="bankAccountTypeEnum" from="bankAccount.'BankAccountType#moqui.basic.Enumeration'"/>
 
+            <set field="creditCard" from="paymentMethod.'mantle.account.method.CreditCard'"/>
+            <set field="creditCardTypeEnum" from="creditCard.'CreditCardType#moqui.basic.Enumeration'"/>
             <set field="expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
             <set field="expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
-
             <set field="cardNumber" from="creditCard?.cardNumber"/>
             <set field="maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
 
-            <!-- TODO: support other payment method types! -->
+            <!-- TODO: support other payment method types -->
 
             <set field="postalContactMechId" from="paymentMethod?.postalContactMechId"/>
             <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.PostalAddress" to-value-field="postalAddress"/>
@@ -78,18 +81,20 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="paymentMethodTypeEnumId"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="methodInfoList" type="List"><parameter name="infoMap">
+            <parameter name="methodInfoList" type="List"><parameter name="infoMap" type="Map">
                 <parameter name="paymentMethodId"/>
-                <parameter name="paymentMethod" type="EntityValue"/>
-                <parameter name="creditCard" type="EntityValue"/>
-                <parameter name="creditCardTypeEnum" type="EntityValue"/>
+                <parameter name="paymentMethod" type="Map"/>
+                <parameter name="bankAccount" type="Map"/>
+                <parameter name="bankAccountTypeEnum" type="Map"/>
+                <parameter name="creditCard" type="Map"/>
+                <parameter name="creditCardTypeEnum" type="Map"/>
                 <parameter name="expireMonth"/><parameter name="expireYear"/>
                 <parameter name="maskedCardNumber"/>
                 <parameter name="postalContactMechId"/>
-                <parameter name="postalAddress" type="EntityValue"/>
-                <parameter name="postalAddressStateGeo" type="EntityValue"/>
+                <parameter name="postalAddress" type="Map"/>
+                <parameter name="postalAddressStateGeo" type="Map"/>
                 <parameter name="telecomContactMechId"/>
-                <parameter name="telecomNumber" type="EntityValue"/>
+                <parameter name="telecomNumber" type="Map"/>
                 <parameter name="emailContactMechId"/>
                 <parameter name="emailAddress"/>
             </parameter></parameter>
@@ -104,16 +109,17 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="methodInfoList" from="[]"/>
             <iterate list="paymentMethodList" entry="paymentMethod">
-                <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.account.method.CreditCard" to-value-field="creditCard"/>
-                <entity-find-related-one value-field="creditCard" relationship-name="CreditCardType#moqui.basic.Enumeration" to-value-field="creditCardTypeEnum"/>
+                <set field="bankAccount" from="paymentMethod.'mantle.account.method.BankAccount'"/>
+                <set field="bankAccountTypeEnum" from="bankAccount.'BankAccountType#moqui.basic.Enumeration'"/>
 
+                <set field="creditCard" from="paymentMethod.'mantle.account.method.CreditCard'"/>
+                <set field="creditCardTypeEnum" from="creditCard.'CreditCardType#moqui.basic.Enumeration'"/>
                 <set field="expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
                 <set field="expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
-
                 <set field="cardNumber" from="creditCard?.cardNumber"/>
                 <set field="maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
 
-                <!-- TODO: support other payment method types! -->
+                <!-- TODO: support other payment method types -->
 
                 <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.PostalAddress" to-value-field="postalAddress"/>
                 <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
