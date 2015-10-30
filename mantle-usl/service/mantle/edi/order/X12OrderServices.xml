@@ -103,7 +103,7 @@ along with this software (see the LICENSE.md file). If not, see
                     'OB':'CustomerPlacing', 'PW':'VendorPickUpFrom', 'SF':'VendorShipFrom', 'ST':'CustomerShipTo', 'VN':'Vendor']"/>
             <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
                     'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
-            <set field="n1IdTypeToPartyIdType" from="['1':'PtidDuns', '9':'PtidDuns4', '91':'PtidVend', '92':'PtidCust']"/>
+            <set field="n1IdTypeToPartyIdType" from="['1':'PtidDuns', '9':'PtidDuns4', '91':'PtidVend', '92':'PtidCust', 'UL':'PtidGln']"/>
 
             <iterate list="ST.N1" entry="N1">
                 <set field="party" from="[:]"/>
@@ -332,76 +332,29 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
                 OB Ordered By, PW Pick Up Address, SF Ship From, ST* Ship To, VN* Vendor) -->
-            <set field="bodyEdiMap.N1" from="[]"/>
-
-            <set field="roleTypeToN1Type" from="['SalesRepresentative':'BO', 'CustomerBillTo':'BT', 'Customer':'BY', 'Carrier':'CA',
-                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorBillFrom':'RE', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
-            <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
-                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'RE':'PostalPayment', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
-            <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92']"/>
-
             <!-- TODO: is ship or pick up? populate VendorShipFrom or VendorPickUpFrom with Vendor party and Facility address -->
-            <set field="orderPartPartyList" from="new ArrayList(orderPartPartyList)"/>
+            <set field="orderPartPartyList" from="orderPartPartyList.getPlainValueList(0)"/>
             <set field="oppRoleTypeIdList" from="orderPartPartyList.roleTypeId"/>
             <if condition="!oppRoleTypeIdList.contains('Customer')">
                 <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'Customer'])</script></if>
             <if condition="!oppRoleTypeIdList.contains('CustomerShipTo')">
-                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'CustomerShipTo'])</script></if>
+                <script>orderPartPartyList.add([partyId:orderPart.customerPartyId, roleTypeId:'CustomerShipTo',
+                                                postalContactMechId:orderPart.postalContactMechId])</script>
+                <else>
+                    <iterate list="orderPartPartyList" entry="orderPartParty">
+                        <if condition="orderPartParty.roleTypeId == 'CustomerShipTo'">
+                            <set field="orderPartParty.postalContactMechId" from="orderPart.postalContactMechId"/>
+                            <break/>
+                        </if>
+                    </iterate>
+                </else>
+            </if>
             <if condition="!oppRoleTypeIdList.contains('Vendor')">
                 <script>orderPartPartyList.add([partyId:orderPart.vendorPartyId, roleTypeId:'Vendor'])</script></if>
-            <iterate list="orderPartPartyList" entry="orderPartParty">
-                <set field="n1Type" from="roleTypeToN1Type.get(orderPartParty.roleTypeId)"/>
-                <if condition="!n1Type"><continue/></if>
 
-                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail">
-                    <field-map field-name="partyId" from="orderPartParty.partyId"/></entity-find-one>
-                <set field="n1Name" from="ec.resource.expand('PartyFullNameTemplate', '', partyDetail)"/>
-                <if condition="n1Name.length() > 60"><set field="n1Name" from="n1Name.substring(0, 60)"/></if>
-
-                <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
-                <!-- for ship to party use orderPart.postalContactMechId -->
-                <set field="postalContactMechId" from="orderPartParty.roleTypeId == 'CustomerShipTo' ? orderPart.postalContactMechId : null"/>
-                <service-call name="mantle.party.ContactServices.get#PartyContactInfo"
-                        out-map="contactInfo" out-map-add-to-existing="false"
-                        in-map="[partyId:orderPartParty.partyId, postalContactMechPurposeId:contactMechPurposeId,
-                            postalContactMechId:postalContactMechId]"/>
-
-                <!-- for ID try PtidDuns4 (9), PtidDuns (1), PtidCust (92); default to partyId (91) -->
-                <set field="n1Id" from="null"/><set field="n1IdType" from="null"/>
-                <iterate list="partyIdTypeToN1IdType" key="partyIdTypeEnumId" entry="curN1IdType">
-                    <entity-find entity-name="mantle.party.PartyIdentification" list="partyIdentList">
-                        <econdition field-name="partyId" from="orderPartParty.partyId"/>
-                        <econdition field-name="partyIdTypeEnumId" from="partyIdTypeEnumId"/>
-                    </entity-find>
-                    <if condition="partyIdentList">
-                        <set field="n1Id" from="partyIdentList?.getAt(0)?.idValue"/>
-                        <set field="n1IdType" from="curN1IdType"/>
-                        <break/>
-                    </if>
-                </iterate>
-                <if condition="!n1Id">
-                    <set field="n1Id" from="orderPartParty.partyId"/>
-                    <set field="n1IdType" value="91"/>
-                    <break/>
-                </if>
-
-                <set field="N1" from="[elements:['N1', n1Type, n1Name, n1IdType, n1Id]]"/>
-                <if condition="contactInfo">
-                    <set field="address1" from="contactInfo.postalAddress.address1"/>
-                    <if condition="address1.length() &gt; 55"><set field="address1" from="address1.substring(0, 55)"/></if>
-                    <set field="address2" from="contactInfo.postalAddress.address2"/>
-                    <if condition="address2?.length() &gt; 55"><set field="address2" from="address2.substring(0, 55)"/></if>
-                    <set field="city" from="contactInfo.postalAddress.city"/>
-                    <if condition="city.length() &gt; 30"><set field="city" from="city.substring(0, 30)"/></if>
-                    <set field="state" from="contactInfo.postalAddressStateGeo?.geoCodeAlpha2"/>
-                    <set field="postalCode" from="contactInfo.postalAddress.postalCode + (contactInfo.postalAddress.postalCodeExt ?: '')"/>
-                    <set field="country" from="contactInfo.postalAddressCountryGeo?.geoCodeAlpha3"/>
-
-                    <set field="N1.N3" from="[[elements:['N3', address1, address2]]]"/>
-                    <set field="N1.N4" from="[[elements:['N4', city, state, postalCode, country]]]"/>
-                </if>
-                <script>bodyEdiMap.N1.add(N1)</script>
-            </iterate>
+            <service-call name="mantle.edi.order.X12OrderServices.produce#N1Segments" out-map="n1Out"
+                    in-map="[partyInfoList:orderPartPartyList]"/>
+            <set field="bodyEdiMap.N1" from="n1Out.n1List"/>
 
             <!-- FUTURE: SAC for non-Product items with no parent (order level adjustment) -->
 
@@ -446,6 +399,75 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
                         envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
                         docType:'PR', docSubType:'855', orderId:orderId, orderRevision:orderHeader.orderRevision]"/>
+        </actions>
+    </service>
+
+    <service verb="produce" noun="N1Segments">
+        <in-parameters>
+            <parameter name="partyInfoList" type="List"><description>Contains Maps with partyId, roleTypeId, postalContactMechId</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="n1List"/>
+        </out-parameters>
+        <actions>
+            <set field="roleTypeToN1Type" from="['SalesRepresentative':'BO', 'CustomerBillTo':'BT', 'Customer':'BY', 'Carrier':'CA',
+                    'CustomerPlacing':'OB', 'VendorPickUpFrom':'PW', 'VendorBillFrom':'RE', 'VendorShipFrom':'SF', 'CustomerShipTo':'ST', 'Vendor':'VN']"/>
+            <set field="n1TypeToContactPurpose" from="['BO':'PostalPrimary', 'BT':'PostalBilling', 'BY':'PostalPrimary', 'CA':'PostalPrimary',
+                    'OB':'PostalPrimary', 'PW':'PostalShippingOrigin', 'RE':'PostalPayment', 'SF':'PostalShippingOrigin', 'ST':'PostalShippingDest', 'VN':'PostalPrimary']"/>
+            <set field="partyIdTypeToN1IdType" from="['PtidDuns':'1', 'PtidDuns4':'9', 'PtidVend':'91', 'PtidCust':'92', 'PtidGln':'UL']"/>
+
+            <set field="n1List" from="[]"/>
+            <iterate list="partyInfoList" entry="partyInfo">
+                <set field="n1Type" from="roleTypeToN1Type.get(partyInfo.roleTypeId)"/>
+                <if condition="!n1Type"><continue/></if>
+
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="partyDetail">
+                    <field-map field-name="partyId" from="partyInfo.partyId"/></entity-find-one>
+                <set field="n1Name" from="ec.resource.expand('PartyFullNameTemplate', '', partyDetail)"/>
+                <if condition="n1Name.length() > 60"><set field="n1Name" from="n1Name.substring(0, 60)"/></if>
+
+                <set field="contactMechPurposeId" from="n1TypeToContactPurpose.get(n1Type)"/>
+                <service-call name="mantle.party.ContactServices.get#PartyContactInfo"
+                        out-map="contactInfo" out-map-add-to-existing="false"
+                        in-map="[partyId:partyInfo.partyId, postalContactMechPurposeId:contactMechPurposeId,
+                            postalContactMechId:partyInfo.postalContactMechId]"/>
+
+                <!-- for ID try PtidDuns4 (9), PtidDuns (1), PtidCust (92); default to partyId (91) -->
+                <set field="n1Id" from="null"/><set field="n1IdType" from="null"/>
+                <iterate list="partyIdTypeToN1IdType" key="partyIdTypeEnumId" entry="curN1IdType">
+                    <entity-find entity-name="mantle.party.PartyIdentification" list="partyIdentList">
+                        <econdition field-name="partyId" from="partyInfo.partyId"/>
+                        <econdition field-name="partyIdTypeEnumId" from="partyIdTypeEnumId"/>
+                    </entity-find>
+                    <if condition="partyIdentList">
+                        <set field="n1Id" from="partyIdentList?.getAt(0)?.idValue"/>
+                        <set field="n1IdType" from="curN1IdType"/>
+                        <break/>
+                    </if>
+                </iterate>
+                <if condition="!n1Id">
+                    <set field="n1Id" from="partyInfo.partyId"/>
+                    <set field="n1IdType" value="91"/>
+                    <break/>
+                </if>
+
+                <set field="N1" from="[elements:['N1', n1Type, n1Name, n1IdType, n1Id]]"/>
+                <if condition="contactInfo">
+                    <set field="address1" from="contactInfo.postalAddress.address1"/>
+                    <if condition="address1.length() &gt; 55"><set field="address1" from="address1.substring(0, 55)"/></if>
+                    <set field="address2" from="contactInfo.postalAddress.address2"/>
+                    <if condition="address2?.length() &gt; 55"><set field="address2" from="address2.substring(0, 55)"/></if>
+                    <set field="city" from="contactInfo.postalAddress.city"/>
+                    <if condition="city.length() &gt; 30"><set field="city" from="city.substring(0, 30)"/></if>
+                    <set field="state" from="contactInfo.postalAddressStateGeo?.geoCodeAlpha2"/>
+                    <set field="postalCode" from="contactInfo.postalAddress.postalCode + (contactInfo.postalAddress.postalCodeExt ?: '')"/>
+                    <set field="country" from="contactInfo.postalAddressCountryGeo?.geoCodeAlpha3"/>
+
+                    <set field="N1.N3" from="[[elements:['N3', address1, address2]]]"/>
+                    <set field="N1.N4" from="[[elements:['N4', city, state, postalCode, country]]]"/>
+                </if>
+                <script>n1List.add(N1)</script>
+            </iterate>
         </actions>
     </service>
 </services>

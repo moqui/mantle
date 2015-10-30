@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- EDI X12 V4010 Shipment Message Services -->
+
+    <service verb="produce" noun="ShipNotice">
+        <description>Produce a Ship Notice message (X12 856).
+
+            NOTE: Currently supports only one ShipmentRouteSegment per Shipment.
+            NOTE: Currently supports more than one order but only one OrderPart per order.
+        </description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>If not specified comes from Invoice.systemMessageRemoteId (copied from OrderHeader if applicable)</description></parameter>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/shipment/X12V4010TS856.groovy"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
+                <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
+                <econdition field-name="shipmentId"/><order-by field-name="productId"/></entity-find>
+            <if condition="!shipmentItemSourceList"><return error="true" message="Shipment [${shipmentId}] has more no item source records, cannot produce Ship Notice message"/></if>
+            <set field="orderIdList" from="shipmentItemSourceList.orderId"/>
+            <set field="orderIdSet" from="new TreeSet(orderIdList)"/>
+
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
+                <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+            <if condition="shipmentRouteSegmentList.size() &gt; 1"><return error="true" message="Shipment [${shipmentId}] has more than one route segment, cannot produce Ship Notice message"/></if>
+            <set field="shipmentRouteSegment" from="shipmentRouteSegmentList ? shipmentRouteSegmentList[0] : null"/>
+
+            <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackage"
+                    list="shipmentPackageList" order-by-list="['shipmentPackageSeqId']"/>
+            <entity-find-related value-field="shipment" relationship-name="mantle.shipment.ShipmentPackageContent"
+                    list="shipmentPackageContentList" order-by-list="['shipmentPackageSeqId']"/>
+
+            <!-- get previous SystemMessage records for shipment -->
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
+                <econdition field-name="shipmentId"/><econdition field-name="isOutgoing" value="Y"/>
+                <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
+            </entity-find>
+
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="shipment.systemMessageRemoteId"/></if>
+
+            <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
+            <set field="bodyEdiMap" from="[:]"/>
+
+            <!-- BSN - Begin Ship Notice -->
+            <!-- BSN01 TS Purpose Code: 00 Original 02 Add? 05 Replace? -->
+            <set field="tsPurpose" from="outMessageList ? '05' : '00'"/>
+            <set field="shipDate" from="ec.l10n.format(shipment.estimatedShipDate, 'yyyyMMdd')"/>
+            <set field="shipTime" from="ec.l10n.format(shipment.estimatedShipDate, 'HHmm')"/>
+            <set field="bodyEdiMap.BSN" from="[[elements:['BSN', tsPurpose, shipmentId, shipDate, shipTime]]]"/>
+
+            <!-- HL(S Shipment).(TD1, TD5, TD3, REF*, DTM*, N1*.(N3, N4)) - Hierarchical Level (everything goes below this) -->
+            <!-- HL03 S Shipment -->
+            <set field="hlIndex" from="1"/>
+            <set field="shipmentIndex" from="hlIndex++"/>
+            <set field="HLS" from="[elements:['HL', shipmentIndex, '', 'S']]"/>
+            <set field="bodyEdiMap.HL" from="[HLS]"/>
+
+            <!-- TD1 total quantity and weight (add all packages) -->
+            <if condition="shipmentPackageList">
+                <set field="weightTotal" from="0"/>
+                <iterate list="shipmentPackageList" entry="shipmentPackage">
+                    <set field="weightTotal" from="weightTotal + (shipmentPackage.weight ?: 0)"/></iterate>
+                <set field="quantityTotal" from="0"/>
+                <iterate list="shipmentPackageContentList" entry="spc">
+                    <set field="quantityTotal" from="quantityTotal + (spc.quantity ?: 0)"/></iterate>
+                <set field="weightUomId" from="shipmentPackageList[0].weightUomId"/>
+                <set field="weightUomToCode" from="['WT_kg':'KG', 'WT_lb':'LB']"/>
+                <set field="weightUnit" from="weightUomToCode.get(weightUomId)"/>
+                <set field="HLS.TD1" from="[[elements:['TD1', '', quantityTotal, '', '', '', 'G', weightTotal, weightUnit]]]"/>
+            </if>
+            <!-- FUTURE: TD5 -->
+
+            <!-- TODO: TD3 with equipment detail (ID, seal state and ID) from Shipment Load WorkEffort -->
+
+            <!-- REF (2I Tracking Number, BM Bill of Lading Number, CN Carrier Reference Number) -->
+            <if condition="shipmentRouteSegment.trackingIdNumber">
+                <set field="HLS.REF" from="[[elements:['REF', '2I', shipmentRouteSegment.trackingIdNumber]]]"/>
+            </if>
+
+            <!-- DTM (002 Delivery Requested (PO delivery date), 010 Requested Ship PO ship date, 011 Shipped (Actual shipped date)
+                065 1st Schedule Delivery (Arrival appointment date) 371 Estimated Arrival Date (Estimated arrival based upon actual shipped (011) date)) -->
+            <set field="firstOrderId" from="orderIdList[0]"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="firstOrderPart">
+                <field-map field-name="orderId" from="firstOrderId"/></entity-find-one>
+            <set field="HLS.DTM" from="[]"/>
+            <if condition="firstOrderPart?.estimatedDeliveryDate">
+                <script>HLS.DTM.add([elements:['DTM', '002', ec.l10n.format(firstOrderPart.estimatedDeliveryDate, 'yyyyMMdd')]])</script></if>
+            <if condition="firstOrderPart?.shipBeforeDate">
+                <script>HLS.DTM.add([elements:['DTM', '010', ec.l10n.format(firstOrderPart.shipBeforeDate, 'yyyyMMdd')]])</script></if>
+            <set field="shippedDate" from="shipmentRouteSegment.actualStartDate ?: shipment.estimatedShipDate"/>
+            <if condition="shippedDate">
+                <script>HLS.DTM.add([elements:['DTM', '011', ec.l10n.format(shippedDate, 'yyyyMMdd')]])</script></if>
+            <!-- FUTURE: 065 (1st Schedule Delivery (Arrival appointment date)) -->
+            <set field="estimatedArrivalDate" from="shipmentRouteSegment.estimatedArrivalDate ?: shipment.estimatedArrivalDate"/>
+            <if condition="estimatedArrivalDate">
+                <script>HLS.DTM.add([elements:['DTM', '371', ec.l10n.format(estimatedArrivalDate, 'yyyyMMdd')]])</script></if>
+
+            <!-- N1.(N3, N4) BR Broker BT Bill-to-Party, CA* Carrier (Carrier), PW* Pick Up Address (VendorPickUpFrom),
+                SF** Ship From (VendorShipFrom), ST** Ship To (CustomerShipTo) -->
+            <set field="partyInfoList" from="[]"/>
+            <if condition="shipmentRouteSegment.carrierPartyId">
+                <script>partyInfoList.add([partyId:shipmentRouteSegment.carrierPartyId, roleTypeId:'Carrier'])</script></if>
+            <if condition="shipmentRouteSegment.shipmentMethodEnumId == 'ShMthPickUp'">
+                <script>partyInfoList.add([partyId:shipment.fromPartyId, roleTypeId:'VendorPickUpFrom',
+                                           postalContactMechId:shipmentRouteSegment.originPostalContactMechId])</script>
+            </if>
+            <script>partyInfoList.add([partyId:shipment.fromPartyId, roleTypeId:'VendorShipFrom',
+                                       postalContactMechId:shipmentRouteSegment.originPostalContactMechId])</script>
+            <script>partyInfoList.add([partyId:shipment.toPartyId, roleTypeId:'CustomerShipTo',
+                                       postalContactMechId:shipmentRouteSegment.destPostalContactMechId])</script>
+            <service-call name="mantle.edi.order.X12OrderServices.produce#N1Segments" out-map="n1Out"
+                    in-map="[partyInfoList:partyInfoList]"/>
+            <set field="HLS.N1" from="n1Out.n1List"/>
+
+
+            <iterate list="orderIdSet" entry="orderId">
+                <!-- find the OrderHeader and OrderPart -->
+                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+                <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Shipment [${shipmentId}]), cannot produce Ship Notice message"/></if>
+                <set field="orderPart" from="orderPartList[0]"/>
+
+                <filter-map-list list="shipmentItemSourceList" to-list="curShipmentItemSourceList">
+                    <field-map field-name="orderId"/></filter-map-list>
+
+                <!-- HL(O Order).(PRF*, REF*, N1.(N3, N4)) - one for each order -->
+
+                <set field="orderIndex" from="hlIndex++"/>
+                <set field="HLO" from="[elements:['HL', orderIndex, shipmentIndex, 'O']]"/>
+                <script>bodyEdiMap.HL.add(HLO)</script>
+
+                <!-- HL(O).PRF PO Reference -->
+                <set field="placedDate" from="ec.l10n.format(orderHeader.placedDate ?: orderHeader.entryDate, 'yyyyMMdd')"/>
+                <set field="HLO.PRF" from="[[elements:['PRF', orderPart.otherPartyOrderId, orderHeader.externalRevision,
+                        '', placedDate, '', '', 'SO']]]"/>
+
+                <!-- HL(O).REF CR Customer Reference Number (Order Control Number), IL Internal Order Number,
+                    VN Vendor Order Number, VR Vendor ID Number, YD Buyer Identification -->
+                <set field="HLO.REF" from="[[elements:['REF', 'VN', orderId]],
+                        [elements:['REF', 'YB', (orderHeader.orderRevision ?: 1)]]]"/>
+                <if condition="orderHeader.externalId"><script>HLO.REF.add([elements:['REF', 'IL', orderHeader.externalId]])</script></if>
+
+                <!-- HL(O).N1 BY* Buying Party (Purchaser) (Customer), RE Party to receive commercial invoice
+                    remittance (VendorBillFrom), VN* Vendor (Vendor) -->
+                <set field="partyInfoList" from="[]"/>
+                <script>partyInfoList.add([partyId:orderPart.vendorPartyId, roleTypeId:'Vendor'])</script>
+                <script>partyInfoList.add([partyId:orderPart.vendorPartyId, roleTypeId:'VendorBillFrom'])</script>
+                <script>partyInfoList.add([partyId:orderPart.customerPartyId, roleTypeId:'Customer'])</script>
+                <service-call name="mantle.edi.order.X12OrderServices.produce#N1Segments" out-map="n1Out"
+                        in-map="[partyInfoList:partyInfoList]"/>
+                <set field="HLS.N1" from="n1Out.n1List"/>
+
+                <set field="lineItemCount" from="0"/>
+                <!-- TODO: consolidate SIS records for each OrderItem? -->
+                <iterate list="curShipmentItemSourceList" entry="curSis">
+                    <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem">
+                        <field-map field-name="orderId" from="curSis.orderId"/>
+                        <field-map field-name="orderItemSeqId" from="curSis.orderItemSeqId"/>
+                    </entity-find-one>
+                    <!-- <set field="product" from="orderItem.'mantle.product.Product'"/> -->
+                    <entity-find entity-name="mantle.product.feature.ProductFeatureAndAppl" list="packagingTypeFeatureList">
+                        <econdition field-name="productId" from="orderItem.productId"/>
+                        <econdition field-name="productFeatureTypeEnumId" value="PftPackagingType"/>
+                    </entity-find>
+                    <set field="packagingTypeFeature" from="packagingTypeFeatureList ? packagingTypeFeatureList[0] : 0"/>
+
+                    <!-- ========== HL(T Shipping Tare).(TD1*, MAN*, PAL*) -->
+
+                    <set field="tareIndex" from="hlIndex++"/>
+                    <set field="HLT" from="[elements:['HL', tareIndex, orderIndex, 'T']]"/>
+                    <script>bodyEdiMap.HL.add(HLT)</script>
+
+                    <!-- HL(T).TD1 -->
+                    <set field="orderQuantity" from="0"/>
+                    <!-- <iterate list="curShipmentItemSourceList" entry="curSis"><set field="orderQuantity" from="orderQuantity + (curSis.quantity ?: 0)"/></iterate> -->
+                    <set field="HLT.TD1" from="[[elements:['TD1', 'CAS', curSis.quantity, '', '', '', '', '', '']]]"/>
+
+                    <!-- HL(T).MAN -->
+                    <!-- MAN01 GM SSCC-18 (Serial Shipping Container Code) and Application Identifier -->
+                    <!-- TODO: where to put/get SSCC or trailer LPN? Equipment associated with Shipment Load? -->
+                    <set field="sscc" value=""/>
+                    <!-- FUTURE: MAN04 (for MAN05) SI Self-Identifying Container via Radio Frequency ID Device -->
+                    <set field="HLT.MAN" from="[[elements:['MAN', 'GM', sscc, '', '', '']]]"/>
+
+                    <!-- HL(T).PAL -->
+                    <!-- PAL01 4 Standard -->
+                    <set field="palletTiers" from="packagingTypeFeature?.tiersPerPallet"/>
+                    <set field="palletBlocks" from="packagingTypeFeature?.perPalletTier"/>
+                    <set field="HLT.PAL" from="[[elements:['PAL', '4', palletTiers, palletBlocks]]]"/>
+
+                    <!-- ========== HL(I Item).(LIN, SN1, PID, MEA, MAN) -->
+
+                    <set field="itemIndex" from="hlIndex++"/>
+                    <set field="HLI" from="[elements:['HL', itemIndex, tareIndex, 'I']]"/>
+                    <script>bodyEdiMap.HL.add(HLI)</script>
+
+                    <!-- HL(I).LIN -->
+                    <!-- LIN01 should match PO101 (OrderItem.externalItemSeqId) -->
+                    <set field="itemId" from="orderItem.externalItemSeqId ?: orderItem.orderItemSeqId"/>
+                    <!-- FUTURE: LIN22/23 to LIN30/31 CH Country of Origin Code -->
+                    <set field="HLI.LIN" from="[[elements:['LIN', itemId, '', '', 'VN', orderItem.productId,
+                        'PI', orderItem.otherPartyProductId, '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+                        '', '', '', '', '', '', '', '', '', '', '']]]"/>
+
+                    <!-- HL(I).SN1 -->
+                    <set field="HLI.SN1" from="[[elements:['SN1', curSis.quantity, 'CA']]]"/>
+
+                    <!-- HL(I).PID -->
+                    <if condition="orderItem.itemDescription">
+                        <set field="itemDescription" from="orderItem.itemDescription"/>
+                        <if condition="itemDescription.length() &gt; 80"><set field="itemDescription" from="itemDescription.substring(0, 80)"/></if>
+                        <set field="HLI.PID" from="[[elements:['PID', 'F', '', '', '', itemDescription]]]"/>
+                    </if>
+
+                    <!-- FUTURE: HL(I).MEA for item total weight and volume -->
+                    <!-- FUTURE: HL(I).MAN for SSCC and/or RFID; used for bar codes, etc; with multiple segments (one per Asset) too? -->
+
+                    <set field="lineItemCount" from="lineItemCount + 1"/>
+                </iterate>
+            </iterate>
+
+            <!-- CTT -->
+            <!-- FUTURE: weight in 03/04, volume in 05/06 -->
+            <!-- NOTE: what is hash total based on? leaving empty for now -->
+            <set field="hashTotal" value=""/>
+            <set field="bodyEdiMap.CTT" from="[[elements:['CTT', lineItemCount, hashTotal, '', '', '', '', '']]]"/>
+
+            <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
+            <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
+                    in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
+                        envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
+                        docType:'SH', docSubType:'856', shipmentId:shipmentId]"/>
+        </actions>
+    </service>
+</services>
