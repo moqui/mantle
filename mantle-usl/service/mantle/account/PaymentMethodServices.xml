@@ -197,13 +197,18 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- CreditCard Services -->
+    <!-- TODO: expire#PaymentMethod and delete#PaymentMethod services -->
+
+    <!-- ========================================= -->
+    <!-- ========== CreditCard Services ========== -->
+    <!-- ========================================= -->
+
     <service verb="create" noun="CreditCard">
         <description>
             Create a Credit Card (and the corresponding PaymentMethod record).
         </description>
         <in-parameters>
-            <auto-parameters entity-name="CreditCard" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
             <parameter name="expireDate" required="true"><time-range after="now" format="MM/yyyy"/></parameter>
             <parameter name="cardNumber" required="true"><credit-card/></parameter>
 
@@ -214,6 +219,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="telecomContactMechId"/>
             <parameter name="trustLevelEnumId"/>
             <parameter name="paymentFraudEvidenceId"/>
+
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtCreditCard"/>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
         <actions>
@@ -229,9 +237,8 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-make-value entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
             <entity-set value-field="paymentMethod" include="nonpk"/>
             <entity-sequenced-id-primary value-field="paymentMethod"/>
-            <set field="paymentMethod.fromDate" from="ec.user.nowTimestamp"/>
-            <set field="paymentMethod.paymentMethodTypeEnumId" value="PmtCreditCard"/>
-            <set field="paymentMethod.originalPaymentMethodId" from="paymentMethod.paymentMethodId"/>
+            <set field="paymentMethod.fromDate" from="fromDate"/>
+            <set field="paymentMethod.paymentMethodTypeEnumId" from="paymentMethodTypeEnumId"/>
             <entity-create value-field="paymentMethod"/>
 
             <entity-make-value entity-name="mantle.account.method.CreditCard" value-field="creditCard"/>
@@ -251,7 +258,7 @@ along with this software (see the LICENSE.md file). If not, see
             directly on the PaymentMethod entity (do not use this service).
         </description>
         <in-parameters>
-            <auto-parameters entity-name="CreditCard" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
 
             <parameter name="paymentMethodId" required="true"/>
             <!-- some fields from PaymentMethod we'll allow setting manually -->
@@ -272,7 +279,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="newCreditCard == origCreditCard &amp;&amp; newPaymentMethod == origPaymentMethod">
                 <log level="info" message="No fields were different for Credit Card with ID [${paymentMethodId}], not updating."/>
-                <return error="false"/>
+                <return/>
             </if>
 
             <!-- expire the old record -->
@@ -286,8 +293,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="newPaymentMethod.originalPaymentMethodId" from="origPaymentMethod.originalPaymentMethodId ?: origPaymentMethod.paymentMethodId"/>
             <if condition="!newPaymentMethod.description">
                 <entity-find-one entity-name="moqui.basic.Enumeration" value-field="creditCardTypeEnum">
-                    <field-map field-name="enumId" from="creditCardTypeEnumId"/>
-                </entity-find-one>
+                    <field-map field-name="enumId" from="newCreditCard.creditCardTypeEnumId"/></entity-find-one>
                 <set field="cardNumberDisplay" from="cardNumber ? (creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
                 <set field="newPaymentMethod.description" from="(creditCardTypeEnum?.description ?: 'Credit Card') + ' ' + cardNumberDisplay"/>
             </if>
@@ -296,7 +302,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="newCreditCard.paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
             <entity-create value-field="newCreditCard"/>
 
-            <set field="result.paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
+            <set field="paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
         </actions>
     </service>
     <service verb="delete" noun="CreditCard">
@@ -322,6 +328,84 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
                 <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:origPm.paymentMethodId]"/>
             </if>
+        </actions>
+    </service>
+
+    <!-- ========================================== -->
+    <!-- ========== BankAccount Services ========== -->
+    <!-- ========================================== -->
+
+    <service verb="create" noun="BankAccount">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk"/>
+
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtBank"/>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentMethodId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.account.method.PaymentMethod" in-map="context" out-map="context"/>
+            <service-call name="create#mantle.account.method.BankAccount" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="update" noun="BankAccount">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk"/>
+
+            <parameter name="paymentMethodTypeEnumId" default-value="PmtBank"/>
+            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentMethodId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.method.BankAccount" value-field="origBankAccount"/>
+            <script>newBankAccount = origBankAccount.cloneValue()</script>
+            <entity-set value-field="newBankAccount" include="nonpk"/>
+
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="origPaymentMethod"/>
+            <script>newPaymentMethod = origPaymentMethod.cloneValue()</script>
+            <entity-set value-field="newPaymentMethod" include="nonpk"/>
+
+            <if condition="newBankAccount == origBankAccount &amp;&amp; newPaymentMethod == origPaymentMethod">
+                <log level="info" message="No fields were different for Bank Account with ID [${paymentMethodId}], not updating."/>
+                <return/>
+            </if>
+
+            <!-- expire the old record -->
+            <set field="origPaymentMethod.thruDate" from="ec.user.nowTimestamp"/>
+            <entity-update value-field="origPaymentMethod"/>
+
+            <!-- create the new records -->
+            <set field="newPaymentMethod.paymentMethodId" from="null"/>
+            <entity-sequenced-id-primary value-field="newPaymentMethod"/>
+            <set field="newPaymentMethod.fromDate" from="ec.user.nowTimestamp"/>
+            <set field="newPaymentMethod.originalPaymentMethodId" from="origPaymentMethod.originalPaymentMethodId ?: origPaymentMethod.paymentMethodId"/>
+            <if condition="!newPaymentMethod.description">
+                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="typeEnum">
+                    <field-map field-name="enumId" from="newBankAccount.typeEnumId"/></entity-find-one>
+                <set field="newPaymentMethod.description" from="(typeEnum?.description ?: 'Bank Account') + ' ' + newBankAccount.accountNumber"/>
+            </if>
+            <entity-create value-field="newPaymentMethod"/>
+
+            <set field="newBankAccount.paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
+            <entity-create value-field="newBankAccount"/>
+
+            <set field="paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
+        </actions>
+    </service>
+    <service verb="update" noun="BankAccountNoClone">
+        <description>Update limited fields a BankAccount record without cloning it (as update#BankAccount does)</description>
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="lastCheckNumber" type="Long"/>
+            <parameter name="ledgerBalance" type="BigDecimal"/>
+            <parameter name="availableBalance" type="BigDecimal"/>
+            <parameter name="balanceDate" type="Timestamp"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.account.method.BankAccount" in-map="context"/>
         </actions>
     </service>
 </services>
