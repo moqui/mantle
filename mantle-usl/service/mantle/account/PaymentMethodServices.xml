@@ -224,6 +224,19 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="update" noun="PaymentMethodMutable">
+        <description>Update limited fields a PaymentMethod record without cloning it (as store#PaymentMethodInfo does on update)</description>
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="description"/>
+            <parameter name="trustLevelEnumId"/>
+            <parameter name="paymentFraudEvidenceId"/>
+            <parameter name="thruDate" type="Timestamp"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.account.method.PaymentMethod" in-map="context"/>
+        </actions>
+    </service>
     <service verb="delete" noun="PaymentMethod">
         <description>Expire the PaymentMethod, effectively deleting it without an actual delete.</description>
         <in-parameters>
@@ -268,21 +281,12 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================= -->
 
     <service verb="create" noun="CreditCard">
-        <description>
-            Create a Credit Card (and the corresponding PaymentMethod record).
-        </description>
+        <description>Create a Credit Card (and the corresponding PaymentMethod record)</description>
         <in-parameters>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
             <parameter name="expireDate" required="true"><time-range after="now" format="MM/yyyy"/></parameter>
             <parameter name="cardNumber" required="true"><credit-card/></parameter>
-
-            <!-- some fields from PaymentMethod we'll allow setting manually -->
-            <parameter name="ownerPartyId"/>
-            <parameter name="description"/>
-            <parameter name="postalContactMechId"/>
-            <parameter name="telecomContactMechId"/>
-            <parameter name="trustLevelEnumId"/>
-            <parameter name="paymentFraudEvidenceId"/>
 
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCreditCard"/>
             <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -322,14 +326,9 @@ along with this software (see the LICENSE.md file). If not, see
             directly on the PaymentMethod entity (do not use this service).
         </description>
         <in-parameters>
-            <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
-
             <parameter name="paymentMethodId" required="true"/>
-            <!-- some fields from PaymentMethod we'll allow setting manually -->
-            <parameter name="ownerPartyId"/>
-            <parameter name="description"/>
-            <parameter name="postalContactMechId"/>
-            <parameter name="telecomContactMechId"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
         <actions>
@@ -393,9 +392,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="paymentMethodId" required="true"/>
             <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
             <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk"/>
-
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtBankAccount"/>
-            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId"/></out-parameters>
         <actions>
@@ -434,16 +430,17 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
         </actions>
     </service>
-    <service verb="update" noun="BankAccountNoClone">
-        <description>Update limited fields a BankAccount record without cloning it (as update#BankAccount does)</description>
+    <service verb="update" noun="BankAccountMutable">
+        <description>Update limited fields on PaymentMethod and BankAccount records without cloning (as update#BankAccount does)</description>
+        <implements service="mantle.account.PaymentMethodServices.update#PaymentMethodMutable"/>
         <in-parameters>
-            <parameter name="paymentMethodId" required="true"/>
             <parameter name="lastCheckNumber" type="Long"/>
             <parameter name="ledgerBalance" type="BigDecimal"/>
             <parameter name="availableBalance" type="BigDecimal"/>
             <parameter name="balanceDate" type="Timestamp"/>
         </in-parameters>
         <actions>
+            <service-call name="update#mantle.account.method.PaymentMethod" in-map="context"/>
             <service-call name="update#mantle.account.method.BankAccount" in-map="context"/>
         </actions>
     </service>
