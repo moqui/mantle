@@ -25,6 +25,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- <log message="====== headerMap: ${header}"/> -->
             <!-- <log message="====== ofxNode:\n${org.moqui.impl.util.FtlNodeWrapper.prettyPrintNode(ofxNode)}"/> -->
 
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
             <entity-find-one entity-name="mantle.account.method.BankAccount" value-field="bankAccount"/>
             <if condition="!bankAccount"><return error="true" message="Payment Method [${paymentMethodId}] is not a Bank Account"/></if>
 
@@ -43,6 +44,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="!ACCTID.contains(bankAccount.accountNumber)">
                     <message error="true">OFX ACCTID [${ACCTID}] does not match (or contain) account number [${bankAccount.accountNumber}] on Bank Account [${paymentMethodId}]</message></if>
             </if>
+            <!-- make sure the currency matches -->
+            <set field="CURDEF" from="STMTRS.CURDEF?.getAt(0)?.text()"/>
+            <if condition="CURDEF &amp;&amp; paymentMethod.currencyUomId">
+                <if condition="CURDEF != paymentMethod.currencyUomId">
+                    <message error="true">OFX currency (CURDEF) [${CURDEF}] does not match account currency [${paymentMethod.currencyUomId}] on Bank Account [${paymentMethodId}]</message></if>
+            </if>
+
             <check-errors/>
 
             <!-- import the transactions -->
