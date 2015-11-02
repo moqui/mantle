@@ -31,27 +31,51 @@ along with this software (see the LICENSE.md file). If not, see
 
             <iterate list="bankAccountTransList" entry="bankAccountTrans">
                 <if condition="!bankAccountTrans.transAmount || !bankAccountTrans.postedDate"><continue/></if>
-                <set field="paymentId" from="null"/>
+                <set field="paymentId" from="null"/><set field="payment" from="null"/>
                 <set field="acctgTransId" from="null"/><set field="acctgTransEntrySeqId" from="null"/>
 
                 <!-- find matching Payment, ignore certain transType values for payments -->
                 <if condition="!bankAccountTrans.paymentId &amp;&amp; !ignoreTypeSet.contains(bankAccountTrans.transType)">
+                    <!-- only look for Payments not yet reconciled -->
+                    <set field="findPmt" from="[reconcileStatusId:'PmtrNot']"/>
+                    <!-- if paymentMethod.currencyUomId match against Payment.amountUomId -->
+                    <if condition="paymentMethod.currencyUomId"><set field="findPmt.amountUomId" from="paymentMethod.currencyUomId"/></if>
+
                     <!-- if transType is DEBIT PaymentMethod.ownerPartyId is fromPartyId, if CREDIT then is toPartyId;
                         OR just look at sign of transAmount? (- fromPartyId, + toPartyId) -->
-
                     <!-- match against Payment.paymentMethodId or toPaymentMethodId -->
+                    <if condition="bankAccountTrans.transAmount &gt;= 0">
+                        <then>
+                            <set field="findPmt.toPartyId" from="paymentMethod.ownerPartyId"/>
+                            <set field="findPmt.toPaymentMethodId" from="paymentMethodId"/>
+                        </then>
+                        <else>
+                            <set field="findPmt.fromPartyId" from="paymentMethod.ownerPartyId"/>
+                            <set field="findPmt.paymentMethodId" from="paymentMethodId"/>
+                        </else>
+                    </if>
+
                     <!-- if we have checkNumber or refNumber match against Payment.paymentRefNum -->
+                    <if condition="bankAccountTrans.checkNumber || bankAccountTrans.refNumber">
+                        <set field="findPmt.paymentRefNum" from="bankAccountTrans.checkNumber ?: bankAccountTrans.refNumber"/>
+                        <!-- TODO: what if we match on this and amounts differ? -->
+                        <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
+                            <econdition-object field="findPmt"/></entity-find>
+                        <set field="payment" from="paymentList ? paymentList[0] : null"/>
+                    </if>
+
                     <!-- otherwise match against transAmount, postedDate (within X number of days after Payment.effectiveDate?) -->
-
-                    <!-- if paymentMethod.currencyUomId match against Payment.amountUomId -->
-
+                    <if condition="!payment">
+                        <!-- TODO -->
+                    </if>
                     <!-- nothing found? match against originalCurrencyAmount, originalCurrencyUomId -->
-
-                    <!-- TODO -->
-
-                    <!-- make sure Payment has no existing match on BankAccountTrans -->
+                    <if condition="!payment">
+                        <!-- TODO -->
+                    </if>
                 </if>
                 <if condition="!bankAccountTrans.acctgTransId &amp;&amp; paymentMethod.glAccountId">
+                    <!-- match PaymentMethod.glAccountId against BankAccountTrans.glAccountId -->
+
                     <!-- if transAmount positive debitCreditFlag=D, else debitCreditFlag=C -->
                     <!-- look for abs of transAmount -->
 
@@ -62,14 +86,13 @@ along with this software (see the LICENSE.md file). If not, see
                     <!-- with reconcileStatusId need to make sure AcctgTransEntry has no existing match on BankAccountTrans? -->
 
                     <!-- TODO -->
-
-                    <!-- match PaymentMethod.glAccountId against BankAccountTrans.glAccountId -->
                 </if>
                 <if condition="paymentId || acctgTransId">
                     <service-call name="mantle.account.ReconciliationServices.reconcile#BankAccountTrans"
                             in-map="[paymentMethodId:paymentMethodId, fitId:bankAccountTrans.fitId,
-                                bankAccountTrans:bankAccountTrans, paymentId:paymentId,
-                                acctgTransId:acctgTransId, acctgTransEntrySeqId:acctgTransEntrySeqId]"/>
+                                bankAccountTrans:bankAccountTrans, paymentId:paymentId, payment:payment,
+                                acctgTransId:acctgTransId, acctgTransEntrySeqId:acctgTransEntrySeqId,
+                                acctgTransEntry:acctgTransEntry]"/>
                 </if>
             </iterate>
         </actions>
@@ -80,14 +103,18 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
             <parameter name="fitId" required="true"/>
-            <parameter name="bankAccountTrans" type="EntityValue"/>
+            <parameter name="bankAccountTrans" type="EntityValue"><description>Looked up from ID if not passed</description></parameter>
             <parameter name="paymentId"/>
+            <parameter name="payment" type="EntityValue"><description>Looked up from ID if not passed</description></parameter>
             <parameter name="acctgTransId"/>
             <parameter name="acctgTransEntrySeqId"/>
+            <parameter name="acctgTransEntry" type="EntityValue"><description>Looked up from ID if not passed</description></parameter>
+            <parameter name="pmtReconcileStatusId" default-value="PmtrRec"/>
+            <parameter name="ateReconcileStatusId" default-value="AterRec"/>
         </in-parameters>
         <actions>
-            <if condition="!bankAccountTrans">
-                <entity-find-one entity-name="mantle.payment.method.BankAccountTrans" value-field="bankAccountTrans"/></if>
+            <if condition="!bankAccountTrans"><entity-find-one entity-name="mantle.payment.method.BankAccountTrans"
+                    value-field="bankAccountTrans"/></if>
 
             <if condition="paymentId">
                 <!-- if another BankAccountTrans has this paymentId clear it -->
@@ -101,6 +128,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- set the paymentId -->
                 <set field="bankAccountTrans.paymentId" from="paymentId"/>
                 <entity-update value-field="bankAccountTrans"/>
+
+                <!-- set Payment.reconcileStatusId -->
+                <if condition="!payment"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
+                <if condition="payment.reconcileStatusId != pmtReconcileStatusId">
+                    <set field="payment.reconcileStatusId" from="pmtReconcileStatusId"/>
+                    <entity-update value-field="payment"/>
+                </if>
             </if>
             <if condition="acctgTransId &amp;&amp; acctgTransEntrySeqId">
                 <!-- if another BankAccountTrans has this acctgTransId/acctgTransEntrySeqId clear them -->
@@ -118,9 +152,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-update value-field="bankAccountTrans"/>
 
                 <!-- set AcctgTransEntry.reconcileStatusId -->
-                <entity-find-one entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="acctgTransEntry"/>
-                <if condition="acctgTransEntry.reconcileStatusId != 'AterRec'">
-                    <set field="acctgTransEntry.reconcileStatusId" value="AterRec"/>
+                <if condition="!acctgTransEntry"><entity-find-one entity-name="mantle.ledger.transaction.AcctgTransEntry"
+                        value-field="acctgTransEntry"/></if>
+                <if condition="acctgTransEntry.reconcileStatusId != ateReconcileStatusId">
+                    <set field="acctgTransEntry.reconcileStatusId" from="ateReconcileStatusId"/>
                     <entity-update value-field="acctgTransEntry"/>
                 </if>
             </if>
