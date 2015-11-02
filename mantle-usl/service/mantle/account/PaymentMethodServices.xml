@@ -22,12 +22,15 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="paymentMethodId"/>
             <parameter name="paymentMethod" type="Map"/>
+
             <parameter name="bankAccount" type="Map"/>
             <parameter name="bankAccountTypeEnum" type="Map"/>
+
             <parameter name="creditCard" type="Map"/>
             <parameter name="creditCardTypeEnum" type="Map"/>
             <parameter name="expireMonth"/><parameter name="expireYear"/>
             <parameter name="maskedCardNumber"/>
+
             <parameter name="postalContactMechId"/>
             <parameter name="postalAddress" type="Map"/>
             <parameter name="postalAddressStateGeo" type="Map"/>
@@ -84,12 +87,15 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="methodInfoList" type="List"><parameter name="infoMap" type="Map">
                 <parameter name="paymentMethodId"/>
                 <parameter name="paymentMethod" type="Map"/>
+
                 <parameter name="bankAccount" type="Map"/>
                 <parameter name="bankAccountTypeEnum" type="Map"/>
+
                 <parameter name="creditCard" type="Map"/>
                 <parameter name="creditCardTypeEnum" type="Map"/>
                 <parameter name="expireMonth"/><parameter name="expireYear"/>
                 <parameter name="maskedCardNumber"/>
+
                 <parameter name="postalContactMechId"/>
                 <parameter name="postalAddress" type="Map"/>
                 <parameter name="postalAddressStateGeo" type="Map"/>
@@ -146,6 +152,11 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="paymentMethodId"/>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCreditCard"/>
 
+            <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk">
+                <exclude field-name="lastCheckNumber"/><exclude field-name="ledgerBalance"/>
+                <exclude field-name="availableBalance"/><exclude field-name="balanceDate"/>
+            </auto-parameters>
+
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk">
                 <exclude field-name="cardNumberLookupHash"/><exclude field-name="consecutiveFailedAuths"/>
                 <exclude field-name="lastFailedAuthDate"/><exclude field-name="consecutiveFailedNsf"/>
@@ -156,11 +167,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="expireYear" required="true"/>
             <parameter name="expireDate" default-value="${expireMonth}/${expireYear}">
                 <time-range after="now" format="MM/yyyy"/></parameter>
-
-            <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk">
-                <exclude field-name="lastCheckNumber"/><exclude field-name="ledgerBalance"/>
-                <exclude field-name="availableBalance"/><exclude field-name="balanceDate"/>
-            </auto-parameters>
 
             <parameter name="postalContactMechId"/>
             <parameter name="postalContactMechPurposeId" default-value="PostalBilling"/>
@@ -260,6 +266,7 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
 
             <iterate list="pmList" entry="pmValue">
+                <!-- TODO: clear paymentMethodId references for FK error on delete -->
                 <service-call name="delete#mantle.account.method.BankAccount" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
                 <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
                 <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
