@@ -942,6 +942,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="visitId" type="id"><description>Track the Visit so we know the session info, including client IP,
             for audit and fraud purposes.</description></field>
         <field name="acctgTransResultEnumId" type="id"/>
+        <field name="reconcileStatusId" type="id" default="'PmtrNot'"/>
 
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="paymentTypeEnumId"/></relationship>
@@ -978,6 +979,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.server.Visit"/>
         <relationship type="one" title="AcctgTransResult" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="acctgTransResultEnumId"/></relationship>
+        <relationship type="one" title="AcctgTransEntryReconcile" related-entity-name="moqui.basic.StatusItem">
+            <key-map field-name="reconcileStatusId"/></relationship>
 
         <relationship type="many" related-entity-name="mantle.account.payment.PaymentApplication" short-alias="applications">
             <key-map field-name="paymentId"/></relationship>
@@ -1023,6 +1026,17 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntDelivered" toStatusId="PmntVoid" transitionName="Void"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntDelivered" toStatusId="PmntPromised" transitionName="Undeliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntConfirmed" toStatusId="PmntDelivered" transitionName="Uncomfirm"/>
+
+            <!-- Payment Reconcile Status -->
+            <moqui.basic.StatusType description="Payment Reconcile Status" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusItem description="Not Reconciled" sequenceNum="1" statusId="PmtrNot" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusItem description="Partly Reconciled" sequenceNum="2" statusId="PmtrPartly" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusItem description="Reconciled" sequenceNum="3" statusId="PmtrRec" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrNot" toStatusId="PmtrPartly" transitionName="Partly Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrNot" toStatusId="PmtrRec" transitionName="Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrPartly" toStatusId="PmtrRec" transitionName="Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrPartly" toStatusId="PmtrNot" transitionName="Unreconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrRec" toStatusId="PmtrNot" transitionName="Unreconcile"/>
         </seed-data>
 
         <master>
