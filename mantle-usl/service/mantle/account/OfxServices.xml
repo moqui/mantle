@@ -47,7 +47,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- import the transactions -->
             <set field="BANKTRANLIST" from="STMTRS.BANKTRANLIST?.getAt(0)"/>
-            <iterate list="BANKTRANLIST.STMTTRN" entry="STMTTRN">
+            <iterate list="BANKTRANLIST?.STMTTRN" entry="STMTTRN">
                 <set field="fitId" from="STMTTRN.FITID[0].text()"/>
                 <!-- if we already have the tx skip it -->
                 <entity-find-one entity-name="mantle.account.method.BankAccountTrans" value-field="bankAccountTrans">
@@ -57,32 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- create the tx record -->
 
                 <!-- possible formats include: yyyyMMdd (GMT), yyyyMMddHHmmss (GMT), yyyyMMddHHmmss.SSS (GMT), yyyyMMddHHmmss.SSS[-5:EST] -->
-                <set field="DTPOSTED" from="STMTTRN.DTPOSTED[0].text()"/>
-                <if condition="DTPOSTED.length() &lt;= 18">
-                    <then>
-                        <script><![CDATA[
-                            while (DTPOSTED.length() < 14) { DTPOSTED = DTPOSTED + "0" }
-                            if (DTPOSTED.length() < 15) { DTPOSTED = DTPOSTED + "." }
-                            while (DTPOSTED.length() < 18) { DTPOSTED = DTPOSTED + "0" }
-                            DTPOSTED = DTPOSTED + " +0000"
-                        ]]></script>
-                    </then>
-                    <else>
-                        <!-- has a time zone, strip it and create an RFC 822 time zone (like -0500) -->
-                        <set field="openBraceIndex" from="DTPOSTED.indexOf('[')"/>
-                        <set field="tzStr" from="DTPOSTED.substring(openBraceIndex + 1, DTPOSTED.indexOf(':', openBraceIndex))"/>
-                        <if condition="tzStr.charAt(0).isDigit()"><set field="tzStr" from="'+' + tzStr"/></if>
-                        <if condition="tzStr.length() == 2"><set field="tzStr" from="tzStr[0] + '0' + tzStr[1]"/></if>
-                        <set field="dtStr" from="DTPOSTED.substring(0, openBraceIndex)"/>
-                        <script><![CDATA[
-                            while (dtStr.length() < 14) { dtStr = dtStr + "0" }
-                            if (dtStr.length() < 15) { dtStr = dtStr + "." }
-                            while (dtStr.length() < 18) { dtStr = dtStr + "0" }
-                        ]]></script>
-                        <set field="DTPOSTED" value="${dtStr} ${tzStr}00"/>
-                    </else>
-                </if>
-                <set field="postedDate" from="ec.l10n.parseTimestamp(DTPOSTED, 'yyyyMMddHHmmss.SSS Z')"/>
+                <set field="postedDate" from="sgmlReader.parseOfxDateTime(STMTTRN.DTPOSTED[0].text())"/>
                 <!-- <log message="========= DTPOSTED=${DTPOSTED}, orig=${STMTTRN.DTPOSTED[0].text()}, postedDate=${postedDate}"/> -->
 
                 <!-- as per spec amount will only contain a comma if used as a decimal separator, so replace with a dot and parse to BD -->
@@ -98,7 +73,27 @@ along with this software (see the LICENSE.md file). If not, see
                         checkNumber:STMTTRN.CHECKNUM?.getAt(0)?.text(), refNumber:STMTTRN.REFNUM?.getAt(0)?.text()]"/>
             </iterate>
 
-            <!-- TODO: update ledgerBalance, availableBalance, balanceDate (only if more recent than last balanceDate) -->
+            <!-- update ledgerBalance, availableBalance, balanceDate (only if more recent than last balanceDate) -->
+            <set field="LEDGERBAL" from="STMTRS.LEDGERBAL?.getAt(0)"/>
+            <if condition="LEDGERBAL">
+                <set field="BALAMT" from="LEDGERBAL.BALAMT[0].text()"/>
+                <if condition="BALAMT.contains(',')"><set field="BALAMT" from="BALAMT.replace(',', '.')"/></if>
+                <set field="ledgerBalance" from="new BigDecimal(BALAMT)"/>
+                <set field="balanceDate" from="sgmlReader.parseOfxDateTime(LEDGERBAL.DTASOF[0].text())"/>
+            </if>
+            <set field="AVAILBAL" from="STMTRS.AVAILBAL?.getAt(0)"/>
+            <if condition="AVAILBAL">
+                <set field="BALAMT" from="AVAILBAL.BALAMT[0].text()"/>
+                <if condition="BALAMT.contains(',')"><set field="BALAMT" from="BALAMT.replace(',', '.')"/></if>
+                <set field="availableBalance" from="new BigDecimal(BALAMT)"/>
+                <set field="balanceDate" from="balanceDate ?: sgmlReader.parseOfxDateTime(LEDGERBAL.DTASOF[0].text())"/>
+            </if>
+            <!-- <log message="========= ${balanceDate}: ${ledgerBalance}, ${availableBalance}"/> -->
+            <if condition="balanceDate &amp;&amp; (!bankAccount.balanceDate || balanceDate &gt; bankAccount.balanceDate)">
+                <service-call name="mantle.account.PaymentMethodServices.update#BankAccountMutable"
+                        in-map="[paymentMethodId:paymentMethodId, ledgerBalance:ledgerBalance,
+                            availableBalance:availableBalance, balanceDate:balanceDate]"/>
+            </if>
         </actions>
     </service>
 </services>
