@@ -15,6 +15,7 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="match" noun="BankAccountTransUnmatched">
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
+            <parameter name="lookBackDays" type="Integer" default="7"/>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
@@ -31,8 +32,16 @@ along with this software (see the LICENSE.md file). If not, see
 
             <iterate list="bankAccountTransList" entry="bankAccountTrans">
                 <if condition="!bankAccountTrans.transAmount || !bankAccountTrans.postedDate"><continue/></if>
-                <set field="paymentId" from="null"/><set field="payment" from="null"/>
-                <set field="acctgTransId" from="null"/><set field="acctgTransEntrySeqId" from="null"/>
+                <set field="payment" from="null"/>
+                <set field="acctgTransEntry" from="null"/>
+
+                <script>
+                    Calendar lookBackCal = ec.user.nowCalendar
+                    lookBackCal.setTimeInMillis(bankAccountTrans.postedDate.time)
+                    lookBackCal.add(Calendar.DAY_OF_YEAR, -lookBackDays)
+                    lookBackTs = new java.sql.Timestamp(lookBackCal.getTimeInMillis())
+                </script>
+
 
                 <!-- find matching Payment, ignore certain transType values for payments -->
                 <if condition="!bankAccountTrans.paymentId &amp;&amp; !ignoreTypeSet.contains(bankAccountTrans.transType)">
@@ -57,24 +66,41 @@ along with this software (see the LICENSE.md file). If not, see
 
                     <!-- if we have checkNumber or refNumber match against Payment.paymentRefNum -->
                     <if condition="bankAccountTrans.checkNumber || bankAccountTrans.refNumber">
-                        <set field="findPmt.paymentRefNum" from="bankAccountTrans.checkNumber ?: bankAccountTrans.refNumber"/>
-                        <!-- TODO: what if we match on this and amounts differ? -->
+                        <!-- TODO: what if we match on this and amounts differ... handle differently? -->
                         <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
-                            <econdition-object field="findPmt"/></entity-find>
+                            <econdition-object field="findPmt"/>
+                            <econdition field-name="paymentRefNum" from="bankAccountTrans.checkNumber ?: bankAccountTrans.refNumber"/>
+                        </entity-find>
                         <set field="payment" from="paymentList ? paymentList[0] : null"/>
                     </if>
 
                     <!-- otherwise match against transAmount, postedDate (within X number of days after Payment.effectiveDate?) -->
                     <if condition="!payment">
-                        <!-- TODO -->
+                        <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
+                            <econdition-object field="findPmt"/>
+                            <econdition field-name="amount" from="bankAccountTrans.transAmount"/>
+                            <econdition field-name="effectiveDate" operator="less-equals" from="bankAccountTrans.postedDate"/>
+                            <econdition field-name="effectiveDate" operator="greater-equals" from="lookBackTs"/>
+                        </entity-find>
+                        <set field="payment" from="paymentList ? paymentList[0] : null"/>
                     </if>
                     <!-- nothing found? match against originalCurrencyAmount, originalCurrencyUomId -->
-                    <if condition="!payment">
-                        <!-- TODO -->
+                    <if condition="!payment &amp;&amp; paymentMethod.currencyUomId">
+                        <!-- clear out amountUomId used in previous queries -->
+                        <script>findPmt.remove('amountUomId')</script>
+                        <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
+                            <econdition-object field="findPmt"/>
+                            <econdition field-name="originalCurrencyAmount" from="bankAccountTrans.transAmount"/>
+                            <econdition field-name="originalCurrencyUomId" from="paymentMethod.currencyUomId"/>
+                            <econdition field-name="effectiveDate" operator="less-equals" from="bankAccountTrans.postedDate"/>
+                            <econdition field-name="effectiveDate" operator="greater-equals" from="lookBackTs"/>
+                        </entity-find>
+                        <set field="payment" from="paymentList ? paymentList[0] : null"/>
                     </if>
                 </if>
                 <if condition="!bankAccountTrans.acctgTransId &amp;&amp; paymentMethod.glAccountId">
                     <!-- match PaymentMethod.glAccountId against BankAccountTrans.glAccountId -->
+                    <!-- look for AcctgTransEntry.reconcileStatusId=AterNot -->
 
                     <!-- if transAmount positive debitCreditFlag=D, else debitCreditFlag=C -->
                     <!-- look for abs of transAmount -->
@@ -82,17 +108,15 @@ along with this software (see the LICENSE.md file). If not, see
                     <!-- if we have a paymentId, look up AcctgTrans by paymentId -->
                     <!-- otherwise match against transAmount, postedDate (within X number of days after AcctgTrans.transactionDate?) -->
 
-                    <!-- look for AcctgTransEntry.reconcileStatusId=AterNot -->
-                    <!-- with reconcileStatusId need to make sure AcctgTransEntry has no existing match on BankAccountTrans? -->
 
                     <!-- TODO -->
                 </if>
                 <if condition="paymentId || acctgTransId">
                     <service-call name="mantle.account.ReconciliationServices.reconcile#BankAccountTrans"
                             in-map="[paymentMethodId:paymentMethodId, fitId:bankAccountTrans.fitId,
-                                bankAccountTrans:bankAccountTrans, paymentId:paymentId, payment:payment,
-                                acctgTransId:acctgTransId, acctgTransEntrySeqId:acctgTransEntrySeqId,
-                                acctgTransEntry:acctgTransEntry]"/>
+                                bankAccountTrans:bankAccountTrans, paymentId:payment?.paymentId, payment:payment,
+                                acctgTransEntry:acctgTransEntry, acctgTransId:acctgTransEntry?.acctgTransId,
+                                acctgTransEntrySeqId:acctgTransEntry?.acctgTransEntrySeqId]"/>
                 </if>
             </iterate>
         </actions>
