@@ -682,7 +682,30 @@ along with this software (see the LICENSE.md file). If not, see
             imported from any source and reconciled in a more consistent way from here</description>
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="fitId" type="text-short" is-pk="true"><description>Financial Institution Transaction ID (OFX STMTTRN.FITID)</description></field>
-        <field name="transType" type="text-short"><description>Transaction type (OFX STMTTRN.TRNTYPE)</description></field>
+        <field name="transType" type="text-short"><description>
+            Transaction type (OFX STMTTRN.TRNTYPE)
+
+            OFX STMTTRN.TRNTYPE (transType) possible values:
+                CREDIT  Generic credit
+                DEBIT   Generic debit
+                INT*    Interest earned or paid NOTE: depends on signage of amount
+                DIV*    Dividend
+                FEE*    FI fee
+                SRVCHG* Service charge
+                DEP     Deposit
+                ATM     ATM debit or credit NOTE: depends on signage of amount"
+                POS     Point of sale debit or credit NOTE: depends on signage of amount
+                XFER    Transfer
+                CHECK   Check
+                PAYMENT Electronic payment
+                CASH    Cash withdrawal
+                DIRECTDEP   Direct deposit
+                DIRECTDEBIT Merchant initiated debit
+                REPEATPMT   Repeating payment/standing order
+                OTHER   Other
+
+            No Enumeration set for this because we want to allow other values (NOTE: could also define Enumerations but have a one-nofk relationship)
+        </description></field>
         <field name="postedDate" type="date-time"><description>Date posted (OFX STMTTRN.DTPOSTED)</description></field>
         <field name="transAmount" type="currency-amount"><description>Transaction amount (OFX STMTTRN.TRNAMT)</description></field>
         <field name="transName" type="text-short"><description>Transaction name (OFX STMTTRN.NAME or PAYEE; as per spec only one may be used)</description></field>
@@ -877,7 +900,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toPartyId" type="id"/>
 
         <field name="paymentMethodTypeEnumId" type="id"/>
-        <field name="paymentMethodId" type="id"/>
+        <field name="paymentMethodId" type="id"><description>The from PaymentMethod (owned by fromPartyId)</description></field>
+        <field name="toPaymentMethodId" type="id"><description>The to PaymentMethod (owned by toPartyId), if applicable,
+            the account the payment goes to</description></field>
         <field name="paymentGatewayConfigId" type="id"><description>Use this PaymentGatewayConfig for auth/etc. For Payments
             by CC/etc that are not from an order and/or the order is not associated with a ProductStore. Also set
             automatically on auth for capture, etc.</description></field>
@@ -923,6 +948,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration" short-alias="methodType">
             <key-map field-name="paymentMethodTypeEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod" short-alias="method"/>
+        <relationship type="one" title="To" related-entity-name="mantle.account.method.PaymentMethod" short-alias="toMethod">
+            <key-map field-name="toPaymentMethodId"/></relationship>
         <relationship type="one-nofk" related-entity-name="mantle.account.method.CreditCard"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentGatewayConfig"/>
         <relationship type="one" related-entity-name="mantle.order.OrderHeader"/>
