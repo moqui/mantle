@@ -21,9 +21,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="sgmlReader" from="new org.moqui.impl.util.SimpleSgmlReader(ofxString)"/>
             <set field="header" from="sgmlReader.getHeader()"/>
             <set field="ofxNode" from="sgmlReader.getRoot()"/>
-            <log message="====== ofxString: ${ofxString}"/>
-            <log message="====== headerMap: ${header}"/>
-            <log message="====== ofxNode:\n${org.moqui.impl.util.FtlNodeWrapper.prettyPrintNode(ofxNode)}"/>
+            <!-- <log message="====== ofxString: ${ofxString}"/> -->
+            <!-- <log message="====== headerMap: ${header}"/> -->
+            <!-- <log message="====== ofxNode:\n${org.moqui.impl.util.FtlNodeWrapper.prettyPrintNode(ofxNode)}"/> -->
 
             <entity-find-one entity-name="mantle.account.method.BankAccount" value-field="bankAccount"/>
             <if condition="!bankAccount"><return error="true" message="Payment Method [${paymentMethodId}] is not a Bank Account"/></if>
@@ -35,19 +35,20 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="BANKACCTFROM" from="STMTRS.BANKACCTFROM?.getAt(0)"/>
             <if condition="BANKACCTFROM">
                 <!-- make sure routingNumber matches STMTRS.BANKACCTFROM.BANKID -->
-                <set field="BANKID" from="BANKACCTFROM.BANKID[0].value"/>
+                <set field="BANKID" from="BANKACCTFROM.BANKID[0].text()"/>
                 <if condition="bankAccount.routingNumber != BANKID">
                     <message error="true">OFX BANKID [${BANKID}] does not match routing number [${bankAccount.routingNumber}] on Bank Account [${paymentMethodId}]</message></if>
                 <!-- make sure accountNumber matches STMTRS.BANKACCTFROM.ACCTID (note: may be partial, use contains) -->
-                <set field="ACCTID" from="BANKACCTFROM.ACCTID[0].value"/>
-                <if condition="ACCTID.contains(bankAccount.accountNumber)">
+                <set field="ACCTID" from="BANKACCTFROM.ACCTID[0].text()"/>
+                <if condition="!ACCTID.contains(bankAccount.accountNumber)">
                     <message error="true">OFX ACCTID [${ACCTID}] does not match (or contain) account number [${bankAccount.accountNumber}] on Bank Account [${paymentMethodId}]</message></if>
             </if>
+            <check-errors/>
 
             <!-- import the transactions -->
             <set field="BANKTRANLIST" from="STMTRS.BANKTRANLIST?.getAt(0)"/>
             <iterate list="BANKTRANLIST.STMTTRN" entry="STMTTRN">
-                <set field="fitId" from="STMTTRN.FITID[0].value"/>
+                <set field="fitId" from="STMTTRN.FITID[0].text()"/>
                 <!-- if we already have the tx skip it -->
                 <entity-find-one entity-name="mantle.account.method.BankAccountTrans" value-field="bankAccountTrans">
                     <field-map field-name="paymentMethodId"/><field-map field-name="fitId"/></entity-find-one>
@@ -56,7 +57,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <!-- create the tx record -->
 
                 <!-- possible formats include: yyyyMMdd (GMT), yyyyMMddHHmmss (GMT), yyyyMMddHHmmss.SSS (GMT), yyyyMMddHHmmss.SSS[-5:EST] -->
-                <set field="DTPOSTED" from="STMTTRN.DTPOSTED[0].value"/>
+                <set field="DTPOSTED" from="STMTTRN.DTPOSTED[0].text()"/>
                 <if condition="DTPOSTED.length() &lt;= 18">
                     <then>
                         <script><![CDATA[
@@ -68,25 +69,33 @@ along with this software (see the LICENSE.md file). If not, see
                     </then>
                     <else>
                         <!-- has a time zone, strip it and create an RFC 822 time zone (like -0500) -->
-                        <set field="tzStr" from="DTPOSTED.substring(19, DTPOSTED.indexOf(':', 19))"/>
-                        <if condition="tzStr.length == 2"><set field="tzStr" from="tzStr[0] + '0' + tzStr[1]"/></if>
-                        <set field="DTPOSTED" from="DTPOSTED.substring(0, 19) + ' ' + tzStr + '00'"/>
+                        <set field="openBraceIndex" from="DTPOSTED.indexOf('[')"/>
+                        <set field="tzStr" from="DTPOSTED.substring(openBraceIndex + 1, DTPOSTED.indexOf(':', openBraceIndex))"/>
+                        <if condition="tzStr.charAt(0).isDigit()"><set field="tzStr" from="'+' + tzStr"/></if>
+                        <if condition="tzStr.length() == 2"><set field="tzStr" from="tzStr[0] + '0' + tzStr[1]"/></if>
+                        <set field="dtStr" from="DTPOSTED.substring(0, openBraceIndex)"/>
+                        <script><![CDATA[
+                            while (dtStr.length() < 14) { dtStr = dtStr + "0" }
+                            if (dtStr.length() < 15) { dtStr = dtStr + "." }
+                            while (dtStr.length() < 18) { dtStr = dtStr + "0" }
+                        ]]></script>
+                        <set field="DTPOSTED" value="${dtStr} ${tzStr}00"/>
                     </else>
                 </if>
                 <set field="postedDate" from="ec.l10n.parseTimestamp(DTPOSTED, 'yyyyMMddHHmmss.SSS Z')"/>
-                <log message="========= DTPOSTED=${DTPOSTED}, orig=${STMTTRN.DTPOSTED[0].value}, postedDate=${postedDate}"/>
+                <!-- <log message="========= DTPOSTED=${DTPOSTED}, orig=${STMTTRN.DTPOSTED[0].text()}, postedDate=${postedDate}"/> -->
 
                 <!-- as per spec amount will only contain a comma if used as a decimal separator, so replace with a dot and parse to BD -->
-                <set field="TRNAMT" from="STMTTRN.TRNAMT[0].value"/>
+                <set field="TRNAMT" from="STMTTRN.TRNAMT[0].text()"/>
                 <if condition="TRNAMT.contains(',')"><set field="TRNAMT" from="TRNAMT.replace(',', '.')"/></if>
                 <set field="transAmount" from="new BigDecimal(TRNAMT)"/>
 
-                <set field="transName" from="STMTTRN.NAME?.getAt(0)?.value ?: STMTTRN.PAYEE?.getAt(0)?.value"/>
+                <set field="transName" from="STMTTRN.NAME?.getAt(0)?.text() ?: STMTTRN.PAYEE?.getAt(0)?.text()"/>
 
                 <service-call name="create#mantle.account.method.BankAccountTrans" in-map="[paymentMethodId:paymentMethodId,
-                        fitId:fitId, transType:STMTTRN.TRNTYPE[0].value, postedDate:postedDate,
-                        transAmount:transAmount, transName:transName, transMemo:STMTTRN.MEMO?.getAt(0)?.value,
-                        checkNumber:STMTTRN.CHECKNUM?.getAt(0)?.value, refNumber:STMTTRN.REFNUM?.getAt(0)?.value]"/>
+                        fitId:fitId, transType:STMTTRN.TRNTYPE[0].text(), postedDate:postedDate,
+                        transAmount:transAmount, transName:transName, transMemo:STMTTRN.MEMO?.getAt(0)?.text(),
+                        checkNumber:STMTTRN.CHECKNUM?.getAt(0)?.text(), refNumber:STMTTRN.REFNUM?.getAt(0)?.text()]"/>
             </iterate>
 
             <!-- TODO: update ledgerBalance, availableBalance, balanceDate (only if more recent than last balanceDate) -->
