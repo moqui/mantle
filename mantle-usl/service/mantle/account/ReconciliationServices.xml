@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+    <service verb="match" noun="BankAccountTransUnmatched">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.payment.method.BankAccountTrans" list="bankAccountTransList">
+                <econdition field-name="paymentMethodId"/>
+                <econditions combine="or">
+                    <econdition field-name="paymentId" from="null"/>
+                    <econdition field-name="acctgTransId" from="null"/>
+                </econditions>
+            </entity-find>
+
+            <set field="ignoreTypeSet" from="new HashSet(['INT', 'DIV', 'FEE', 'SRVCHG'])"/>
+
+            <iterate list="bankAccountTransList" entry="bankAccountTrans">
+                <if condition="!bankAccountTrans.transAmount || !bankAccountTrans.postedDate"><continue/></if>
+
+                <!-- find matching Payment, ignore certain transType values for payments -->
+                <if condition="!bankAccountTrans.paymentId &amp;&amp; !ignoreTypeSet.contains(bankAccountTrans.transType)">
+                    <!-- if transType is DEBIT PaymentMethod.ownerPartyId is fromPartyId, if CREDIT then is toPartyId;
+                        OR just look at sign of transAmount? (- fromPartyId, + toPartyId) -->
+
+                    <!-- match against Payment.paymentMethodId or toPaymentMethodId -->
+                    <!-- if we have checkNumber or refNumber match against Payment.paymentRefNum -->
+                    <!-- otherwise match against transAmount, postedDate (within X number of days after Payment.effectiveDate?) -->
+
+
+                    <!-- make sure Payment has no existing match on BankAccountTrans -->
+                </if>
+                <if condition="!bankAccountTrans.acctgTransId">
+                    <!-- if transAmount positive debitCreditFlag=D, else debitCreditFlag=C -->
+                    <!-- look for abs of transAmount -->
+
+                    <!-- if we have a paymentId, look up AcctgTrans by paymentId -->
+                    <!-- otherwise match against transAmount, postedDate (within X number of days after AcctgTrans.transactionDate?) -->
+
+                    <!-- look for AcctgTransEntry.reconcileStatusId=AES_NOT_RECONCILED -->
+                    <!-- with reconcileStatusId need to make sure AcctgTransEntry has no existing match on BankAccountTrans? -->
+                </if>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="reconcile" noun="BankAccountTrans">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="fitId" required="true"/>
+            <parameter name="bankAccountTrans" type="EntityValue"/>
+            <parameter name="paymentId"/>
+            <parameter name="acctgTransId"/>
+            <parameter name="acctgTransEntrySeqId"/>
+        </in-parameters>
+        <actions>
+            <if condition="!bankAccountTrans">
+                <entity-find-one entity-name="mantle.payment.method.BankAccountTrans" value-field="bankAccountTrans"/></if>
+
+
+        </actions>
+    </service>
+</services>
