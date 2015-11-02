@@ -17,6 +17,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="paymentMethodId" required="true"/>
         </in-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+
             <entity-find entity-name="mantle.payment.method.BankAccountTrans" list="bankAccountTransList">
                 <econdition field-name="paymentMethodId"/>
                 <econditions combine="or">
@@ -29,6 +31,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <iterate list="bankAccountTransList" entry="bankAccountTrans">
                 <if condition="!bankAccountTrans.transAmount || !bankAccountTrans.postedDate"><continue/></if>
+                <set field="paymentId" from="null"/>
+                <set field="acctgTransId" from="null"/><set field="acctgTransEntrySeqId" from="null"/>
 
                 <!-- find matching Payment, ignore certain transType values for payments -->
                 <if condition="!bankAccountTrans.paymentId &amp;&amp; !ignoreTypeSet.contains(bankAccountTrans.transType)">
@@ -39,10 +43,15 @@ along with this software (see the LICENSE.md file). If not, see
                     <!-- if we have checkNumber or refNumber match against Payment.paymentRefNum -->
                     <!-- otherwise match against transAmount, postedDate (within X number of days after Payment.effectiveDate?) -->
 
+                    <!-- if paymentMethod.currencyUomId match against Payment.amountUomId -->
+
+                    <!-- nothing found? match against originalCurrencyAmount, originalCurrencyUomId -->
+
+                    <!-- TODO -->
 
                     <!-- make sure Payment has no existing match on BankAccountTrans -->
                 </if>
-                <if condition="!bankAccountTrans.acctgTransId">
+                <if condition="!bankAccountTrans.acctgTransId &amp;&amp; paymentMethod.glAccountId">
                     <!-- if transAmount positive debitCreditFlag=D, else debitCreditFlag=C -->
                     <!-- look for abs of transAmount -->
 
@@ -51,11 +60,23 @@ along with this software (see the LICENSE.md file). If not, see
 
                     <!-- look for AcctgTransEntry.reconcileStatusId=AES_NOT_RECONCILED -->
                     <!-- with reconcileStatusId need to make sure AcctgTransEntry has no existing match on BankAccountTrans? -->
+
+                    <!-- TODO -->
+
+                    <!-- match PaymentMethod.glAccountId against BankAccountTrans.glAccountId -->
+                </if>
+                <if condition="paymentId || acctgTransId">
+                    <service-call name="mantle.account.ReconciliationServices.reconcile#BankAccountTrans"
+                            in-map="[paymentMethodId:paymentMethodId, fitId:bankAccountTrans.fitId,
+                                bankAccountTrans:bankAccountTrans, paymentId:paymentId,
+                                acctgTransId:acctgTransId, acctgTransEntrySeqId:acctgTransEntrySeqId]"/>
                 </if>
             </iterate>
         </actions>
     </service>
     <service verb="reconcile" noun="BankAccountTrans">
+        <description>Record reconciliation for a BankAccountTrans record against Payment and/or AcctgTransEntry. Called
+            by match#BankAccountTransUnmatched or can be called directly for manual match.</description>
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
             <parameter name="fitId" required="true"/>
@@ -68,7 +89,41 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!bankAccountTrans">
                 <entity-find-one entity-name="mantle.payment.method.BankAccountTrans" value-field="bankAccountTrans"/></if>
 
+            <if condition="paymentId">
+                <!-- if another BankAccountTrans has this paymentId clear it -->
+                <entity-find entity-name="mantle.payment.method.BankAccountTrans" list="existingTransList">
+                    <econdition field-name="paymentId"/></entity-find>
+                <iterate list="existingTransList" entry="existingTrans">
+                    <set field="existingTrans.paymentId" from="null"/>
+                    <entity-update value-field="existingTrans"/>
+                </iterate>
 
+                <!-- set the paymentId -->
+                <set field="bankAccountTrans.paymentId" from="paymentId"/>
+                <entity-update value-field="bankAccountTrans"/>
+            </if>
+            <if condition="acctgTransId &amp;&amp; acctgTransEntrySeqId">
+                <!-- if another BankAccountTrans has this acctgTransId/acctgTransEntrySeqId clear them -->
+                <entity-find entity-name="mantle.payment.method.BankAccountTrans" list="existingTransList">
+                    <econdition field-name="acctgTransId"/><econdition field-name="acctgTransEntrySeqId"/></entity-find>
+                <iterate list="existingTransList" entry="existingTrans">
+                    <set field="existingTrans.acctgTransId" from="null"/>
+                    <set field="existingTrans.acctgTransEntrySeqId" from="null"/>
+                    <entity-update value-field="existingTrans"/>
+                </iterate>
+
+                <!-- set the acctgTransId and acctgTransEntrySeqId -->
+                <set field="bankAccountTrans.acctgTransId" from="acctgTransId"/>
+                <set field="bankAccountTrans.acctgTransEntrySeqId" from="acctgTransEntrySeqId"/>
+                <entity-update value-field="bankAccountTrans"/>
+
+                <!-- set AcctgTransEntry.reconcileStatusId -->
+                <entity-find-one entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="acctgTransEntry"/>
+                <if condition="acctgTransEntry.reconcileStatusId != 'AES_RECONCILED'">
+                    <set field="acctgTransEntry.reconcileStatusId" value="AES_RECONCILED"/>
+                    <entity-update value-field="acctgTransEntry"/>
+                </if>
+            </if>
         </actions>
     </service>
 </services>
