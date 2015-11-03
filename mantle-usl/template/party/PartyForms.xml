@@ -268,37 +268,77 @@ along with this software (see the LICENSE.md file). If not, see
         </form-single>
 
         <form-single name="PaymentMethodInfo" transition="storePaymentMethodInfo" map="methodInfoFlat">
-            <!-- TODO: support other payment method types! (make many fields conditional, etc) -->
+            <!-- TODO: support other payment method types (make many fields conditional, etc) -->
             <field name="partyId"><default-field><hidden/></default-field></field>
             <field name="paymentMethodId"><default-field><hidden/></default-field></field>
             <field name="paymentMethodTypeEnumId"><default-field><hidden/></default-field></field>
 
-            <field name="firstNameOnCard"><default-field title=""><text-line size="20"/></default-field></field>
-            <field name="lastNameOnCard"><default-field title=""><text-line size="20"/></default-field></field>
+            <!-- BankAccount fields -->
+            <field name="bankName">
+                <conditional-field condition="isBankAccount"><text-line size="60"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="nameOnAccount">
+                <conditional-field condition="isBankAccount"><text-line size="60"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="companyNameOnAccount">
+                <conditional-field title="Company Name" condition="isBankAccount"><text-line size="60"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="routingNumber">
+                <conditional-field title="Routing #" condition="isBankAccount"><text-line size="20"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="accountNumber">
+                <conditional-field title="Account #" condition="isBankAccount"><text-line size="20"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
 
-            <field name="creditCardTypeEnumId"><default-field title="">
-                <drop-down><entity-options key="${enumId}" text="${description}">
-                    <entity-find entity-name="moqui.basic.Enumeration">
-                        <econdition field-name="enumTypeId" value="CreditCardType"/>
-                        <order-by field-name="description"/>
-                    </entity-find>
-                </entity-options></drop-down>
-            </default-field></field>
+            <!-- CreditCard fields -->
+            <field name="firstNameOnCard">
+                <conditional-field title="" condition="isCreditCard"><text-line size="20"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="lastNameOnCard">
+                <conditional-field title="" condition="isCreditCard"><text-line size="20"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="creditCardTypeEnumId">
+                <conditional-field title="" condition="isCreditCard">
+                    <drop-down><entity-options key="${enumId}" text="${description}">
+                        <entity-find entity-name="moqui.basic.Enumeration">
+                            <econdition field-name="enumTypeId" value="CreditCardType"/>
+                            <order-by field-name="description"/>
+                        </entity-find>
+                    </entity-options></drop-down>
+                </conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
             <field name="cardNumber">
-                <conditional-field title="" condition="!_formMap?.paymentMethodId"><text-line size="16"/></conditional-field>
-                <default-field title=""><display text="${_formMap?.maskedCardNumber?:''}" also-hidden="false"/></default-field>
+                <conditional-field title="" condition="isCreditCard &amp;&amp; !paymentMethodId"><text-line size="16"/></conditional-field>
+                <conditional-field title="" condition="isCreditCard">
+                    <display text="${maskedCardNumber?:''}" also-hidden="false"/></conditional-field>
+                <default-field><ignored/></default-field>
             </field>
             <!-- <field name="expireDate"><default-field><text-line size="7"/></default-field></field> -->
-            <field name="expireMonth"><default-field title=""><drop-down>
-                <option key="01"/><option key="02"/><option key="03"/><option key="04"/><option key="05"/>
-                <option key="06"/><option key="07"/><option key="08"/><option key="09"/><option key="10"/>
-                <option key="11"/><option key="12"/>
-            </drop-down></default-field></field>
-            <field name="expireYear"><default-field title=""><drop-down>
-                <option key="2013"/><option key="2014"/><option key="2015"/><option key="2016"/>
-                <option key="2017"/><option key="2018"/><option key="2019"/><option key="2020"/>
-            </drop-down></default-field></field>
+            <field name="expireMonth">
+                <conditional-field title="" condition="isCreditCard"><drop-down current="selected">
+                    <option key="01"/><option key="02"/><option key="03"/><option key="04"/><option key="05"/>
+                    <option key="06"/><option key="07"/><option key="08"/><option key="09"/><option key="10"/>
+                    <option key="11"/><option key="12"/>
+                </drop-down></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="expireYear">
+                <conditional-field title="" condition="isCreditCard"><drop-down current="selected">
+                    <option key="2015"/><option key="2016"/><option key="2017"/><option key="2018"/>
+                    <option key="2019"/><option key="2020"/><option key="2021"/><option key="2022"/>
+                </drop-down></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
 
+            <!-- Contact Info fields -->
             <field name="postalContactMechId"><default-field><hidden/></default-field></field>
 
             <field name="countryGeoId"><default-field title="Country"><hidden default-value="USA"/></default-field></field>
@@ -326,15 +366,18 @@ along with this software (see the LICENSE.md file). If not, see
             <field name="submitButton"><default-field title="${_formMap?.paymentMethodId ? 'Update' : 'Create'}"><submit/></default-field></field>
 
             <field-layout>
+                <fields-not-referenced/>
+                <field-row><field-ref name="routingNumber"/><field-ref name="accountNumber"/></field-row>
+
                 <field-row-big title="Name On Card"><field-ref name="firstNameOnCard"/><field-ref name="lastNameOnCard"/></field-row-big>
                 <field-row-big title="Card Number"><field-ref name="creditCardTypeEnumId"/><field-ref name="cardNumber"/></field-row-big>
                 <field-row-big title="Expire Date"><field-ref name="expireMonth"/><field-ref name="expireYear"/></field-row-big>
+
                 <field-ref name="countryGeoId"/>
                 <field-row><field-ref name="address1"/><field-ref name="unitNumber"/></field-row>
                 <field-ref name="address2"/>
                 <field-row-big title="City/State/Zip"><field-ref name="city"/><field-ref name="stateProvinceGeoId"/><field-ref name="postalCode"/><field-ref name="postalCodeExt"/></field-row-big>
                 <field-row-big title="Phone"><field-ref name="countryCode"/><field-ref name="areaCode"/><field-ref name="contactNumber"/></field-row-big>
-                <fields-not-referenced/>
                 <field-ref name="submitButton"/>
             </field-layout>
         </form-single>
