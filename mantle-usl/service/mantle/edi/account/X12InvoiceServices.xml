@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- EDI X12 V4010 Invoice Message Services -->
+
+    <service verb="produce" noun="Invoice">
+        <description>Produce an Invoice message (X12 810) to send an invoice to a customer, generally for a sales order
+            and the customer's corresponding purchase order.
+
+            NOTE: Currently supports only one OrderHeader/OrderPart per invoice.
+        </description>
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="systemMessageRemoteId"><description>If not specified comes from Invoice.systemMessageRemoteId (copied from OrderHeader if applicable)</description></parameter>
+            <parameter name="envelopeLocation" default-value="component://mantle-usl/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-usl/service/mantle/edi/order/X12V4010TS855.groovy"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <entity-find entity-name="mantle.account.invoice.InvoiceItem" list="invoiceItemList">
+                <econdition field-name="invoiceId"/><order-by field-name="invoiceItemSeqId"/></entity-find>
+
+            <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="totalOut"/>
+
+            <!-- FUTURE: could put these in NTE segments (right after BIG element)
+            <entity-find entity-name="mantle.account.invoice.InvoiceContent" list="invoiceContentList">
+                <econdition field-name="invoiceId"/><econdition field-name="contentTypeEnumId" value="IctNote"/>
+                <order-by field-name="contentDate"/></entity-find>
+            -->
+
+            <!-- get all OrderItemBilling records, used to find OrderHeader, OrderPart and filtered as needed per InvoiceItem -->
+            <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                <econdition field-name="invoiceId"/></entity-find>
+
+            <!-- allow Invoice with no order <if condition="!orderItemBillingList"><return error="true" message="No order found for invoice [${invoiceId}], cannot produce Invoice message"/></if> -->
+
+            <if condition="orderItemBillingList">
+                <!-- find the OrderHeader and OrderPart -->
+                <set field="orderId" from="orderItemBillingList[0].orderId"/>
+                <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+                <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderPart" list="orderPartList"/>
+                <if condition="orderPartList.size() &gt; 1"><return error="true" message="Order [${orderId}] has more than one part (for Invoice [${invoiceId}]), cannot produce Invoice message"/></if>
+                <set field="orderPart" from="orderPartList[0]"/>
+            </if>
+
+            <!-- get previous SystemMessage records for invoice -->
+            <entity-find entity-name="moqui.service.message.SystemMessage" list="outMessageList">
+                <econdition field-name="invoiceId"/><econdition field-name="isOutgoing" value="Y"/>
+                <econdition field-name="statusId" operator="not-equals" value="SmsgCancelled"/>
+            </entity-find>
+
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="invoice.systemMessageRemoteId"/></if>
+
+            <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
+            <set field="bodyEdiMap" from="[:]"/>
+
+            <!-- BIG - Invoice Header -->
+            <!-- BIG08 TS Purpose Code: 00 Original 02 Add 05 Replace -->
+            <set field="tsPurpose" from="outMessageList ? '05' : '00'"/>
+            <set field="invoiceDate" from="ec.l10n.format(invoice.invoiceDate, 'yyyyMMdd')"/>
+            <set field="poDate" from="ec.l10n.format(orderHeader.entryDate, 'yyyyMMdd')"/>
+            <set field="bodyEdiMap.BIG" from="[[elements:['BIG', invoiceDate, invoiceId, poDate,
+                    orderPart?.otherPartyOrderId, '', '', '', tsPurpose]]]"/>
+
+            <!-- REF - IL Internal Order Number VN Vendor Order Number -->
+            <if condition="orderId">
+                <set field="bodyEdiMap.REF" from="[[elements:['REF', 'VN', orderId]]]"/>
+                <if condition="orderHeader?.externalId"><script>bodyEdiMap.REF.add([elements:['REF', 'IL', orderHeader.externalId]])</script></if>
+            </if>
+
+            <!-- N1 segments (BO Broker or Sales Office, BT* Bill-to-Party, BY* Buying Party (Purchaser), CA Carrier,
+                OB Ordered By, PW Pick Up Address, RE* Party to receive commercial invoice remittance, SF Ship From, ST Ship To, VN* Vendor) -->
+            <set field="partyInfoList" from="[]"/>
+            <script>partyInfoList.add([partyId:invoice.toPartyId, roleTypeId:'CustomerBillTo'])</script>
+            <script>partyInfoList.add([partyId:invoice.toPartyId, roleTypeId:'Customer'])</script>
+            <script>partyInfoList.add([partyId:invoice.fromPartyId, roleTypeId:'VendorBillFrom'])</script>
+            <script>partyInfoList.add([partyId:invoice.fromPartyId, roleTypeId:'Vendor'])</script>
+            <service-call name="mantle.edi.order.X12OrderServices.produce#N1Segments" out-map="n1Out"
+                    in-map="[partyInfoList:partyInfoList]"/>
+            <set field="bodyEdiMap.N1" from="n1Out.n1List"/>
+
+            <!-- ITD (with dueDate) -->
+            <set field="dueDate" from="ec.l10n.format(invoice.dueDate, 'yyyyMMdd')"/>
+            <set field="bodyEdiMap.ITD" from="[[elements:['ITD', '01', '3', '', '', '', dueDate, '', '', '', '', '', '']]]"/>
+
+            <!-- FUTURE: DTM 011 Shipped 118 Requested Pick-up -->
+            <!-- FUTURE: FOB? -->
+
+            <!-- IT1: IT3, PID, SAC, etc -->
+            <set field="bodyEdiMap.IT1" from="[]"/>
+            <set field="lineItemCount" from="0"/>
+            <iterate list="invoiceItemList" entry="invoiceItem">
+                <if condition="!(invoiceItem.itemTypeEnumId in ['ItemProduct', 'ItemInventory', 'ItemAsset'])"><continue/></if>
+
+                <!-- get the corresponding OrderItem -->
+                <filter-map-list list="orderItemBillingList" to-list="curOrderItemBillingList">
+                    <field-map field-name="invoiceItemSeqId" from="invoiceItem.invoiceItemSeqId"/></filter-map-list>
+                <if condition="curOrderItemBillingList">
+                    <set field="curOrderItemBilling" from="curOrderItemBillingList[0]"/>
+                    <set field="orderItem" from="curOrderItemBilling.'mantle.order.OrderItem'"/>
+                </if>
+
+                <set field="itemId" from="orderItem?.externalItemSeqId ?: invoiceItem.invoiceItemSeqId"/>
+                <!-- NOTE: CA is Case; do some sort of mapping from OrderItem.quantityUomId (which comes from
+                    Product.amountUomId)? not really needed, unit party of Product definition -->
+                <set field="unitBasisCode" value="CA"/>
+                <set field="priceBasis" value="PE"/><!-- PE is Price per Each; support others based on unit? -->
+                <!-- NOTE: elements 06, 07 empty for now; our ID in 08/09, their ID in 10/11 -->
+                <!-- IT106 (for IT107 - optional) Product/Service ID Qualifier (UA U.P.C./EAN Case Code (2-5-5),
+                    UK U.P.C./EAN Shipping Container Code (1-2-5-5-1), UP U.P.C. Consumer Package Code (1-5-5-1)) -->
+                <!-- TODO: elements 12/13 use 'CH' for Country of Origin Code, get country from Product.originGeoId -->
+                <set field="IT1" from="[elements:['IT1', itemId, invoiceItem.quantity ?: 1, unitBasisCode,
+                        invoiceItem.amount ?: 0, priceBasis, '', '', 'VP', invoiceItem.productId,
+                        'PI', orderItem?.otherPartyProductId]]"/>
+
+                <!-- FUTURE: IT1.IT3 for number of units shipped -->
+
+                <!-- IT1.PID -->
+                <if condition="invoiceItem.description">
+                    <set field="itemDescription" from="invoiceItem.description"/>
+                    <if condition="itemDescription.length() &gt; 80"><set field="itemDescription" from="itemDescription.substring(0, 80)"/></if>
+                    <set field="IT1.PID" from="[[elements:['PID', 'F', '', '', '', itemDescription]]]"/>
+                </if>
+
+                <!-- FUTURE: ITD (terms discount percent and days due), REF (2I, BM, CR, FI, L1, VN) -->
+                <!-- FUTURE: IT1.SAC for non-Product items with this item as parent (item level adjustment) -->
+
+                <script>bodyEdiMap.IT1.add(IT1)</script>
+                <set field="lineItemCount" from="lineItemCount + 1"/>
+            </iterate>
+
+            <!-- TDS Total Monetary Value Summary -->
+            <set field="bodyEdiMap.TDS" from="[[elements:['TDS', totalOut.invoiceTotal, '', '', '']]]"/>
+
+            <!-- FUTURE: CAD Carrier Detail; needed? -->
+            <!-- FUTURE: SAC for non-product items not under a product item -->
+            <!-- FUTURE: ISS Invoice Shipment Summary; needed? -->
+
+            <!-- CTT -->
+            <!-- FUTURE: weight in 03/04, volume in 05/06 -->
+            <!-- NOTE: what is hash total based on? leaving empty for now -->
+            <set field="hashTotal" value=""/>
+            <set field="bodyEdiMap.CTT" from="[[elements:['CTT', lineItemCount, hashTotal, '', '', '', '', '']]]"/>
+
+            <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
+            <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="context"
+                    in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
+                        envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
+                        docType:'IN', docSubType:'810', invoiceId:invoiceId]"/>
+        </actions>
+    </service>
+</services>
