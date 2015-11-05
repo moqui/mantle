@@ -411,8 +411,10 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <if condition="telecomContactMechId">
-                <service-call name="mantle.party.ContactServices.update#PartyTelecomNumber" out-map="tnOut"
-                        in-map="context + [contactMechId:telecomContactMechId, contactMechPurposeId:telecomContactMechPurposeId]"/>
+                <then>
+                    <service-call name="mantle.party.ContactServices.update#PartyTelecomNumber" out-map="tnOut"
+                            in-map="context + [contactMechId:telecomContactMechId, contactMechPurposeId:telecomContactMechPurposeId]"/>
+                </then>
                 <else-if condition="contactNumber">
                     <service-call name="mantle.party.ContactServices.create#TelecomNumber" out-map="tnOut"
                             in-map="context + [contactMechPurposeId:telecomContactMechPurposeId]"/>
@@ -421,9 +423,11 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="telecomContactMechId" from="tnOut?.contactMechId ?: telecomContactMechId"/>
 
             <if condition="emailContactMechId">
-                <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="emOut"
-                        in-map="[infoString:emailAddress, partyId:partyId, contactMechId:emailContactMechId,
-                            contactMechPurposeId:emailContactMechPurposeId]"/>
+                <then>
+                    <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="emOut"
+                            in-map="[infoString:emailAddress, partyId:partyId, contactMechId:emailContactMechId,
+                                contactMechPurposeId:emailContactMechPurposeId]"/>
+                </then>
                 <else-if condition="emailAddress">
                     <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emOut"
                             in-map="context + [contactMechPurposeId:emailContactMechPurposeId]"/>
@@ -432,9 +436,11 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="emailContactMechId" from="emOut?.contactMechId ?: emailContactMechId"/>
 
             <if condition="otherContactMechId">
-                <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="otherOut"
-                        in-map="[infoString:otherInfoString, partyId:partyId, contactMechId:otherContactMechId,
-                            contactMechPurposeId:otherContactMechPurposeId]"/>
+                <then>
+                    <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="otherOut"
+                            in-map="[infoString:otherInfoString, partyId:partyId, contactMechId:otherContactMechId,
+                                contactMechPurposeId:otherContactMechPurposeId]"/>
+                </then>
                 <else-if condition="otherInfoString">
                     <service-call name="mantle.party.ContactServices.create#ContactMechOther" out-map="otherOut"
                             in-map="context + [infoString:otherInfoString, contactMechTypeEnumId:otherContactMechTypeEnumId,
@@ -445,8 +451,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- do postal last so PostalAddress.telecomContactMechId and emailContactMechId can be populated -->
             <if condition="postalContactMechId">
-                <service-call name="mantle.party.ContactServices.update#PartyPostalAddress" out-map="paOut"
-                        in-map="context + [contactMechId:postalContactMechId, contactMechPurposeId:postalContactMechPurposeId]"/>
+                <then>
+                    <service-call name="mantle.party.ContactServices.update#PartyPostalAddress" out-map="paOut"
+                            in-map="context + [contactMechId:postalContactMechId, contactMechPurposeId:postalContactMechPurposeId]"/>
+                </then>
                 <else-if condition="address1 || city || postalCode">
                     <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
                             in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
@@ -456,8 +464,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ========== PostalAddress Services ========== -->
 
-    <!-- PostalAddress Services -->
     <service verb="create" noun="PostalAddress">
         <description>
             Create a Postal Address (and the corresponding ContactMech record).
@@ -627,7 +635,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- TelecomNumber Services -->
+    <!-- ========== TelecomNumber Services ========== -->
+
     <service verb="create" noun="TelecomNumber">
         <description>
             Create a Telecom Number (and the corresponding ContactMech record).
@@ -728,7 +737,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- Email Services -->
+    <!-- ========== Email Services ========== -->
+
     <service verb="create" noun="EmailAddress">
         <in-parameters>
             <parameter name="emailAddress" required="true"><text-email/></parameter>
@@ -772,7 +782,8 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- Other ContactMech Services -->
+    <!-- ========== Other ContactMech Services ========== -->
+
     <service verb="create" noun="ContactMechOther">
         <in-parameters>
             <parameter name="infoString" required="true"/>
