@@ -638,6 +638,28 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="payPalAccount"/>
         </master>
     </entity>
+    <entity entity-name="PaymentMethodTrans" package-name="mantle.account.method">
+        <description>Transactions of the PaymentMethod, such as imported from an OFX file (see www.ofx.net); can be
+            imported from any source and reconciled in a more consistent way from here</description>
+        <field name="paymentMethodId" type="id" is-pk="true"/>
+        <field name="fitId" type="text-short" is-pk="true"><description>Financial Institution Transaction ID (OFX STMTTRN.FITID)</description></field>
+        <field name="transType" type="text-short"><description>Transaction type (OFX STMTTRN.TRNTYPE)</description></field>
+        <field name="postedDate" type="date-time"><description>Date posted (OFX STMTTRN.DTPOSTED)</description></field>
+        <field name="transAmount" type="currency-amount"><description>Transaction amount (OFX STMTTRN.TRNAMT)</description></field>
+        <field name="transName" type="text-short"><description>Transaction name (OFX STMTTRN.NAME or PAYEE; as per spec only one may be used)</description></field>
+        <field name="transMemo" type="text-medium"><description>Transaction memo (OFX STMTTRN.MEMO)</description></field>
+        <field name="checkNumber" type="text-short"><description>Check number, rarely included but very useful for reconciliation (OFX STMTTRN.CHECKNUM)</description></field>
+        <field name="refNumber" type="text-short"><description>Reference number (OFX STMTTRN.REFNUM)</description></field>
+        <!-- for reconciliation these refer to the records the PaymentMethodTrans matches -->
+        <field name="paymentId" type="id"/>
+        <field name="acctgTransId" type="id"/>
+        <field name="acctgTransEntrySeqId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
+        <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
+        <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTransEntry">
+            <key-map field-name="acctgTransId"/><key-map field-name="acctgTransEntrySeqId"/></relationship>
+    </entity>
+
     <entity entity-name="BankAccount" package-name="mantle.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="bankName" type="text-medium"/>
@@ -676,27 +698,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="paymentId" type="id"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
         <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
-    </entity>
-    <entity entity-name="PaymentMethodTrans" package-name="mantle.account.method">
-        <description>Transactions of the PaymentMethod, such as imported from an OFX file (see www.ofx.net); can be
-            imported from any source and reconciled in a more consistent way from here</description>
-        <field name="paymentMethodId" type="id" is-pk="true"/>
-        <field name="fitId" type="text-short" is-pk="true"><description>Financial Institution Transaction ID (OFX STMTTRN.FITID)</description></field>
-        <field name="transType" type="text-short"><description>Transaction type (OFX STMTTRN.TRNTYPE)</description></field>
-        <field name="postedDate" type="date-time"><description>Date posted (OFX STMTTRN.DTPOSTED)</description></field>
-        <field name="transAmount" type="currency-amount"><description>Transaction amount (OFX STMTTRN.TRNAMT)</description></field>
-        <field name="transName" type="text-short"><description>Transaction name (OFX STMTTRN.NAME or PAYEE; as per spec only one may be used)</description></field>
-        <field name="transMemo" type="text-medium"><description>Transaction memo (OFX STMTTRN.MEMO)</description></field>
-        <field name="checkNumber" type="text-short"><description>Check number, rarely included but very useful for reconciliation (OFX STMTTRN.CHECKNUM)</description></field>
-        <field name="refNumber" type="text-short"><description>Reference number (OFX STMTTRN.REFNUM)</description></field>
-        <!-- for reconciliation these refer to the records the PaymentMethodTrans matches -->
-        <field name="paymentId" type="id"/>
-        <field name="acctgTransId" type="id"/>
-        <field name="acctgTransEntrySeqId" type="id"/>
-        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
-        <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
-        <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTransEntry">
-            <key-map field-name="acctgTransId"/><key-map field-name="acctgTransEntrySeqId"/></relationship>
     </entity>
     <entity entity-name="BitcoinWallet" package-name="mantle.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
