@@ -77,6 +77,7 @@ along with this software (see the LICENSE.md file). If not, see
         <default-response url="."/></transition>
 
     <actions>
+        <!-- example code for ContactInfo form -->
         <!-- an example of a call to get#PartyContactInfo to populate the form, plus a call to flatten the Map for
             simple use in the form -->
         <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="billingContactInfo"
@@ -84,9 +85,14 @@ along with this software (see the LICENSE.md file). If not, see
                     telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling']"/>
         <set field="contactInfoFlat" from="StupidUtilities.flattenNestedMap(billingContactInfo)"/>
 
+        <!-- example code for PaymentMethodInfo form -->
         <service-call name="mantle.account.PaymentMethodServices.get#PartyPaymentMethodInfo" out-map="methodInfo"
                 in-map="[partyId:partyId]"/>
         <set field="methodInfoFlat" from="StupidUtilities.flattenNestedMap(methodInfo)"/>
+        <entity-find entity-name="mantle.party.contact.PartyContactMechPostalAddress" list="partyPostalAddressList">
+            <date-filter/><econdition field-name="partyId"/></entity-find>
+        <entity-find entity-name="mantle.party.contact.PartyContactMechTelecomNumber" list="partyTelecomNumberList">
+            <date-filter/><econdition field-name="partyId"/></entity-find>
     </actions>
     <widgets>
         <form-single name="ContactInfo" transition="storeContactInfo" map="contactInfoFlat">
@@ -341,7 +347,15 @@ along with this software (see the LICENSE.md file). If not, see
             </field>
 
             <!-- Contact Info fields -->
-            <field name="postalContactMechId"><default-field><hidden/></default-field></field>
+            <field name="postalContactMechId">
+                <conditional-field title="Select Address" condition="!paymentMethodId &amp;&amp; partyPostalAddressList">
+                    <drop-down>
+                        <option key="" text="New Address"/>
+                        <list-options list="partyPostalAddressList" key="${contactMechId}" text="PostalAddressSimpleTemplate"/>
+                    </drop-down>
+                </conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
 
             <field name="countryGeoId"><default-field title="Country"><hidden default-value="USA"/></default-field></field>
             <field name="address1"><default-field title="Address Line 1"><text-line size="30"/></default-field></field>
@@ -360,7 +374,15 @@ along with this software (see the LICENSE.md file). If not, see
             <field name="postalCode"><default-field title=""><text-line size="8"/></default-field></field>
             <field name="postalCodeExt"><default-field title=""><text-line size="4"/></default-field></field>
 
-            <field name="telecomContactMechId"><default-field><hidden/></default-field></field>
+            <field name="telecomContactMechId">
+                <conditional-field title="Select Phone" condition="!paymentMethodId &amp;&amp; partyTelecomNumberList">
+                    <drop-down>
+                        <option key="" text="New Phone"/>
+                        <list-options list="partyTelecomNumberList" key="${contactMechId}" text="TelecomNumberSimpleTemplate"/>
+                    </drop-down>
+                </conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
             <field name="countryCode"><default-field title="">
                 <text-line size="3" maxlength="3" default-value="+1"/></default-field></field>
             <field name="areaCode"><default-field title=""><text-line size="3" maxlength="3"/></default-field></field>
@@ -381,11 +403,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-row-big title="Expire Date"><field-ref name="expireMonth"/>
                     <field-ref name="expireYear"/></field-row-big>
 
+                <field-ref name="postalContactMechId"/>
                 <field-ref name="countryGeoId"/>
                 <field-row><field-ref name="address1"/><field-ref name="unitNumber"/></field-row>
                 <field-ref name="address2"/>
                 <field-row-big title="City/State/Zip"><field-ref name="city"/><field-ref name="stateProvinceGeoId"/>
                     <field-ref name="postalCode"/><field-ref name="postalCodeExt"/></field-row-big>
+                <field-ref name="telecomContactMechId"/>
                 <field-row-big title="Phone"><field-ref name="countryCode"/><field-ref name="areaCode"/>
                     <field-ref name="contactNumber"/></field-row-big>
                 <field-ref name="submitButton"/>
