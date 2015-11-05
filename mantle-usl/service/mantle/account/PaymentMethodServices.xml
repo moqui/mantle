@@ -43,7 +43,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="emailAddress"/>
         </out-parameters>
         <actions>
-
             <if condition="paymentMethodId">
                 <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/></if>
 
@@ -174,16 +173,19 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="expireDate" default-value="${expireMonth?:''}/${expireYear?:''}">
                 <time-range after="now" format="MM/yyyy"/></parameter>
 
+            <parameter name="postalContactMechId"/>
             <parameter name="postalContactMechPurposeId" default-value="PostalBilling"/>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
             <parameter name="toName" default="companyNameOnCard ?: (firstNameOnCard ? firstNameOnCard + ' ' + lastNameOnCard : (companyNameOnAccount ?: nameOnAccount ?: null))"/>
             <parameter name="attnName" default="companyNameOnAccount &amp;&amp; nameOnAccount ? nameOnAccount : (companyNameOnCard &amp;&amp; firstNameOnCard ? firstNameOnCard + ' ' + lastNameOnCard : null)"/>
 
+            <parameter name="telecomContactMechId"/>
             <parameter name="telecomContactMechPurposeId" default-value="PhoneBilling"/>
             <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
             <parameter name="areaCode"><text-digits/></parameter>
             <parameter name="contactNumber"><matches regexp="^\d\d[-\. \d]*\d\d$" message="Please enter a valid phone number"/></parameter>
 
+            <parameter name="emailContactMechId"/>
             <parameter name="emailContactMechPurposeId" default-value="EmailBilling"/>
             <parameter name="emailAddress"><text-email/></parameter>
         </in-parameters>
@@ -202,7 +204,30 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="!emailContactMechId"><set field="emailContactMechId" from="paymentMethod.emailContactMechId"/></if>
             </if>
 
-            <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
+            <if condition="paymentMethodId">
+                <then>
+                    <!-- if update (paymentMethodId) and main field for type specified then update it -->
+                    <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
+                </then>
+                <else>
+                    <!-- if create (!paymentMethodId) and *ContactMechId just use it, otherwise create contact mech -->
+                    <if condition="!postalContactMechId &amp;&amp; address1">
+                        <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
+                                in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
+                        <set field="postalContactMechId" from="paOut.contactMechId"/>
+                    </if>
+                    <if condition="!telecomContactMechId &amp;&amp; contactNumber">
+                        <service-call name="mantle.party.ContactServices.create#TelecomNumber" out-map="tnOut"
+                                in-map="context + [contactMechPurposeId:telecomContactMechPurposeId]"/>
+                        <set field="telecomContactMechId" from="tnOut.contactMechId"/>
+                    </if>
+                    <if condition="!emailContactMechId &amp;&amp; emailAddress">
+                        <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emOut"
+                                in-map="context + [contactMechPurposeId:emailContactMechPurposeId]"/>
+                        <set field="emailContactMechId" from="emOut.contactMechId"/>
+                    </if>
+                </else>
+            </if>
 
             <!-- update PaymentMethod last so we know new postalContactMechId and telecomContactMechId updates (if applicable) -->
             <if condition="paymentMethodId">
@@ -220,17 +245,17 @@ along with this software (see the LICENSE.md file). If not, see
                 <else>
                     <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
                         <then>
-                            <service-call name="mantle.account.PaymentMethodServices.create#CreditCard" in-map="context" out-map="context">
-                                <field-map field-name="ownerPartyId" from="partyId"/></service-call>
+                            <service-call name="mantle.account.PaymentMethodServices.create#CreditCard" out-map="context"
+                                    in-map="context + [ownerPartyId:partyId]"/>
                         </then>
                         <else-if condition="paymentMethodTypeEnumId == 'PmtBankAccount'">
-                            <service-call name="mantle.account.PaymentMethodServices.create#BankAccount" in-map="context" out-map="context">
-                                <field-map field-name="ownerPartyId" from="partyId"/></service-call>
+                            <service-call name="mantle.account.PaymentMethodServices.create#BankAccount" out-map="context"
+                                    in-map="context + [ownerPartyId:partyId]"/>
                         </else-if>
                     </if>
                 </else>
             </if>
-            <!-- NOTE: out paymentMethodId set from service-call.out-map=context -->
+            <!-- NOTE: out paymentMethodId set from service-call.@out-map=context -->
         </actions>
     </service>
 
