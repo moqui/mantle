@@ -659,30 +659,7 @@ along with this software (see the LICENSE.md file). If not, see
             imported from any source and reconciled in a more consistent way from here</description>
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="fitId" type="text-short" is-pk="true"><description>Financial Institution Transaction ID (OFX STMTTRN.FITID)</description></field>
-        <field name="transType" type="text-short"><description>
-            Transaction type (OFX STMTTRN.TRNTYPE)
-
-            OFX STMTTRN.TRNTYPE (transType) possible values:
-                CREDIT  Generic credit
-                DEBIT   Generic debit
-                INT*    Interest earned or paid NOTE: depends on signage of amount
-                DIV*    Dividend
-                FEE*    FI fee
-                SRVCHG* Service charge
-                DEP     Deposit
-                ATM     ATM debit or credit NOTE: depends on signage of amount"
-                POS     Point of sale debit or credit NOTE: depends on signage of amount
-                XFER    Transfer
-                CHECK   Check
-                PAYMENT Electronic payment
-                CASH    Cash withdrawal
-                DIRECTDEP   Direct deposit
-                DIRECTDEBIT Merchant initiated debit
-                REPEATPMT   Repeating payment/standing order
-                OTHER   Other
-
-            No Enumeration set for this because we want to allow other values (NOTE: could also define Enumerations but have a one-nofk relationship)
-        </description></field>
+        <field name="transType" type="text-short"><description>Transaction type (OFX STMTTRN.TRNTYPE)</description></field>
         <field name="postedDate" type="date-time"><description>Date posted (OFX STMTTRN.DTPOSTED)</description></field>
         <field name="transAmount" type="currency-amount"><description>Transaction amount (OFX STMTTRN.TRNAMT)</description></field>
         <field name="transName" type="text-short"><description>Transaction name (OFX STMTTRN.NAME or PAYEE; as per spec only one may be used)</description></field>
@@ -694,9 +671,34 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="acctgTransId" type="id"/>
         <field name="acctgTransEntrySeqId" type="id"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
+        <!-- Type one-nofk for this because we want to allow other values -->
+        <relationship type="one-nofk" title="PaymentMethodTransType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="transType"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
         <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTransEntry">
             <key-map field-name="acctgTransId"/><key-map field-name="acctgTransEntrySeqId"/></relationship>
+
+        <seed-data>
+            <!-- Payment Method Trans Type from OFX STMTTRN.TRNTYPE (transType) possible values -->
+            <moqui.basic.EnumerationType description="Payment Method Trans Type" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Generic credit" enumId="PMTT_CREDIT" enumCode="CREDIT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Generic debit" enumId="PMTT_DEBIT" enumCode="DEBIT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Interest earned or paid" enumId="PMTT_INT" enumCode="INT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Dividend" enumId="PMTT_DIV" enumCode="DIV" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="FI fee" enumId="PMTT_FEE" enumCode="FEE" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Service charge" enumId="PMTT_SRVCHG" enumCode="SRVCHG" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Deposit" enumId="PMTT_DEP" enumCode="DEP" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="ATM debit or credit" enumId="PMTT_ATM" enumCode="ATM" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Point of sale debit or credit" enumId="PMTT_POS" enumCode="POS" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Transfer" enumId="PMTT_XFER" enumCode="XFER" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Check" enumId="PMTT_CHECK" enumCode="CHECK" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Electronic payment" enumId="PMTT_PAYMENT" enumCode="PAYMENT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Cash withdrawal" enumId="PMTT_CASH" enumCode="CASH" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Direct deposit" enumId="PMTT_DIRECTDEP" enumCode="DIRECTDEP" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Merchant initiated debit" enumId="PMTT_DIRECTDEBIT" enumCode="DIRECTDEBIT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Repeating payment/standing order" enumId="PMTT_REPEATPMT" enumCode="REPEATPMT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Other" enumId="PMTT_OTHER" enumCode="OTHER" enumTypeId="PaymentMethodTransType"/>
+        </seed-data>
     </entity>
 
     <entity entity-name="BankAccount" package-name="mantle.account.method">
