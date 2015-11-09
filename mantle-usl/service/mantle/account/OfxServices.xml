@@ -15,11 +15,13 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="upload" noun="OfxVersion1">
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
-            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+            <parameter name="ofxFile" type="org.apache.commons.fileupload.FileItem"/>
         </in-parameters>
         <actions>
-            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
-                <!-- TODO <service-call name="mantle.party.PartyServices.save#PartyContentFile" in-map="context"/> --></if>
+            <if condition="ofxFile == null || ofxFile.size == 0">
+                <return error="true" message="No OFX file content uploaded"/></if>
+            <set field="ofxString" from="ofxFile.getString('UTF-8')"/>
+            <service-call name="mantle.account.OfxServices.import#OfxVersion1" in-map="context"/>
         </actions>
     </service>
     <service verb="import" noun="OfxVersion1">
