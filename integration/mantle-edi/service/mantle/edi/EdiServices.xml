@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- ========== General EDI Services, delegate to specific services based on message type ========== -->
+
+    <service verb="receive" noun="EdiMessage">
+        <implements service="org.moqui.impl.SystemMessageServices.receive#SystemMessage"/>
+        <in-parameters>
+            <parameter name="systemMessageTypeId" default-value="EdiMessage"/>
+            <parameter name="envelopeLocation" default-value="component://mantle-edi/service/mantle/edi/X12Envelope.groovy"/>
+        </in-parameters>
+        <actions>
+            <set field="messageText" from="messageText.trim()"/>
+            <set field="systemMessageIdList" from="[]"/>
+            <!-- TODO: save message as-is if there is a parse/etc error -->
+            <if condition="messageText.startsWith('ISA')">
+                <then>
+                    <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation)"/>
+                    <set field="splitList" from="ediHandler.splitMessage('ISA', 'IEA', messageText)"/>
+                    <!-- TODO somehow split at GS and ST levels too? one way to handle multiple groups and tx sets per message... -->
+
+                    <!-- <log message="======== splitList: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(splitList))} "/> -->
+                    <!-- create new SystemMessage for each ISA in a bulk message, if there is more than one (so they can be processed with individual status) -->
+                    <iterate list="splitList" entry="splitMessage">
+                        <set field="ediMap" from="ediHandler.parseText(splitMessage)"/>
+                        <log message="======== EDI Map: ${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))} "/>
+
+                        <!-- with split message should always be a single ISA segment -->
+                        <set field="ISA" from="ediMap.ISA ? ediMap.ISA[0] : null"/>
+                        <set field="GS" from="ISA.GS ? ISA.GS[0] : null"/>
+                        <set field="ST" from="GS.ST ? GS.ST[0] : null"/>
+
+                        <if condition="ISA">
+                            <set field="senderId" from="ISA.elements[6]"/>
+                            <set field="receiverId" from="ISA.elements[8]"/>
+                            <set field="messageId" from="ISA.elements[13]"/>
+                        </if>
+                        <if condition="GS">
+                            <if condition="GS.elements[4] &amp;&amp; GS.elements[5]">
+                                <set field="dateString" value="${GS.elements[4]} ${GS.elements[5]}"/>
+                                <!-- support 4, 6, 7, or 8 character time (pad with zeroes, parse) -->
+                                <script>while (dateString.length() &lt; 17) { dateString = dateString + "0" }</script>
+                                <set field="messageDate" from="ec.l10n.parseTimestamp(dateString, 'yyyyMMdd HHmmssSS')"/>
+                            </if>
+                            <set field="docType" from="GS.elements[1]"/><!-- GS01 -->
+                            <set field="docControl" from="GS.elements[6]"/>
+                            <set field="docVersion" from="GS.elements[8]"/><!-- GS08 -->
+                        </if>
+                        <if condition="ST">
+                            <set field="docSubType" from="ST.elements[1]"/><!-- ST01 -->
+                            <set field="docSubControl" from="ST.elements[2]"/>
+                        </if>
+
+                        <set field="messageMap" from="[systemMessageTypeId:systemMessageTypeId, messageText:splitMessage,
+                                senderId:senderId, receiverId:receiverId, messageId:messageId,
+                                docControl:docControl, docSubControl:docSubControl, messageDate:messageDate,
+                                docType:docType, docSubType:docSubType, docVersion:docVersion,
+                                isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+
+                        <if condition="senderId">
+                            <!-- find corresponding SystemMessageRemote -->
+                            <entity-find entity-name="moqui.service.message.SystemMessageRemote" list="smrList">
+                                <econdition field-name="systemMessageTypeId"/>
+                                <econdition field-name="remoteId" from="senderId"/>
+                            </entity-find>
+                            <set field="systemMessageRemoteId" from="smrList ? smrList[0].systemMessageRemoteId : null"/>
+                            <set field="messageMap.systemMessageRemoteId" from="systemMessageRemoteId"/>
+
+                            <!-- see if there is an existing message with the same IDs and fairly recent -->
+                            <entity-find entity-name="moqui.service.message.SystemMessage" list="existingMessageList">
+                                <econdition field-name="senderId"/><econdition field-name="receiverId"/>
+                                <econdition field-name="messageId"/><order-by field-name="-messageDate"/>
+                            </entity-find>
+                            <if condition="existingMessageList">
+                                <!-- how to handle duplicates? create a SystemMessage in an error state and handle manually -->
+                                <set field="existingMessage" from="existingMessageList[0]"/>
+                                <!-- if messageDate is the same or initDate (received date) is within 1 year, consider it a
+                                    duplicate; outside 1 year allow messageId to be reused -->
+                                <if condition="existingMessage.messageDate == messageDate ||
+                                        (existingMessage.initDate.time - ec.user.nowTimestamp.time) &lt; (365*24*60*60*1000)">
+                                    <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                                            in-map="messageMap + [statusId:'SmsgError']"/>
+                                    <set field="errorText" value="Found duplicate EDI message for sender ${senderId}, receiver ${receiverId}, message ${messageId}; duplicate SystemMessage ID [${existingMessage.systemMessageId}]"/>
+                                    <service-call name="create#moqui.service.message.SystemMessageError"
+                                            in-map="[systemMessageId:createOut.systemMessageId, errorDate:ec.user.nowTimestamp,
+                                                attemptedStatusId:'SmsgReceived', errorText:errorText]"/>
+                                    <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+                                    <continue/>
+                                </if>
+                            </if>
+                        </if>
+
+                        <!-- check for segment errors, if so send reject ack -->
+                        <set field="segmentErrors" from="ediHandler.getSegmentErrors()"/>
+                        <if condition="segmentErrors">
+                            <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                                    in-map="messageMap + [statusId:'SmsgError']"/>
+                            <set field="errorText" value="Error parsing EDI message for sender ${senderId}, receiver ${receiverId}, message ${messageId}], sending reject ack message; see that message for details"/>
+                            <service-call name="create#moqui.service.message.SystemMessageError"
+                                    in-map="[systemMessageId:createOut.systemMessageId, errorDate:ec.user.nowTimestamp,
+                                        attemptedStatusId:'SmsgReceived', errorText:errorText]"/>
+                            <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+
+                            <service-call name="mantle.edi.EdiServices.produce#FunctionalAck"
+                                    in-map="[systemMessageId:createOut.systemMessageId,
+                                        systemMessageRemoteId:systemMessageRemoteId, segmentErrors:segmentErrors]"/>
+                            <continue/>
+                        </if>
+
+                        <!-- no issues? create a plain message and get it going -->
+                        <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                                in-map="messageMap + [statusId:'SmsgReceived']"/>
+                        <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+                    </iterate>
+                </then>
+                <!-- FUTURE: identify and handle EDIFACT, etc; splitting and message field population -->
+                <else>
+                    <service-call name="create#moqui.service.message.SystemMessage" out-map="createOut"
+                            in-map="[systemMessageTypeId:systemMessageTypeId, messageText:messageText,
+                                statusId:'SmsgReceived', isOutgoing:'N', initDate:ec.user.nowTimestamp]"/>
+                    <script>systemMessageIdList.add(createOut.systemMessageId)</script>
+                </else>
+            </if>
+        </actions>
+    </service>
+    <service verb="consume" noun="EdiMessage">
+        <implements service="org.moqui.impl.SystemMessageServices.consume#SystemMessage"/>
+        <in-parameters>
+            <parameter name="x12EnvelopeLocation" default-value="component://mantle-edi/service/edi/X12Envelope.groovy"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage" for-update="true"/>
+            <set field="messageText" from="systemMessage.messageText.trim()"/>
+
+            <if condition="messageText.startsWith('ISA')">
+                <then>
+                    <if condition="systemMessage.docType == 'PO' &amp;&amp; systemMessage.docSubType == '850'">
+                        <then>
+                            <service-call name="mantle.edi.order.X12OrderServices.consume#PurchaseOrder"
+                                    in-map="context" out-map="context"/>
+                        </then>
+                        <else-if condition="systemMessage.docType == 'FA' &amp;&amp; systemMessage.docSubType == '997'">
+                            <service-call name="mantle.edi.EdiServices.consume#X12FunctionalAck"
+                                    in-map="context" out-map="context"/>
+                        </else-if>
+                        <else>
+                            <!-- NOTE: txSetErrorCode (AK502) of '1' = Transaction Set Not Supported -->
+                            <!-- NOTE: groupErrorCode (AK905) of '1' = Functional Group Not Supported -->
+                            <service-call name="mantle.edi.EdiServices.produce#FunctionalAck"
+                                    in-map="[systemMessageId:systemMessageId, systemMessageRemoteId:systemMessageRemoteId,
+                                        txSetErrorCode:'1', groupErrorCode:'1']"/>
+
+                            <!-- update SystemMessage.statusId and create a SystemMessageError record -->
+                            <set field="errorText" value="X12 Functional ID Code at GS01 [${systemMessage.docType}] and Transaction Set ID Code at ST01 [${systemMessage.docSubType}] not supported"/>
+                            <service-call name="update#moqui.service.message.SystemMessage"
+                                    in-map="[systemMessageId:systemMessageId, statusId:'SmsgError', lastAttemptDate:ec.user.nowTimestamp,
+                                        failCount:((systemMessage.failCount ?: 0) + 1)]"/>
+                            <service-call name="create#moqui.service.message.SystemMessageError"
+                                    in-map="[systemMessageId:systemMessageId, errorDate:ec.user.nowTimestamp, attemptedStatusId:'SmsgConsumed',
+                                        errorText:errorText]"/>
+                            <set field="noStatusUpdate" from="true"/>
+                            <return/>
+                        </else>
+                    </if>
+                </then>
+                <!-- FUTURE: identify and handle EDIFACT, etc -->
+                <else>
+                    <return error="true" message="EDI message type not supported, message starts with [${messageText.substring(0,3)}]"/>
+                </else>
+            </if>
+        </actions>
+    </service>
+
+    <service verb="produce" noun="FunctionalAck">
+        <description>Produce and queue a functional ack message</description>
+        <implements service="org.moqui.impl.SystemMessageServices.produce#AckSystemMessage"/>
+        <in-parameters>
+            <parameter name="txSetErrorCode"><description>For X12 is AK502; If segmentErrors is not empty defaults to '5'</description></parameter>
+            <parameter name="groupErrorCode"><description>For X12 is AK905</description></parameter>
+            <parameter name="segmentErrors" type="List"><description>List of EdiHandler.SegmentError objects</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="origMessage"/>
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="origMessage.systemMessageRemoteId"/></if>
+
+            <if condition="origMessage.ackMessageId">
+                <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="ackMessage">
+                    <field-map field-name="systemMessageId" from="origMessage.ackMessageId"/></entity-find-one>
+                <if condition="ackMessage.statusId != 'SmsgCancelled'">
+                    <return error="true" message="Functional ack (X12 997) already sent [${origMessage.ackMessageId}] for SystemMessage [${systemMessageId}]"/></if>
+            </if>
+            <if condition="!(origMessage.statusId in ['SmsgConsuming', 'SmsgConsumed', 'SmsgRejected', 'SmsgError'])">
+                <return error="true" message="Cannot send functional ack (X12 997) for SystemMessage [${systemMessageId}], in status [${origMessage.statusId}] and must be in Consuming, Consumed, Rejected, or Error"/></if>
+
+            <set field="messageText" from="origMessage.messageText"/>
+
+            <if condition="messageText.startsWith('ISA')">
+                <then>
+                    <service-call name="mantle.edi.EdiServices.produce#X12FunctionalAck" out-map="produceEdiOut" in-map="context"/>
+                    <set field="systemMessageId" from="produceEdiOut.systemMessageId"/>
+                </then>
+                <!-- FUTURE: identify and handle EDIFACT, etc -->
+                <else>
+                    <return error="true" message="EDI message type not supported, message starts with [${messageText.substring(0,3)}]"/>
+                </else>
+            </if>
+
+            <!-- set ackMessageId on the original SystemMessage -->
+            <set field="origMessage.ackMessageId" from="systemMessageId"/>
+            <entity-update value-field="origMessage"/>
+        </actions>
+    </service>
+
+    <!-- ========== X12 Message Wrapper Produce and Queue Service ========== -->
+
+    <service verb="produce" noun="EdiMessageX12">
+        <in-parameters>
+            <parameter name="systemMessageRemoteId" required="true"/>
+            <parameter name="systemMessageTypeId" default-value="EdiMessage"/>
+            <parameter name="messageDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="bodyEdiMap" type="Map" required="true"><description>A Map with NO elements entry, only
+                sub-segment entries depending on the message. Will be put under the ST segment (added to the ST Map).</description></parameter>
+            <parameter name="docType" required="true"><description>Goes in GS01 (such as PO, PR, etc)</description></parameter>
+            <parameter name="docSubType" required="true"><description>Goes in ST01 (such as 850, 855, etc)</description></parameter>
+            <parameter name="docVersion" default-value="004010"><description>Goes in GS08, and ISA12 (truncated to 5 characters)</description></parameter>
+
+            <parameter name="envelopeLocation" default-value="component://mantle-edi/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" required="true"/>
+
+            <parameter name="orderId"/>
+            <parameter name="orderRevision" type="Long"/>
+            <parameter name="invoiceId"/>
+            <parameter name="shipmentId"/>
+        </in-parameters>
+        <out-parameters><parameter name="systemMessageId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessageRemote" value-field="smr"/>
+            <if condition="!smr"><return error="true" message="System Message Remote not found with ID [${systemMessageRemoteId}]"/></if>
+
+            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)
+                    .setChars(smr.segmentTerminator as Character, smr.elementSeparator as Character, smr.componentDelimiter as Character, smr.escapeCharacter as Character)"/>
+
+            <set field="nowDate6" from="ec.l10n.format(messageDate, 'yyMMdd')"/>
+            <set field="nowDate8" from="ec.l10n.format(messageDate, 'yyyyMMdd')"/>
+            <set field="nowTime" from="ec.l10n.format(messageDate, 'HHmm')"/>
+
+            <set field="systemMessageId" from="ec.entity.sequencedIdPrimary('moqui.service.message.SystemMessage', null, null)"/>
+            <set field="controlNumber" from="systemMessageId"/>
+
+            <set field="senderId" from="smr.internalId"/>
+            <set field="receiverId" from="smr.remoteId"/>
+
+            <!-- NOTE: use same controlNumber for ISA, GS, ST because only one GS in ISA, one ST in GS -->
+            <set field="SE" from="[elements:['SE', (ediHandler.countSegments(bodyEdiMap) + 2), controlNumber]]"/>
+            <set field="ST" from="[elements:['ST', docSubType, controlNumber]]"/>
+            <script>ST.putAll(bodyEdiMap); ST.put('SE', [SE])</script><!-- put order is significant, put SE after all child segments -->
+
+            <set field="GE" from="[elements:['GE', 1, controlNumber]]"/>
+            <set field="GS" from="[elements:['GS', docType, smr.internalAppCode, smr.remoteAppCode, nowDate8, nowTime,
+                    controlNumber, 'X', docVersion], ST:[ST], GE:[GE]]"/>
+            <set field="IEA" from="[elements:['IEA', 1, controlNumber]]"/>
+            <set field="ISA" from="[elements:['ISA', '00', '', '00', '', smr.internalIdType, senderId, smr.remoteIdType, receiverId,
+                    nowDate6, nowTime, 'U', docVersion.substring(0, 5), controlNumber, smr.ackRequested, smr.usageCode,
+                    smr.componentDelimiter], GS:[GS], IEA:[IEA]]"/>
+            <set field="ediMap" from="[ISA:[ISA]]"/>
+
+            <set field="messageText" from="ediHandler.generateText(ediMap)"/>
+
+            <set field="messageId" from="controlNumber"/>
+            <set field="docControl" from="controlNumber"/>
+            <set field="docSubControl" from="controlNumber"/>
+            <service-call name="org.moqui.impl.SystemMessageServices.queue#SystemMessage" in-map="context"/>
+        </actions>
+    </service>
+
+    <!-- ========== X12 997 Functional Acknowledgement Services ========== -->
+
+    <service verb="consume" noun="X12FunctionalAck">
+        <description>Consume a Functional Acknowledgement message (X12 997)</description>
+        <in-parameters>
+            <parameter name="messageText" required="true"/>
+            <parameter name="systemMessageId"/>
+            <parameter name="envelopeLocation" default-value="component://mantle-edi/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-edi/service/mantle/edi/X12V4010TS997.groovy"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="systemMessage"/>
+            <set field="ediHandler" from="new org.moqui.impl.util.EdiHandler(ec).loadEnvelope(envelopeLocation).loadBody(bodyLocation)"/>
+            <set field="ediMap" from="ediHandler.parseText(messageText)"/>
+
+            <!-- <log message="======== PO EDI Map:\n${groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ediMap))}"/> -->
+            <!-- <log message="======== PO EDI Generated:\n${ediHandler.generateText(ediMap)}"/> -->
+
+            <set field="ISA" from="ediMap.ISA[0]"/>
+            <set field="GS" from="ISA.GS[0]"/>
+            <set field="ST" from="GS.ST[0]"/>
+            <set field="AK1" from="ST.AK1[0]"/>
+            <set field="AK9" from="ST.AK9[0]"/>
+
+            <set field="origDocType" from="AK1.elements[1]"/><!-- original functional ID code -->
+            <set field="origDocControl" from="AK1.elements[2]"/><!-- original group control number -->
+
+            <iterate list="ST.AK2" entry="AK2">
+                <set field="AK5" from="AK2.AK5[0]"/>
+
+                <set field="origDocSubType" from="AK2.elements[1]"/><!-- original tx set ID code -->
+                <set field="origDocSubControl" from="AK2.elements[2]"/><!-- original tx set control number -->
+
+                <!-- find the original message this is an ack of -->
+                <entity-find entity-name="moqui.service.message.SystemMessage" list="existingMessageList">
+                    <econdition field-name="senderId" from="systemMessage.receiverId"/>
+                    <econdition field-name="receiverId" from="systemMessage.senderId"/>
+                    <!-- all of these needed, even wanted? -->
+                    <econdition field-name="docSubType" from="origDocSubType"/>
+                    <econdition field-name="docControl" from="origDocControl"/>
+                    <econdition field-name="docSubControl" from="origDocSubControl"/>
+                    <order-by field-name="-messageDate"/>
+                </entity-find>
+                <if condition="!existingMessageList">
+                    <message error="true">Could not find original message for functional ack; tried senderId=${systemMessage.receiverId}, receiverId=${systemMessage.senderId}, docSubType=${origDocSubType}, docControl=${origDocControl}, docSubControl=${origDocSubControl}</message>
+                    <continue/>
+                </if>
+                <set field="origMessage" from="existingMessageList[0]"/>
+
+                <!-- NOTE: we could go through all of these and add semi-structured error messages in SystemMessageError,
+                    but for now all we care about is the status codes, can look up detail in the original message
+                <iterate list="AK2.AK3" entry="AK3">
+                    <iterate list="AK3.AK4" entry="AK4">
+                    </iterate>
+                </iterate>
+                -->
+
+                <!-- AK901 should be consistent with AK501, so we'll just look at AK501 in case there are multiple AK2/AK5 -->
+
+                <!-- AK501: A Accepted, E Accepted But Errors Were Noted, R Rejected -->
+                <set field="ackCode" from="AK5.elements[1]"/>
+
+                <set field="origMessage.statusId" from="ackCode == 'R' ? 'SmsgRejected' : 'SmsgConfirmed'"/>
+                <set field="origMessage.ackMessageId" from="systemMessageId"/>
+                <entity-update value-field="origMessage"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="produce" noun="X12FunctionalAck">
+        <description>This should no generally be called directly, call mantle.edi.EdiServices.produce#FunctionalAck instead.
+            Produce and queue a functional ack message (X12 997).</description>
+        <implements service="org.moqui.impl.SystemMessageServices.produce#AckSystemMessage"/>
+        <in-parameters>
+            <parameter name="txSetErrorCode"><description>For AK502; If segmentErrors is not empty defaults to '5'</description></parameter>
+            <parameter name="groupErrorCode"><description>For AK905</description></parameter>
+            <parameter name="segmentErrors" type="List"><description>List of EdiHandler.SegmentError objects</description></parameter>
+            <parameter name="envelopeLocation" default-value="component://mantle-edi/service/mantle/edi/X12Envelope.groovy"/>
+            <parameter name="bodyLocation" default-value="component://mantle-edi/service/mantle/edi/X12V4010TS997.groovy"/>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="moqui.service.message.SystemMessage" value-field="origMessage"/>
+            <if condition="!systemMessageRemoteId"><set field="systemMessageRemoteId" from="origMessage.systemMessageRemoteId"/></if>
+
+            <!-- NOTE: no validation here, should be called through produce#FunctionalAck which does status, etc validations -->
+
+            <!-- this is basically the ST segment Map, each sub-segment list is added to this Map in the order they should appear in the message -->
+            <set field="bodyEdiMap" from="[:]"/>
+
+            <!-- ST.AK1 -->
+            <set field="bodyEdiMap.AK1" from="[[elements:['AK1', origMessage.docType, origMessage.docControl]]]"/>
+
+            <!-- ST.AK2 -->
+            <set field="AK2" from="[elements:['AK2', origMessage.docSubType, origMessage.docSubControl]]"/>
+            <set field="bodyEdiMap.AK2" from="[AK2]"/>
+
+            <if condition="segmentErrors">
+                <if condition="!txSetErrorCode"><set field="txSetErrorCode" value="5"/></if>
+                <!-- AK2.AK3 (segment note), AK3.AK4 (element note) -->
+                <set field="AK2.AK3" from="[]"/>
+                <iterate list="segmentErrors" entry="segmentError">
+                    <script>AK2.AK3.add(segmentError.makeAk3())</script>
+                </iterate>
+            </if>
+
+            <!-- AK2.AK5 -->
+            <!-- AK501: A Accepted, E Accepted But Errors Were Noted, R Rejected -->
+            <set field="ackCode" from="(txSetErrorCode || groupErrorCode || origMessage.statusId != 'SmsgConsumed') ? 'R' : 'A' "/>
+            <!-- AK502-06 (txSetErrorCode):
+                1 Transaction Set Not Supported
+                2 Transaction Set Trailer Missing,
+                3 Transaction Set Control Number in Header and Trailer Do Not Match
+                4 Number of Included Segments Does Not Match Actual Count
+                5 One or More Segments in Error
+                6 Missing or Invalid Transaction Set Identifier
+                7 Missing or Invalid Transaction Set Control Number
+                10 Requested Service (Authentication or Encrypted) Not Available
+                17 Security Not Supported
+                23 Transaction Set Control Number Not Unique within the Functional Group
+            -->
+            <set field="AK2.AK5" from="[[elements:['AK5', ackCode, txSetErrorCode, '', '', '', '']]]"/>
+
+            <!-- ST.AK9 -->
+            <!-- AK905-09 (groupErrorCode):
+                1 Functional Group Not Supported
+                2 Functional Group Version Not Supported
+                3 Functional Group Trailer Missing
+                4 Group Control Number in the Functional Group Header and Trailer Do Not Agree
+                5 Number of Included Transaction Sets Does Not Match Actual Count
+                6 Group Control Number Violates Syntax
+                12 Requested Service (Authentication or Encryption) Not Available
+                16 Security Not Supported
+            -->
+            <set field="numAccepted" from="ackCode == 'R' ? '0' : '1'"/>
+            <set field="bodyEdiMap.AK9" from="[[elements:['AK9', ackCode, '1', '1', numAccepted, groupErrorCode, '', '', '', '']]]"/>
+
+            <!-- Call produce#EdiMessageX12 to wrap this in the X12 envelope and queue/send it -->
+            <service-call name="mantle.edi.EdiServices.produce#EdiMessageX12" out-map="produceEdiOut"
+                    in-map="[systemMessageRemoteId:systemMessageRemoteId, bodyEdiMap:bodyEdiMap,
+                        envelopeLocation:envelopeLocation, bodyLocation:bodyLocation,
+                        docType:'FA', docSubType:'997']"/>
+            <set field="systemMessageId" from="produceEdiOut.systemMessageId"/>
+
+            <!-- NOTE: don't need to set ackMessageId on the original SystemMessage, done by produce#FuncationalAck service -->
+        </actions>
+    </service>
+</services>

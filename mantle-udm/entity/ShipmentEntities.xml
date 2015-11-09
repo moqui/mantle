@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal.
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -28,6 +28,8 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="shipmentTypeEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
 
+        <field name="fromPartyId" type="id"/>
+        <field name="toPartyId" type="id"/>
         <field name="binLocationNumber" type="number-integer"><description>For picking multiple shipments in a single
             shipment load (WorkEffort with purpose Shipment Load/Ship, WepShipmentShip); this is the structure for a
             picklist instead of having a separate Picklist entity. This may be overridden within a Shipment with the
@@ -47,21 +49,24 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="addtlShippingChargeDesc" type="text-medium"/>
 
         <field name="handlingInstructions" type="text-medium"/>
-
-        <field name="fromPartyId" type="id"/>
-        <field name="toPartyId" type="id"/>
+        <field name="systemMessageRemoteId" type="id"/>
 
         <relationship type="one" title="ShipmentType" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="shipmentTypeEnumId"/></relationship>
         <relationship type="one" title="Shipment" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" title="From" related-entity-name="mantle.party.Party">
+            <key-map field-name="fromPartyId"/></relationship>
+        <relationship type="one" title="To" related-entity-name="mantle.party.Party">
+            <key-map field-name="toPartyId"/></relationship>
+
         <relationship type="one" title="Ship" related-entity-name="mantle.work.effort.WorkEffort">
             <key-map field-name="shipWorkEffortId"/></relationship>
         <relationship type="one" title="Receive" related-entity-name="mantle.work.effort.WorkEffort">
             <key-map field-name="receiveWorkEffortId"/></relationship>
         <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom">
             <key-map field-name="costUomId"/></relationship>
-        <relationship type="one" title="To" related-entity-name="Party"><key-map field-name="toPartyId"/></relationship>
-        <relationship type="one" title="From" related-entity-name="Party"><key-map field-name="fromPartyId"/></relationship>
+        <relationship type="one" related-entity-name="moqui.service.message.SystemMessageRemote"/>
+
         <seed-data>
             <!-- Shipment Type -->
             <moqui.basic.EnumerationType description="Shipment Type" enumTypeId="ShipmentType"/>
@@ -103,6 +108,10 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipPicked" toStatusId="ShipCancelled" transitionName="Cancel"/>
         </seed-data>
     </entity>
+    <extend-entity entity-name="SystemMessage" package-name="moqui.service.message">
+        <field name="shipmentId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.shipment.Shipment"/>
+    </extend-entity>
 
     <entity entity-name="ShipmentBoxType" package-name="mantle.shipment">
         <field name="shipmentBoxTypeId" type="id" is-pk="true"/>
@@ -221,14 +230,11 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="shipmentPackageSeqId" type="id" is-pk="true"/>
         <field name="productId" type="id" is-pk="true"/>
         <field name="quantity" type="number-decimal"/>
+        <relationship type="one-nofk" related-entity-name="mantle.shipment.Shipment"/>
         <relationship type="one" related-entity-name="mantle.shipment.ShipmentPackage">
-            <key-map field-name="shipmentId"/>
-            <key-map field-name="shipmentPackageSeqId"/>
-        </relationship>
+            <key-map field-name="shipmentId"/><key-map field-name="shipmentPackageSeqId"/></relationship>
         <relationship type="one" related-entity-name="mantle.shipment.ShipmentItem">
-            <key-map field-name="shipmentId"/>
-            <key-map field-name="productId"/>
-        </relationship>
+            <key-map field-name="shipmentId"/><key-map field-name="productId"/></relationship>
     </entity>
     <entity entity-name="ShipmentPackageRouteSeg" package-name="mantle.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
@@ -250,6 +256,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="codAmount" type="currency-amount"/>
         <field name="insuredAmount" type="currency-amount"/>
         <field name="amountUomId" type="id"/>
+        <relationship type="one-nofk" related-entity-name="mantle.shipment.Shipment"/>
         <relationship type="one" related-entity-name="mantle.shipment.ShipmentPackage">
             <key-map field-name="shipmentId"/><key-map field-name="shipmentPackageSeqId"/></relationship>
         <relationship type="one" related-entity-name="mantle.shipment.ShipmentRouteSegment">
@@ -356,13 +363,14 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- Shipment Method -->
             <moqui.basic.EnumerationType description="Shipment Method" enumTypeId="ShipmentMethod"/>
-            <moqui.basic.Enumeration description="No Shipping" enumId="ShMthNoShipping" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="Customer Pick Up" enumId="ShMthPickUp" enumTypeId="ShipmentMethod"/>
             <moqui.basic.Enumeration description="Next Day" enumId="ShMthNextDay" enumTypeId="ShipmentMethod"/>
             <moqui.basic.Enumeration description="Second Day" enumId="ShMthSecondDay" enumTypeId="ShipmentMethod"/>
             <moqui.basic.Enumeration description="Third Day" enumId="ShMthThirdDay" enumTypeId="ShipmentMethod"/>
-            <moqui.basic.Enumeration description="Ground" enumId="ShMthGround" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="Ground Parcel" enumId="ShMthGround" enumTypeId="ShipmentMethod"/>
+            <moqui.basic.Enumeration description="Motor (Common Carrier)" enumId="ShMthMotor" enumTypeId="ShipmentMethod"/>
 
-            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthNoShipping" sequenceNum="0"/>
+            <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthPickUp" sequenceNum="0"/>
             <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthGround" sequenceNum="1"/>
             <mantle.shipment.carrier.CarrierShipmentMethod carrierPartyId="_NA_" shipmentMethodEnumId="ShMthNextDay" sequenceNum="2"/>
             <!-- Standard Carrier Alpha Codes (1-day, 2-day, 3-day, Ground) -->

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal.
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -144,7 +144,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="acctgTransEntry"
                         map="[acctgTransId:fromAcctgTrans.acctgTransId, debitCreditFlag:'C',
                             glAccountTypeEnumId:methodGlAccountTypeEnumId, glAccountId:methodGlAccountId,
-                            amount:payment.amount, reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+                            amount:payment.amount, reconcileStatusId:'AterNot', isSummary:'N']"/>
                 <entity-sequenced-id-secondary value-field="acctgTransEntry"/>
                 <entity-create value-field="acctgTransEntry"/>
             </if>
@@ -163,7 +163,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-make-value entity-name="mantle.ledger.transaction.AcctgTransEntry" value-field="acctgTransEntry"
                         map="[acctgTransId:toAcctgTrans.acctgTransId, debitCreditFlag:'D',
                             glAccountTypeEnumId:methodGlAccountTypeEnumId, glAccountId:methodGlAccountId,
-                            amount:payment.amount, reconcileStatusId:'AES_NOT_RECONCILED', isSummary:'N']"/>
+                            amount:payment.amount, reconcileStatusId:'AterNot', isSummary:'N']"/>
                 <entity-sequenced-id-secondary value-field="acctgTransEntry"/>
                 <entity-create value-field="acctgTransEntry"/>
             </if>
@@ -341,11 +341,26 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
             <set field="isPayable" from="organizationPartyId == payment.fromPartyId ? 'Y' : 'N'"/>
             <set field="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
+
+            <!-- try Payment.overrideGlAccountId (overrides all) -->
             <set field="glAccountId" from="payment.overrideGlAccountId"/>
+
+            <!-- try PaymentMethod.glAccountId (for paymentMethodId or toPaymentMethodId depending on whether from/to is org) -->
+            <if condition="!glAccountId &amp;&amp; payment.paymentMethodId &amp;&amp; payment.fromPartyId == organizationPartyId">
+                <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod">
+                    <field-map field-name="paymentMethodId" from="payment.paymentMethodId"/></entity-find-one>
+                <set field="glAccountId" from="paymentMethod.glAccountId"/>
+            </if>
+            <if condition="!glAccountId &amp;&amp; payment.toPaymentMethodId &amp;&amp; payment.toPartyId == organizationPartyId">
+                <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod">
+                    <field-map field-name="paymentMethodId" from="payment.toPaymentMethodId"/></entity-find-one>
+                <set field="glAccountId" from="paymentMethod.glAccountId"/>
+            </if>
 
             <service-call name="mantle.ledger.LedgerServices.expand#ParentOrganizationList" out-map="context"
                     in-map="[organizationPartyId:organizationPartyId]"/>
 
+            <!-- Credit Card specific mappings -->
             <if condition="!glAccountId &amp;&amp; paymentMethodTypeEnumId == 'PmtCreditCard'">
                 <entity-find entity-name="mantle.ledger.config.CreditCardTypeGlAccount" list="creditCardTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
@@ -353,6 +368,7 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
                 <set field="glAccountId" from="creditCardTypeGlAccountList.first?.glAccountId"/>
             </if>
+            <!-- Financial Account specific mappings -->
             <if condition="!glAccountId &amp;&amp; paymentMethodTypeEnumId == 'PmtFinancialAccount'">
                 <entity-find entity-name="mantle.ledger.config.FinancialAccountTypeGlAccount" list="financialAccountTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
@@ -368,6 +384,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="glAccountId" from="financialAccountTypeGlAccountList.first?.glAccountId"/>
             </if>
 
+            <!-- default for the paymentMethodTypeEnumId -->
             <if condition="!glAccountId">
                 <entity-find entity-name="mantle.ledger.config.PaymentMethodTypeGlAccount" list="paymentMethodTypeGlAccountList" cache="true">
                     <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>

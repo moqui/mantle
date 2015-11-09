@@ -1,5 +1,5 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal.
+ * This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
  * 
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
@@ -45,7 +45,7 @@ class OrderProcureToPayBasicFlow extends Specification {
     @Shared
     java.sql.Date eolDate
     @Shared
-    String equip1AssetId, equip2AssetId
+    String equip1AssetId, equip2AssetId, currentFiscalMonthId
     @Shared
     long totalFieldsChecked = 0
 
@@ -132,12 +132,12 @@ class OrderProcureToPayBasicFlow extends Specification {
         // add shipping charge
         ec.service.sync().name("mantle.order.OrderServices.create#OrderItem")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId, unitAmount:145.00,
-                    itemTypeEnumId:'ItemExpShipping', itemDescription:'Incoming Freight']).call()
+                    itemTypeEnumId:'ItemShipping', itemDescription:'Incoming Freight']).call()
 
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId,
                     paymentMethodTypeEnumId:'PmtCompanyCheck', shippingPostalContactMechId:'ORG_ZIZI_RTL_SA',
-                    shippingTelecomContactMechId:'ORG_ZIZI_RTL_PT', shipmentMethodEnumId:'ShMthNoShipping']).call()
+                    shippingTelecomContactMechId:'ORG_ZIZI_RTL_PT', shipmentMethodEnumId:'ShMthPickUp']).call()
 
         // one person will place the PO
         ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:purchaseOrderId]).call()
@@ -156,7 +156,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 statusId="PmntPromised" amount="23795.00" amountUomId="USD"/>
 
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="${vendorPartyId}"
-                customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthNoShipping" postalContactMechId="ORG_ZIZI_RTL_SA"
+                customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthPickUp" postalContactMechId="ORG_ZIZI_RTL_SA"
                 telecomContactMechId="ORG_ZIZI_RTL_PT" partTotal=""/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="400" unitAmount="8.00" isModifiedPrice="N"/>
@@ -164,7 +164,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 productId="DEMO_3_1" itemDescription="Demo Product Three-One" quantity="100" unitAmount="4.50" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="03" orderPartSeqId="01" itemTypeEnumId="ItemAsset"
                 productId="EQUIP_1" itemDescription="Picker Bot 2000" quantity="2" unitAmount="10000" isModifiedPrice="Y"/>
-            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemExpShipping"
+            <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="04" orderPartSeqId="01" itemTypeEnumId="ItemShipping"
                 itemDescription="Incoming Freight" quantity="1" unitAmount="145.00"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
@@ -424,10 +424,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                 assetReceiptId="55400"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="3200" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55400" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="3200" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55401" acctgTransTypeEnumId="AttInventoryReceipt"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
@@ -435,20 +435,20 @@ class OrderProcureToPayBasicFlow extends Specification {
                 assetReceiptId="55401"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="450" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55401" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="450" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_3_1"/>
 
             <mantle.ledger.transaction.AcctgTrans postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y"
                     assetId="${equip1AssetId}" acctgTransTypeEnumId="AttAssetReceipt" glFiscalTypeEnumId="GLFT_ACTUAL"
                     transactionDate="${effectiveTime}" acctgTransId="55402" assetReceiptId="55402"
                     organizationPartyId="ORG_ZIZI_RETAIL">
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="139100000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnreceivedFixedAsset"
+                    reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatUnreceivedFixedAsset"
                     debitCreditFlag="C" acctgTransEntrySeqId="01" assetId="${equip1AssetId}"/>
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                    reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
                     debitCreditFlag="D" acctgTransEntrySeqId="02" assetId="${equip1AssetId}"/>
             </mantle.ledger.transaction.AcctgTrans>
             <mantle.ledger.transaction.AcctgTrans postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y"
@@ -456,10 +456,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                     transactionDate="${effectiveTime}" acctgTransId="55403" assetReceiptId="55403"
                     organizationPartyId="ORG_ZIZI_RETAIL">
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="139100000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnreceivedFixedAsset"
+                    reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatUnreceivedFixedAsset"
                     debitCreditFlag="C" acctgTransEntrySeqId="01" assetId="${equip2AssetId}"/>
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                    reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
                     debitCreditFlag="D" acctgTransEntrySeqId="02" assetId="${equip2AssetId}"/>
             </mantle.ledger.transaction.AcctgTrans>
 
@@ -526,7 +526,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 shipmentId="${shipResult.shipmentId}"/>
 
             <mantle.account.invoice.InvoiceItem invoiceId="55400" invoiceItemSeqId="05"
-                itemTypeEnumId="ItemExpShipping" quantity="1" amount="145" description="Incoming Freight"
+                itemTypeEnumId="ItemShipping" quantity="1" amount="145" description="Incoming Freight"
                 itemDate="${effectiveTime}"/>
             <mantle.order.OrderItemBilling orderItemBillingId="55404" orderId="${purchaseOrderId}" orderItemSeqId="04"
                 invoiceId="55400" invoiceItemSeqId="05" quantity="1" amount="145"/>
@@ -587,23 +587,23 @@ class OrderProcureToPayBasicFlow extends Specification {
 
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" debitCreditFlag="D"
                     amount="3200" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1" invoiceItemSeqId="01"/>
+                    reconcileStatusId="AterNot" isSummary="N" productId="DEMO_1_1" invoiceItemSeqId="01"/>
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" debitCreditFlag="D"
                     amount="450" glAccountTypeEnumId="GatUnreceivedInventory" glAccountId="149300000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1" invoiceItemSeqId="02"/>
+                    reconcileStatusId="AterNot" isSummary="N" productId="DEMO_3_1" invoiceItemSeqId="02"/>
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="03" debitCreditFlag="D"
                     amount="10,000" glAccountTypeEnumId="GatUnreceivedFixedAsset" glAccountId="139100000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="03"/>
+                    reconcileStatusId="AterNot" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="03"/>
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="04" debitCreditFlag="D"
                     amount="10,000" glAccountTypeEnumId="GatUnreceivedFixedAsset" glAccountId="139100000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="04"/>
+                    reconcileStatusId="AterNot" isSummary="N" productId="EQUIP_1" invoiceItemSeqId="04"/>
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="05" debitCreditFlag="D"
-                    amount="145" glAccountTypeEnumId="" glAccountId="509000000" reconcileStatusId="AES_NOT_RECONCILED"
+                    amount="145" glAccountTypeEnumId="" glAccountId="519000000" reconcileStatusId="AterNot"
                     isSummary="N" invoiceItemSeqId="05"/>
 
                 <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="06" debitCreditFlag="C"
                     amount="23795" glAccountTypeEnumId="GatAccountsPayable" glAccountId="210000000"
-                    reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                    reconcileStatusId="AterNot" isSummary="N"/>
             </mantle.ledger.transaction.AcctgTrans>
 
         </entity-facade-xml>""").check(dataCheckErrors)
@@ -656,9 +656,9 @@ class OrderProcureToPayBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD"
                 otherPartyId="ZiddlemanInc" paymentId="${setInfoOut.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="23795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="23795" glAccountId="216000000" reconcileStatusId="AterNot" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55405" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="23795" glAccountId="111100000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="23795" glAccountId="111100000" reconcileStatusId="AterNot" isSummary="N"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
@@ -680,9 +680,9 @@ class OrderProcureToPayBasicFlow extends Specification {
                 otherPartyId="ZiddlemanInc" paymentId="${setInfoOut.paymentId}"
                 paymentApplicationId="${sendPmtResult.paymentApplicationId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55406" acctgTransEntrySeqId="01" debitCreditFlag="D"
-                amount="23795" glAccountId="210000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="23795" glAccountId="210000000" reconcileStatusId="AterNot" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55406" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="23795" glAccountId="216000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="23795" glAccountId="216000000" reconcileStatusId="AterNot" isSummary="N"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
@@ -699,6 +699,7 @@ class OrderProcureToPayBasicFlow extends Specification {
         Map fiscalMonthOut = ec.service.sync().name("mantle.ledger.LedgerServices.get#OrganizationFiscalTimePeriods")
                 .parameters([organizationPartyId:customerPartyId, filterDate:ec.user.nowTimestamp, timePeriodTypeId:'FiscalMonth']).call()
         Map timePeriod = (Map) fiscalMonthOut.timePeriodList[0]
+        currentFiscalMonthId = timePeriod.timePeriodId
 
         Map deprOut = ec.service.sync().name("mantle.ledger.AssetAutoPostServices.calculateAndPost#AllFixedAssetDepreciations")
                 .parameters([timePeriodId:timePeriod.timePeriodId]).call()
@@ -706,37 +707,37 @@ class OrderProcureToPayBasicFlow extends Specification {
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.asset.Asset assetId="${equip1AssetId}" acquireCost="10000" salvageValue="1500" depreciation="283.33"/>
-            <mantle.product.asset.AssetDepreciation assetId="${equip1AssetId}" timePeriodId="${timePeriod.timePeriodId}"
+            <mantle.product.asset.AssetDepreciation assetId="${equip1AssetId}" timePeriodId="${currentFiscalMonthId}"
                     annualDepreciation="3400" yearsRemaining="5" isLastYearPeriod="N"
                     monthlyDepreciation="283.33" acctgTransId="55407" usefulLifeYears="5"/>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55407" amountUomId="USD" isPosted="Y" postedDate="${effectiveTime}"
                     acctgTransTypeEnumId="AttDepreciation" glFiscalTypeEnumId="GLFT_ACTUAL" organizationPartyId="ORG_ZIZI_RETAIL"
                     transactionDate="${deprOut.transactionDate.time}">
                 <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="182000000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaAccumDepreciation"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFaAccumDepreciation"
                         debitCreditFlag="C" acctgTransEntrySeqId="01"/>
                 <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="672000000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaDepreciation"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFaDepreciation"
                         debitCreditFlag="D" acctgTransEntrySeqId="02"/>
             </mantle.ledger.transaction.AcctgTrans>
 
-            <mantle.product.asset.AssetDepreciation assetId="${equip2AssetId}" timePeriodId="100002" annualDepreciation="1700"
+            <mantle.product.asset.AssetDepreciation assetId="${equip2AssetId}" timePeriodId="${currentFiscalMonthId}" annualDepreciation="1700"
                     yearsRemaining="5" isLastYearPeriod="N" monthlyDepreciation="141.67" usefulLifeYears="5" acctgTransId="55408"/>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55408" postedDate="${effectiveTime}" amountUomId="USD"
                     isPosted="Y" assetId="${equip2AssetId}" acctgTransTypeEnumId="AttDepreciation" glFiscalTypeEnumId="GLFT_ACTUAL"
                     transactionDate="${deprOut.transactionDate.time}" organizationPartyId="ORG_ZIZI_RETAIL">
                 <mantle.ledger.transaction.AcctgTransEntry amount="141.67" productId="EQUIP_1" glAccountId="182000000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaAccumDepreciation"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFaAccumDepreciation"
                         debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
                 <mantle.ledger.transaction.AcctgTransEntry amount="141.67" productId="EQUIP_1" glAccountId="672000000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFaDepreciation"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFaDepreciation"
                         debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
             </mantle.ledger.transaction.AcctgTrans>
 
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" organizationPartyId="ORG_ZIZI_RETAIL"
-                    timePeriodId="${timePeriod.timePeriodId}" postedCredits="425" endingBalance="425"/>
+                    timePeriodId="${currentFiscalMonthId}" postedCredits="425" endingBalance="425"/>
             <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" organizationPartyId="ORG_ZIZI_RETAIL"
-                    timePeriodId="${timePeriod.timePeriodId}" postedDebits="425" endingBalance="425"/>
+                    timePeriodId="${currentFiscalMonthId}" postedDebits="425" endingBalance="425"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
@@ -808,10 +809,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                     amountUomId="USD" isPosted="Y" assetId="${equip1AssetId}" acctgTransTypeEnumId="AttInventoryIssuance"
                     glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
                         debitCreditFlag="C" assetId="${equip1AssetId}" acctgTransEntrySeqId="01"/>
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnissuedFixedAsset"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatUnissuedFixedAsset"
                         debitCreditFlag="D" assetId="${equip1AssetId}" acctgTransEntrySeqId="02"/>
             </mantle.ledger.transaction.AcctgTrans>
 
@@ -829,16 +830,16 @@ class OrderProcureToPayBasicFlow extends Specification {
                         amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttSalesInvoice" glFiscalTypeEnumId="GLFT_ACTUAL"
                         transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                     <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
-                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            reconcileStatusId="AterNot" invoiceItemSeqId="01" isSummary="N"
                             glAccountTypeEnumId="GatUnissuedFixedAsset" debitCreditFlag="C" assetId="${equip1AssetId}" acctgTransEntrySeqId="01"/>
                     <mantle.ledger.transaction.AcctgTransEntry amount="283.33" productId="EQUIP_1" glAccountId="182000000"
-                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            reconcileStatusId="AterNot" invoiceItemSeqId="01" isSummary="N"
                             glAccountTypeEnumId="GatFaAccumDepreciation" debitCreditFlag="D" assetId="${equip1AssetId}" acctgTransEntrySeqId="02"/>
-                    <mantle.ledger.transaction.AcctgTransEntry amount="716.67" productId="EQUIP_1" glAccountId="823000000"
-                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="D"
+                    <mantle.ledger.transaction.AcctgTransEntry amount="716.67" productId="EQUIP_1" glAccountId="793000000"
+                            reconcileStatusId="AterNot" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="D"
                             assetId="${equip1AssetId}" acctgTransEntrySeqId="03"/>
                     <mantle.ledger.transaction.AcctgTransEntry amount="9000" glAccountId="121000000"
-                            reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatAccountsReceivable"
+                            reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatAccountsReceivable"
                             debitCreditFlag="D" acctgTransEntrySeqId="04"/>
                 </mantle.ledger.transaction.AcctgTrans>
                 <mantle.account.payment.PaymentApplication paymentId="55401" amountApplied="9000"
@@ -917,10 +918,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                     amountUomId="USD" isPosted="Y" assetId="${equip2AssetId}" acctgTransTypeEnumId="AttInventoryIssuance"
                     glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="131100000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatFixedAsset"
                         debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
                 <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
-                        reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatUnissuedFixedAsset"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatUnissuedFixedAsset"
                         debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
             </mantle.ledger.transaction.AcctgTrans>
 
@@ -938,34 +939,34 @@ class OrderProcureToPayBasicFlow extends Specification {
                         amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttSalesInvoice" glFiscalTypeEnumId="GLFT_ACTUAL"
                         transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                     <mantle.ledger.transaction.AcctgTransEntry amount="10000" productId="EQUIP_1" glAccountId="253100000"
-                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            reconcileStatusId="AterNot" invoiceItemSeqId="01" isSummary="N"
                             glAccountTypeEnumId="GatUnissuedFixedAsset" debitCreditFlag="C" assetId="${equip2AssetId}" acctgTransEntrySeqId="01"/>
                     <mantle.ledger.transaction.AcctgTransEntry amount="141.67" productId="EQUIP_1" glAccountId="182000000"
-                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N"
+                            reconcileStatusId="AterNot" invoiceItemSeqId="01" isSummary="N"
                             glAccountTypeEnumId="GatFaAccumDepreciation" debitCreditFlag="D" assetId="${equip2AssetId}" acctgTransEntrySeqId="02"/>
                     <mantle.ledger.transaction.AcctgTransEntry amount="1141.67" productId="EQUIP_1" glAccountId="814000000"
-                            reconcileStatusId="AES_NOT_RECONCILED" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="C"
+                            reconcileStatusId="AterNot" invoiceItemSeqId="01" isSummary="N" debitCreditFlag="C"
                             assetId="${equip2AssetId}" acctgTransEntrySeqId="03"/>
                     <mantle.ledger.transaction.AcctgTransEntry amount="11000" glAccountId="121000000"
-                            reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" glAccountTypeEnumId="GatAccountsReceivable"
+                            reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatAccountsReceivable"
                             debitCreditFlag="D" acctgTransEntrySeqId="04"/>
                 </mantle.ledger.transaction.AcctgTrans>
                 <mantle.account.payment.PaymentApplication paymentId="55402" amountApplied="11000"
                         appliedDate="${effectiveTime}" paymentApplicationId="55402"/>
             </mantle.account.invoice.Invoice>
 
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="131100000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="253100000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="20000" postedDebits="20000" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
 
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="182000000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="425" postedDebits="425" endingBalance="0" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="672000000" timePeriodId="${currentFiscalMonthId}"
                     postedDebits="425" endingBalance="425" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="814000000" timePeriodId="${currentFiscalMonthId}"
                     postedCredits="1141.67" endingBalance="1141.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
-            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="823000000" timePeriodId="100002"
+            <mantle.ledger.account.GlAccountOrgTimePeriod glAccountId="793000000" timePeriodId="${currentFiscalMonthId}"
                     postedDebits="716.67" endingBalance="716.67" organizationPartyId="ORG_ZIZI_RETAIL"/>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
@@ -995,10 +996,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                         isPosted="Y" assetId="DEMO_1_1A" acctgTransTypeEnumId="AttInventoryVariance"
                         glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                     <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="75" productId="DEMO_1_1"
-                            glAccountId="530000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountId="527000000" reconcileStatusId="AterNot" isSummary="N"
                             glAccountTypeEnumId="GatInvShrinkage" debitCreditFlag="D" assetId="DEMO_1_1A"/>
                     <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="75" productId="DEMO_1_1"
-                            glAccountId="141300000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountId="141300000" reconcileStatusId="AterNot" isSummary="N"
                             glAccountTypeEnumId="GatInventory" debitCreditFlag="C" assetId="DEMO_1_1A"/>
                 </mantle.ledger.transaction.AcctgTrans>
             </mantle.product.asset.PhysicalInventory>
@@ -1027,10 +1028,10 @@ class OrderProcureToPayBasicFlow extends Specification {
                         isPosted="Y" assetId="DEMO_1_1A" acctgTransTypeEnumId="AttInventoryVariance"
                         glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
                     <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="75" productId="DEMO_1_1"
-                            glAccountId="816000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountId="816000000" reconcileStatusId="AterNot" isSummary="N"
                             glAccountTypeEnumId="GatInvFound" debitCreditFlag="C" assetId="DEMO_1_1A"/>
                     <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="75" productId="DEMO_1_1"
-                            glAccountId="141300000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                            glAccountId="141300000" reconcileStatusId="AterNot" isSummary="N"
                             glAccountTypeEnumId="GatInventory" debitCreditFlag="D" assetId="DEMO_1_1A"/>
                 </mantle.ledger.transaction.AcctgTrans>
             </mantle.product.asset.PhysicalInventory>
