@@ -17,6 +17,9 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="payment" type="EntityValue"/>
+            <parameter name="isFromPartyOrgInternal" type="Boolean"><description>If true payment is outgoing</description></parameter>
+            <parameter name="isToPartyOrgInternal" type="Boolean"><description>If true payment is incoming</description></parameter>
+            <parameter name="dupPaymentList" type="List"><description>List of payments matching paymentRefNum and fromPartyId</description></parameter>
 
             <parameter name="paymentDescription"/>
             <parameter name="paymentTotal" type="BigDecimal"/>
@@ -44,6 +47,26 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
 
+            <!-- see if from/to parties are internal orgs -->
+            <entity-find entity-name="mantle.party.PartyRole" list="fromOrgInternalList">
+                <econdition field-name="partyId" from="payment.fromPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <set field="isFromPartyOrgInternal" from="fromOrgInternalList as boolean"/>
+            <entity-find entity-name="mantle.party.PartyRole" list="toOrgInternalList">
+                <econdition field-name="partyId" from="payment.toPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <set field="isToPartyOrgInternal" from="toOrgInternalList as boolean"/>
+
+            <!-- look for duplicate invoices by fromPartyId and paymentRefNum -->
+            <if condition="payment.paymentRefNum">
+                <entity-find entity-name="mantle.account.payment.Payment" list="dupPaymentList">
+                    <econdition field-name="paymentId" operator="not-equals"/>
+                    <econdition field-name="fromPartyId" from="payment.fromPartyId"/>
+                    <econdition field-name="paymentRefNum" from="payment.paymentRefNum"/>
+                </entity-find>
+            </if>
+
+            <!-- get payment description and totals -->
             <service-call name="mantle.account.PaymentServices.get#PaymentDescription" in-map="context" out-map="context"/>
             <service-call name="mantle.account.PaymentServices.get#PaymentTotals" in-map="context" out-map="context"/>
 
@@ -54,28 +77,32 @@ along with this software (see the LICENSE.md file). If not, see
                 <order-by field-name="changedDate"/>
             </entity-find>
 
+            <!-- get payment applications (to invoices, other payments) -->
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
 
+            <!-- if associated with an order (ie a promised/etc payment for an order) get invoices associated with the order -->
             <if condition="payment.orderId">
                 <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
                     <econdition field-name="orderId" from="payment.orderId"/>
                     <order-by field-name="invoiceId,invoiceItemSeqId"/></entity-find>
             </if>
 
+            <!-- get all invoices applied and through order billing -->
             <set field="invoiceIdSet" from="new TreeSet()"/>
             <iterate list="paymentApplicationList" entry="paymentApplication">
                 <script>if (paymentApplication.invoiceId) invoiceIdSet.add(paymentApplication.invoiceId)</script></iterate>
             <iterate list="orderItemBillingList" entry="orderItemBilling">
                 <script>invoiceIdSet.add(orderItemBilling.invoiceId)</script></iterate>
 
-
+            <!-- get accounting transactions associated with payment -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
                 <econdition field-name="paymentId"/></entity-find>
             <set field="acctgTransIdSet" from="new TreeSet()"/>
             <iterate list="acctgTransList" entry="acctgTrans">
                 <script>acctgTransIdSet.add(acctgTrans.acctgTransId)</script></iterate>
 
+            <!-- get invoices with reverse from/to parties that this payment might be applied to -->
             <entity-find entity-name="mantle.account.invoice.Invoice" list="unpaidInvoiceList">
                 <econdition field-name="fromPartyId" from="payment.toPartyId"/>
                 <econdition field-name="toPartyId" from="payment.fromPartyId"/>
