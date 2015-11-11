@@ -221,16 +221,35 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="toBillingContactInfo"
                         in-map="toBillingOut + [partyId:payment.toPartyId]" out-map-add-to-existing="false"/>
 
-                <entity-find entity-name="mantle.party.PartyContent" list="primarySignatureList">
-                    <econdition field-name="partyId" from="payment.fromPartyId"/>
-                    <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignaturePrimary"/>
-                </entity-find>
-                <set field="paymentSignaturePrimaryLocation" from="primarySignatureList ? primarySignatureList.first().contentLocation : null"/>
-                <entity-find entity-name="mantle.party.PartyContent" list="secondarySignatureList">
-                    <econdition field-name="partyId" from="payment.fromPartyId"/>
-                    <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignatureSecondary"/>
-                </entity-find>
-                <set field="paymentSignatureSecondaryLocation" from="secondarySignatureList ? secondarySignatureList.first().contentLocation : null"/>
+                <!-- find signatures for PaymentMethod, if applicable -->
+                <if condition="payment.paymentMethodId">
+                    <entity-find entity-name="mantle.account.method.PaymentMethodContent" list="primarySignatureList">
+                        <econdition field-name="paymentMethodId" from="payment.paymentMethodId"/>
+                        <econdition field-name="contentTypeEnumId" value="PmctSignaturePrimary"/>
+                    </entity-find>
+                    <set field="paymentSignaturePrimaryLocation" from="primarySignatureList ? primarySignatureList[0].contentLocation : null"/>
+                    <entity-find entity-name="mantle.account.method.PaymentMethodContent" list="secondarySignatureList">
+                        <econdition field-name="paymentMethodId" from="payment.paymentMethodId"/>
+                        <econdition field-name="contentTypeEnumId" value="PmctSignatureSecondary"/>
+                    </entity-find>
+                    <set field="paymentSignatureSecondaryLocation" from="secondarySignatureList ? secondarySignatureList[0].contentLocation : null"/>
+                </if>
+
+                <!-- find signatures for Party if no PaymentMethod signatures found -->
+                <if condition="!paymentSignaturePrimaryLocation">
+                    <entity-find entity-name="mantle.party.PartyContent" list="primarySignatureList">
+                        <econdition field-name="partyId" from="payment.fromPartyId"/>
+                        <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignaturePrimary"/>
+                    </entity-find>
+                    <set field="paymentSignaturePrimaryLocation" from="primarySignatureList ? primarySignatureList[0].contentLocation : null"/>
+                </if>
+                <if condition="!paymentSignatureSecondaryLocation">
+                    <entity-find entity-name="mantle.party.PartyContent" list="secondarySignatureList">
+                        <econdition field-name="partyId" from="payment.fromPartyId"/>
+                        <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignatureSecondary"/>
+                    </entity-find>
+                    <set field="paymentSignatureSecondaryLocation" from="secondarySignatureList ? secondarySignatureList[0].contentLocation : null"/>
+                </if>
 
                 <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                     <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
