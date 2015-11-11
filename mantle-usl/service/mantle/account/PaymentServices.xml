@@ -148,6 +148,48 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="unappliedTotal" from="paymentTotal - appliedTotal"/>
         </actions>
     </service>
+
+    <!-- ============================================ -->
+    <!-- ========== Payment Check Services ========== -->
+    <!-- ============================================ -->
+
+    <service verb="assign" noun="BankAccountCheckNumber">
+        <in-parameters><parameter name="paymentId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
+            <if condition="!payment.paymentMethodId">
+                <return message="Payment [${paymentId}] has no From Payment Method, not assigning check number"/></if>
+            <set field="paymentMethodId" from="payment.paymentMethodId"/>
+
+            <entity-find-one entity-name="mantle.account.method.BankAccount" value-field="bankAccount" for-update="true">
+                <field-map field-name="paymentMethodId"/></entity-find-one>
+            <if condition="!bankAccount">
+                <return message="Payment Method [${payment.paymentMethodId}] (for Payment [${paymentId}]) is not a bank account, not assigning check number"/></if>
+
+            <set field="checkNumber" from="bankAccount.lastCheckNumber + 1"/>
+
+            <!-- make sure no BankAccountCheck record exists -->
+            <entity-find-one entity-name="mantle.account.method.BankAccountCheck" value-field="bankAccountCheck">
+                <field-map field-name="paymentMethodId"/><field-map field-name="checkNumber"/></entity-find-one>
+            <while condition="bankAccountCheck">
+                <set field="checkNumber" from="checkNumber + 1"/>
+                <entity-find-one entity-name="mantle.account.method.BankAccountCheck" value-field="bankAccountCheck">
+                    <field-map field-name="paymentMethodId"/><field-map field-name="checkNumber"/></entity-find-one>
+            </while>
+
+            <!-- save to bankAccount.lastCheckNumber -->
+            <set field="bankAccount.lastCheckNumber" from="checkNumber"/>
+            <entity-update value-field="bankAccount"/>
+
+            <!-- save to Payment.paymentRefNum -->
+            <set field="payment.paymentRefNum" from="checkNumber"/>
+            <entity-update value-field="payment"/>
+
+            <!-- create BankAccountCheck record -->
+            <service-call name="create#mantle.account.method.BankAccountCheck"
+                    in-map="[paymentMethodId:paymentMethodId, checkNumber:checkNumber, paymentId:paymentId]"/>
+        </actions>
+    </service>
     <service verb="get" noun="PaymentCheckInfo">
         <in-parameters><parameter name="paymentIdList" type="List" required="true"/></in-parameters>
         <out-parameters><parameter name="paymentInfoList" type="List"/></out-parameters>
