@@ -123,7 +123,7 @@ class OrderToCashBasicFlow extends Specification {
                 statusId="OrderApproved" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="145.68"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentTypeEnumId="PtInvoicePayment"
-                paymentMethodId="CustJqpCc" paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}"
+                paymentMethodId="CustJqpCc" paymentInstrumentEnumId="PiCreditCard" orderId="${cartOrderId}"
                 orderPartSeqId="01" statusId="PmntAuthorized" amount="145.68" amountUomId="USD" fromPartyId="CustJqp"
                 toPartyId="ORG_ZIZI_RETAIL"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55500"

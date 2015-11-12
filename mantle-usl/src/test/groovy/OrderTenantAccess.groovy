@@ -101,7 +101,7 @@ class OrderTenantAccess extends Specification {
                 statusId="OrderCompleted" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="29.97"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentTypeEnumId="PtInvoicePayment"
-                paymentMethodId="CustJqpCc" paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}"
+                paymentMethodId="CustJqpCc" paymentInstrumentEnumId="PiCreditCard" orderId="${cartOrderId}"
                 orderPartSeqId="01" statusId="PmntDelivered" amount="29.97" amountUomId="USD" fromPartyId="CustJqp"
                 toPartyId="ORG_ZIZI_RETAIL"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55600"

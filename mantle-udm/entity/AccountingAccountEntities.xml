@@ -583,7 +583,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="trustLevelEnumId" type="id"/>
         <field name="paymentFraudEvidenceId" type="id"><description>Refer to evidence here if trust level is gray listed or black listed</description></field>
         <field name="glAccountId" type="id"><description>A GL Account associated with this PaymentMethod for reconciliation, etc</description></field>
-        <field name="finAccountId" type="id"/>
+        <field name="finAccountId" type="id"><description>Refers to FinancialAccount when paymentMethodTypeEnumId=PmtFinancialAccount</description></field>
         <field name="originalPaymentMethodId" type="id"><description>Because PaymentMethod records are treated as
             immutable (except for certain fields) they are cloned and expired on update and this field will have the
             paymentMethodId of the original record.</description></field>
@@ -621,23 +621,12 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- Payment Method Type -->
             <moqui.basic.EnumerationType description="Payment Method Type" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Bank Account (ACH, etc)" enumId="PmtBankAccount" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Bank Account" enumId="PmtBankAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Bitcoin Wallet" enumId="PmtBitcoinWallet" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Credit Card" enumId="PmtCreditCard" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Gift Card" enumId="PmtGiftCard" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Gift Certificate" enumId="PmtGiftCerificate" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Cash" enumId="PmtCash" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Financial Account" enumId="PmtFinancialAccount" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Personal Check" enumId="PmtPersonalCheck" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Company Check" enumId="PmtCompanyCheck" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Certified Check" enumId="PmtCertifiedCheck" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Money Order" enumId="PmtMoneyOrder" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Company Account" enumId="PmtCompanyAccount" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Billing Account" enumId="PmtBillingAccount" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Cash On Delivery" enumId="PmtCod" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Write-off" enumId="PmtWriteOff" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Discount" enumId="PmtDiscount" enumTypeId="PaymentMethodType"/>
-            <!-- really need this? implied by various more specific others... <moqui.basic.Enumeration description="Offline Payment" enumId="PmtOffline" enumTypeId="PaymentMethodType"/> -->
+            <moqui.basic.Enumeration description="PayPal Account" enumId="PmtPayPalAccount" enumTypeId="PaymentMethodType"/>
 
             <!-- Payment Method Purpose -->
             <moqui.basic.EnumerationType description="Payment Method Purpose" enumTypeId="PaymentMethodPurpose"/>
@@ -946,7 +935,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
 
-        <field name="paymentMethodTypeEnumId" type="id"/>
+        <!-- Deprecated, use paymentInstrumentEnumId: <field name="paymentMethodTypeEnumId" type="id"/> -->
+        <field name="paymentInstrumentEnumId" type="id"><description>The payment instrument used for the payment; for
+            non-cash and other instruments represented by an account specify details of it with paymentMethodId</description></field>
+
         <field name="paymentMethodId" type="id"><description>The from PaymentMethod (owned by fromPartyId)</description></field>
         <field name="toPaymentMethodId" type="id"><description>The to PaymentMethod (owned by toPartyId), if applicable,
             the account the payment goes to</description></field>
@@ -993,8 +985,8 @@ along with this software (see the LICENSE.md file). If not, see
 
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="paymentTypeEnumId"/></relationship>
-        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration" short-alias="methodType">
-            <key-map field-name="paymentMethodTypeEnumId"/></relationship>
+        <relationship type="one" title="PaymentInstrument" related-entity-name="moqui.basic.Enumeration" short-alias="instrument">
+            <key-map field-name="paymentInstrumentEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod" short-alias="method"/>
         <relationship type="one" title="To" related-entity-name="mantle.account.method.PaymentMethod" short-alias="toMethod">
             <key-map field-name="toPaymentMethodId"/></relationship>
@@ -1042,6 +1034,27 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Invoice Payment" enumId="PtInvoicePayment" enumTypeId="PaymentType"/>
             <moqui.basic.Enumeration description="Financial Account Transaction" enumId="PtFinancialAccount" enumTypeId="PaymentType"/>
 
+            <!-- Payment Instrument -->
+            <moqui.basic.EnumerationType description="Payment Instrument" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="ACH Direct" enumId="PiAch" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Bitcoin" enumId="PiBitcoinWallet" enumTypeId="PaymentInstrument" relatedEnumId="PmtBitcoinWallet"/>
+            <moqui.basic.Enumeration description="Credit Card" enumId="PiCreditCard" enumTypeId="PaymentInstrument" relatedEnumId="PmtCreditCard"/>
+            <moqui.basic.Enumeration description="Debit Card" enumId="PiDebitCard" enumTypeId="PaymentInstrument" relatedEnumId="PmtCreditCard"/>
+            <moqui.basic.Enumeration description="Gift Card" enumId="PiGiftCard" enumTypeId="PaymentInstrument" relatedEnumId="PmtGiftCard"/>
+            <moqui.basic.Enumeration description="Gift Certificate" enumId="PiGiftCerificate" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Cash" enumId="PiCash" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Financial Account" enumId="PiFinancialAccount" enumTypeId="PaymentInstrument" relatedEnumId="PmtFinancialAccount"/>
+            <moqui.basic.Enumeration description="Personal Check" enumId="PiPersonalCheck" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Company Check" enumId="PiCompanyCheck" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Certified Check" enumId="PiCertifiedCheck" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Money Order" enumId="PiMoneyOrder" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Company Account" enumId="PiCompanyAccount" enumTypeId="PaymentInstrument" relatedEnumId="PmtFinancialAccount"/>
+            <moqui.basic.Enumeration description="Billing Account" enumId="PiBillingAccount" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Cash On Delivery" enumId="PiCod" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Write-off" enumId="PiWriteOff" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Discount" enumId="PiDiscount" enumTypeId="PaymentInstrument"/>
+            <!-- really need this? implied by various more specific others... <moqui.basic.Enumeration description="Offline Payment" enumId="PiOffline" enumTypeId="PaymentInstrument"/> -->
+
             <!-- Payment Status -->
             <moqui.basic.StatusType description="Payment Status" statusTypeId="Payment"/>
             <moqui.basic.StatusItem description="Proposed" sequenceNum="1" statusId="PmntProposed" statusTypeId="Payment"/>
@@ -1088,7 +1101,7 @@ along with this software (see the LICENSE.md file). If not, see
 
         <master>
             <detail relationship="type"/>
-            <detail relationship="methodType"/>
+            <detail relationship="instrument"/>
             <detail relationship="method" use-master="default"/>
             <detail relationship="amountUom"/>
             <detail relationship="fromParty" use-master="basic"/>

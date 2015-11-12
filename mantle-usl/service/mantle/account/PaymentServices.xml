@@ -352,7 +352,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
             <parameter name="statusId" default-value="PmntDelivered"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to invoice unpaid total</description></parameter>
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
             <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="paymentRefNum"/>
             <parameter name="comments"/>
@@ -715,10 +715,10 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.product.store.ProductStorePaymentGateway"
                     value-field="productStorePaymentGateway" cache="true">
                 <field-map field-name="productStoreId" from="productStoreId"/>
-                <field-map field-name="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
+                <field-map field-name="paymentInstrumentEnumId" from="payment.paymentInstrumentEnumId"/>
             </entity-find-one>
             <if condition="!productStorePaymentGateway?.paymentGatewayConfigId">
-                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], type [${payment.paymentMethodTypeEnumId}]"/></if>
+                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], instrument [${payment.paymentInstrumentEnumId}]"/></if>
             <service-call name="mantle.account.PaymentServices.authorize#SinglePayment" out-map="context"
                     in-map="[paymentId:payment.paymentId, cardSecurityCode:cardSecurityCode, payment:payment,
                         paymentGatewayConfigId:productStorePaymentGateway.paymentGatewayConfigId]"/>
@@ -868,7 +868,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
 
             <!-- if no auth and no payment.paymentGatewayConfigId then this shouldn't be captured (probably a payment method type with no gateway) -->
-            <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentMethodTypeEnumId -->
+            <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentInstrumentEnumId -->
             <if condition="!paymentGatewayConfigId"><return/></if>
 
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>

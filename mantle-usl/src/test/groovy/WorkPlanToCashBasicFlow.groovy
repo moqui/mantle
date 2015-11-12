@@ -127,7 +127,7 @@ class WorkPlanToCashBasicFlow extends Specification {
                 organizationPartyId="${vendorResult.partyId}" glAccountId="121000000"/>
             <mantle.ledger.config.GlAccountTypeDefault glAccountTypeEnumId="GatAccountsPayable"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="210000000"/>
-            <mantle.ledger.config.PaymentMethodTypeGlAccount paymentMethodTypeEnumId="PmtCompanyCheck" isPayable="E"
+            <mantle.ledger.config.PaymentInstrumentGlAccount paymentInstrumentEnumId="PiCompanyCheck" isPayable="E"
                 organizationPartyId="${vendorResult.partyId}" glAccountId="111100000"/>
             <mantle.ledger.config.ItemTypeGlAccount glAccountId="412000000" direction="O" itemTypeEnumId="ItemTimeEntry"
                 organizationPartyId="${vendorResult.partyId}"/>
@@ -615,7 +615,7 @@ class WorkPlanToCashBasicFlow extends Specification {
         // pay the invoice (345.67 + 123.45 + (9.5 * 40) = 849.12)
         Map expPmtResult = ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
                 .parameters([invoiceId:expInvResult.invoiceId, statusId:'PmntDelivered', amount:'849.12',
-                    paymentMethodTypeEnumId:'PmtCompanyCheck', effectiveDate:'2013-11-10 12:00:00',
+                    paymentInstrumentEnumId:'PiCompanyCheck', effectiveDate:'2013-11-10 12:00:00',
                     paymentRefNum:'1234', comments:'Delivered by Fedex']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
@@ -655,7 +655,7 @@ class WorkPlanToCashBasicFlow extends Specification {
             <mantle.work.effort.WorkEffortInvoice invoiceId="${expInvResult.invoiceId}" workEffortId="TEST"/>
 
             <mantle.account.payment.Payment paymentId="${expPmtResult.paymentId}" paymentTypeEnumId="PtInvoicePayment"
-                fromPartyId="${vendorResult.partyId}" toPartyId="${workerResult.partyId}" paymentMethodTypeEnumId="PmtCompanyCheck"
+                fromPartyId="${vendorResult.partyId}" toPartyId="${workerResult.partyId}" paymentInstrumentEnumId="PiCompanyCheck"
                 statusId="PmntDelivered" effectiveDate="1384106400000" paymentRefNum="1234" comments="Delivered by Fedex"
                 amount="849.12" amountUomId="USD"/>
 
@@ -786,13 +786,13 @@ class WorkPlanToCashBasicFlow extends Specification {
         when:
         Map clientPmtResult = ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
                 .parameters([invoiceId:clientInvResult.invoiceId, statusId:'PmntDelivered', amount:1039.12,
-                    paymentMethodTypeEnumId:'PmtCompanyCheck', effectiveDate:'2013-11-12 12:00:00', paymentRefNum:'54321']).call()
+                    paymentInstrumentEnumId:'PiCompanyCheck', effectiveDate:'2013-11-12 12:00:00', paymentRefNum:'54321']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.invoice.Invoice invoiceId="${clientInvResult.invoiceId}" statusId="InvoicePmtRecvd"/>
             <mantle.account.payment.Payment paymentId="${clientPmtResult.paymentId}" paymentTypeEnumId="PtInvoicePayment"
-                fromPartyId="${clientResult.partyId}" toPartyId="${vendorResult.partyId}" paymentMethodTypeEnumId="PmtCompanyCheck"
+                fromPartyId="${clientResult.partyId}" toPartyId="${vendorResult.partyId}" paymentInstrumentEnumId="PiCompanyCheck"
                 statusId="PmntDelivered" effectiveDate="1384279200000" paymentRefNum="54321" amount="1,039.12" amountUomId="USD"/>
             <mantle.account.payment.PaymentApplication paymentApplicationId="${clientPmtResult.paymentApplicationId}"
                 paymentId="${clientPmtResult.paymentId}" invoiceId="${clientInvResult.invoiceId}"
