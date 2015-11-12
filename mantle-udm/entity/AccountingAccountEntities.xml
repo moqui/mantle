@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal.
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -559,6 +559,22 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="description" type="text-medium"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
+        <field name="openedDate" type="date-time"/>
+
+        <field name="titleOnAccount" type="text-medium"><description>Not commonly used; payment gateways generally only
+            separate first and last names</description></field>
+        <field name="firstNameOnAccount" type="text-medium"/>
+        <field name="middleNameOnAccount" type="text-medium"><description>Not commonly used; payment gateways generally only
+                    separate first and last names; for credit cards middle initial generally included with first name</description></field>
+        <field name="lastNameOnAccount" type="text-medium"/>
+        <field name="suffixOnAccount" type="text-medium"><description>Not commonly used; payment gateways generally only
+                    separate first and last names</description></field>
+        <field name="companyNameOnAccount" type="text-medium"/>
+
+        <field name="ledgerBalance" type="currency-amount"/>
+        <field name="availableBalance" type="currency-amount"/>
+        <field name="balanceDate" type="date-time"/>
+
         <field name="currencyUomId" type="id"/>
         <field name="postalContactMechId" type="id"/>
         <field name="telecomContactMechId" type="id"/>
@@ -638,6 +654,51 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="payPalAccount"/>
         </master>
     </entity>
+    <entity entity-name="PaymentMethodTrans" package-name="mantle.account.method">
+        <description>Transactions of the PaymentMethod, such as imported from an OFX file (see www.ofx.net); can be
+            imported from any source and reconciled in a more consistent way from here</description>
+        <field name="paymentMethodId" type="id" is-pk="true"/>
+        <field name="fitId" type="text-short" is-pk="true"><description>Financial Institution Transaction ID (OFX STMTTRN.FITID)</description></field>
+        <field name="transType" type="text-short"><description>
+            Transaction type (OFX STMTTRN.TRNTYPE)
+
+            OFX STMTTRN.TRNTYPE (transType) possible values:
+                CREDIT  Generic credit
+                DEBIT   Generic debit
+                INT*    Interest earned or paid NOTE: depends on signage of amount
+                DIV*    Dividend
+                FEE*    FI fee
+                SRVCHG* Service charge
+                DEP     Deposit
+                ATM     ATM debit or credit NOTE: depends on signage of amount"
+                POS     Point of sale debit or credit NOTE: depends on signage of amount
+                XFER    Transfer
+                CHECK   Check
+                PAYMENT Electronic payment
+                CASH    Cash withdrawal
+                DIRECTDEP   Direct deposit
+                DIRECTDEBIT Merchant initiated debit
+                REPEATPMT   Repeating payment/standing order
+                OTHER   Other
+
+            No Enumeration set for this because we want to allow other values (NOTE: could also define Enumerations but have a one-nofk relationship)
+        </description></field>
+        <field name="postedDate" type="date-time"><description>Date posted (OFX STMTTRN.DTPOSTED)</description></field>
+        <field name="transAmount" type="currency-amount"><description>Transaction amount (OFX STMTTRN.TRNAMT)</description></field>
+        <field name="transName" type="text-short"><description>Transaction name (OFX STMTTRN.NAME or PAYEE; as per spec only one may be used)</description></field>
+        <field name="transMemo" type="text-medium"><description>Transaction memo (OFX STMTTRN.MEMO)</description></field>
+        <field name="checkNumber" type="text-short"><description>Check number, rarely included but very useful for reconciliation (OFX STMTTRN.CHECKNUM)</description></field>
+        <field name="refNumber" type="text-short"><description>Reference number (OFX STMTTRN.REFNUM)</description></field>
+        <!-- for reconciliation these refer to the records the PaymentMethodTrans matches -->
+        <field name="paymentId" type="id"/>
+        <field name="acctgTransId" type="id"/>
+        <field name="acctgTransEntrySeqId" type="id"/>
+        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
+        <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
+        <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTransEntry">
+            <key-map field-name="acctgTransId"/><key-map field-name="acctgTransEntrySeqId"/></relationship>
+    </entity>
+
     <entity entity-name="BankAccount" package-name="mantle.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="bankName" type="text-medium"/>
@@ -645,13 +706,11 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="typeEnumId" type="id"/>
         <field name="routingNumber" type="text-short"/>
         <field name="accountNumber" type="text-medium"/>
+        <!-- these are replaced by the PaymentMethod.*OnAccount fields
         <field name="nameOnAccount" type="text-medium"/>
         <field name="companyNameOnAccount" type="text-medium"/>
-        <field name="openedDate" type="date-time"/>
+        -->
         <field name="lastCheckNumber" type="number-integer"/>
-        <field name="ledgerBalance" type="currency-amount"/>
-        <field name="availableBalance" type="currency-amount"/>
-        <field name="balanceDate" type="date-time"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
         <relationship type="one" title="Bank" related-entity-name="mantle.party.Party">
             <key-map field-name="bankPartyId"/></relationship>
@@ -677,27 +736,6 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
         <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
     </entity>
-    <entity entity-name="BankAccountTrans" package-name="mantle.account.method">
-        <description>Transactions of the BankAccount, such as imported from an OFX file (see www.ofx.net); can be
-            imported from any source and reconciled in a more consistent way from here</description>
-        <field name="paymentMethodId" type="id" is-pk="true"/>
-        <field name="fitId" type="text-short" is-pk="true"><description>Financial Institution Transaction ID (OFX STMTTRN.FITID)</description></field>
-        <field name="transType" type="text-short"><description>Transaction type (OFX STMTTRN.TRNTYPE)</description></field>
-        <field name="postedDate" type="date-time"><description>Date posted (OFX STMTTRN.DTPOSTED)</description></field>
-        <field name="transAmount" type="currency-amount"><description>Transaction amount (OFX STMTTRN.TRNAMT)</description></field>
-        <field name="transName" type="text-short"><description>Transaction name (OFX STMTTRN.NAME or PAYEE; as per spec only one may be used)</description></field>
-        <field name="transMemo" type="text-medium"><description>Transaction memo (OFX STMTTRN.MEMO)</description></field>
-        <field name="checkNumber" type="text-short"><description>Check number, rarely included but very useful for reconciliation (OFX STMTTRN.CHECKNUM)</description></field>
-        <field name="refNumber" type="text-short"><description>Reference number (OFX STMTTRN.REFNUM)</description></field>
-        <!-- for reconciliation these refer to the records the BankAccountTrans matches -->
-        <field name="paymentId" type="id"/>
-        <field name="acctgTransId" type="id"/>
-        <field name="acctgTransEntrySeqId" type="id"/>
-        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
-        <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
-        <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTransEntry">
-            <key-map field-name="acctgTransId"/><key-map field-name="acctgTransEntrySeqId"/></relationship>
-    </entity>
     <entity entity-name="BitcoinWallet" package-name="mantle.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="walletAddress" type="text-medium"/>
@@ -718,12 +756,14 @@ along with this software (see the LICENSE.md file). If not, see
             By PCI rules can only be recorded until authorization is complete, after that must be deleted.
             Set the mantle.account.PaymentServices.authorize#SinglePayment service for where this is done.</description></field>
 
+        <!-- these are replaced by the PaymentMethod.*OnAccount fields
         <field name="companyNameOnCard" type="text-medium"/>
         <field name="titleOnCard" type="text-medium"/>
         <field name="firstNameOnCard" type="text-medium"/>
         <field name="middleNameOnCard" type="text-medium"/>
         <field name="lastNameOnCard" type="text-medium"/>
         <field name="suffixOnCard" type="text-medium"/>
+        -->
 
         <field name="consecutiveFailedAuths" type="number-integer"/>
         <field name="lastFailedAuthDate" type="date-time"/>
@@ -877,7 +917,9 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="toPartyId" type="id"/>
 
         <field name="paymentMethodTypeEnumId" type="id"/>
-        <field name="paymentMethodId" type="id"/>
+        <field name="paymentMethodId" type="id"><description>The from PaymentMethod (owned by fromPartyId)</description></field>
+        <field name="toPaymentMethodId" type="id"><description>The to PaymentMethod (owned by toPartyId), if applicable,
+            the account the payment goes to</description></field>
         <field name="paymentGatewayConfigId" type="id"><description>Use this PaymentGatewayConfig for auth/etc. For Payments
             by CC/etc that are not from an order and/or the order is not associated with a ProductStore. Also set
             automatically on auth for capture, etc.</description></field>
@@ -917,12 +959,15 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="visitId" type="id"><description>Track the Visit so we know the session info, including client IP,
             for audit and fraud purposes.</description></field>
         <field name="acctgTransResultEnumId" type="id"/>
+        <field name="reconcileStatusId" type="id" default="'PmtrNot'"/>
 
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="paymentTypeEnumId"/></relationship>
         <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration" short-alias="methodType">
             <key-map field-name="paymentMethodTypeEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod" short-alias="method"/>
+        <relationship type="one" title="To" related-entity-name="mantle.account.method.PaymentMethod" short-alias="toMethod">
+            <key-map field-name="toPaymentMethodId"/></relationship>
         <relationship type="one-nofk" related-entity-name="mantle.account.method.CreditCard"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentGatewayConfig"/>
         <relationship type="one" related-entity-name="mantle.order.OrderHeader"/>
@@ -951,6 +996,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="moqui.server.Visit"/>
         <relationship type="one" title="AcctgTransResult" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="acctgTransResultEnumId"/></relationship>
+        <relationship type="one" title="AcctgTransEntryReconcile" related-entity-name="moqui.basic.StatusItem">
+            <key-map field-name="reconcileStatusId"/></relationship>
 
         <relationship type="many" related-entity-name="mantle.account.payment.PaymentApplication" short-alias="applications">
             <key-map field-name="paymentId"/></relationship>
@@ -996,6 +1043,17 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntDelivered" toStatusId="PmntVoid" transitionName="Void"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntDelivered" toStatusId="PmntPromised" transitionName="Undeliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntConfirmed" toStatusId="PmntDelivered" transitionName="Uncomfirm"/>
+
+            <!-- Payment Reconcile Status -->
+            <moqui.basic.StatusType description="Payment Reconcile Status" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusItem description="Not Reconciled" sequenceNum="1" statusId="PmtrNot" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusItem description="Partly Reconciled" sequenceNum="2" statusId="PmtrPartly" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusItem description="Reconciled" sequenceNum="3" statusId="PmtrRec" statusTypeId="PaymentReconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrNot" toStatusId="PmtrPartly" transitionName="Partly Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrNot" toStatusId="PmtrRec" transitionName="Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrPartly" toStatusId="PmtrRec" transitionName="Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrPartly" toStatusId="PmtrNot" transitionName="Unreconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmtrRec" toStatusId="PmtrNot" transitionName="Unreconcile"/>
         </seed-data>
 
         <master>

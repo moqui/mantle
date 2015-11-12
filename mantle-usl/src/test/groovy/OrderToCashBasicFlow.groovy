@@ -1,5 +1,5 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal.
+ * This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
  * 
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
@@ -306,10 +306,10 @@ class OrderToCashBasicFlow extends Specification {
                 assetIssuanceId="55500"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="8" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_1_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55500" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="8" glAccountTypeEnumId="GatCogs" glAccountId="512000000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_1_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_1_1"/>
 
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55501" acctgTransTypeEnumId="AttInventoryIssuance"
                 organizationPartyId="ORG_ZIZI_RETAIL" transactionDate="${effectiveTime}" isPosted="Y"
@@ -317,10 +317,10 @@ class OrderToCashBasicFlow extends Specification {
                 assetIssuanceId="55501"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="01" debitCreditFlag="C"
                 amount="20" glAccountTypeEnumId="GatInventory" glAccountId="141300000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_3_1"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55501" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="20" glAccountTypeEnumId="GatCogs" glAccountId="512000000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" productId="DEMO_3_1"/>
+                reconcileStatusId="AterNot" isSummary="N" productId="DEMO_3_1"/>
 
             <!-- NOTE: there is no AcctgTrans for assetId 55500, productId DEMO_2_1 because it is auto-created and has
                 no acquireCost. -->
@@ -380,19 +380,19 @@ class OrderToCashBasicFlow extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 invoiceId="55500"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="16.99" glAccountId="411000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="16.99" glAccountId="411000000" reconcileStatusId="AterNot" isSummary="N"
                 productId="DEMO_1_1" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="02" debitCreditFlag="C"
-                amount="38.85" glAccountId="411000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="38.85" glAccountId="411000000" reconcileStatusId="AterNot" isSummary="N"
                 productId="DEMO_3_1" invoiceItemSeqId="02"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="03" debitCreditFlag="C"
-                amount="84.84" glAccountId="411000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"
+                amount="84.84" glAccountId="411000000" reconcileStatusId="AterNot" isSummary="N"
                 productId="DEMO_2_1" invoiceItemSeqId="03"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="04" debitCreditFlag="C"
-                amount="5" glAccountId="440000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N" invoiceItemSeqId="04"/>
+                amount="5" glAccountId="440000000" reconcileStatusId="AterNot" isSummary="N" invoiceItemSeqId="04"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="05" debitCreditFlag="D"
                 amount="145.68" glAccountTypeEnumId="GatAccountsReceivable" glAccountId="121000000"
-                reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                reconcileStatusId="AterNot" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Shipment Invoice Accounting Transaction data check results: ")
         for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
@@ -420,9 +420,9 @@ class OrderToCashBasicFlow extends Specification {
                 glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 paymentId="${setInfoOut.paymentId}"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55503" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="145.68" glAccountId="121000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="145.68" glAccountId="121000000" reconcileStatusId="AterNot" isSummary="N"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55503" acctgTransEntrySeqId="02" debitCreditFlag="D"
-                amount="145.68" glAccountId="122000000" reconcileStatusId="AES_NOT_RECONCILED" isSummary="N"/>
+                amount="145.68" glAccountId="122000000" reconcileStatusId="AterNot" isSummary="N"/>
         </entity-facade-xml>""").check()
         logger.info("validate Payment Accounting Transaction data check results: " + dataCheckErrors)
 

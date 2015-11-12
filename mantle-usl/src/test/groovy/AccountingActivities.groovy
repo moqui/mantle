@@ -1,5 +1,5 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal.
+ * This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
  * 
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
@@ -277,29 +277,29 @@ class AccountingActivities extends Specification {
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55106" invoiceId="${invoiceId}" otherPartyId="ZiddlemanInc"
                     postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttPurchaseInvoice"
                     glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
-                <mantle.ledger.transaction.AcctgTransEntry amount="123.45" glAccountId="614110000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="123.45" glAccountId="614110000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="01" debitCreditFlag="D" acctgTransEntrySeqId="01"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="234.56" glAccountId="614140000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="234.56" glAccountId="614140000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="02" debitCreditFlag="D" acctgTransEntrySeqId="02"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="345.67" glAccountId="614200000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="345.67" glAccountId="614200000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="03" debitCreditFlag="D" acctgTransEntrySeqId="03"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="45.45" glAccountId="616300000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="45.45" glAccountId="616300000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="04" debitCreditFlag="D" acctgTransEntrySeqId="04"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="101.01" glAccountId="652100000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="101.01" glAccountId="652100000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="05" debitCreditFlag="D" acctgTransEntrySeqId="05"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="33.33" glAccountId="611210000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="33.33" glAccountId="611210000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="06" debitCreditFlag="D" acctgTransEntrySeqId="06"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="111.11" glAccountId="611220000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="111.11" glAccountId="611220000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="07" debitCreditFlag="D" acctgTransEntrySeqId="07"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="30" glAccountId="611230000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="30" glAccountId="611230000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="08" debitCreditFlag="D" acctgTransEntrySeqId="08"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="34" glAccountId="611240000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="34" glAccountId="611240000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="09" debitCreditFlag="D" acctgTransEntrySeqId="09"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="321.12" glAccountId="791000000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="321.12" glAccountId="791000000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="10" debitCreditFlag="D" acctgTransEntrySeqId="10"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="444.55" glAccountId="792000000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="444.55" glAccountId="792000000" reconcileStatusId="AterNot"
                         invoiceItemSeqId="11" debitCreditFlag="D" acctgTransEntrySeqId="11"/>
-                <mantle.ledger.transaction.AcctgTransEntry amount="1824.25" glAccountId="210000000" reconcileStatusId="AES_NOT_RECONCILED"
+                <mantle.ledger.transaction.AcctgTransEntry amount="1824.25" glAccountId="210000000" reconcileStatusId="AterNot"
                         glAccountTypeEnumId="GatAccountsPayable" debitCreditFlag="C" acctgTransEntrySeqId="12"/>
             </mantle.ledger.transaction.AcctgTrans>
         </entity-facade-xml>""").check(dataCheckErrors)

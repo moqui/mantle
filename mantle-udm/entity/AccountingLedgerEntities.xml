@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal.
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -792,7 +792,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="voucherDate" type="date-time"/>
         <field name="groupStatusId" type="id"/>
         <field name="amountUomId" type="id"/>
-        <field name="origCurrencyAmountUomId" type="id"/>
+        <field name="originalCurrencyUomId" type="id"/>
 
         <field name="assetId" type="id"/>
         <field name="assetIssuanceId" type="id"/>
@@ -820,8 +820,8 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="groupStatusId"/></relationship>
         <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
             <key-map field-name="amountUomId"/></relationship>
-        <relationship type="one" title="OrigCurrencyAmount" related-entity-name="moqui.basic.Uom">
-            <key-map field-name="origCurrencyAmountUomId"/></relationship>
+        <relationship type="one" title="OriginalCurrency" related-entity-name="moqui.basic.Uom">
+            <key-map field-name="originalCurrencyUomId"/></relationship>
 
         <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
         <relationship type="one" related-entity-name="mantle.product.issuance.AssetIssuance"/>
@@ -916,13 +916,13 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="acctgTransEntrySeqId" type="id" is-pk="true"/>
         <field name="debitCreditFlag" type="text-indicator"><description>If D is a debit, if C is a credit.</description></field>
         <field name="amount" type="currency-amount"/>
-        <field name="origCurrencyAmount" type="currency-amount"/>
+        <field name="originalCurrencyAmount" type="currency-amount"/>
         <field name="description" type="text-medium"/>
         <field name="voucherRef" type="text-short"/>
         <field name="glAccountTypeEnumId" type="id"/>
         <field name="glAccountId" type="id"/>
         <field name="dueDate" type="date"/>
-        <field name="reconcileStatusId" type="id"/>
+        <field name="reconcileStatusId" type="id" default="'AterNot'"/>
         <field name="settlementTermId" type="id"/>
         <field name="isSummary" type="text-indicator"><description>Set to Y if this is a summary entry from a sub-ledger.</description></field>
 
@@ -944,9 +944,14 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- Accounting Transaction Entry Reconcile Status -->
             <moqui.basic.StatusType description="Accounting Transaction Entry Reconcile Status" statusTypeId="AcctgTransEntryReconcile"/>
-            <moqui.basic.StatusItem description="Not Reconciled" sequenceNum="1" statusId="AES_NOT_RECONCILED" statusTypeId="AcctgTransEntryReconcile"/>
-            <moqui.basic.StatusItem description="Partly Reconciled" sequenceNum="2" statusId="AES_PARTLY_RECON" statusTypeId="AcctgTransEntryReconcile"/>
-            <moqui.basic.StatusItem description="Reconciled" sequenceNum="3" statusId="AES_RECONCILED" statusTypeId="AcctgTransEntryReconcile"/>
+            <moqui.basic.StatusItem description="Not Reconciled" sequenceNum="1" statusId="AterNot" statusTypeId="AcctgTransEntryReconcile"/>
+            <moqui.basic.StatusItem description="Partly Reconciled" sequenceNum="2" statusId="AterPartly" statusTypeId="AcctgTransEntryReconcile"/>
+            <moqui.basic.StatusItem description="Reconciled" sequenceNum="3" statusId="AterRec" statusTypeId="AcctgTransEntryReconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AterNot" toStatusId="AterPartly" transitionName="Partly Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AterNot" toStatusId="AterRec" transitionName="Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AterPartly" toStatusId="AterRec" transitionName="Reconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AterPartly" toStatusId="AterNot" transitionName="Unreconcile"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="AterRec" toStatusId="AterNot" transitionName="Unreconcile"/>
         </seed-data>
     </entity>
     <entity entity-name="GlJournal" package-name="mantle.ledger.transaction">

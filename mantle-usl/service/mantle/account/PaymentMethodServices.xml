@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal.
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -21,13 +21,19 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="paymentMethodId"/>
+            <parameter name="paymentMethodTypeEnumId"/>
             <parameter name="paymentMethod" type="Map"/>
+
             <parameter name="bankAccount" type="Map"/>
             <parameter name="bankAccountTypeEnum" type="Map"/>
+            <parameter name="isBankAccount" type="Boolean"/>
+
             <parameter name="creditCard" type="Map"/>
             <parameter name="creditCardTypeEnum" type="Map"/>
             <parameter name="expireMonth"/><parameter name="expireYear"/>
             <parameter name="maskedCardNumber"/>
+            <parameter name="isCreditCard" type="Boolean"/>
+
             <parameter name="postalContactMechId"/>
             <parameter name="postalAddress" type="Map"/>
             <parameter name="postalAddressStateGeo" type="Map"/>
@@ -38,41 +44,35 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <if condition="paymentMethodId">
-                <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+                <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/></if>
 
-                <else>
-                    <entity-find entity-name="mantle.account.method.PaymentMethod" list="paymentMethodList">
-                        <date-filter/>
-                        <econdition field-name="ownerPartyId" from="partyId"/>
-                        <econdition field-name="paymentMethodTypeEnumId"/>
-                        <order-by field-name="-fromDate"/><!-- get the most recent one if there is more than one -->
-                    </entity-find>
-                    <set field="paymentMethod" from="paymentMethodList.first"/>
-                </else>
+            <if condition="paymentMethod"><set field="paymentMethodTypeEnumId" from="paymentMethod.paymentMethodTypeEnumId"/></if>
+            <set field="isBankAccount" from="paymentMethodTypeEnumId == 'PmtBankAccount'"/>
+            <set field="isCreditCard" from="paymentMethodTypeEnumId == 'PmtCreditCard'"/>
+
+            <if condition="paymentMethod">
+                <set field="bankAccount" from="paymentMethod.'mantle.account.method.BankAccount'"/>
+                <set field="bankAccountTypeEnum" from="bankAccount?.'BankAccountType#moqui.basic.Enumeration'"/>
+
+                <set field="creditCard" from="paymentMethod.'mantle.account.method.CreditCard'"/>
+                <set field="creditCardTypeEnum" from="creditCard?.'CreditCardType#moqui.basic.Enumeration'"/>
+                <set field="expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
+                <set field="expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
+                <set field="cardNumber" from="creditCard?.cardNumber"/>
+                <set field="maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
+
+                <!-- TODO: support other payment method types -->
+
+                <set field="postalAddress" from="paymentMethod.'mantle.party.contact.PostalAddress'"/>
+                <set field="postalAddressStateGeo" from="postalAddress?.'StateProvince#moqui.basic.Geo'"/>
+                <set field="postalContactMechId" from="paymentMethod.postalContactMechId"/>
+
+                <set field="telecomNumber" from="paymentMethod.'mantle.party.contact.TelecomNumber'"/>
+                <set field="telecomContactMechId" from="paymentMethod.telecomContactMechId"/>
+                <set field="emailContactMech" from="paymentMethod.'Email#mantle.party.contact.ContactMech'"/>
+                <set field="emailContactMechId" from="paymentMethod.emailContactMechId"/>
+                <set field="emailAddress" from="emailContactMech?.infoString"/>
             </if>
-            <set field="paymentMethodId" from="paymentMethod?.paymentMethodId"/>
-
-            <set field="bankAccount" from="paymentMethod.'mantle.account.method.BankAccount'"/>
-            <set field="bankAccountTypeEnum" from="bankAccount.'BankAccountType#moqui.basic.Enumeration'"/>
-
-            <set field="creditCard" from="paymentMethod.'mantle.account.method.CreditCard'"/>
-            <set field="creditCardTypeEnum" from="creditCard.'CreditCardType#moqui.basic.Enumeration'"/>
-            <set field="expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
-            <set field="expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
-            <set field="cardNumber" from="creditCard?.cardNumber"/>
-            <set field="maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
-
-            <!-- TODO: support other payment method types -->
-
-            <set field="postalContactMechId" from="paymentMethod?.postalContactMechId"/>
-            <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.PostalAddress" to-value-field="postalAddress"/>
-            <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
-            <set field="telecomContactMechId" from="paymentMethod?.telecomContactMechId"/>
-            <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.TelecomNumber" to-value-field="telecomNumber"/>
-
-            <entity-find-related-one value-field="paymentMethod" relationship-name="Email#mantle.party.contact.ContactMech" to-value-field="emailContactMech"/>
-            <set field="emailContactMechId" from="paymentMethod?.emailContactMechId"/>
-            <set field="emailAddress" from="emailContactMech?.infoString"/>
         </actions>
     </service>
     <service verb="get" noun="PartyPaymentMethodInfoList">
@@ -83,13 +83,19 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="methodInfoList" type="List"><parameter name="infoMap" type="Map">
                 <parameter name="paymentMethodId"/>
+                <parameter name="paymentMethodTypeEnumId"/>
                 <parameter name="paymentMethod" type="Map"/>
+
                 <parameter name="bankAccount" type="Map"/>
                 <parameter name="bankAccountTypeEnum" type="Map"/>
+                <parameter name="isBankAccount" type="Boolean"/>
+
                 <parameter name="creditCard" type="Map"/>
                 <parameter name="creditCardTypeEnum" type="Map"/>
                 <parameter name="expireMonth"/><parameter name="expireYear"/>
                 <parameter name="maskedCardNumber"/>
+                <parameter name="isCreditCard" type="Boolean"/>
+
                 <parameter name="postalContactMechId"/>
                 <parameter name="postalAddress" type="Map"/>
                 <parameter name="postalAddressStateGeo" type="Map"/>
@@ -109,32 +115,35 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="methodInfoList" from="[]"/>
             <iterate list="paymentMethodList" entry="paymentMethod">
-                <set field="bankAccount" from="paymentMethod.'mantle.account.method.BankAccount'"/>
-                <set field="bankAccountTypeEnum" from="bankAccount.'BankAccountType#moqui.basic.Enumeration'"/>
+                <set field="infoMap" from="[paymentMethodId:paymentMethod.paymentMethodId, paymentMethod:paymentMethod,
+                        paymentMethodTypeEnumId:paymentMethod.paymentMethodTypeEnumId]"/>
+
+                <set field="infoMap.bankAccount" from="paymentMethod.'mantle.account.method.BankAccount'"/>
+                <set field="infoMap.bankAccountTypeEnum" from="infoMap.bankAccount?.'BankAccountType#moqui.basic.Enumeration'"/>
+                <set field="infoMap.isBankAccount" from="paymentMethod.paymentMethodTypeEnumId == 'PmtBankAccount'"/>
 
                 <set field="creditCard" from="paymentMethod.'mantle.account.method.CreditCard'"/>
-                <set field="creditCardTypeEnum" from="creditCard.'CreditCardType#moqui.basic.Enumeration'"/>
-                <set field="expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
-                <set field="expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
+                <set field="infoMap.creditCard" from="creditCard"/>
+                <set field="infoMap.creditCardTypeEnum" from="creditCard?.'CreditCardType#moqui.basic.Enumeration'"/>
+                <set field="infoMap.expireMonth" from="creditCard?.expireDate ? creditCard.expireDate.substring(0, creditCard.expireDate.indexOf('/')) : null"/>
+                <set field="infoMap.expireYear" from="creditCard?.expireDate ? creditCard.expireDate.substring(creditCard.expireDate.indexOf('/')+1) : null"/>
                 <set field="cardNumber" from="creditCard?.cardNumber"/>
-                <set field="maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
+                <set field="infoMap.maskedCardNumber" from="cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''"/>
+                <set field="infoMap.isCreditCard" from="paymentMethod.paymentMethodTypeEnumId == 'PmtCreditCard'"/>
 
                 <!-- TODO: support other payment method types -->
 
-                <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.PostalAddress" to-value-field="postalAddress"/>
-                <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
-                <entity-find-related-one value-field="paymentMethod" relationship-name="mantle.party.contact.TelecomNumber" to-value-field="telecomNumber"/>
-                <entity-find-related-one value-field="paymentMethod" relationship-name="Email#mantle.party.contact.ContactMech" to-value-field="emailContactMech"/>
+                <set field="infoMap.postalAddress" from="paymentMethod.'mantle.party.contact.PostalAddress'"/>
+                <set field="infoMap.postalAddressStateGeo" from="infoMap.postalAddress?.'StateProvince#moqui.basic.Geo'"/>
+                <set field="infoMap.postalContactMechId" from="paymentMethod.postalContactMechId"/>
 
-                <script>methodInfoList.add([paymentMethodId:paymentMethod.paymentMethodId, paymentMethod:paymentMethod,
-                                                creditCard:creditCard, creditCardTypeEnum:creditCardTypeEnum,
-                                                expireMonth:expireMonth, expireYear:expireYear, maskedCardNumber:maskedCardNumber,
-                                                postalContactMechId:paymentMethod?.postalContactMechId,
-                                                postalAddress:postalAddress, postalAddressStateGeo:postalAddressStateGeo,
-                                                telecomContactMechId:paymentMethod?.telecomContactMechId,
-                                                telecomNumber:telecomNumber,
-                                                emailContactMechId:paymentMethod?.emailContactMechId,
-                                                emailAddress:emailContactMech?.infoString])</script>
+                <set field="infoMap.telecomNumber" from="paymentMethod.'mantle.party.contact.TelecomNumber'"/>
+                <set field="infoMap.telecomContactMechId" from="paymentMethod.telecomContactMechId"/>
+                <set field="infoMap.emailContactMech" from="paymentMethod.'Email#mantle.party.contact.ContactMech'"/>
+                <set field="infoMap.emailContactMechId" from="paymentMethod.emailContactMechId"/>
+                <set field="infoMap.emailAddress" from="infoMap.emailContactMech?.infoString"/>
+
+                <script>methodInfoList.add(infoMap)</script>
             </iterate>
         </actions>
     </service>
@@ -143,8 +152,15 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="partyId" required="true"/>
 
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
             <parameter name="paymentMethodId"/>
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCreditCard"/>
+
+            <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk">
+                <exclude field-name="lastCheckNumber"/><exclude field-name="ledgerBalance"/>
+                <exclude field-name="availableBalance"/><exclude field-name="balanceDate"/>
+            </auto-parameters>
+            <parameter name="typeEnumId" default-value="BatChecking"/>
 
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk">
                 <exclude field-name="cardNumberLookupHash"/><exclude field-name="consecutiveFailedAuths"/>
@@ -152,20 +168,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="lastFailedNsfDate"/>
             </auto-parameters>
             <parameter name="cardNumber"><credit-card/></parameter><!-- not required because often empty on update, ie for public facing masked cards -->
-            <parameter name="expireMonth" required="true"/>
-            <parameter name="expireYear" required="true"/>
-            <parameter name="expireDate" default-value="${expireMonth}/${expireYear}">
+            <parameter name="expireMonth"/>
+            <parameter name="expireYear"/>
+            <parameter name="expireDate" default-value="${expireMonth?:''}/${expireYear?:''}">
                 <time-range after="now" format="MM/yyyy"/></parameter>
-
-            <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk">
-                <exclude field-name="lastCheckNumber"/><exclude field-name="ledgerBalance"/>
-                <exclude field-name="availableBalance"/><exclude field-name="balanceDate"/>
-            </auto-parameters>
 
             <parameter name="postalContactMechId"/>
             <parameter name="postalContactMechPurposeId" default-value="PostalBilling"/>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
-            <parameter name="toName" default-value="${firstNameOnCard} ${lastNameOnCard}"/>
+            <parameter name="toName" default="companyNameOnAccount ?: (firstNameOnAccount ? firstNameOnAccount + ' ' + lastNameOnAccount : null)"/>
+            <parameter name="attnName" default="companyNameOnAccount &amp;&amp; firstNameOnAccount ? firstNameOnAccount + ' ' + lastNameOnAccount : null"/>
 
             <parameter name="telecomContactMechId"/>
             <parameter name="telecomContactMechPurposeId" default-value="PhoneBilling"/>
@@ -192,11 +204,34 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="!emailContactMechId"><set field="emailContactMechId" from="paymentMethod.emailContactMechId"/></if>
             </if>
 
-            <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
+            <if condition="paymentMethodId">
+                <then>
+                    <!-- if update (paymentMethodId) and main field for type specified then update it -->
+                    <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
+                </then>
+                <else>
+                    <!-- if create (!paymentMethodId) and *ContactMechId just use it, otherwise create contact mech -->
+                    <if condition="!postalContactMechId &amp;&amp; address1">
+                        <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
+                                in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
+                        <set field="postalContactMechId" from="paOut.contactMechId"/>
+                    </if>
+                    <if condition="!telecomContactMechId &amp;&amp; contactNumber">
+                        <service-call name="mantle.party.ContactServices.create#TelecomNumber" out-map="tnOut"
+                                in-map="context + [contactMechPurposeId:telecomContactMechPurposeId]"/>
+                        <set field="telecomContactMechId" from="tnOut.contactMechId"/>
+                    </if>
+                    <if condition="!emailContactMechId &amp;&amp; emailAddress">
+                        <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emOut"
+                                in-map="context + [contactMechPurposeId:emailContactMechPurposeId]"/>
+                        <set field="emailContactMechId" from="emOut.contactMechId"/>
+                    </if>
+                </else>
+            </if>
 
             <!-- update PaymentMethod last so we know new postalContactMechId and telecomContactMechId updates (if applicable) -->
             <if condition="paymentMethodId">
-                <!-- TODO: support other payment method types! -->
+                <!-- TODO: support other payment method types -->
                 <then>
                     <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
                         <then>
@@ -210,20 +245,38 @@ along with this software (see the LICENSE.md file). If not, see
                 <else>
                     <if condition="paymentMethodTypeEnumId == 'PmtCreditCard'">
                         <then>
-                            <service-call name="mantle.account.PaymentMethodServices.create#CreditCard" in-map="context" out-map="context">
-                                <field-map field-name="ownerPartyId" from="ec.user.userAccount.partyId"/></service-call>
+                            <service-call name="mantle.account.PaymentMethodServices.create#CreditCard" out-map="context"
+                                    in-map="context + [ownerPartyId:partyId]"/>
                         </then>
                         <else-if condition="paymentMethodTypeEnumId == 'PmtBankAccount'">
-                            <service-call name="mantle.account.PaymentMethodServices.create#BankAccount" in-map="context" out-map="context">
-                                <field-map field-name="ownerPartyId" from="ec.user.userAccount.partyId"/></service-call>
+                            <service-call name="mantle.account.PaymentMethodServices.create#BankAccount" out-map="context"
+                                    in-map="context + [ownerPartyId:partyId]"/>
                         </else-if>
                     </if>
                 </else>
             </if>
-            <!-- NOTE: out paymentMethodId set from service-call.out-map=context -->
+            <!-- NOTE: out paymentMethodId set from service-call.@out-map=context -->
         </actions>
     </service>
 
+    <service verb="update" noun="PaymentMethodMutable">
+        <description>Update limited fields a PaymentMethod record without cloning it (as store#PaymentMethodInfo does on update)</description>
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="description"/>
+            <parameter name="trustLevelEnumId"/>
+            <parameter name="paymentFraudEvidenceId"/>
+            <parameter name="glAccountId"/>
+            <parameter name="thruDate" type="Timestamp"/>
+            <parameter name="openedDate" type="Timestamp"/>
+            <parameter name="ledgerBalance" type="BigDecimal"/>
+            <parameter name="availableBalance" type="BigDecimal"/>
+            <parameter name="balanceDate" type="Timestamp"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.account.method.PaymentMethod" in-map="context"/>
+        </actions>
+    </service>
     <service verb="delete" noun="PaymentMethod">
         <description>Expire the PaymentMethod, effectively deleting it without an actual delete.</description>
         <in-parameters>
@@ -247,6 +300,7 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
 
             <iterate list="pmList" entry="pmValue">
+                <!-- TODO: clear paymentMethodId references for FK error on delete -->
                 <service-call name="delete#mantle.account.method.BankAccount" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
                 <service-call name="delete#mantle.account.method.CreditCard" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
                 <service-call name="delete#mantle.account.method.PaymentMethod" in-map="[paymentMethodId:pmValue.paymentMethodId]"/>
@@ -268,21 +322,12 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========================================= -->
 
     <service verb="create" noun="CreditCard">
-        <description>
-            Create a Credit Card (and the corresponding PaymentMethod record).
-        </description>
+        <description>Create a Credit Card (and the corresponding PaymentMethod record)</description>
         <in-parameters>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
             <parameter name="expireDate" required="true"><time-range after="now" format="MM/yyyy"/></parameter>
             <parameter name="cardNumber" required="true"><credit-card/></parameter>
-
-            <!-- some fields from PaymentMethod we'll allow setting manually -->
-            <parameter name="ownerPartyId"/>
-            <parameter name="description"/>
-            <parameter name="postalContactMechId"/>
-            <parameter name="telecomContactMechId"/>
-            <parameter name="trustLevelEnumId"/>
-            <parameter name="paymentFraudEvidenceId"/>
 
             <parameter name="paymentMethodTypeEnumId" default-value="PmtCreditCard"/>
             <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
@@ -322,14 +367,9 @@ along with this software (see the LICENSE.md file). If not, see
             directly on the PaymentMethod entity (do not use this service).
         </description>
         <in-parameters>
-            <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
-
             <parameter name="paymentMethodId" required="true"/>
-            <!-- some fields from PaymentMethod we'll allow setting manually -->
-            <parameter name="ownerPartyId"/>
-            <parameter name="description"/>
-            <parameter name="postalContactMechId"/>
-            <parameter name="telecomContactMechId"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
         <actions>
@@ -393,9 +433,6 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="paymentMethodId" required="true"/>
             <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
             <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk"/>
-
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtBankAccount"/>
-            <parameter name="fromDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId"/></out-parameters>
         <actions>
@@ -434,16 +471,14 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="paymentMethodId" from="newPaymentMethod.paymentMethodId"/>
         </actions>
     </service>
-    <service verb="update" noun="BankAccountNoClone">
-        <description>Update limited fields a BankAccount record without cloning it (as update#BankAccount does)</description>
+    <service verb="update" noun="BankAccountMutable">
+        <description>Update limited fields on PaymentMethod and BankAccount records without cloning (as update#BankAccount does)</description>
+        <implements service="mantle.account.PaymentMethodServices.update#PaymentMethodMutable"/>
         <in-parameters>
-            <parameter name="paymentMethodId" required="true"/>
             <parameter name="lastCheckNumber" type="Long"/>
-            <parameter name="ledgerBalance" type="BigDecimal"/>
-            <parameter name="availableBalance" type="BigDecimal"/>
-            <parameter name="balanceDate" type="Timestamp"/>
         </in-parameters>
         <actions>
+            <service-call name="update#mantle.account.method.PaymentMethod" in-map="context"/>
             <service-call name="update#mantle.account.method.BankAccount" in-map="context"/>
         </actions>
     </service>

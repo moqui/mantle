@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal.
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -46,7 +46,8 @@ along with this software (see the LICENSE.md file). If not, see
                         <select-field field-name="partyId"/><select-field field-name="pseudoId"/>
                         <select-field field-name="organizationName"/>
                         <select-field field-name="firstName"/><select-field field-name="lastName"/>
-                        <order-by field-name="^firstName"/><order-by field-name="^lastName"/><order-by field-name="^organizationName"/>
+                        <order-by field-name="^firstName"/><order-by field-name="^lastName"/>
+                        <order-by field-name="^organizationName"/>
                     </entity-find>
                     <script>
                         def outList = []
@@ -61,29 +62,22 @@ along with this software (see the LICENSE.md file). If not, see
     </transition>
 
     <!-- an example of a transition to call store#PartyContactInfo; this does a create or update -->
-    <transition name="storeContactInfo">
-        <service-call name="mantle.party.ContactServices.store#PartyContactInfo" in-map="context" out-map="context"/>
-        <default-response url="."/>
-    </transition>
+    <transition name="storeContactInfo"><service-call name="mantle.party.ContactServices.store#PartyContactInfo"/>
+        <default-response url="."/></transition>
     <!-- this should ALWAYS be included for postal address forms (copy into your screen) -->
-    <transition name="getGeoCountryStates">
-        <service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown" in-map="[geoId:countryGeoId]"
-                web-send-json-response="resultList"/>
-        <default-response type="none"/>
-    </transition>
-    <transition name="getGeoStateCounties">
-        <service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown" out-map="context"
-                in-map="[geoId:stateGeoId, geoTypeEnumId:'GEOT_COUNTY']" web-send-json-response="resultList"/>
-        <default-response type="none"/>
-    </transition>
+    <transition name="getGeoCountryStates"><service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown"
+            in-map="[geoId:countryGeoId]" web-send-json-response="resultList"/>
+        <default-response type="none"/></transition>
+    <transition name="getGeoStateCounties"><service-call name="org.moqui.impl.BasicServices.get#GeoRegionsForDropDown"
+            out-map="context" in-map="[geoId:stateGeoId, geoTypeEnumId:'GEOT_COUNTY']" web-send-json-response="resultList"/>
+        <default-response type="none"/></transition>
 
     <!-- an example of a transition to call store#PaymentMethodInfo; this does a create or update -->
-    <transition name="storePaymentMethodInfo">
-        <service-call name="mantle.account.PaymentMethodServices.store#PaymentMethodInfo"/>
-        <default-response url="."/>
-    </transition>
+    <transition name="storePaymentMethodInfo"><service-call name="mantle.account.PaymentMethodServices.store#PaymentMethodInfo"/>
+        <default-response url="."/></transition>
 
     <actions>
+        <!-- example code for ContactInfo form -->
         <!-- an example of a call to get#PartyContactInfo to populate the form, plus a call to flatten the Map for
             simple use in the form -->
         <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="billingContactInfo"
@@ -91,61 +85,67 @@ along with this software (see the LICENSE.md file). If not, see
                     telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling']"/>
         <set field="contactInfoFlat" from="StupidUtilities.flattenNestedMap(billingContactInfo)"/>
 
+        <!-- example code for PaymentMethodInfo form -->
         <service-call name="mantle.account.PaymentMethodServices.get#PartyPaymentMethodInfo" out-map="methodInfo"
                 in-map="[partyId:partyId]"/>
         <set field="methodInfoFlat" from="StupidUtilities.flattenNestedMap(methodInfo)"/>
+        <entity-find entity-name="mantle.party.contact.PartyContactMechPostalAddress" list="partyPostalAddressList">
+            <date-filter/><econdition field-name="partyId"/></entity-find>
+        <entity-find entity-name="mantle.party.contact.PartyContactMechTelecomNumber" list="partyTelecomNumberList">
+            <date-filter/><econdition field-name="partyId"/></entity-find>
     </actions>
     <widgets>
         <form-single name="ContactInfo" transition="storeContactInfo" map="contactInfoFlat">
             <field name="partyId"><default-field><hidden/></default-field></field>
 
             <field name="postalContactMechId">
-                <conditional-field condition="_formMap.postalContactMechPurposeId"><hidden/></conditional-field>
+                <conditional-field condition="postalContactMechPurposeId"><hidden/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="postalContactMechPurposeId">
-                <conditional-field condition="_formMap.postalContactMechPurposeId"><hidden/></conditional-field>
-                <conditional-field condition="createPostal" title="Address Purpose">
-                    <drop-down>
-                        <entity-options key="${contactMechPurposeId}" text="${description}">
-                            <entity-find entity-name="mantle.party.contact.ContactMechPurpose">
-                                <econdition field-name="contactMechTypeEnumId" value="CmtPostalAddress"/>
-                                <order-by field-name="description"/>
-                            </entity-find>
-                        </entity-options>
-                    </drop-down>
-                </conditional-field>
+                <conditional-field condition="postalContactMechPurposeId"><hidden/></conditional-field>
+                <conditional-field condition="createPostal" title="Purpose"><drop-down>
+                    <entity-options key="${contactMechPurposeId}" text="${description}">
+                        <entity-find entity-name="mantle.party.contact.ContactMechPurpose">
+                            <econdition field-name="contactMechTypeEnumId" value="CmtPostalAddress"/>
+                            <order-by field-name="description"/></entity-find></entity-options>
+                </drop-down></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
 
             <field name="toName">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId"><text-line size="30"/></conditional-field>
+                <conditional-field condition="createPostal || postalContactMechPurposeId">
+                    <text-line size="30"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="attnName">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="Attention"><text-line size="30"/></conditional-field>
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="Attention">
+                    <text-line size="30"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
 
             <field name="address1">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="Address Line 1"><text-line size="30"/></conditional-field>
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="Address Line 1">
+                    <text-line size="30"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="unitNumber">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="Unit Number"><text-line size="10"/></conditional-field>
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="Unit Number">
+                    <text-line size="10"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="address2">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="Address Line 2"><text-line size="30"/></conditional-field>
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="Address Line 2">
+                    <text-line size="30"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="city">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="" tooltip="City">
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="" tooltip="City">
                     <text-line size="16"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="countryGeoId">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="">
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="">
                     <drop-down no-current-selected-key="USA">
                         <entity-options key="${geoId}" text="${geoName}">
                             <entity-find entity-name="moqui.basic.Geo" list="geoList">
@@ -158,7 +158,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <default-field><ignored/></default-field>
             </field>
             <field name="stateProvinceGeoId">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="">
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="">
                     <drop-down>
                         <dynamic-options transition="getGeoCountryStates" value-field="geoId" label-field="label">
                             <depends-on field="countryGeoId"/>
@@ -177,23 +177,23 @@ along with this software (see the LICENSE.md file). If not, see
                 <default-field><ignored/></default-field>
             </field>
             <field name="postalCode">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="" tooltip="Zip/Postal Code">
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="" tooltip="Zip/Postal Code">
                     <text-line size="8"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="postalCodeExt">
-                <conditional-field condition="createPostal || _formMap.postalContactMechPurposeId" title="" tooltip="Zip/Postal Code Extension">
+                <conditional-field condition="createPostal || postalContactMechPurposeId" title="" tooltip="Zip/Postal Code Extension">
                     <text-line size="4"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
 
             <field name="telecomContactMechId">
-                <conditional-field condition="_formMap.telecomContactMechPurposeId"><hidden/></conditional-field>
+                <conditional-field condition="telecomContactMechPurposeId"><hidden/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="telecomContactMechPurposeId">
-                <conditional-field condition="_formMap.telecomContactMechPurposeId"><hidden/></conditional-field>
-                <conditional-field condition="createTelecom" title="Phone Purpose">
+                <conditional-field condition="telecomContactMechPurposeId"><hidden/></conditional-field>
+                <conditional-field condition="createTelecom" title="Purpose">
                     <drop-down>
                         <entity-options key="${contactMechPurposeId}" text="${description}">
                             <entity-find entity-name="mantle.party.contact.ContactMechPurpose">
@@ -206,28 +206,31 @@ along with this software (see the LICENSE.md file). If not, see
                 <default-field><ignored/></default-field>
             </field>
             <field name="countryCode">
-                <conditional-field condition="createTelecom || _formMap.telecomContactMechPurposeId || _formMap.telecomContactMechId" title="" tooltip="Country Code">
+                <conditional-field condition="createTelecom || telecomContactMechPurposeId || telecomContactMechId"
+                        title="" tooltip="Country Code">
                     <text-line size="3" maxlength="3" default-value="+1"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="areaCode">
-                <conditional-field condition="createTelecom || _formMap.telecomContactMechPurposeId || _formMap.telecomContactMechId" title="" tooltip="Area Code">
+                <conditional-field condition="createTelecom || telecomContactMechPurposeId || telecomContactMechId"
+                        title="" tooltip="Area Code">
                     <text-line size="4" maxlength="5"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="contactNumber">
-                <conditional-field condition="createTelecom || _formMap.telecomContactMechPurposeId || _formMap.telecomContactMechId" title="" tooltip="Phone Number">
+                <conditional-field condition="createTelecom || telecomContactMechPurposeId || telecomContactMechId"
+                        title="" tooltip="Phone Number">
                     <text-line size="10" maxlength="10"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
 
             <field name="emailContactMechId">
-                <conditional-field condition="_formMap.emailContactMechPurposeId"><hidden/></conditional-field>
+                <conditional-field condition="emailContactMechPurposeId"><hidden/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
             <field name="emailContactMechPurposeId">
-                <conditional-field condition="_formMap.emailContactMechPurposeId"><hidden/></conditional-field>
-                <conditional-field condition="createEmail" title="Email Purpose">
+                <conditional-field condition="emailContactMechPurposeId"><hidden/></conditional-field>
+                <conditional-field condition="createEmail" title="Purpose">
                     <drop-down>
                         <entity-options key="${contactMechPurposeId}" text="${description}">
                             <entity-find entity-name="mantle.party.contact.ContactMechPurpose">
@@ -240,7 +243,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <default-field><ignored/></default-field>
             </field>
             <field name="emailAddress">
-                <conditional-field condition="createEmail || _formMap.emailContactMechPurposeId || _formMap.emailContactMechId" title="Email">
+                <conditional-field condition="createEmail || emailContactMechPurposeId || emailContactMechId" title="Email">
                     <text-line size="40"/></conditional-field>
                 <default-field><ignored/></default-field>
             </field>
@@ -268,38 +271,76 @@ along with this software (see the LICENSE.md file). If not, see
         </form-single>
 
         <form-single name="PaymentMethodInfo" transition="storePaymentMethodInfo" map="methodInfoFlat">
-            <!-- TODO: support other payment method types! (make many fields conditional, etc) -->
+            <!-- TODO: support other payment method types (make many fields conditional, etc) -->
             <field name="partyId"><default-field><hidden/></default-field></field>
             <field name="paymentMethodId"><default-field><hidden/></default-field></field>
             <field name="paymentMethodTypeEnumId"><default-field><hidden/></default-field></field>
 
-            <field name="firstNameOnCard"><default-field title=""><text-line size="20"/></default-field></field>
-            <field name="lastNameOnCard"><default-field title=""><text-line size="20"/></default-field></field>
+            <!-- PaymentMethod fields -->
+            <field name="firstNameOnAccount"><default-field title=""><text-line size="25"/></default-field></field>
+            <field name="lastNameOnAccount"><default-field title=""><text-line size="25"/></default-field></field>
+            <field name="companyNameOnAccount"><default-field><text-line size="60"/></default-field></field>
 
-            <field name="creditCardTypeEnumId"><default-field title="">
-                <drop-down><entity-options key="${enumId}" text="${description}">
-                    <entity-find entity-name="moqui.basic.Enumeration">
-                        <econdition field-name="enumTypeId" value="CreditCardType"/>
-                        <order-by field-name="description"/>
-                    </entity-find>
-                </entity-options></drop-down>
-            </default-field></field>
+            <!-- BankAccount fields -->
+            <field name="bankName">
+                <conditional-field condition="isBankAccount"><text-line size="60"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="routingNumber">
+                <conditional-field title="Routing #" condition="isBankAccount"><text-line size="20"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="accountNumber">
+                <conditional-field title="Account #" condition="isBankAccount"><text-line size="20"/></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+
+            <!-- CreditCard fields -->
+            <field name="creditCardTypeEnumId">
+                <conditional-field title="" condition="isCreditCard">
+                    <drop-down><entity-options key="${enumId}" text="${description}">
+                        <entity-find entity-name="moqui.basic.Enumeration">
+                            <econdition field-name="enumTypeId" value="CreditCardType"/>
+                            <order-by field-name="description"/>
+                        </entity-find>
+                    </entity-options></drop-down>
+                </conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
             <field name="cardNumber">
-                <conditional-field title="" condition="!_formMap?.paymentMethodId"><text-line size="16"/></conditional-field>
-                <default-field title=""><display text="${_formMap?.maskedCardNumber?:''}" also-hidden="false"/></default-field>
+                <conditional-field title="" condition="isCreditCard &amp;&amp; !paymentMethodId">
+                    <text-line size="16"/></conditional-field>
+                <conditional-field title="" condition="isCreditCard">
+                    <display text="${maskedCardNumber?:''}" also-hidden="false"/></conditional-field>
+                <default-field><ignored/></default-field>
             </field>
             <!-- <field name="expireDate"><default-field><text-line size="7"/></default-field></field> -->
-            <field name="expireMonth"><default-field title=""><drop-down>
-                <option key="01"/><option key="02"/><option key="03"/><option key="04"/><option key="05"/>
-                <option key="06"/><option key="07"/><option key="08"/><option key="09"/><option key="10"/>
-                <option key="11"/><option key="12"/>
-            </drop-down></default-field></field>
-            <field name="expireYear"><default-field title=""><drop-down>
-                <option key="2013"/><option key="2014"/><option key="2015"/><option key="2016"/>
-                <option key="2017"/><option key="2018"/><option key="2019"/><option key="2020"/>
-            </drop-down></default-field></field>
+            <field name="expireMonth">
+                <conditional-field title="" condition="isCreditCard"><drop-down current="selected">
+                    <option key="01"/><option key="02"/><option key="03"/><option key="04"/><option key="05"/>
+                    <option key="06"/><option key="07"/><option key="08"/><option key="09"/><option key="10"/>
+                    <option key="11"/><option key="12"/>
+                </drop-down></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="expireYear">
+                <conditional-field title="" condition="isCreditCard"><drop-down current="selected">
+                    <option key="2015"/><option key="2016"/><option key="2017"/><option key="2018"/>
+                    <option key="2019"/><option key="2020"/><option key="2021"/><option key="2022"/>
+                </drop-down></conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
 
-            <field name="postalContactMechId"><default-field><hidden/></default-field></field>
+            <!-- Contact Info fields -->
+            <field name="postalContactMechId">
+                <conditional-field title="Select Address" condition="!paymentMethodId &amp;&amp; partyPostalAddressList">
+                    <drop-down>
+                        <option key="" text="New Address"/>
+                        <list-options list="partyPostalAddressList" key="${contactMechId}" text="PostalAddressSimpleTemplate"/>
+                    </drop-down>
+                </conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
 
             <field name="countryGeoId"><default-field title="Country"><hidden default-value="USA"/></default-field></field>
             <field name="address1"><default-field title="Address Line 1"><text-line size="30"/></default-field></field>
@@ -318,23 +359,46 @@ along with this software (see the LICENSE.md file). If not, see
             <field name="postalCode"><default-field title=""><text-line size="8"/></default-field></field>
             <field name="postalCodeExt"><default-field title=""><text-line size="4"/></default-field></field>
 
-            <field name="telecomContactMechId"><default-field><hidden/></default-field></field>
-            <field name="countryCode"><default-field title=""><text-line size="3" maxlength="3" default-value="+1"/></default-field></field>
+            <field name="telecomContactMechId">
+                <conditional-field title="Select Phone" condition="!paymentMethodId &amp;&amp; partyTelecomNumberList">
+                    <drop-down>
+                        <option key="" text="New Phone"/>
+                        <list-options list="partyTelecomNumberList" key="${contactMechId}" text="TelecomNumberSimpleTemplate"/>
+                    </drop-down>
+                </conditional-field>
+                <default-field><ignored/></default-field>
+            </field>
+            <field name="countryCode"><default-field title="">
+                <text-line size="3" maxlength="3" default-value="+1"/></default-field></field>
             <field name="areaCode"><default-field title=""><text-line size="3" maxlength="3"/></default-field></field>
             <field name="contactNumber"><default-field title=""><text-line size="8" maxlength="8"/></default-field></field>
 
-            <field name="submitButton"><default-field title="${_formMap?.paymentMethodId ? 'Update' : 'Create'}"><submit/></default-field></field>
+            <field name="submitButton"><default-field title="${paymentMethodId ? 'Update' : 'Create'}">
+                <submit/></default-field></field>
 
             <field-layout>
-                <field-row-big title="Name On Card"><field-ref name="firstNameOnCard"/><field-ref name="lastNameOnCard"/></field-row-big>
-                <field-row-big title="Card Number"><field-ref name="creditCardTypeEnumId"/><field-ref name="cardNumber"/></field-row-big>
-                <field-row-big title="Expire Date"><field-ref name="expireMonth"/><field-ref name="expireYear"/></field-row-big>
+                <field-row-big title="Name On Account"><field-ref name="firstNameOnAccount"/>
+                    <field-ref name="lastNameOnAccount"/></field-row-big>
+                <field-ref name="companyNameOnAccount"/>
+
+                <fields-not-referenced/>
+
+                <field-row><field-ref name="routingNumber"/><field-ref name="accountNumber"/></field-row>
+
+                <field-row-big title="Card Number"><field-ref name="creditCardTypeEnumId"/>
+                    <field-ref name="cardNumber"/></field-row-big>
+                <field-row-big title="Expire Date"><field-ref name="expireMonth"/>
+                    <field-ref name="expireYear"/></field-row-big>
+
+                <field-ref name="postalContactMechId"/>
                 <field-ref name="countryGeoId"/>
                 <field-row><field-ref name="address1"/><field-ref name="unitNumber"/></field-row>
                 <field-ref name="address2"/>
-                <field-row-big title="City/State/Zip"><field-ref name="city"/><field-ref name="stateProvinceGeoId"/><field-ref name="postalCode"/><field-ref name="postalCodeExt"/></field-row-big>
-                <field-row-big title="Phone"><field-ref name="countryCode"/><field-ref name="areaCode"/><field-ref name="contactNumber"/></field-row-big>
-                <fields-not-referenced/>
+                <field-row-big title="City/State/Zip"><field-ref name="city"/><field-ref name="stateProvinceGeoId"/>
+                    <field-ref name="postalCode"/><field-ref name="postalCodeExt"/></field-row-big>
+                <field-ref name="telecomContactMechId"/>
+                <field-row-big title="Phone"><field-ref name="countryCode"/><field-ref name="areaCode"/>
+                    <field-ref name="contactNumber"/></field-row-big>
                 <field-ref name="submitButton"/>
             </field-layout>
         </form-single>
