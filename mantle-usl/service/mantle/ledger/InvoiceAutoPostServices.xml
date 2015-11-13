@@ -435,7 +435,23 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[organizationPartyId:organizationPartyId]"/>
 
             <!-- look by productId first (if passed in) -->
-            <!-- TODO: productId by mantle.ledger.config.ProductGlAccount and ProductCategoryGlAccount -->
+            <if condition="productId">
+                <entity-find entity-name="mantle.product.category.ProductCategoryMember" list="productCategoryMemberList">
+                    <date-filter/><econdition field-name="productId"/></entity-find>
+                <entity-find entity-name="mantle.ledger.config.ProductCategoryGlAccount" list="productCategoryGlAccountList">
+                    <econdition field-name="productCategoryId" operator="in" from="productCategoryMemberList.productCategoryId"/>
+                    <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                </entity-find>
+                <set field="glAccountId" from="productCategoryGlAccountList ? productCategoryGlAccountList[0].glAccountId : null"/>
+
+                <if condition="!glAccountId">
+                    <entity-find entity-name="mantle.ledger.config.ProductGlAccount" list="productGlAccountList">
+                        <econdition field-name="productId"/>
+                        <econdition field-name="organizationPartyId" operator="in" from="orgPartyIdList"/>
+                    </entity-find>
+                    <set field="glAccountId" from="productGlAccountList ? productGlAccountList[0].glAccountId : null"/>
+                </if>
+            </if>
 
             <!-- nothing? look by itemTypeEnumId -->
             <if condition="!glAccountId">
