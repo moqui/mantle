@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <!-- Service for export of NACHA files (see https://www.nacha.org) -->
+
+    <service verb="generate" noun="NachaFile">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="fromDate" type="Timestamp"><description>If null no limit on look back</description></parameter>
+            <parameter name="thruDate" type="Timestamp"><description>If null look through now</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentMethodFileId"/>
+            <parameter name="achText"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+            <entity-find-one entity-name="mantle.account.method.BankAccount" value-field="bankAccount"/>
+            <if condition="!bankAccount"><return error="true" message="Payment method [${paymentMethodId}] is not a bank account"/></if>
+
+            <!-- find applicable payments (match fromPartyId and statusId=PmntAuthorized, or toPartyId and PmntPromised) -->
+            <entity-find entity-name="mantle.account.payment.Payment" list="paymentList" for-update="true">
+                <econditions combine="or">
+                    <econditions combine="and">
+                        <econdition field-name="fromPartyId" from="paymentMethod.ownerPartyId"/>
+                        <econdition field-name="statusId" value="PmntAuthorized"/>
+                    </econditions>
+                    <econditions combine="and">
+                        <econdition field-name="toPartyId" from="paymentMethod.ownerPartyId"/>
+                        <econdition field-name="statusId" value="PmntPromised"/>
+                    </econditions>
+                </econditions>
+                <econdition field-name="paymentInstrumentEnumId" value="PiAch"/>
+                <econdition field-name="paymentMethodFileId" from="null"/>
+                <order-by field-name="effectiveDate"/>
+            </entity-find>
+
+            <!-- no payments? return now with a message -->
+            <if condition="!paymentList"><return message="No pending ACH payments found for payment method [${paymentMethodId}]"/></if>
+
+            <!-- TODO if there are payments create a PaymentMethodFile record -->
+
+            <!-- TODO generate the NACHA file -->
+            <!-- TODO File Header (1) -->
+            <!-- TODO Batch Header (5) -->
+            <!-- TODO Entry Detail (6) & Addenda (7) -->
+            <!-- TODO Batch Control (8) -->
+            <!-- TODO File Control (9) -->
+
+
+            <!-- TODO set paymentMethodFileId on all Payment records -->
+            <!-- TODO for outgoing Payment (credit) update statusId to PmntDelivered -->
+            <!-- TODO for incoming Payment (debit) update statusId to PmntAuthorized or PmntDelivered? -->
+        </actions>
+    </service>
+</services>
