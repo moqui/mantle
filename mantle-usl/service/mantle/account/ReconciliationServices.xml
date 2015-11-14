@@ -12,7 +12,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
-    <service verb="match" noun="BankAccountTransUnmatched">
+    <service verb="match" noun="PaymentMethodTransUnmatched">
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
             <parameter name="lookBackDays" type="Integer" default="7"/>
@@ -20,7 +20,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
 
-            <entity-find entity-name="mantle.payment.method.BankAccountTrans" list="bankAccountTransList">
+            <entity-find entity-name="mantle.account.method.PaymentMethodTrans" list="bankAccountTransList">
                 <econdition field-name="paymentMethodId"/>
                 <econditions combine="or">
                     <econdition field-name="paymentId" from="null"/>
@@ -118,8 +118,8 @@ along with this software (see the LICENSE.md file). If not, see
                             <econdition-object field="findAte"/>
                             <econdition field-name="amount" from="bankAccountTrans.transAmount.abs()"/>
                             <econdition field-name="amountUomId" from="paymentMethod.currencyUomId" ignore-if-empty="true"/>
-                            <econdition field-name="effectiveDate" operator="less-equals" from="bankAccountTrans.postedDate"/>
-                            <econdition field-name="effectiveDate" operator="greater-equals" from="lookBackTs"/>
+                            <econdition field-name="transactionDate" operator="less-equals" from="bankAccountTrans.postedDate"/>
+                            <econdition field-name="transactionDate" operator="greater-equals" from="lookBackTs"/>
                         </entity-find>
                         <set field="acctgTransAndEntry" from="ataeList ? ataeList[0] : null"/>
                     </if>
@@ -129,14 +129,14 @@ along with this software (see the LICENSE.md file). If not, see
                             <econdition-object field="findAte"/>
                             <econdition field-name="originalCurrencyAmount" from="bankAccountTrans.transAmount.abs()"/>
                             <econdition field-name="originalCurrencyUomId" from="paymentMethod.currencyUomId"/>
-                            <econdition field-name="effectiveDate" operator="less-equals" from="bankAccountTrans.postedDate"/>
-                            <econdition field-name="effectiveDate" operator="greater-equals" from="lookBackTs"/>
+                            <econdition field-name="transactionDate" operator="less-equals" from="bankAccountTrans.postedDate"/>
+                            <econdition field-name="transactionDate" operator="greater-equals" from="lookBackTs"/>
                         </entity-find>
                         <set field="acctgTransAndEntry" from="ataeList ? ataeList[0] : null"/>
                     </if>
                 </if>
                 <if condition="payment || acctgTransAndEntry">
-                    <service-call name="mantle.account.ReconciliationServices.reconcile#BankAccountTrans"
+                    <service-call name="mantle.account.ReconciliationServices.reconcile#PaymentMethodTrans"
                             in-map="[paymentMethodId:paymentMethodId, fitId:bankAccountTrans.fitId,
                                 bankAccountTrans:bankAccountTrans, paymentId:payment?.paymentId, payment:payment,
                                 acctgTransId:acctgTransAndEntry?.acctgTransId,
@@ -145,9 +145,9 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
-    <service verb="reconcile" noun="BankAccountTrans">
-        <description>Record reconciliation for a BankAccountTrans record against Payment and/or AcctgTransEntry. Called
-            by match#BankAccountTransUnmatched or can be called directly for manual match.</description>
+    <service verb="reconcile" noun="PaymentMethodTrans">
+        <description>Record reconciliation for a PaymentMethodTrans record against Payment and/or AcctgTransEntry. Called
+            by match#PaymentMethodTransUnmatched or can be called directly for manual match.</description>
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
             <parameter name="fitId" required="true"/>
@@ -161,12 +161,12 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="ateReconcileStatusId" default-value="AterRec"/>
         </in-parameters>
         <actions>
-            <if condition="!bankAccountTrans"><entity-find-one entity-name="mantle.payment.method.BankAccountTrans"
+            <if condition="!bankAccountTrans"><entity-find-one entity-name="mantle.account.method.PaymentMethodTrans"
                     value-field="bankAccountTrans"/></if>
 
             <if condition="paymentId">
-                <!-- if another BankAccountTrans has this paymentId clear it -->
-                <entity-find entity-name="mantle.payment.method.BankAccountTrans" list="existingTransList">
+                <!-- if another PaymentMethodTrans has this paymentId clear it -->
+                <entity-find entity-name="mantle.account.method.PaymentMethodTrans" list="existingTransList">
                     <econdition field-name="paymentId"/></entity-find>
                 <iterate list="existingTransList" entry="existingTrans">
                     <set field="existingTrans.paymentId" from="null"/>
@@ -186,8 +186,8 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </if>
             <if condition="acctgTransId &amp;&amp; acctgTransEntrySeqId">
-                <!-- if another BankAccountTrans has this acctgTransId/acctgTransEntrySeqId clear them -->
-                <entity-find entity-name="mantle.payment.method.BankAccountTrans" list="existingTransList">
+                <!-- if another PaymentMethodTrans has this acctgTransId/acctgTransEntrySeqId clear them -->
+                <entity-find entity-name="mantle.account.method.PaymentMethodTrans" list="existingTransList">
                     <econdition field-name="acctgTransId"/><econdition field-name="acctgTransEntrySeqId"/></entity-find>
                 <iterate list="existingTransList" entry="existingTrans">
                     <set field="existingTrans.acctgTransId" from="null"/>

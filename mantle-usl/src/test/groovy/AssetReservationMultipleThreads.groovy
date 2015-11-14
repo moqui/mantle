@@ -110,8 +110,9 @@ class AssetReservationMultipleThreads extends Specification {
         String orderPartSeqId = addOut1.orderPartSeqId
 
         ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
-                .parameters([orderId: cartOrderId, paymentMethodId: 'CustJqpCc', shippingPostalContactMechId: 'CustJqpAddr',
-                             shippingTelecomContactMechId: 'CustJqpTeln', carrierPartyId: '_NA_', shipmentMethodEnumId: 'ShMthGround']).call()
+                .parameters([orderId: cartOrderId, paymentMethodId:'CustJqpCc', paymentInstrumentEnumId:'PiCreditCard',
+                             shippingPostalContactMechId: 'CustJqpAddr', shippingTelecomContactMechId: 'CustJqpTeln',
+                             carrierPartyId: '_NA_', shipmentMethodEnumId: 'ShMthGround']).call()
         ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId: cartOrderId]).call()
 
         ec.user.logoutUser()

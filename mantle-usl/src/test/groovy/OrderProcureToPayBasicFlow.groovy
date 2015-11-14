@@ -136,7 +136,7 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:purchaseOrderId, orderPartSeqId:orderPartSeqId,
-                    paymentMethodTypeEnumId:'PmtCompanyCheck', shippingPostalContactMechId:'ORG_ZIZI_RTL_SA',
+                    paymentInstrumentEnumId:'PiCompanyCheck', shippingPostalContactMechId:'ORG_ZIZI_RTL_SA',
                     shippingTelecomContactMechId:'ORG_ZIZI_RTL_PT', shipmentMethodEnumId:'ShMthPickUp']).call()
 
         // one person will place the PO
@@ -152,7 +152,7 @@ class OrderProcureToPayBasicFlow extends Specification {
                 statusId="OrderApproved" currencyUomId="USD" grandTotal="23795.00"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" fromPartyId="${customerPartyId}" toPartyId="${vendorPartyId}"
-                paymentMethodTypeEnumId="PmtCompanyCheck" orderId="${purchaseOrderId}" orderPartSeqId="01"
+                paymentInstrumentEnumId="PiCompanyCheck" orderId="${purchaseOrderId}" orderPartSeqId="01"
                 statusId="PmntPromised" amount="23795.00" amountUomId="USD"/>
 
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="${vendorPartyId}"
@@ -792,7 +792,7 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
                 .parameters([invoiceId:invoiceId, statusId:'PmntDelivered', amountUomId:'USD', amount:invoiceTotal,
-                             paymentMethodTypeEnumId:'PmtPersonalCheck', effectiveDate:ec.user.nowTimestamp,
+                             paymentInstrumentEnumId:'PiPersonalCheck', effectiveDate:ec.user.nowTimestamp,
                              paymentRefNum:'123456']).call()
 
         Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")
@@ -901,7 +901,7 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         ec.service.sync().name("mantle.account.PaymentServices.create#InvoicePayment")
                 .parameters([invoiceId:invoiceId, statusId:'PmntDelivered', amountUomId:'USD', amount:invoiceTotal,
-                             paymentMethodTypeEnumId:'PmtPersonalCheck', effectiveDate:ec.user.nowTimestamp,
+                             paymentInstrumentEnumId:'PiPersonalCheck', effectiveDate:ec.user.nowTimestamp,
                              paymentRefNum:'123456']).call()
 
         Map afterTotalOut = ec.service.sync().name("mantle.account.InvoiceServices.get#InvoiceTotal")

@@ -13,6 +13,19 @@ TODO
 
 Non Backward Compatible Changes
 
+- The Payment.paymentMethodTypeEnumId field is replaced with the
+  paymentInstrumentEnumId field; PaymentMethodType enums are simplified to
+  represent only the various types of PaymentMethod records, and the actual
+  instrument used for a Payment by the new paymentInstrumentEnumId
+- The PaymentMethodTypeGlAccount is replaced by PaymentInstrumentGlAccount
+  corresponding with the Payment.paymentMethodTypeEnumId field replacement
+  by Payment.paymentInstrumentEnumId
+- The EftAccount entity is replaced by the new BankAccount entity
+- The name fields on BankAccount (was EftAccount) and CreditCard are
+  replaced by name fields on PaymentMethod as they may apply to all types
+  of PaymentMethod (new fields are: titleOnAccount, firstNameOnAccount,
+  middleNameOnAccount, lastNameOnAccount, suffixOnAccount,
+  companyNameOnAccount)
 - GlAccountType enumerations keys have been changed to camel case to
   eliminate redundancy and demo GL Account data and code updated; for
   existing systems th gl accounts demo data will need to be reloaded, all
@@ -23,28 +36,28 @@ Non Backward Compatible Changes
   contact mechanisms are associated with each OrderPart instead of header
 - OrderTerm is removed, replaced with OrderPartTerm so terms are associated
   with each OrderPart instead of header
-- The EftAccount entity is replaced by the new BankAccount entity
-- The name fields on BankAccount (was EftAccount) and CreditCard are
-  replaced by name fields on PaymentMethod as they may apply to all types
-  of PaymentMethod (new fields are: titleOnAccount, firstNameOnAccount,
-  middleNameOnAccount, lastNameOnAccount, suffixOnAccount,
-  companyNameOnAccount)
 
 New Features:
 
+- Added components.xml file to specify which mantle components to load and
+  component.xml files in each component to specify consistent name
+  (regardless of directory name) and component dependencies
 - The AuthorizeDotNet project is now a component within Mantle
 - Improvements to Income Statement and Balance Sheet reports: formatting,
   code cleanups, optionally show detail (balance by GL Account)
-- Added Cash Flow Statement, Retained Equity Statement, and Financial
-  Ratios (Liquidity, Activity, Leverage, and Profitability) reports
-- Added EDI Integrations (through Moqui SystemMessage) for:
+- Added EDI integrations (through Moqui SystemMessage) in the mantle-edi
+  component for:
   - Receive and Send X12 997 Functional Acknowledgement
   - Receive X12 850 Purchase Order
   - Send X12 855 Purchase Order Acknowledgement
   - Send X12 856 Ship Notice/Manifest
   - Send X12 810 Invoice
 - Added OFX V1 (and QFX) bank statement import (to PaymentMethodTrans
-  entity) and matching/reconcile to Payment and AcctgTransEntry records
+  entity) and match/reconcile to Payment and AcctgTransEntry records
+- Added PaymentMethodContent entity to support per-account signature images
+  and other content related to payment methods
+- Added Cash Flow Statement, Retained Equity Statement, and Financial
+  Ratios (Liquidity, Activity, Leverage, and Profitability) reports
 - Demo GL structure and class/type improvements for reporting, etc needs
 - GL posting for physical inventory variance
 - GL posting for WIP (work in progress) inventory for production runs, both
@@ -68,6 +81,7 @@ New Features:
   updates the GlAccountOrgTimePeriod records, creates or updates
   GlAccountOrgTimePeriod records for next period (creating next period
   if needed)
+- New and improved services for managing TimePeriod records
 
 Bug Fixes:
 
@@ -404,3 +418,25 @@ reference for where data ends up. They include complete flows with service
 calls and data validation for purchase orders (procure to pay), sales
 orders (order to cash), and billable projects with client and vendor/worker
 invoice/payment (work plan to cash).
+
+===========================================================================
+Long Term To Do List
+===========================================================================
+
+- OAGIS 10.1 integrations
+  - http://www.oagi.org
+  - mantle-oagis component
+  - at least matching supported EDI messages
+    - Receive Purchase Order
+    - Send Purchase Order Acknowledgement
+    - Send Ship Notice/Manifest
+    - Send Invoice
+  - more general process support
+    - receive Shipment Receipt Notice
+    - see UBPL "OAGIS Order to Cash.cwiki"
+    - see UBPL "OAGIS Procure to Pay.cwiki"
+    - see UBPL "OAGIS Work Plan to Cash.cwiki"
+- UBL 2.1 integrations
+  - https://www.oasis-open.org/committees/tc_home.php?wg_abbrev=ubl
+  - mantle-ubl component
+  - at least matching supported EDI messages

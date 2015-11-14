@@ -12,6 +12,18 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+    <service verb="upload" noun="OfxVersion1">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="ofxFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="ofxFile == null || ofxFile.size == 0">
+                <return error="true" message="No OFX file content uploaded"/></if>
+            <set field="ofxString" from="ofxFile.getString('UTF-8')"/>
+            <service-call name="mantle.account.OfxServices.import#OfxVersion1" in-map="context"/>
+        </actions>
+    </service>
     <service verb="import" noun="OfxVersion1">
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
@@ -80,8 +92,15 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <set field="transName" from="STMTTRN.NAME?.getAt(0)?.text() ?: STMTTRN.PAYEE?.getAt(0)?.text()"/>
 
+                <set field="transType" from="STMTTRN.TRNTYPE[0].text()"/>
+                <entity-find-one entity-name="moqui.basic.Enumeration" value-field="transTypeEnum">
+                    <field-map field-name="enumTypeId" value="PaymentMethodTransType"/>
+                    <field-map field-name="enumCode" from="transType"/>
+                </entity-find-one>
+                <if condition="transTypeEnum"><set field="transType" from="transTypeEnum.enumId"/></if>
+
                 <service-call name="create#mantle.account.method.PaymentMethodTrans" in-map="[paymentMethodId:paymentMethodId,
-                        fitId:fitId, transType:STMTTRN.TRNTYPE[0].text(), postedDate:postedDate,
+                        fitId:fitId, transType:transType, postedDate:postedDate,
                         transAmount:transAmount, transName:transName, transMemo:STMTTRN.MEMO?.getAt(0)?.text(),
                         checkNumber:STMTTRN.CHECKNUM?.getAt(0)?.text(), refNumber:STMTTRN.REFNUM?.getAt(0)?.text()]"/>
             </iterate>

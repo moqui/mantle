@@ -482,4 +482,85 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="update#mantle.account.method.BankAccount" in-map="context"/>
         </actions>
     </service>
+
+    <!-- ===================================================== -->
+    <!-- ========== Payment Method Content Services ========== -->
+    <!-- ===================================================== -->
+
+    <service verb="get" noun="PaymentMethodContentLocation">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="contentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="paymentMethodContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="contentTypeEnumIdList" entry="contentTypeEnumId">
+                <entity-find entity-name="mantle.account.method.PaymentMethodContent" list="paymentMethodContentList">
+                    <econdition field-name="paymentMethodId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="paymentMethodContentList">
+                    <set field="paymentMethodContent" from="paymentMethodContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="paymentMethodContent ? paymentMethodContent.contentLocation : null"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="PaymentMethodContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethodContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentMethodContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.account.method.PaymentMethodContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.account.PaymentMethodServices.save#PaymentMethodContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="PaymentMethodContent">
+        <in-parameters>
+            <parameter name="paymentMethodContentId" required="true"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethodContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.account.method.PaymentMethodContent" value-field="paymentMethodContent"/>
+                <service-call name="mantle.account.PaymentMethodServices.save#PaymentMethodContentFile" out-map="context"
+                        in-map="context + [paymentMethodId:paymentMethodContent.paymentMethodId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.account.method.PaymentMethodContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="PaymentMethodContentFile">
+        <in-parameters>
+            <parameter name="paymentMethodContentId" required="true"/>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/paymentMethod/${paymentMethodId}/content_${paymentMethodContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.account.method.PaymentMethodContent"
+                    in-map="[paymentMethodContentId:paymentMethodContentId, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
 </services>

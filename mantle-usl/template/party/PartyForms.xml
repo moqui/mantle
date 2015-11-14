@@ -28,14 +28,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="partyId" from="term"/></entity-find-one>
             <!-- <log message="====== ${term}:${roleTypeId}, partyDetail: ${partyDetail}"/> -->
             <if condition="partyDetail">
-                <script>
-                    def outList = [[value:partyDetail.partyId, label:ec.resource.expand("PartyNameTemplate", "", partyDetail)]]
-                    ec.web.sendJsonResponse(outList)
-                </script>
-
+                <then>
+                    <script>
+                        def outList = [[value:partyDetail.partyId, label:ec.resource.expand("PartyNameTemplate", "", partyDetail)]]
+                        ec.web.sendJsonResponse(outList)
+                    </script>
+                </then>
                 <else>
                     <entity-find entity-name="mantle.party.PartyDetailAndRole" list="partyList" limit="20">
                         <econdition field-name="roleTypeId" operator="in" ignore-if-empty="true"/>
+                        <econdition field-name="disabled" value="N" or-null="true"/>
                         <econditions combine="or">
                             <econdition field-name="partyId" operator="like" value="%${term}%" ignore-case="true"/>
                             <econdition field-name="pseudoId" operator="like" value="%${term}%" ignore-case="true"/>

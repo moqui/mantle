@@ -14,11 +14,13 @@ along with this software (see the LICENSE.md file). If not, see
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
 
     <service verb="get" noun="InvoiceDisplayInfo">
-        <in-parameters><parameter name="invoiceId"/></in-parameters>
+        <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="invoice" type="EntityValue"/>
             <parameter name="isFromPartyOrgInternal" type="Boolean"><description>If true invoice is receivable</description></parameter>
             <parameter name="isToPartyOrgInternal" type="Boolean"><description>If true invoice is payable</description></parameter>
+            <parameter name="dupInvoiceList" type="List"><description>List of invoices matching referenceNumber and
+                other party (non org internal)</description></parameter>
 
             <parameter name="invoiceTotal" type="BigDecimal"/>
             <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
@@ -37,7 +39,9 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <if condition="!invoice"><return error="true" message="Invoice not found with ID [${invoiceId}]"/></if>
 
+            <!-- see if from/to parties are internal orgs -->
             <entity-find entity-name="mantle.party.PartyRole" list="fromOrgInternalList">
                 <econdition field-name="partyId" from="invoice.fromPartyId"/>
                 <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
@@ -47,8 +51,26 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
             <set field="isToPartyOrgInternal" from="toOrgInternalList as boolean"/>
 
+            <!-- look for duplicate invoices by referenceNumber -->
+            <if condition="isFromPartyOrgInternal &amp;&amp; invoice.referenceNumber">
+                <entity-find entity-name="mantle.account.invoice.Invoice" list="dupInvoiceList">
+                    <econdition field-name="invoiceId" operator="not-equals"/>
+                    <econdition field-name="toPartyId" from="invoice.toPartyId"/>
+                    <econdition field-name="referenceNumber" from="invoice.referenceNumber"/>
+                </entity-find>
+            </if>
+            <if condition="isToPartyOrgInternal &amp;&amp; invoice.referenceNumber">
+                <entity-find entity-name="mantle.account.invoice.Invoice" list="dupInvoiceList">
+                    <econdition field-name="invoiceId" operator="not-equals"/>
+                    <econdition field-name="fromPartyId" from="invoice.fromPartyId"/>
+                    <econdition field-name="referenceNumber" from="invoice.referenceNumber"/>
+                </entity-find>
+            </if>
+
+            <!-- calc invoice totals -->
             <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="context"/>
 
+            <!-- get payment applications -->
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="invoiceId"/><order-by field-name="appliedDate"/></entity-find>
 
@@ -59,12 +81,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <order-by field-name="changedDate"/>
             </entity-find>
 
+            <!-- get associated order items -->
             <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
                 <econdition field-name="invoiceId"/><order-by field-name="invoiceItemSeqId"/></entity-find>
+            <!-- extract related order IDs -->
             <set field="orderIdSet" from="new TreeSet()"/>
             <iterate list="orderItemBillingList" entry="orderItemBilling">
                 <script>orderIdSet.add(orderItemBilling.orderId)</script></iterate>
-
+            <!-- get promised payments for associated orders -->
             <if condition="orderIdSet">
                 <entity-find entity-name="mantle.account.payment.Payment" list="orderPromisedPaymentList">
                     <econdition field-name="orderId" operator="in" from="orderIdSet"/>
@@ -72,12 +96,14 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
             </if>
 
+            <!-- get associated shipment items -->
             <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
                 <econdition field-name="invoiceId"/></entity-find>
             <set field="shipmentIdSet" from="new TreeSet()"/>
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
                 <script>shipmentIdSet.add(shipmentItemSource.shipmentId)</script></iterate>
 
+            <!-- get associated accounting transactions -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
                 <econdition field-name="invoiceId"/></entity-find>
             <set field="acctgTransIdSet" from="new TreeSet()"/>
@@ -1012,9 +1038,9 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <!-- ================================================ -->
-    <!-- ========== InvoiceContent Services ========== -->
-    <!-- ================================================ -->
+    <!-- ============================================== -->
+    <!-- ========== Invoice Content Services ========== -->
+    <!-- ============================================== -->
 
     <service verb="get" noun="InvoiceContentLocation">
         <in-parameters>

@@ -187,10 +187,24 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="timePeriodId" required="true"/>
             <parameter name="statusId" default-value="PmntAuthorized"/>
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
+            <parameter name="paymentMethodId"/>
             <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <actions>
+            <!-- find the PmpPayroll purpose PaymentMethod -->
+            <if condition="!paymentMethodId">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+                <entity-find entity-name="mantle.account.method.PaymentMethod" list="paymentMethodList">
+                    <date-filter/>
+                    <econdition field-name="ownerPartyId" from="timePeriod.partyId"/>
+                    <econdition field-name="purposeEnumId" value="PmpPayroll"/>
+                    <!-- constrain by a paymentMethodTypeEnumId corresponding to the paymentInstrumentEnumId? -->
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="paymentMethodList"><set field="paymentMethodId" from="paymentMethodList[0].paymentMethodId"/></if>
+            </if>
+
             <entity-find entity-name="mantle.account.invoice.Invoice" list="invoiceList">
                 <econdition field-name="timePeriodId"/>
                 <econdition field-name="invoiceTypeEnumId" value="InvoicePayroll"/>

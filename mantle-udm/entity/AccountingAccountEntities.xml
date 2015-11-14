@@ -555,6 +555,7 @@ along with this software (see the LICENSE.md file). If not, see
     <entity entity-name="PaymentMethod" package-name="mantle.account.method">
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="paymentMethodTypeEnumId" type="id"/>
+        <field name="purposeEnumId" type="id"/>
         <field name="ownerPartyId" type="id"/>
         <field name="description" type="text-medium"/>
         <field name="fromDate" type="date-time"/>
@@ -582,13 +583,15 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="trustLevelEnumId" type="id"/>
         <field name="paymentFraudEvidenceId" type="id"><description>Refer to evidence here if trust level is gray listed or black listed</description></field>
         <field name="glAccountId" type="id"><description>A GL Account associated with this PaymentMethod for reconciliation, etc</description></field>
-        <field name="finAccountId" type="id"/>
+        <field name="finAccountId" type="id"><description>Refers to FinancialAccount when paymentMethodTypeEnumId=PmtFinancialAccount</description></field>
         <field name="originalPaymentMethodId" type="id"><description>Because PaymentMethod records are treated as
             immutable (except for certain fields) they are cloned and expired on update and this field will have the
             paymentMethodId of the original record.</description></field>
 
         <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration" short-alias="methodType">
             <key-map field-name="paymentMethodTypeEnumId"/></relationship>
+        <relationship type="one" title="PaymentMethodPurpose" related-entity-name="moqui.basic.Enumeration" short-alias="methodPurpose">
+            <key-map field-name="purposeEnumId"/></relationship>
         <relationship type="one" title="Owner" related-entity-name="mantle.party.Party" short-alias="ownerParty">
             <key-map field-name="ownerPartyId"/></relationship>
         <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
@@ -618,23 +621,18 @@ along with this software (see the LICENSE.md file). If not, see
         <seed-data>
             <!-- Payment Method Type -->
             <moqui.basic.EnumerationType description="Payment Method Type" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Bank Account (ACH, etc)" enumId="PmtBankAccount" enumTypeId="PaymentMethodType"/>
+            <moqui.basic.Enumeration description="Bank Account" enumId="PmtBankAccount" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Bitcoin Wallet" enumId="PmtBitcoinWallet" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Credit Card" enumId="PmtCreditCard" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Gift Card" enumId="PmtGiftCard" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Gift Certificate" enumId="PmtGiftCerificate" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Cash" enumId="PmtCash" enumTypeId="PaymentMethodType"/>
             <moqui.basic.Enumeration description="Financial Account" enumId="PmtFinancialAccount" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Personal Check" enumId="PmtPersonalCheck" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Company Check" enumId="PmtCompanyCheck" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Certified Check" enumId="PmtCertifiedCheck" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Money Order" enumId="PmtMoneyOrder" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Company Account" enumId="PmtCompanyAccount" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Billing Account" enumId="PmtBillingAccount" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Cash On Delivery" enumId="PmtCod" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Write-off" enumId="PmtWriteOff" enumTypeId="PaymentMethodType"/>
-            <moqui.basic.Enumeration description="Discount" enumId="PmtDiscount" enumTypeId="PaymentMethodType"/>
-            <!-- really need this? implied by various more specific others... <moqui.basic.Enumeration description="Offline Payment" enumId="PmtOffline" enumTypeId="PaymentMethodType"/> -->
+            <moqui.basic.Enumeration description="PayPal Account" enumId="PmtPayPalAccount" enumTypeId="PaymentMethodType"/>
+
+            <!-- Payment Method Purpose -->
+            <moqui.basic.EnumerationType description="Payment Method Purpose" enumTypeId="PaymentMethodPurpose"/>
+            <moqui.basic.Enumeration description="General" enumId="PmpGeneral" enumTypeId="PaymentMethodPurpose"/>
+            <moqui.basic.Enumeration description="Payroll" enumId="PmpPayroll" enumTypeId="PaymentMethodPurpose"/>
+            <moqui.basic.Enumeration description="Sales Revenue" enumId="PmpSalesRevenue" enumTypeId="PaymentMethodPurpose"/>
         </seed-data>
 
         <master>
@@ -654,35 +652,31 @@ along with this software (see the LICENSE.md file). If not, see
             <detail relationship="payPalAccount"/>
         </master>
     </entity>
+    <entity entity-name="PaymentMethodContent" package-name="mantle.account.method">
+        <field name="paymentMethodContentId" type="id" is-pk="true"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="contentLocation" type="text-medium"/>
+        <field name="contentTypeEnumId" type="id"/>
+        <field name="description" type="text-long"/>
+        <field name="contentDate" type="date-time" default="ec.user.nowTimestamp"/>
+        <field name="userId" type="id-long" default="ec.user.userId"/>
+        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
+        <relationship type="one" title="PaymentMethodContentType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="contentTypeEnumId"/></relationship>
+        <seed-data>
+            <!-- Payment Method Content Type -->
+            <moqui.basic.EnumerationType description="Payment Method Content Type" enumTypeId="PaymentMethodContentType"/>
+            <moqui.basic.Enumeration enumId="PmctSignaturePrimary" description="Signature Primary" enumTypeId="PaymentMethodContentType"/>
+            <moqui.basic.Enumeration enumId="PmctSignatureSecondary" description="Signature Secondary" enumTypeId="PaymentMethodContentType"/>
+            <moqui.basic.Enumeration enumId="PmctImage" description="Image" enumTypeId="PaymentMethodContentType"/>
+        </seed-data>
+    </entity>
     <entity entity-name="PaymentMethodTrans" package-name="mantle.account.method">
         <description>Transactions of the PaymentMethod, such as imported from an OFX file (see www.ofx.net); can be
             imported from any source and reconciled in a more consistent way from here</description>
         <field name="paymentMethodId" type="id" is-pk="true"/>
         <field name="fitId" type="text-short" is-pk="true"><description>Financial Institution Transaction ID (OFX STMTTRN.FITID)</description></field>
-        <field name="transType" type="text-short"><description>
-            Transaction type (OFX STMTTRN.TRNTYPE)
-
-            OFX STMTTRN.TRNTYPE (transType) possible values:
-                CREDIT  Generic credit
-                DEBIT   Generic debit
-                INT*    Interest earned or paid NOTE: depends on signage of amount
-                DIV*    Dividend
-                FEE*    FI fee
-                SRVCHG* Service charge
-                DEP     Deposit
-                ATM     ATM debit or credit NOTE: depends on signage of amount"
-                POS     Point of sale debit or credit NOTE: depends on signage of amount
-                XFER    Transfer
-                CHECK   Check
-                PAYMENT Electronic payment
-                CASH    Cash withdrawal
-                DIRECTDEP   Direct deposit
-                DIRECTDEBIT Merchant initiated debit
-                REPEATPMT   Repeating payment/standing order
-                OTHER   Other
-
-            No Enumeration set for this because we want to allow other values (NOTE: could also define Enumerations but have a one-nofk relationship)
-        </description></field>
+        <field name="transType" type="text-short"><description>Transaction type (OFX STMTTRN.TRNTYPE)</description></field>
         <field name="postedDate" type="date-time"><description>Date posted (OFX STMTTRN.DTPOSTED)</description></field>
         <field name="transAmount" type="currency-amount"><description>Transaction amount (OFX STMTTRN.TRNAMT)</description></field>
         <field name="transName" type="text-short"><description>Transaction name (OFX STMTTRN.NAME or PAYEE; as per spec only one may be used)</description></field>
@@ -694,9 +688,47 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="acctgTransId" type="id"/>
         <field name="acctgTransEntrySeqId" type="id"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
+        <!-- Type one-nofk for this because we want to allow other values -->
+        <relationship type="one-nofk" title="PaymentMethodTransType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="transType"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
         <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTransEntry">
             <key-map field-name="acctgTransId"/><key-map field-name="acctgTransEntrySeqId"/></relationship>
+
+        <seed-data>
+            <!-- Payment Method Trans Type from OFX STMTTRN.TRNTYPE (transType) possible values -->
+            <moqui.basic.EnumerationType description="Payment Method Trans Type" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Generic credit" enumId="PMTT_CREDIT" enumCode="CREDIT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Generic debit" enumId="PMTT_DEBIT" enumCode="DEBIT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Interest earned or paid" enumId="PMTT_INT" enumCode="INT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Dividend" enumId="PMTT_DIV" enumCode="DIV" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="FI fee" enumId="PMTT_FEE" enumCode="FEE" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Service charge" enumId="PMTT_SRVCHG" enumCode="SRVCHG" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Deposit" enumId="PMTT_DEP" enumCode="DEP" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="ATM debit or credit" enumId="PMTT_ATM" enumCode="ATM" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Point of sale debit or credit" enumId="PMTT_POS" enumCode="POS" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Transfer" enumId="PMTT_XFER" enumCode="XFER" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Check" enumId="PMTT_CHECK" enumCode="CHECK" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Electronic payment" enumId="PMTT_PAYMENT" enumCode="PAYMENT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Cash withdrawal" enumId="PMTT_CASH" enumCode="CASH" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Direct deposit" enumId="PMTT_DIRECTDEP" enumCode="DIRECTDEP" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Merchant initiated debit" enumId="PMTT_DIRECTDEBIT" enumCode="DIRECTDEBIT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Repeating payment/standing order" enumId="PMTT_REPEATPMT" enumCode="REPEATPMT" enumTypeId="PaymentMethodTransType"/>
+            <moqui.basic.Enumeration description="Other" enumId="PMTT_OTHER" enumCode="OTHER" enumTypeId="PaymentMethodTransType"/>
+        </seed-data>
+    </entity>
+    <entity entity-name="PaymentMethodFile" package-name="mantle.account.method">
+        <field name="paymentMethodFileId" type="id" is-pk="true"/>
+        <field name="paymentMethodId" type="id"/>
+        <field name="fileTypeEnumId" type="id"/>
+
+        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
+        <relationship type="one" title="PaymentMethodFileType" related-entity-name="moqui.basic.Enumeration">
+            <key-map field-name="fileTypeEnumId"/></relationship>
+        <seed-data>
+            <moqui.basic.EnumerationType description="Payment Method File Type" enumTypeId="PaymentMethodFileType"/>
+            <moqui.basic.Enumeration description="NACHA" enumId="PmftNacha" enumTypeId="PaymentMethodFileType"/>
+        </seed-data>
     </entity>
 
     <entity entity-name="BankAccount" package-name="mantle.account.method">
@@ -916,7 +948,10 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="fromPartyId" type="id"/>
         <field name="toPartyId" type="id"/>
 
-        <field name="paymentMethodTypeEnumId" type="id"/>
+        <!-- Deprecated, use paymentInstrumentEnumId: <field name="paymentMethodTypeEnumId" type="id"/> -->
+        <field name="paymentInstrumentEnumId" type="id"><description>The payment instrument used for the payment; for
+            non-cash and other instruments represented by an account specify details of it with paymentMethodId</description></field>
+
         <field name="paymentMethodId" type="id"><description>The from PaymentMethod (owned by fromPartyId)</description></field>
         <field name="toPaymentMethodId" type="id"><description>The to PaymentMethod (owned by toPartyId), if applicable,
             the account the payment goes to</description></field>
@@ -960,11 +995,12 @@ along with this software (see the LICENSE.md file). If not, see
             for audit and fraud purposes.</description></field>
         <field name="acctgTransResultEnumId" type="id"/>
         <field name="reconcileStatusId" type="id" default="'PmtrNot'"/>
+        <field name="paymentMethodFileId" type="id"><description>If included in a file for processing, file ID goes here</description></field>
 
         <relationship type="one" title="PaymentType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="paymentTypeEnumId"/></relationship>
-        <relationship type="one" title="PaymentMethodType" related-entity-name="moqui.basic.Enumeration" short-alias="methodType">
-            <key-map field-name="paymentMethodTypeEnumId"/></relationship>
+        <relationship type="one" title="PaymentInstrument" related-entity-name="moqui.basic.Enumeration" short-alias="instrument">
+            <key-map field-name="paymentInstrumentEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod" short-alias="method"/>
         <relationship type="one" title="To" related-entity-name="mantle.account.method.PaymentMethod" short-alias="toMethod">
             <key-map field-name="toPaymentMethodId"/></relationship>
@@ -998,6 +1034,7 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="acctgTransResultEnumId"/></relationship>
         <relationship type="one" title="AcctgTransEntryReconcile" related-entity-name="moqui.basic.StatusItem">
             <key-map field-name="reconcileStatusId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.account.method.PaymentMethodFile"/>
 
         <relationship type="many" related-entity-name="mantle.account.payment.PaymentApplication" short-alias="applications">
             <key-map field-name="paymentId"/></relationship>
@@ -1012,6 +1049,27 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration description="Invoice Payment" enumId="PtInvoicePayment" enumTypeId="PaymentType"/>
             <moqui.basic.Enumeration description="Financial Account Transaction" enumId="PtFinancialAccount" enumTypeId="PaymentType"/>
 
+            <!-- Payment Instrument -->
+            <moqui.basic.EnumerationType description="Payment Instrument" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="ACH Direct" enumId="PiAch" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Bitcoin" enumId="PiBitcoinWallet" enumTypeId="PaymentInstrument" relatedEnumId="PmtBitcoinWallet"/>
+            <moqui.basic.Enumeration description="Credit Card" enumId="PiCreditCard" enumTypeId="PaymentInstrument" relatedEnumId="PmtCreditCard"/>
+            <moqui.basic.Enumeration description="Debit Card" enumId="PiDebitCard" enumTypeId="PaymentInstrument" relatedEnumId="PmtCreditCard"/>
+            <moqui.basic.Enumeration description="Gift Card" enumId="PiGiftCard" enumTypeId="PaymentInstrument" relatedEnumId="PmtGiftCard"/>
+            <moqui.basic.Enumeration description="Gift Certificate" enumId="PiGiftCerificate" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Cash" enumId="PiCash" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Financial Account" enumId="PiFinancialAccount" enumTypeId="PaymentInstrument" relatedEnumId="PmtFinancialAccount"/>
+            <moqui.basic.Enumeration description="Personal Check" enumId="PiPersonalCheck" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Company Check" enumId="PiCompanyCheck" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Certified Check" enumId="PiCertifiedCheck" enumTypeId="PaymentInstrument" relatedEnumId="PmtBankAccount"/>
+            <moqui.basic.Enumeration description="Money Order" enumId="PiMoneyOrder" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Company Account" enumId="PiCompanyAccount" enumTypeId="PaymentInstrument" relatedEnumId="PmtFinancialAccount"/>
+            <moqui.basic.Enumeration description="Billing Account" enumId="PiBillingAccount" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Cash On Delivery" enumId="PiCod" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Write-off" enumId="PiWriteOff" enumTypeId="PaymentInstrument"/>
+            <moqui.basic.Enumeration description="Discount" enumId="PiDiscount" enumTypeId="PaymentInstrument"/>
+            <!-- really need this? implied by various more specific others... <moqui.basic.Enumeration description="Offline Payment" enumId="PiOffline" enumTypeId="PaymentInstrument"/> -->
+
             <!-- Payment Status -->
             <moqui.basic.StatusType description="Payment Status" statusTypeId="Payment"/>
             <moqui.basic.StatusItem description="Proposed" sequenceNum="1" statusId="PmntProposed" statusTypeId="Payment"/>
@@ -1025,7 +1083,7 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusItem description="Refunded" sequenceNum="94" statusId="PmntRefunded" statusTypeId="Payment"/>
 
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntProposed" toStatusId="PmntPromised" transitionName="Promise"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntProposed" toStatusId="PmntCancelled" transitionName="Promise"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntProposed" toStatusId="PmntCancelled" transitionName="Cancel"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntPromised" toStatusId="PmntAuthorized" transitionName="Authorize"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntPromised" toStatusId="PmntDelivered" transitionName="Deliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="PmntPromised" toStatusId="PmntCancelled" transitionName="Cancel"/>
@@ -1058,7 +1116,7 @@ along with this software (see the LICENSE.md file). If not, see
 
         <master>
             <detail relationship="type"/>
-            <detail relationship="methodType"/>
+            <detail relationship="instrument"/>
             <detail relationship="method" use-master="default"/>
             <detail relationship="amountUom"/>
             <detail relationship="fromParty" use-master="basic"/>
@@ -1078,6 +1136,7 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="paymentFraudEvidenceId" type="id" is-pk="true"/>
         <field name="fraudTypeEnumId" type="id"/>
         <field name="comments" type="text-medium"/>
+        <field name="contentLocation" type="text-medium"/>
         <field name="paymentId" type="id"/>
         <field name="orderId" type="id"/>
         <field name="partyId" type="id"/>

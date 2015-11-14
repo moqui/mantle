@@ -669,7 +669,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="paymentId"/>
 
             <parameter name="paymentMethodId"/>
-            <parameter name="paymentMethodTypeEnumId"/>
+            <parameter name="paymentInstrumentEnumId"/>
             <parameter name="shippingPostalContactMechId"/>
             <parameter name="shippingTelecomContactMechId"/>
 
@@ -724,10 +724,11 @@ h2. General Order Placement and eCommerce Usage
             </if>
 
             <if condition="paymentId">
-                <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
-
+                <then>
+                    <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+                </then>
                 <else>
-                    <!-- just get the first part -->
+                    <!-- try the first payment for the part -->
                     <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
                         <econdition field-name="orderId"/>
                         <econdition field-name="orderPartSeqId"/>
@@ -737,23 +738,29 @@ h2. General Order Placement and eCommerce Usage
                 </else>
             </if>
 
-            <if condition="!paymentMethodTypeEnumId &amp;&amp; paymentMethodId">
+            <if condition="!paymentInstrumentEnumId &amp;&amp; paymentMethodId">
                 <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
-                <set field="paymentMethodTypeEnumId" from="paymentMethod.paymentMethodTypeEnumId"/>
+                <!-- may be more than one, just pick first by description for consistency -->
+                <entity-find entity-name="moqui.basic.Enumeration" list="instrEnumList">
+                    <econdition field-name="relatedEnumId" from="paymentMethod.paymentMethodTypeEnumId"/>
+                    <order-by field-name="description"/>
+                </entity-find>
+                <set field="paymentInstrumentEnumId" from="instrEnumList ? instrEnumList[0].enumId : null"/>
             </if>
             <if condition="payment">
-                <!-- update existing payment -->
-                <set field="payment.paymentMethodId" from="paymentMethodId"/>
-                <set field="payment.paymentMethodTypeEnumId" from="paymentMethodTypeEnumId"/>
-                <set field="payment.amount" from="orderPart.partTotal"/>
-                <entity-update value-field="payment"/>
-                <set field="paymentId" from="payment.paymentId"/>
-
-                <else-if condition="paymentMethodId || paymentMethodTypeEnumId">
+                <then>
+                    <!-- update existing payment -->
+                    <set field="payment.paymentMethodId" from="paymentMethodId"/>
+                    <set field="payment.paymentInstrumentEnumId" from="paymentInstrumentEnumId"/>
+                    <set field="payment.amount" from="orderPart.partTotal"/>
+                    <entity-update value-field="payment"/>
+                    <set field="paymentId" from="payment.paymentId"/>
+                </then>
+                <else-if condition="paymentMethodId || paymentInstrumentEnumId">
                     <!-- create a new Payment for the Order -->
                     <service-call name="mantle.order.OrderServices.add#OrderPartPayment" out-map="context"
                             in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                                paymentMethodTypeEnumId:paymentMethodTypeEnumId]"/>
+                                paymentInstrumentEnumId:paymentInstrumentEnumId]"/>
                 </else-if>
             </if>
         </actions>
@@ -763,7 +770,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="paymentMethodId"/>
-            <parameter name="paymentMethodTypeEnumId"/>
+            <parameter name="paymentInstrumentEnumId"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to OrderPart.partTotal</description></parameter>
         </in-parameters>
         <out-parameters>
@@ -774,7 +781,7 @@ h2. General Order Placement and eCommerce Usage
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentTypeEnumId:'PtInvoicePayment',
-                        paymentMethodId:paymentMethodId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
+                        paymentMethodId:paymentMethodId, paymentInstrumentEnumId:paymentInstrumentEnumId,
                         amount:(amount ?: orderPart.partTotal), amountUomId:orderHeader.currencyUomId, statusId:'PmntPromised',
                         fromPartyId:orderPart.customerPartyId, toPartyId:orderPart.vendorPartyId,
                         visitId:orderHeader.visitId]"/>
@@ -1166,7 +1173,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="requestId" required="true"/>
             <parameter name="customerPartyId" required="true">
                 <description>The customer for the PO. Should be an Internal Org.</description></parameter>
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
             <parameter name="paymentMethodId"/>
             <parameter name="shipmentMethodEnumId" default-value="ShMthPickUp"/>
             <parameter name="placeAndApproveOrders" type="Boolean" default="false"/>
@@ -1229,7 +1236,7 @@ h2. General Order Placement and eCommerce Usage
                 </if>
                 <service-call name="mantle.order.OrderServices.set#OrderBillingShippingInfo"
                         in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
-                            paymentMethodTypeEnumId:paymentMethodTypeEnumId, paymentMethodId:paymentMethodId,
+                            paymentInstrumentEnumId:paymentInstrumentEnumId, paymentMethodId:paymentMethodId,
                             shippingPostalContactMechId:shippingPostalContactMechId,
                             shippingTelecomContactMechId:shippingTelecomContactMechId,
                             shipmentMethodEnumId:shipmentMethodEnumId]"/>

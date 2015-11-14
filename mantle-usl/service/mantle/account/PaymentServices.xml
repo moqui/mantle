@@ -17,6 +17,9 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters>
             <parameter name="payment" type="EntityValue"/>
+            <parameter name="isFromPartyOrgInternal" type="Boolean"><description>If true payment is outgoing</description></parameter>
+            <parameter name="isToPartyOrgInternal" type="Boolean"><description>If true payment is incoming</description></parameter>
+            <parameter name="dupPaymentList" type="List"><description>List of payments matching paymentRefNum and fromPartyId</description></parameter>
 
             <parameter name="paymentDescription"/>
             <parameter name="paymentTotal" type="BigDecimal"/>
@@ -44,6 +47,27 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
 
+            <!-- see if from/to parties are internal orgs -->
+            <entity-find entity-name="mantle.party.PartyRole" list="fromOrgInternalList">
+                <econdition field-name="partyId" from="payment.fromPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <set field="isFromPartyOrgInternal" from="fromOrgInternalList as boolean"/>
+            <entity-find entity-name="mantle.party.PartyRole" list="toOrgInternalList">
+                <econdition field-name="partyId" from="payment.toPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <set field="isToPartyOrgInternal" from="toOrgInternalList as boolean"/>
+
+            <!-- look for duplicate invoices by fromPartyId and paymentRefNum -->
+            <if condition="payment.paymentRefNum">
+                <entity-find entity-name="mantle.account.payment.Payment" list="dupPaymentList">
+                    <econdition field-name="paymentId" operator="not-equals"/>
+                    <econdition field-name="fromPartyId" from="payment.fromPartyId"/>
+                    <econdition field-name="paymentMethodId" from="payment.paymentMethodId" ignore-if-empty="true"/>
+                    <econdition field-name="paymentRefNum" from="payment.paymentRefNum"/>
+                </entity-find>
+            </if>
+
+            <!-- get payment description and totals -->
             <service-call name="mantle.account.PaymentServices.get#PaymentDescription" in-map="context" out-map="context"/>
             <service-call name="mantle.account.PaymentServices.get#PaymentTotals" in-map="context" out-map="context"/>
 
@@ -54,28 +78,32 @@ along with this software (see the LICENSE.md file). If not, see
                 <order-by field-name="changedDate"/>
             </entity-find>
 
+            <!-- get payment applications (to invoices, other payments) -->
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
 
+            <!-- if associated with an order (ie a promised/etc payment for an order) get invoices associated with the order -->
             <if condition="payment.orderId">
                 <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
                     <econdition field-name="orderId" from="payment.orderId"/>
                     <order-by field-name="invoiceId,invoiceItemSeqId"/></entity-find>
             </if>
 
+            <!-- get all invoices applied and through order billing -->
             <set field="invoiceIdSet" from="new TreeSet()"/>
             <iterate list="paymentApplicationList" entry="paymentApplication">
                 <script>if (paymentApplication.invoiceId) invoiceIdSet.add(paymentApplication.invoiceId)</script></iterate>
             <iterate list="orderItemBillingList" entry="orderItemBilling">
                 <script>invoiceIdSet.add(orderItemBilling.invoiceId)</script></iterate>
 
-
+            <!-- get accounting transactions associated with payment -->
             <entity-find entity-name="mantle.ledger.transaction.AcctgTrans" list="acctgTransList">
                 <econdition field-name="paymentId"/></entity-find>
             <set field="acctgTransIdSet" from="new TreeSet()"/>
             <iterate list="acctgTransList" entry="acctgTrans">
                 <script>acctgTransIdSet.add(acctgTrans.acctgTransId)</script></iterate>
 
+            <!-- get invoices with reverse from/to parties that this payment might be applied to -->
             <entity-find entity-name="mantle.account.invoice.Invoice" list="unpaidInvoiceList">
                 <econdition field-name="fromPartyId" from="payment.toPartyId"/>
                 <econdition field-name="toPartyId" from="payment.fromPartyId"/>
@@ -95,7 +123,7 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters><parameter name="paymentDescription"/></out-parameters>
         <actions>
             <if condition="payment == null"><entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/></if>
-            <set field="typeEnum" from="payment.'PaymentMethodType#moqui.basic.Enumeration'"/>
+            <set field="typeEnum" from="payment.'PaymentInstrument#moqui.basic.Enumeration'"/>
             <set field="paymentMethod" from="payment.'mantle.account.method.PaymentMethod'"/>
             <set field="paymentDescription" from="paymentMethod?.description ? paymentMethod.description : typeEnum.description"/>
         </actions>
@@ -120,13 +148,55 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="unappliedTotal" from="paymentTotal - appliedTotal"/>
         </actions>
     </service>
+
+    <!-- ============================================ -->
+    <!-- ========== Payment Check Services ========== -->
+    <!-- ============================================ -->
+
+    <service verb="assign" noun="BankAccountCheckNumber">
+        <in-parameters><parameter name="paymentId"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
+            <if condition="!payment.paymentMethodId">
+                <return message="Payment [${paymentId}] has no From Payment Method, not assigning check number"/></if>
+            <set field="paymentMethodId" from="payment.paymentMethodId"/>
+
+            <entity-find-one entity-name="mantle.account.method.BankAccount" value-field="bankAccount" for-update="true">
+                <field-map field-name="paymentMethodId"/></entity-find-one>
+            <if condition="!bankAccount">
+                <return message="Payment Method [${payment.paymentMethodId}] (for Payment [${paymentId}]) is not a bank account, not assigning check number"/></if>
+
+            <set field="checkNumber" from="bankAccount.lastCheckNumber + 1"/>
+
+            <!-- make sure no BankAccountCheck record exists -->
+            <entity-find-one entity-name="mantle.account.method.BankAccountCheck" value-field="bankAccountCheck">
+                <field-map field-name="paymentMethodId"/><field-map field-name="checkNumber"/></entity-find-one>
+            <while condition="bankAccountCheck">
+                <set field="checkNumber" from="checkNumber + 1"/>
+                <entity-find-one entity-name="mantle.account.method.BankAccountCheck" value-field="bankAccountCheck">
+                    <field-map field-name="paymentMethodId"/><field-map field-name="checkNumber"/></entity-find-one>
+            </while>
+
+            <!-- save to bankAccount.lastCheckNumber -->
+            <set field="bankAccount.lastCheckNumber" from="checkNumber"/>
+            <entity-update value-field="bankAccount"/>
+
+            <!-- save to Payment.paymentRefNum -->
+            <set field="payment.paymentRefNum" from="checkNumber"/>
+            <entity-update value-field="payment"/>
+
+            <!-- create BankAccountCheck record -->
+            <service-call name="create#mantle.account.method.BankAccountCheck"
+                    in-map="[paymentMethodId:paymentMethodId, checkNumber:checkNumber, paymentId:paymentId]"/>
+        </actions>
+    </service>
     <service verb="get" noun="PaymentCheckInfo">
         <in-parameters><parameter name="paymentIdList" type="List" required="true"/></in-parameters>
         <out-parameters><parameter name="paymentInfoList" type="List"/></out-parameters>
         <actions>
             <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
                 <econdition field-name="paymentId" operator="in" from="paymentIdList"/>
-                <order-by field-name="paymentId"/>
+                <order-by field-name="paymentRefNum,-effectiveDate,paymentId"/>
             </entity-find>
 
             <set field="paymentInfoList" from="[]"/>
@@ -151,16 +221,35 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="toBillingContactInfo"
                         in-map="toBillingOut + [partyId:payment.toPartyId]" out-map-add-to-existing="false"/>
 
-                <entity-find entity-name="mantle.party.PartyContent" list="primarySignatureList">
-                    <econdition field-name="partyId" from="payment.fromPartyId"/>
-                    <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignaturePrimary"/>
-                </entity-find>
-                <set field="paymentSignaturePrimaryLocation" from="primarySignatureList ? primarySignatureList.first().contentLocation : null"/>
-                <entity-find entity-name="mantle.party.PartyContent" list="secondarySignatureList">
-                    <econdition field-name="partyId" from="payment.fromPartyId"/>
-                    <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignatureSecondary"/>
-                </entity-find>
-                <set field="paymentSignatureSecondaryLocation" from="secondarySignatureList ? secondarySignatureList.first().contentLocation : null"/>
+                <!-- find signatures for PaymentMethod, if applicable -->
+                <if condition="payment.paymentMethodId">
+                    <entity-find entity-name="mantle.account.method.PaymentMethodContent" list="primarySignatureList">
+                        <econdition field-name="paymentMethodId" from="payment.paymentMethodId"/>
+                        <econdition field-name="contentTypeEnumId" value="PmctSignaturePrimary"/>
+                    </entity-find>
+                    <set field="paymentSignaturePrimaryLocation" from="primarySignatureList ? primarySignatureList[0].contentLocation : null"/>
+                    <entity-find entity-name="mantle.account.method.PaymentMethodContent" list="secondarySignatureList">
+                        <econdition field-name="paymentMethodId" from="payment.paymentMethodId"/>
+                        <econdition field-name="contentTypeEnumId" value="PmctSignatureSecondary"/>
+                    </entity-find>
+                    <set field="paymentSignatureSecondaryLocation" from="secondarySignatureList ? secondarySignatureList[0].contentLocation : null"/>
+                </if>
+
+                <!-- find signatures for Party if no PaymentMethod signatures found -->
+                <if condition="!paymentSignaturePrimaryLocation">
+                    <entity-find entity-name="mantle.party.PartyContent" list="primarySignatureList">
+                        <econdition field-name="partyId" from="payment.fromPartyId"/>
+                        <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignaturePrimary"/>
+                    </entity-find>
+                    <set field="paymentSignaturePrimaryLocation" from="primarySignatureList ? primarySignatureList[0].contentLocation : null"/>
+                </if>
+                <if condition="!paymentSignatureSecondaryLocation">
+                    <entity-find entity-name="mantle.party.PartyContent" list="secondarySignatureList">
+                        <econdition field-name="partyId" from="payment.fromPartyId"/>
+                        <econdition field-name="partyContentTypeEnumId" value="PcntPaymentSignatureSecondary"/>
+                    </entity-find>
+                    <set field="paymentSignatureSecondaryLocation" from="secondarySignatureList ? secondarySignatureList[0].contentLocation : null"/>
+                </if>
 
                 <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                     <econdition field-name="paymentId"/><order-by field-name="appliedDate"/></entity-find>
@@ -263,7 +352,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
             <parameter name="statusId" default-value="PmntDelivered"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to invoice unpaid total</description></parameter>
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
             <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="paymentRefNum"/>
             <parameter name="comments"/>
@@ -626,10 +715,10 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.product.store.ProductStorePaymentGateway"
                     value-field="productStorePaymentGateway" cache="true">
                 <field-map field-name="productStoreId" from="productStoreId"/>
-                <field-map field-name="paymentMethodTypeEnumId" from="payment.paymentMethodTypeEnumId"/>
+                <field-map field-name="paymentInstrumentEnumId" from="payment.paymentInstrumentEnumId"/>
             </entity-find-one>
             <if condition="!productStorePaymentGateway?.paymentGatewayConfigId">
-                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], type [${payment.paymentMethodTypeEnumId}]"/></if>
+                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], instrument [${payment.paymentInstrumentEnumId}]"/></if>
             <service-call name="mantle.account.PaymentServices.authorize#SinglePayment" out-map="context"
                     in-map="[paymentId:payment.paymentId, cardSecurityCode:cardSecurityCode, payment:payment,
                         paymentGatewayConfigId:productStorePaymentGateway.paymentGatewayConfigId]"/>
@@ -779,7 +868,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
 
             <!-- if no auth and no payment.paymentGatewayConfigId then this shouldn't be captured (probably a payment method type with no gateway) -->
-            <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentMethodTypeEnumId -->
+            <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentInstrumentEnumId -->
             <if condition="!paymentGatewayConfigId"><return/></if>
 
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
