@@ -24,7 +24,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="paymentMethodFileId"/>
-            <parameter name="nachaText"/>
+            <parameter name="fileText"/>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
@@ -73,49 +73,47 @@ along with this software (see the LICENSE.md file). If not, see
 
             <check-errors/>
 
-            <!-- create a PaymentMethodFile record, get the paymentMethodFileId -->
+            <!-- create a PaymentMethodFile record, get the paymentMethodFileId (used in the file) -->
             <set field="fileDate" from="ec.user.nowTimestamp"/>
             <set field="fileTypeEnumId" value="PmftNacha"/>
             <service-call name="create#mantle.account.method.PaymentMethodFile" in-map="context" out-map="context"/>
 
-            <!-- TODO generate the NACHA file -->
-            <!-- TODO File Header (1) -->
-            <!-- TODO Batch Header (5) -->
+            <!-- generate the NACHA file -->
             <script><![CDATA[
-                nacha = new StringBuilder()
+                List<StringBuilder> lines = []
 
                 // File Header (1)
+                StringBuilder fileHeader = new StringBuilder(94)
                 // 01-01: Record Type Code = '1'
                 // 02-03: Priority Code = '01'
-                nacha.append("101")
+                fileHeader.append("101")
                 // 04-13: Immediate Destination (space + 9 digits as TTTTAAAAC, really whatever bank specifies)
-                nacha.append(" ").append(bankAccount.nachaImmedDest)
+                fileHeader.append(" ").append(bankAccount.nachaImmedDest)
                 // 14-23: Immediate Origin (space + 9 digits)
-                nacha.append(" ").append(bankAccount.nachaImmedOrig)
+                fileHeader.append(" ").append(bankAccount.nachaImmedOrig)
                 // 24-29: File Creation Date
-                nacha.append(ec.l10n.format(fileDate, "yyMMdd"))
+                fileHeader.append(ec.l10n.format(fileDate, "yyMMdd"))
                 // 30-33: File Creation Time
-                nacha.append(ec.l10n.format(fileDate, "HHmm"))
+                fileHeader.append(ec.l10n.format(fileDate, "HHmm"))
                 // 34-34: File ID Modifier (count of files for the day)
-                nacha.append(Character.toUpperCase(Character.forDigit((int) fileCount, 36)))
+                fileHeader.append(Character.toUpperCase(Character.forDigit((int) fileCount, 36)))
                 // 35-37: Record Size: '094'
                 // 38-39: Blocking Factor: '10'
                 // 40-40: Format Code: '1'
-                nacha.append("094101")
+                fileHeader.append("094101")
                 // 41-63: Immediate Destination Name
-                nacha.append(bankAccount.nachaImmedDestName.toUpperCase().padRight(23, ' '))
+                fileHeader.append(bankAccount.nachaImmedDestName.toUpperCase().padRight(23, ' '))
                 // 64-86: Immediate Origin Name
-                nacha.append(bankAccount.nachaImmedOrigName.toUpperCase().padRight(23, ' '))
+                fileHeader.append(bankAccount.nachaImmedOrigName.toUpperCase().padRight(23, ' '))
                 // 87-94: Reference Code, not used, just 8 spaces
-                nacha.append("        ")
-
-                // append line end and start Batch Header
-                nacha.appen('\n')
+                fileHeader.append("        ")
+                lines.add(fileHeader)
 
                 // TODO Batch Header (5)
+                StringBuilder batchHeader = new StringBuilder(94)
                 // 01-01: Record Type Code = '5'
                 // 02-04: Service Class Code = '200'
-                nacha.append("5200")
+                batchHeader.append("5200")
                 // 05-20: Company Name (16 chars)
                 // 21-40: Company discretionary data (20 chars)
                 // 41-50: Company ID
@@ -128,19 +126,52 @@ along with this software (see the LICENSE.md file). If not, see
                 // 80-87: Originating DFI Identification
                 // 88-94: Batch Number (7 chars)
 
+                lines.add(batchHeader)
+
                 // TODO Entry Detail (6) & Addenda (7)
                 for (EntityValue payment in paymentList) {
+                    StringBuilder entry = new StringBuilder()
+                    // 01-01: Record Type Code = '6'
+                    entry.append("6")
 
+                    lines.add(entry)
                 }
 
                 // TODO Batch Control (8)
+                StringBuilder batchControl = new StringBuilder()
+                // 01-01: Record Type Code = '8'
+                batchControl.append("8")
+
+                lines.add(batchControl)
+
                 // TODO File Control (9)
+                StringBuilder fileControl = new StringBuilder()
+                // 01-01: Record Type Code = '9'
+                fileControl.append("9")
+
+                lines.add(fileControl)
+
+                // if not a multiple of 10 lines add lines of all 9s until it is
+                while (lines.size() % 10 != 0) {
+                    StringBuilder sb = new StringBuilder(94)
+                    for (int i = 0; i < 94; i++) sb.append('9')
+                    lines.add(sb)
+                }
+                // combines the lines
+                StringBuilder ftSb = new StringBuilder(95 * lines.size())
+                for (StringBuilder line in lines) ftSb.append(line).append('\n')
+                // get the String value
+                fileText = ftSb.toString()
             ]]></script>
 
 
             <!-- TODO set paymentMethodFileId on all Payment records -->
             <!-- TODO for outgoing Payment (credit) update statusId to PmntDelivered -->
             <!-- TODO for incoming Payment (debit) update statusId to PmntAuthorized or PmntDelivered? -->
+
+            <!-- save full file text to PaymentMethodFile.fileText -->
+            <service-call name="update#mantle.account.method.PaymentMethodFile"
+                    in-map="[paymentMethodFileId:paymentMethodFileId, fileText:fileText]"/>
         </actions>
     </service>
 </services>
