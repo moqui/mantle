@@ -182,6 +182,8 @@ along with this software (see the LICENSE.md file). If not, see
 
                 // Entry Detail (6) & Addenda (7)
                 int entryCount = 0
+                long routingNumberSum = 0
+                BigDecimal debitAmountSum = 0, creditAmountSum = 0
                 for (EntityValue payment in paymentList) {
                     EntityValue pmtPaymentMethod = ec.entity.find("mantle.account.method.PaymentMethod")
                             .condition("paymentMethodId", payment.paymentMethodId).one()
@@ -202,6 +204,8 @@ along with this software (see the LICENSE.md file). If not, see
                     int routingCheckSum = 0
                     for (int i = 0; i < 8; i++) routingCheckSum += (Character.digit(routingNumber.charAt(i), 10)) * (Character.digit(routingWeights.charAt(i), 10))
                     char routingCheckDigit = Character.digit(10 - (routingCheckSum % 10), 10)
+                    // add first 8 digits of routingNumber to routingNumberSum
+                    routingNumberSum += (routingNumber.substring(0, 8) as long)
 
                     // check/trim the account number
                     String accountNumber = pmtBankAccount.accountNumber
@@ -216,11 +220,13 @@ along with this software (see the LICENSE.md file). If not, see
                         ec.message.addError("Amount [${payment.amount?.toPlainString()}] must be specified an have no more than 2 decimal digits on payment [${payment.paymentId}]")
                         continue
                     }
-                    String amountStr = payment.getBigDecimal("amount").movePointRight(2).longValueExact() as String
+                    String amountStr = payment.getBigDecimal("amount").abs().movePointRight(2).longValueExact() as String
                     if (amountStr.length() > 10) {
                         ec.message.addError("Amount [${payment.amount.toPlainString()}] is too big for NACHA transactions on payment [${payment.paymentId}]")
                         continue
                     }
+                    // add to debitAmountSum or creditAmountSum
+                    if (payment.amount < 0) debitAmountSum += payment.amount.abs() else creditAmountSum += payment.amount
 
                     // look up other party PartyDetail
                     String otherPartyId = payment.fromPartyId == paymentMethod.ownerPartyId ? payment.toPartyId : payment.fromPartyId
@@ -245,11 +251,8 @@ along with this software (see the LICENSE.md file). If not, see
                     // 01-01: Record Type Code = '6'
                     entry.append("6")
                     // 02-03: Transaction Code: checking/etc credit '22', debit '27'; savings credit '32', debit '37'
-                    if (pmtBankAccount.typeEnumId == 'BatSavings') {
-                        entry.append(payment.amount < 0 ? "37" : "32")
-                    } else {
-                        entry.append(payment.amount < 0 ? "27" : "22")
-                    }
+                    if (pmtBankAccount.typeEnumId == 'BatSavings') { entry.append(payment.amount < 0 ? "37" : "32") }
+                    else { entry.append(payment.amount < 0 ? "27" : "22") }
                     // 04-11: Receiving DFI R/T number (8 digits)
                     //     First eight digits of routing/transit number of receiving financial depository institution (RDFI)
                     //     where the transaction is to be posted. The first digit should be 0, 1, 2, or 3. An R/T number
@@ -278,10 +281,35 @@ along with this software (see the LICENSE.md file). If not, see
                     // FUTURE: Addenda (7) with ANSI ASC X12.4, X12.85, or other data
                 }
 
-                // TODO Batch Control (8)
+                // Batch Control (8)
                 StringBuilder batchControl = new StringBuilder()
                 // 01-01: Record Type Code = '8'
-                batchControl.append("8")
+                // 02-04: Service class code (same as batch header) = '200'
+                batchControl.append("8200")
+                // 05-10: Entry/addenda count (6 chars, zero left padded)
+                batchControl.append((entryCount as String).padLeft(6, '0'))
+                // 11-20: Entry hash (10 chars); sum of the 8-digit receiving DFI routing/transit numbers in entry
+                //     detail records; zero left padded, if too long trim from left
+                String routingNumberSumStr = routingNumberSum as String
+                if (routingNumberSumStr.length() > 10)
+                    routingNumberSumStr = routingNumberSumStr.substring(routingNumberSumStr.length() - 10, routingNumberSumStr.length())
+                batchControl.append(routingNumberSumStr.padLeft(10, '0'))
+                // 21-32: Total batch debit entry dollar amount (12 digits, std number format pattern)
+                String debitAmountSumStr = debitAmountSum.movePointRight(2).longValueExact() as String
+                batchControl.append(debitAmountSumStr.padLeft(12, '0'))
+                // 33-44: Total batch credit entry dollar amount (12 digits, std number format pattern)
+                String creditAmountSumStr = creditAmountSum.movePointRight(2).longValueExact() as String
+                batchControl.append(creditAmountSumStr.padLeft(12, '0'))
+                // 45-54: Company ID (same as in Batch Header)
+                batchControl.append(bankAccount.nachaCompanyId.toUpperCase().padRight(10, ' '))
+                // 55-73: Message authentication code (leave blank, 19 spaces)
+                batchControl.append(" ".padRight(19, ' '))
+                // 74-79: Reserverd blank (leave blank, 6 spaces)
+                batchControl.append(" ".padRight(6, ' '))
+                // 80-87: Originating DFI ID; first 8 chars from Immediate Destination
+                batchControl.append(bankAccount.nachaImmedDest.substring(0, 8))
+                // 88-94: Batch Number (7 chars); same as Batch Header; always "0000001" since we're doing one batch per file
+                batchControl.append("0000001")
 
                 lines.add(batchControl)
 
@@ -306,7 +334,7 @@ along with this software (see the LICENSE.md file). If not, see
                 }
                 // get the String value
                 fileText = ftSb.toString()
-                ]]></script>
+            ]]></script>
 
 
             <!-- TODO set paymentMethodFileId on all Payment records -->
