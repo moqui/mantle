@@ -108,6 +108,7 @@ along with this software (see the LICENSE.md file). If not, see
                     entryCal.add(Calendar.DAY_OF_MONTH, 1)
                 }
                 // FUTURE: check for holiday (observed bank holiday) and increment accordingly
+                effectiveEntryDate = entryCal
             ]]></script></if>
 
             <check-errors/>
@@ -120,6 +121,10 @@ along with this software (see the LICENSE.md file). If not, see
                 import org.moqui.context.ExecutionContext
                 import org.moqui.entity.EntityValue
                 ExecutionContext ec = context.ec
+
+                // Handy output checking lines, paste below to line up output
+                // 0        10        20        30        40        50        60        70        80        90
+                // 123456789+123456789+123456789+123456789+123456789+123456789+123456789+123456789+123456789+1234
 
                 List<StringBuilder> lines = []
 
@@ -165,8 +170,8 @@ along with this software (see the LICENSE.md file). If not, see
                 batchHeader.append("PPD")
                 // 54-63: Company Entry Description (for receiver's bank account, 10 chars)
                 batchHeader.append(nachaEntryDescription.toUpperCase().padRight(10, ' '))
-                // 64-69: Company Descriptive Date (6 chars)
-                batchHeader.append(ec.l10n.format(fileDate, "MMM dd")).append(" ")
+                // 64-69: Company Descriptive Date (6 chars); note that this is informational and optional
+                batchHeader.append(ec.l10n.format(fileDate, "MMM dd").toUpperCase())
                 // 70-75: Effective Entry Date (estimated settlement date, 1 business day later; 6 chars at yyMMdd)
                 batchHeader.append(ec.l10n.format(effectiveEntryDate, "yyMMdd"))
                 // 76-78: Settlement Date (leave blank, 3 spaces)
@@ -185,6 +190,9 @@ along with this software (see the LICENSE.md file). If not, see
                 long routingNumberSum = 0
                 BigDecimal debitAmountSum = 0, creditAmountSum = 0
                 for (EntityValue payment in paymentList) {
+                    boolean outgoing = payment.fromPartyId == paymentMethod.ownerPartyId
+
+                    // TODO: use toPaymentMethodId if outgoing
                     EntityValue pmtPaymentMethod = ec.entity.find("mantle.account.method.PaymentMethod")
                             .condition("paymentMethodId", payment.paymentMethodId).one()
                     EntityValue pmtBankAccount = ec.entity.find("mantle.account.method.BankAccount")
@@ -220,13 +228,13 @@ along with this software (see the LICENSE.md file). If not, see
                         ec.message.addError("Amount [${payment.amount?.toPlainString()}] must be specified an have no more than 2 decimal digits on payment [${payment.paymentId}]")
                         continue
                     }
-                    String amountStr = payment.getBigDecimal("amount").abs().movePointRight(2).longValueExact() as String
+                    String amountStr = payment.getBigDecimal("amount").movePointRight(2).longValueExact() as String
                     if (amountStr.length() > 10) {
                         ec.message.addError("Amount [${payment.amount.toPlainString()}] is too big for NACHA transactions on payment [${payment.paymentId}]")
                         continue
                     }
                     // add to debitAmountSum or creditAmountSum
-                    if (payment.amount < 0) debitAmountSum += payment.amount.abs() else creditAmountSum += payment.amount
+                    if (outgoing) creditAmountSum += payment.amount else debitAmountSum += payment.amount
 
                     // look up other party PartyDetail
                     String otherPartyId = payment.fromPartyId == paymentMethod.ownerPartyId ? payment.toPartyId : payment.fromPartyId
@@ -252,8 +260,8 @@ along with this software (see the LICENSE.md file). If not, see
                     // 01-01: Record Type Code = '6'
                     entry.append("6")
                     // 02-03: Transaction Code: checking/etc credit '22', debit '27'; savings credit '32', debit '37'
-                    if (pmtBankAccount.typeEnumId == 'BatSavings') { entry.append(payment.amount < 0 ? "37" : "32") }
-                    else { entry.append(payment.amount < 0 ? "27" : "22") }
+                    if (pmtBankAccount.typeEnumId == 'BatSavings') { entry.append(outgoing ? "32" : "37") }
+                    else { entry.append(outgoing ? "22" : "27") }
                     // 04-11: Receiving DFI R/T number (8 digits)
                     //     First eight digits of routing/transit number of receiving financial depository institution (RDFI)
                     //     where the transaction is to be posted. The first digit should be 0, 1, 2, or 3. An R/T number
@@ -352,7 +360,6 @@ along with this software (see the LICENSE.md file). If not, see
                 // get the String value
                 fileText = ftSb.toString()
             ]]></script>
-
 
             <!-- TODO set paymentMethodFileId on all Payment records -->
             <!-- TODO for outgoing Payment (credit) update statusId to PmntDelivered -->
