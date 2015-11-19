@@ -21,6 +21,13 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="fromDate" type="Timestamp"><description>If null no limit on look back</description></parameter>
             <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp">
                 <description>If null look through now</description></parameter>
+            <parameter name="fileDate" type="Timestamp" default="ec.user.nowTimestamp"><description>The date/time used
+                in various fields and set on PaymentMethodFile.fileDate</description></parameter>
+            <parameter name="effectiveEntryDate" type="Date"><description>Transaction settle/post date, should be at
+                least one business day in the future and should not be a weekend day or bank holiday. If not specified
+                the next week day after fileDate is used.</description></parameter>
+            <parameter name="nachaEntryDescription"><description>Overrides BankAccount.nachaEntryDescription</description></parameter>
+            <parameter name="fileTypeEnumId" default-value="PmftNacha"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentMethodFileId"/>
@@ -60,6 +67,8 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="fileCount &gt; 35"><message error="true">More than 35 files not allowed in one day (payment method [${paymentMethodId}]), found ${fileCount}</message></if>
 
             <!-- set/check some configuration values -->
+
+            <!-- File Header fields -->
             <if condition="!bankAccount.nachaImmedDest || bankAccount.nachaImmedDest.length() != 9">
                 <message error="true">NACHA Immediate Destination field (${bankAccount.nachaImmedDest}) on Bank Account must be 9 characters</message></if>
             <if condition="!bankAccount.nachaImmedOrig || bankAccount.nachaImmedOrig.length() != 9">
@@ -71,11 +80,38 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!nachaImmedOrigName || nachaImmedOrigName.length() &gt; 23">
                 <message error="true">NACHA Immediate Origin Name field (${nachaImmedOrigName}) on Bank Account must be specified and not more than 23 characters</message></if>
 
+            <!-- Batch Header fields -->
+            <set field="nachaCompanyName" from="bankAccount.nachaCompanyName"/>
+            <if condition="!nachaCompanyName">
+                <set field="nachaCompanyName" from="paymentMethod.companyNameOnAccount"/>
+                <if condition="nachaCompanyName?.length() > 16"><set field="nachaCompanyName" from="nachaCompanyName.substring(0, 16)"/></if>
+            </if>
+            <if condition="!nachaCompanyName || nachaCompanyName.length() &gt; 16">
+                <message error="true">NACHA Company Name field (${nachaCompanyName}) on Bank Account must be specified and not more than 16 characters</message></if>
+            <set field="nachaDiscrData" from="bankAccount.nachaDiscrData ?: ''"/>
+            <if condition="nachaDiscrData.length() &gt; 20">
+                <message error="true">NACHA Discretionary Data field (${nachaDiscrData}) on Bank Account must not be more than 20 characters</message></if>
+            <if condition="!bankAccount.nachaCompanyId || bankAccount.nachaCompanyId.length() &gt; 10">
+                <message error="true">NACHA Company ID field (${bankAccount.nachaCompanyId}) on Bank Account must be specified and not more than 10 characters</message></if>
+            <set field="nachaEntryDescription" from="nachaEntryDescription ?: bankAccount.nachaEntryDescription"/>
+            <if condition="!nachaEntryDescription || nachaEntryDescription.length() &gt; 10">
+                <message error="true">NACHA Entry Description field (${nachaEntryDescription}) on Bank Account or service parameter must be specified and not more than 10 characters</message></if>
+
+            <if condition="!effectiveEntryDate"><script><![CDATA[
+                Calendar entryCal = ec.user.nowCalendar
+                entryCal.setTime(fileDate)
+                entryCal.add(Calendar.DAY_OF_MONTH, 1)
+                if (entryCal.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY) {
+                    entryCal.add(Calendar.DAY_OF_MONTH, 2)
+                } else if (entryCal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+                    entryCal.add(Calendar.DAY_OF_MONTH, 1)
+                }
+                // FUTURE: check for holiday (observed bank holiday) and increment accordingly
+            ]]></script></if>
+
             <check-errors/>
 
             <!-- create a PaymentMethodFile record, get the paymentMethodFileId (used in the file) -->
-            <set field="fileDate" from="ec.user.nowTimestamp"/>
-            <set field="fileTypeEnumId" value="PmftNacha"/>
             <service-call name="create#mantle.account.method.PaymentMethodFile" in-map="context" out-map="context"/>
 
             <!-- generate the NACHA file -->
@@ -106,35 +142,49 @@ along with this software (see the LICENSE.md file). If not, see
                 // 64-86: Immediate Origin Name
                 fileHeader.append(nachaImmedOrigName.toUpperCase().padRight(23, ' '))
                 // 87-94: Reference Code, not used, just 8 spaces
-                fileHeader.append("        ")
+                fileHeader.append(" ").padRight(8, ' ')
                 lines.add(fileHeader)
 
-                // TODO Batch Header (5)
+                // Batch Header (5)
                 StringBuilder batchHeader = new StringBuilder(94)
                 // 01-01: Record Type Code = '5'
                 // 02-04: Service Class Code = '200'
                 batchHeader.append("5200")
                 // 05-20: Company Name (16 chars)
+                batchHeader.append(nachaCompanyName.toUpperCase().padRight(16, ' '))
                 // 21-40: Company discretionary data (20 chars)
+                batchHeader.append(nachaDiscrData.toUpperCase().padRight(20, ' '))
                 // 41-50: Company ID
-                // 51-53: Standard Entry Class Code
-                // 54-63: Company Entry Description (for receiver's bank account)
-                // 64-69: Company Descriptive Date
-                // 70-75: Effective Entry Date
-                // 76-78: Settlement Date (Julian Cal)
+                batchHeader.append(bankAccount.nachaCompanyId.toUpperCase().padRight(10, ' '))
+                // 51-53: Standard Entry Class Code: always use PPD (Prearranged Payment and Deposit) for now, future consider support for CCD, TEL, WEB, etc
+                batchHeader.append("PPD")
+                // 54-63: Company Entry Description (for receiver's bank account, 10 chars)
+                batchHeader.append(nachaEntryDescription.toUpperCase().padRight(10, ' '))
+                // 64-69: Company Descriptive Date (6 chars)
+                batchHeader.append(ec.l10n.format(fileDate, "MMM dd")).append(" ")
+                // 70-75: Effective Entry Date (estimated settlement date, 1 business day later; 6 chars at yyMMdd)
+                batchHeader.append(ec.l10n.format(effectiveEntryDate, "yyMMdd"))
+                // 76-78: Settlement Date (leave blank, 3 spaces)
+                batchHeader.append(" ").padRight(3, ' ')
                 // 79-79: Originator Status Code = '1'
-                // 80-87: Originating DFI Identification
-                // 88-94: Batch Number (7 chars)
+                batchHeader.append("1")
+                // 80-87: Originating DFI Identification; same as Immediate Destination, last character trimmed for 8 chars
+                batchHeader.append(" ").append(bankAccount.nachaImmedDest.substring(0, 8))
+                // 88-94: Batch Number (7 chars); always "0000001" since we're doing one batch per file, future: for multiple batches increment this per batch header
+                batchHeader.append("0000001")
 
                 lines.add(batchHeader)
 
-                // TODO Entry Detail (6) & Addenda (7)
+                // Entry Detail (6) & Addenda (7)
                 for (EntityValue payment in paymentList) {
+                    // TODO Entry Detail (6)
                     StringBuilder entry = new StringBuilder()
                     // 01-01: Record Type Code = '6'
                     entry.append("6")
 
                     lines.add(entry)
+
+                    // FUTURE: Addenda (7) with ANSI ASC X12.4, X12.85, or other data
                 }
 
                 // TODO Batch Control (8)
@@ -159,7 +209,10 @@ along with this software (see the LICENSE.md file). If not, see
                 }
                 // combines the lines
                 StringBuilder ftSb = new StringBuilder(95 * lines.size())
-                for (StringBuilder line in lines) ftSb.append(line).append('\n')
+                for (StringBuilder line in lines) {
+                    if (line.length() != 94) ec.message.addError("Generated line does not have exactly 94 chars: ${line}")
+                    ftSb.append(line).append('\n')
+                }
                 // get the String value
                 fileText = ftSb.toString()
             ]]></script>
