@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -116,6 +117,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- generate the NACHA file -->
             <script><![CDATA[
+                import org.moqui.context.ExecutionContext
+                import org.moqui.entity.EntityValue
+                ExecutionContext ec = context.ec
+
                 List<StringBuilder> lines = []
 
                 // File Header (1)
@@ -142,7 +147,7 @@ along with this software (see the LICENSE.md file). If not, see
                 // 64-86: Immediate Origin Name
                 fileHeader.append(nachaImmedOrigName.toUpperCase().padRight(23, ' '))
                 // 87-94: Reference Code, not used, just 8 spaces
-                fileHeader.append(" ").padRight(8, ' ')
+                fileHeader.append(" ".padRight(8, ' '))
                 lines.add(fileHeader)
 
                 // Batch Header (5)
@@ -165,22 +170,108 @@ along with this software (see the LICENSE.md file). If not, see
                 // 70-75: Effective Entry Date (estimated settlement date, 1 business day later; 6 chars at yyMMdd)
                 batchHeader.append(ec.l10n.format(effectiveEntryDate, "yyMMdd"))
                 // 76-78: Settlement Date (leave blank, 3 spaces)
-                batchHeader.append(" ").padRight(3, ' ')
+                batchHeader.append(" ".padRight(3, ' '))
                 // 79-79: Originator Status Code = '1'
                 batchHeader.append("1")
                 // 80-87: Originating DFI Identification; same as Immediate Destination, last character trimmed for 8 chars
-                batchHeader.append(" ").append(bankAccount.nachaImmedDest.substring(0, 8))
+                batchHeader.append(bankAccount.nachaImmedDest.substring(0, 8))
                 // 88-94: Batch Number (7 chars); always "0000001" since we're doing one batch per file, future: for multiple batches increment this per batch header
                 batchHeader.append("0000001")
 
                 lines.add(batchHeader)
 
                 // Entry Detail (6) & Addenda (7)
+                int entryCount = 0
                 for (EntityValue payment in paymentList) {
-                    // TODO Entry Detail (6)
+                    EntityValue pmtPaymentMethod = ec.entity.find("mantle.account.method.PaymentMethod")
+                            .condition("paymentMethodId", payment.paymentMethodId).one()
+                    EntityValue pmtBankAccount = ec.entity.find("mantle.account.method.BankAccount")
+                            .condition("paymentMethodId", payment.paymentMethodId).one()
+                    if (pmtBankAccount == null) {
+                        ec.message.addError("No Bank Account for payment method [${payment.paymentMethodId}] on payment [${payment.paymentId}]")
+                        continue
+                    }
+                    // check the routing number
+                    String routingNumber = pmtBankAccount.routingNumber
+                    if (!routingNumber || routingNumber.length() != 9) {
+                        ec.message.addError("Routing Number is not 9 characters on Bank Account for payment method [${payment.paymentMethodId}] on payment [${payment.paymentId}]")
+                        continue
+                    }
+                    // calculate routing number check digit
+                    String routingWeights = "37137137"
+                    int routingCheckSum = 0
+                    for (int i = 0; i < 8; i++) routingCheckSum += (Character.digit(routingNumber.charAt(i), 10)) * (Character.digit(routingWeights.charAt(i), 10))
+                    char routingCheckDigit = Character.digit(10 - (routingCheckSum % 10), 10)
+
+                    // check/trim the account number
+                    String accountNumber = pmtBankAccount.accountNumber
+                    if (!accountNumber) {
+                        ec.message.addError("Account Number is missing on Bank Account for payment method [${payment.paymentMethodId}] on payment [${payment.paymentId}]")
+                        continue
+                    }
+                    if (accountNumber.length() > 17) accountNumber = accountNumber.substring(0, 17)
+
+                    // check/format payment amount
+                    if (!payment.amount || payment.amount.scale() > 2) {
+                        ec.message.addError("Amount [${payment.amount?.toPlainString()}] must be specified an have no more than 2 decimal digits on payment [${payment.paymentId}]")
+                        continue
+                    }
+                    String amountStr = payment.getBigDecimal("amount").movePointRight(2).longValueExact() as String
+                    if (amountStr.length() > 10) {
+                        ec.message.addError("Amount [${payment.amount.toPlainString()}] is too big for NACHA transactions on payment [${payment.paymentId}]")
+                        continue
+                    }
+
+                    // look up other party PartyDetail
+                    String otherPartyId = payment.fromPartyId == paymentMethod.ownerPartyId ? payment.toPartyId : payment.fromPartyId
+                    EntityValue otherParty = ec.entity.find("mantle.party.PartyDetail").condition("partyId", otherPartyId).one()
+
+                    // get Individual/Company ID from pseudoId
+                    String individualId = otherParty.pseudoId
+                    if (individualId.length() > 15) individualId = individualId.substring(0, 15)
+
+                    // get Individual/Company Name
+                    String indName = pmtPaymentMethod.firstNameOnAccount ?
+                            pmtPaymentMethod.firstNameOnAccount + " " + pmtPaymentMethod.lastNameOnAccount :
+                            pmtPaymentMethod.companyNameOnAccount
+                    if (!indName) indName = otherParty.firstName ? otherParty.firstName + " " + otherParty.lastName : otherParty.organizationName
+                    if (indName.length() > 22) indName = indName.substring(0, 22)
+
+                    // done with validation/prep, increment entryCount and create the record
+                    entryCount++
+
+                    // Entry Detail (6)
                     StringBuilder entry = new StringBuilder()
                     // 01-01: Record Type Code = '6'
                     entry.append("6")
+                    // 02-03: Transaction Code: checking/etc credit '22', debit '27'; savings credit '32', debit '37'
+                    if (pmtBankAccount.typeEnumId == 'BatSavings') {
+                        entry.append(payment.amount < 0 ? "37" : "32")
+                    } else {
+                        entry.append(payment.amount < 0 ? "27" : "22")
+                    }
+                    // 04-11: Receiving DFI R/T number (8 digits)
+                    //     First eight digits of routing/transit number of receiving financial depository institution (RDFI)
+                    //     where the transaction is to be posted. The first digit should be 0, 1, 2, or 3. An R/T number
+                    //     starting with 4-9 is usually not valid.
+                    entry.append(routingNumber.substring(0, 8))
+                    // 12-12: R/T number check digit
+                    entry.append(routingCheckDigit)
+                    // 13-29: Receiving DFI account number (last 17 digits, right space padded)
+                    entry.append(accountNumber.padRight(17, ' '))
+                    // 30-39: Amount (10 digits, no decimal point, last 2 digits are decimal values, left pad with 0)
+                    entry.append(amountStr.padLeft(10, '0'))
+                    // 40-54: Individual or Company ID for company (15 chars), use Party.pseudoId
+                    entry.append(individualId.toUpperCase().padRight(15, ' '))
+                    // 55-76: Individual or Company Name (22 chars)
+                    entry.append(indName.toUpperCase().padRight(22, ' '))
+                    // 77-78: Discretionary Data (2 chars); leave blank for now, for WEB or other special transactions may need a value
+                    entry.append("  ")
+                    // 79-79: Addenda record indicator, always '0' since not using Addenda (7) records (would be '1' if there is one or more addenda records)
+                    entry.append("0")
+                    // 80-94: Trace number (15 chars); first 8 chars from Immediate Destination, plus index (entryCount zero left padded to 7 chars)
+                    entry.append(bankAccount.nachaImmedDest.substring(0, 8))
+                    entry.append((entryCount as String).padLeft(7, '0'))
 
                     lines.add(entry)
 
@@ -215,7 +306,7 @@ along with this software (see the LICENSE.md file). If not, see
                 }
                 // get the String value
                 fileText = ftSb.toString()
-            ]]></script>
+                ]]></script>
 
 
             <!-- TODO set paymentMethodFileId on all Payment records -->
