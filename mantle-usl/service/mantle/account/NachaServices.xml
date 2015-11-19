@@ -176,7 +176,7 @@ along with this software (see the LICENSE.md file). If not, see
                 // 80-87: Originating DFI Identification; same as Immediate Destination, last character trimmed for 8 chars
                 batchHeader.append(bankAccount.nachaImmedDest.substring(0, 8))
                 // 88-94: Batch Number (7 chars); always "0000001" since we're doing one batch per file, future: for multiple batches increment this per batch header
-                batchHeader.append("0000001")
+                batchHeader.append("1".padLeft(7, '0'))
 
                 lines.add(batchHeader)
 
@@ -241,6 +241,7 @@ along with this software (see the LICENSE.md file). If not, see
                             pmtPaymentMethod.firstNameOnAccount + " " + pmtPaymentMethod.lastNameOnAccount :
                             pmtPaymentMethod.companyNameOnAccount
                     if (!indName) indName = otherParty.firstName ? otherParty.firstName + " " + otherParty.lastName : otherParty.organizationName
+                    // TODO: better way to truncate names?
                     if (indName.length() > 22) indName = indName.substring(0, 22)
 
                     // done with validation/prep, increment entryCount and create the record
@@ -281,6 +282,13 @@ along with this software (see the LICENSE.md file). If not, see
                     // FUTURE: Addenda (7) with ANSI ASC X12.4, X12.85, or other data
                 }
 
+                String routingNumberSumStr = routingNumberSum as String
+                if (routingNumberSumStr.length() > 10)
+                    routingNumberSumStr = routingNumberSumStr.substring(routingNumberSumStr.length() - 10, routingNumberSumStr.length())
+
+                String debitAmountSumStr = debitAmountSum.movePointRight(2).longValueExact() as String
+                String creditAmountSumStr = creditAmountSum.movePointRight(2).longValueExact() as String
+
                 // Batch Control (8)
                 StringBuilder batchControl = new StringBuilder()
                 // 01-01: Record Type Code = '8'
@@ -290,15 +298,10 @@ along with this software (see the LICENSE.md file). If not, see
                 batchControl.append((entryCount as String).padLeft(6, '0'))
                 // 11-20: Entry hash (10 chars); sum of the 8-digit receiving DFI routing/transit numbers in entry
                 //     detail records; zero left padded, if too long trim from left
-                String routingNumberSumStr = routingNumberSum as String
-                if (routingNumberSumStr.length() > 10)
-                    routingNumberSumStr = routingNumberSumStr.substring(routingNumberSumStr.length() - 10, routingNumberSumStr.length())
                 batchControl.append(routingNumberSumStr.padLeft(10, '0'))
                 // 21-32: Total batch debit entry dollar amount (12 digits, std number format pattern)
-                String debitAmountSumStr = debitAmountSum.movePointRight(2).longValueExact() as String
                 batchControl.append(debitAmountSumStr.padLeft(12, '0'))
                 // 33-44: Total batch credit entry dollar amount (12 digits, std number format pattern)
-                String creditAmountSumStr = creditAmountSum.movePointRight(2).longValueExact() as String
                 batchControl.append(creditAmountSumStr.padLeft(12, '0'))
                 // 45-54: Company ID (same as in Batch Header)
                 batchControl.append(bankAccount.nachaCompanyId.toUpperCase().padRight(10, ' '))
@@ -309,14 +312,28 @@ along with this software (see the LICENSE.md file). If not, see
                 // 80-87: Originating DFI ID; first 8 chars from Immediate Destination
                 batchControl.append(bankAccount.nachaImmedDest.substring(0, 8))
                 // 88-94: Batch Number (7 chars); same as Batch Header; always "0000001" since we're doing one batch per file
-                batchControl.append("0000001")
+                batchControl.append("1".padLeft(7, '0'))
 
                 lines.add(batchControl)
 
-                // TODO File Control (9)
+                // File Control (9)
                 StringBuilder fileControl = new StringBuilder()
                 // 01-01: Record Type Code = '9'
                 fileControl.append("9")
+                // 02-07: Batch count (6 chars)
+                fileControl.append("1".padLeft(6, '0'))
+                // 08-13: Block count (6 chars); count of 10-line blocks (entries plus 2 header and 2 control records, divide by 10, round up)
+                fileControl.append(((entryCount + 4) / 10).setScale(0, BigDecimal.ROUND_UP).toPlainString().padLeft(6, '0'))
+                // 14-21: Entry/addenda record count (8 chars)
+                fileControl.append((entryCount as String).padLeft(8, '0'))
+                // 22-31: Entry hash total (10 chars); since we have 1 batch same as value in Batch Control
+                fileControl.append(routingNumberSumStr.padLeft(10, '0'))
+                // 32-43: Total file debit entry amount (12 digits)
+                fileControl.append(debitAmountSumStr.padLeft(12, '0'))
+                // 44-55: Total file credit entry amount (12 digits)
+                fileControl.append(creditAmountSumStr.padLeft(12, '0'))
+                // 56-94: Filler (39 spaces)
+                fileControl.append(" ".padRight(39, ' '))
 
                 lines.add(fileControl)
 
@@ -341,9 +358,10 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- TODO for outgoing Payment (credit) update statusId to PmntDelivered -->
             <!-- TODO for incoming Payment (debit) update statusId to PmntAuthorized or PmntDelivered? -->
 
-            <!-- save full file text to PaymentMethodFile.fileText -->
+            <!-- save full file text, etc to PaymentMethodFile -->
             <service-call name="update#mantle.account.method.PaymentMethodFile"
-                    in-map="[paymentMethodFileId:paymentMethodFileId, fileText:fileText]"/>
+                    in-map="[paymentMethodFileId:paymentMethodFileId, entryCount:entryCount,
+                        debitAmountSum:debitAmountSum, creditAmountSum:creditAmountSum, fileText:fileText]"/>
         </actions>
     </service>
 </services>
