@@ -45,10 +45,12 @@ along with this software (see the LICENSE.md file). If not, see
                     <econditions combine="and">
                         <econdition field-name="fromPartyId" from="paymentMethod.ownerPartyId"/>
                         <econdition field-name="statusId" value="PmntAuthorized"/>
+                        <econdition field-name="paymentMethodId"/>
                     </econditions>
                     <econditions combine="and">
                         <econdition field-name="toPartyId" from="paymentMethod.ownerPartyId"/>
                         <econdition field-name="statusId" value="PmntPromised"/>
+                        <econdition field-name="toPaymentMethodId" from="paymentMethodId"/>
                     </econditions>
                 </econditions>
                 <econdition field-name="paymentInstrumentEnumId" value="PiAch"/>
@@ -192,19 +194,20 @@ along with this software (see the LICENSE.md file). If not, see
                 for (EntityValue payment in paymentList) {
                     boolean outgoing = payment.fromPartyId == paymentMethod.ownerPartyId
 
-                    // TODO: use toPaymentMethodId if outgoing
+                    // Get PaymentMethod and BankAccount; use toPaymentMethodId if outgoing
+                    String pmtPaymentMethodId = outgoing ? payment.toPaymentMethodId : payment.paymentMethodId
                     EntityValue pmtPaymentMethod = ec.entity.find("mantle.account.method.PaymentMethod")
-                            .condition("paymentMethodId", payment.paymentMethodId).one()
+                            .condition("paymentMethodId", pmtPaymentMethodId).one()
                     EntityValue pmtBankAccount = ec.entity.find("mantle.account.method.BankAccount")
-                            .condition("paymentMethodId", payment.paymentMethodId).one()
+                            .condition("paymentMethodId", pmtPaymentMethodId).one()
                     if (pmtBankAccount == null) {
-                        ec.message.addError("No Bank Account for payment method [${payment.paymentMethodId}] on payment [${payment.paymentId}]")
+                        ec.message.addError("No Bank Account for payment method [${pmtPaymentMethodId}] on payment [${payment.paymentId}]")
                         continue
                     }
                     // check the routing number
                     String routingNumber = pmtBankAccount.routingNumber
                     if (!routingNumber || routingNumber.length() != 9) {
-                        ec.message.addError("Routing Number is not 9 characters on Bank Account for payment method [${payment.paymentMethodId}] on payment [${payment.paymentId}]")
+                        ec.message.addError("Routing Number is not 9 characters on Bank Account for payment method [${pmtPaymentMethodId}] on payment [${payment.paymentId}]")
                         continue
                     }
                     // calculate routing number check digit
@@ -218,7 +221,7 @@ along with this software (see the LICENSE.md file). If not, see
                     // check/trim the account number
                     String accountNumber = pmtBankAccount.accountNumber
                     if (!accountNumber) {
-                        ec.message.addError("Account Number is missing on Bank Account for payment method [${payment.paymentMethodId}] on payment [${payment.paymentId}]")
+                        ec.message.addError("Account Number is missing on Bank Account for payment method [${pmtPaymentMethodId}] on payment [${payment.paymentId}]")
                         continue
                     }
                     if (accountNumber.length() > 17) accountNumber = accountNumber.substring(0, 17)
@@ -360,6 +363,8 @@ along with this software (see the LICENSE.md file). If not, see
                 // get the String value
                 fileText = ftSb.toString()
             ]]></script>
+
+            <check-errors/>
 
             <!-- TODO set paymentMethodFileId on all Payment records -->
             <!-- TODO for outgoing Payment (credit) update statusId to PmntDelivered -->
