@@ -192,7 +192,7 @@ along with this software (see the LICENSE.md file). If not, see
                 // Entry Detail (6) & Addenda (7)
                 int entryCount = 0
                 long routingNumberSum = 0
-                BigDecimal debitAmountSum = 0, creditAmountSum = 0
+                BigDecimal debitAmountTotal = 0, creditAmountTotal = 0
                 for (EntityValue payment in paymentList) {
                     boolean outgoing = payment.fromPartyId == paymentMethod.ownerPartyId
 
@@ -216,7 +216,7 @@ along with this software (see the LICENSE.md file). If not, see
                     String routingWeights = "37137137"
                     int routingCheckSum = 0
                     for (int i = 0; i < 8; i++) routingCheckSum += (Character.digit(routingNumber.charAt(i), 10)) * (Character.digit(routingWeights.charAt(i), 10))
-                    char routingCheckDigit = Character.digit(10 - (routingCheckSum % 10), 10)
+                    String routingCheckDigit = (10 - (routingCheckSum % 10)) as String
                     // add first 8 digits of routingNumber to routingNumberSum
                     routingNumberSum += (routingNumber.substring(0, 8) as long)
 
@@ -238,8 +238,8 @@ along with this software (see the LICENSE.md file). If not, see
                         ec.message.addError("Amount [${payment.amount.toPlainString()}] is too big for NACHA transactions on payment [${payment.paymentId}]")
                         continue
                     }
-                    // add to debitAmountSum or creditAmountSum
-                    if (outgoing) creditAmountSum += payment.amount else debitAmountSum += payment.amount
+                    // add to debitAmountTotal or creditAmountTotal
+                    if (outgoing) creditAmountTotal += payment.amount else debitAmountTotal += payment.amount
 
                     // look up other party PartyDetail
                     String otherPartyId = payment.fromPartyId == paymentMethod.ownerPartyId ? payment.toPartyId : payment.fromPartyId
@@ -299,8 +299,8 @@ along with this software (see the LICENSE.md file). If not, see
                 if (routingNumberSumStr.length() > 10)
                     routingNumberSumStr = routingNumberSumStr.substring(routingNumberSumStr.length() - 10, routingNumberSumStr.length())
 
-                String debitAmountSumStr = debitAmountSum.movePointRight(2).longValueExact() as String
-                String creditAmountSumStr = creditAmountSum.movePointRight(2).longValueExact() as String
+                String debitAmountTotalStr = debitAmountTotal.movePointRight(2).longValueExact() as String
+                String creditAmountTotalStr = creditAmountTotal.movePointRight(2).longValueExact() as String
 
                 // Batch Control (8)
                 StringBuilder batchControl = new StringBuilder()
@@ -313,9 +313,9 @@ along with this software (see the LICENSE.md file). If not, see
                 //     detail records; zero left padded, if too long trim from left
                 batchControl.append(routingNumberSumStr.padLeft(10, '0'))
                 // 21-32: Total batch debit entry dollar amount (12 digits, std number format pattern)
-                batchControl.append(debitAmountSumStr.padLeft(12, '0'))
+                batchControl.append(debitAmountTotalStr.padLeft(12, '0'))
                 // 33-44: Total batch credit entry dollar amount (12 digits, std number format pattern)
-                batchControl.append(creditAmountSumStr.padLeft(12, '0'))
+                batchControl.append(creditAmountTotalStr.padLeft(12, '0'))
                 // 45-54: Company ID (same as in Batch Header)
                 batchControl.append(bankAccount.nachaCompanyId.toUpperCase().padRight(10, ' '))
                 // 55-73: Message authentication code (leave blank, 19 spaces)
@@ -342,9 +342,9 @@ along with this software (see the LICENSE.md file). If not, see
                 // 22-31: Entry hash total (10 chars); since we have 1 batch same as value in Batch Control
                 fileControl.append(routingNumberSumStr.padLeft(10, '0'))
                 // 32-43: Total file debit entry amount (12 digits)
-                fileControl.append(debitAmountSumStr.padLeft(12, '0'))
+                fileControl.append(debitAmountTotalStr.padLeft(12, '0'))
                 // 44-55: Total file credit entry amount (12 digits)
-                fileControl.append(creditAmountSumStr.padLeft(12, '0'))
+                fileControl.append(creditAmountTotalStr.padLeft(12, '0'))
                 // 56-94: Filler (39 spaces)
                 fileControl.append(" ".padRight(39, ' '))
 
@@ -375,7 +375,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- save full file text, etc to PaymentMethodFile -->
             <service-call name="update#mantle.account.method.PaymentMethodFile"
                     in-map="[paymentMethodFileId:paymentMethodFileId, entryCount:entryCount,
-                        debitAmountSum:debitAmountSum, creditAmountSum:creditAmountSum, fileText:fileText]"/>
+                        debitAmountTotal:debitAmountTotal, creditAmountTotal:creditAmountTotal, fileText:fileText]"/>
         </actions>
     </service>
 </services>
