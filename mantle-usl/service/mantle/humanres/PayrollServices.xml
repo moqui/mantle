@@ -211,6 +211,20 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="statusId" value="InvoiceApproved"/>
             </entity-find>
             <iterate list="invoiceList" entry="invoice">
+                <!-- if paymentInstrumentEnumId is PiAch look for employee's BankAccount -->
+                <set field="toPaymentMethodId" from="null"/>
+                <if condition="paymentInstrumentEnumId == 'PiAch'">
+                    <entity-find entity-name="mantle.account.method.PaymentMethod" list="toPaymentMethodList">
+                        <date-filter/>
+                        <econdition field-name="ownerPartyId" from="invoice.fromPartyId"/>
+                        <econdition field-name="purposeEnumId" value="PmpPayroll"/>
+                        <econdition field-name="paymentMethodTypeEnumId" value="PmtBankAccount"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                    <if condition="toPaymentMethodList">
+                        <set field="toPaymentMethodId" from="toPaymentMethodList[0].paymentMethodId"/></if>
+                </if>
+
                 <service-call name="mantle.account.PaymentServices.create#InvoicePayment" out-map="paymentOut"
                     in-map="context + [invoiceId:invoice.invoiceId, partyRelationshipId:invoice.partyRelationshipId]"/>
             </iterate>
