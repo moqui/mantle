@@ -573,4 +573,37 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[paymentMethodContentId:paymentMethodContentId, contentLocation:contentLocation]"/></if>
         </actions>
     </service>
+
+    <!-- ================================================== -->
+    <!-- ========== Payment Method File Services ========== -->
+    <!-- ================================================== -->
+
+    <service verb="update" noun="PaymentMethodFileComplete">
+        <in-parameters>
+            <parameter name="paymentMethodFileId" required="true"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethodFile" include="nonpk"/>
+            <parameter name="fileText" allow-html="any"/>
+            <parameter name="paymentList" type="List"/>
+            <parameter name="outgoingStatusId" default-value="PmntDelivered"/>
+            <parameter name="incomingStatusId" default-value="PmntDelivered">
+                <description>Could also be PmntAuthorized</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethodFile" value-field="paymentMethodFile"/>
+            <set field="paymentMethodId" from="paymentMethodFile.paymentMethodId"/>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+
+            <iterate list="paymentList" entry="payment">
+                <!-- set paymentMethodFileId and update statusId on all Payment records -->
+                <set field="outgoing" from="payment.fromPartyId == paymentMethod.ownerPartyId"/>
+                <service-call name="update#mantle.account.payment.Payment"
+                        in-map="[paymentId:payment.paymentId, paymentMethodFileId:paymentMethodFileId,
+                            statusId:(outgoing ? outgoingStatusId : incomingStatusId)]"/>
+            </iterate>
+
+            <!-- save full file text, etc to PaymentMethodFile -->
+            <service-call name="update#mantle.account.method.PaymentMethodFile" in-map="context"/>
+        </actions>
+    </service>
+
 </services>
