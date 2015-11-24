@@ -40,7 +40,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!bankAccount"><return error="true" message="Payment method [${paymentMethodId}] is not a bank account"/></if>
 
             <!-- find applicable payments (match fromPartyId and statusId=PmntAuthorized, or toPartyId and PmntPromised) -->
-            <entity-find entity-name="mantle.account.payment.Payment" list="paymentList" for-update="true">
+            <entity-find entity-name="mantle.account.payment.Payment" list="originalPaymentList" for-update="true">
                 <econditions combine="or">
                     <econditions combine="and">
                         <econdition field-name="fromPartyId" from="paymentMethod.ownerPartyId"/>
@@ -61,7 +61,7 @@ along with this software (see the LICENSE.md file). If not, see
             </entity-find>
 
             <!-- no payments? return now with a message -->
-            <if condition="!paymentList"><return message="No pending ACH payments found for payment method [${paymentMethodId}]"/></if>
+            <if condition="!originalPaymentList"><return message="No pending ACH payments found for payment method [${paymentMethodId}]"/></if>
 
             <!-- count of files sent today for File ID Modifier in File Header char 34 -->
             <set field="todayRange" from="ec.user.getPeriodRange('day', '0')"/>
@@ -192,7 +192,8 @@ along with this software (see the LICENSE.md file). If not, see
                 // Entry Detail (6) & Addenda (7)
                 long entryCount = 0, routingNumberSum = 0
                 BigDecimal debitAmountTotal = 0, creditAmountTotal = 0
-                for (EntityValue payment in paymentList) {
+                paymentList = []
+                for (EntityValue payment in originalPaymentList) {
                     boolean outgoing = payment.fromPartyId == paymentMethod.ownerPartyId
 
                     // Get PaymentMethod and BankAccount; use toPaymentMethodId if outgoing
@@ -258,6 +259,7 @@ along with this software (see the LICENSE.md file). If not, see
 
                     // done with validation/prep, increment entryCount and create the record
                     entryCount++
+                    paymentList.add(payment)
 
                     // Entry Detail (6)
                     StringBuilder entry = new StringBuilder()
