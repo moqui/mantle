@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+
+    <service verb="generate" noun="PositivePayFile">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
+            <parameter name="fromDate" type="Timestamp"><description>If null no limit on look back</description></parameter>
+            <parameter name="thruDate" type="Timestamp" default="ec.user.nowTimestamp">
+                <description>If null look through now</description></parameter>
+            <parameter name="formatServiceName"><description>Extension mechanism, generally empty and determined based
+                on BankAccount.posPayFormatEnumId</description></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentMethodFileId"/>
+            <parameter name="fileText"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.method.BankAccount" value-field="bankAccount"/>
+            <if condition="!bankAccount"><return error="true" message="Payment method [${paymentMethodId}] is not a bank account"/></if>
+            <if condition="!bankAccount.posPayFormatEnumId">
+                <return error="true" message="No Pos. Pay File Format set for bank account [${paymentMethodId}]"/></if>
+
+            <entity-find entity-name="mantle.account.payment.Payment" list="paymentList" for-update="true">
+                <econdition field-name="fromPartyId" from="paymentMethod.ownerPartyId"/>
+                <econdition field-name="statusId" value="PmntDelivered"/>
+                <econdition field-name="paymentMethodId"/>
+
+                <econdition field-name="paymentInstrumentEnumId"/>
+                <econdition field-name="paymentMethodFileId" from="null"/>
+                <econdition field-name="effectiveDate" operator="greater-equals" from="fromDate" ignore-if-empty="true"/>
+                <econdition field-name="effectiveDate" operator="less-equals" from="thruDate"/>
+                <order-by field-name="effectiveDate"/>
+            </entity-find>
+
+            <if condition="!formatServiceName">
+                <set field="supportedFormats" from="['PmftBankOfAmericaAr', 'PmftCityBankCnb', 'PmftSunTrustCpr',
+                        'PmftWachoviaAr', 'PmftWellsFargoArp']"/>
+                <if condition="bankAccount.posPayFormatEnumId in supportedFormats">
+                    <then><set field="formatServiceName" value="mantle.account.PositivePayServices.generate#${bankAccount.posPayFormatEnumId}"/></then>
+                    <else><return error="true" message="Pos. Pay File Format [${bankAccount.posPayFormatEnumId}] not supported"/></else>
+                </if>
+            </if>
+
+            <service-call name="${formatServiceName}" in-map="context" out-map="context"/>
+
+            <!-- save file info on PaymentMethodFile, update statusId and set paymentMethodFileId on Payment records -->
+            <service-call name="mantle.account.PaymentMethodServices.update#PaymentMethodFileComplete" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="generate" noun="PmftBankOfAmericaAr">
+        <in-parameters>
+            <parameter name="bankAccount" type="Map" required="true"/>
+            <parameter name="paymentList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="fileText"/>
+            <parameter name="entryCount" type="Long"/>
+            <parameter name="debitAmountTotal" type="BigDecimal"/>
+            <parameter name="creditAmountTotal" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO -->
+        </actions>
+    </service>
+</services>
