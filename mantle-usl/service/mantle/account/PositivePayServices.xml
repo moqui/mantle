@@ -216,6 +216,108 @@ along with this software (see the LICENSE.md file). If not, see
             ]]></script>
         </actions>
     </service>
+    <service verb="generate" noun="PmftWachoviaAr">
+        <description>Generate Wachovia Account Reconcilement File; note that uses spaces/blanks for filler</description>
+        <in-parameters>
+            <parameter name="bankAccount" type="Map" required="true"/>
+            <parameter name="paymentList" type="List" required="true"/>
+            <parameter name="thruDate" type="Timestamp" required="true"/>
+            <parameter name="fileDate" type="Timestamp" required="true"/>
+            <parameter name="entryCount" type="Long" required="true"/>
+            <parameter name="debitAmountTotal" type="BigDecimal" required="true"/>
+            <parameter name="checkNumberSum" type="Long" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="fileText"/>
+        </out-parameters>
+        <actions>
+            <if condition="!bankAccount.posPayBankNumber || bankAccount.posPayBankNumber.length() > 4">
+                <return error="true" message="Pos. Pay Bank Number must be set and 4 digits or less (for bank account [${bankAccount.paymentMethodId}])"/></if>
+
+            <script><![CDATA[
+                import org.moqui.context.ExecutionContext
+                import org.moqui.entity.EntityValue
+                ExecutionContext ec = context.ec
+
+                // Handy output checking lines, paste below to line up output
+                // 0        10        20        30        40        50        60        70        80
+                // 123456789+123456789+123456789+123456789+123456789+123456789+123456789+123456789+
+
+                String accountNumber =  bankAccount.accountNumber
+                if (accountNumber.length() > 13) accountNumber = accountNumber.substring(accountNumber.length() - 13, accountNumber.length())
+                // Get amount String (12 chars, last 2 are cents)
+                String debitAmountTotalStr = debitAmountTotal.movePointRight(2).longValue() as String
+
+                List<StringBuilder> lines = []
+
+                // Header
+                StringBuilder fileHeader = new StringBuilder(80)
+                // 01-20: Constant = 'RECONCILIATIONHEADER'
+                fileHeader.append('RECONCILIATIONHEADER')
+                // 21-24: Bank ID, assigned by bank (4 chars, left 0 pad)
+                fileHeader.append(bankAccount.posPayBankNumber.padLeft(4, '0'))
+                // 25-37: Account Number (13 chars, left 0 padded)
+                fileHeader.append(accountNumber.padLeft(13, '0'))
+                // 38-49: Sum of check amounts (issues and cancels; 12 numbers, last 2 are cents, left 0 padded)
+                fileHeader.append(debitAmountTotalStr.padLeft(12, '0'))
+                // 50-54: Number of detail records (5 numbers, left 0 pad)
+                fileHeader.append((entryCount as String).padLeft(5, '0'))
+                // 55-80: Filler (26 spaces)
+                fileHeader.append("".padRight(26, ' '))
+
+                lines.add(fileHeader)
+
+                // Account number in detail lines is only 10 chars
+                if (accountNumber.length() > 10) accountNumber = accountNumber.substring(accountNumber.length() - 10, accountNumber.length())
+
+                for (Map payment in paymentList) {
+                    // Get amount String (10 chars, last 2 are cents)
+                    String amountStr = payment.getBigDecimal("amount").movePointRight(2).longValue() as String
+
+                    // NOTE: for Wachovia treat void and cancel as "Void"
+                    boolean isVoid = payment.statusId == 'PmntVoid'
+                    boolean isCancel = payment.statusId == 'PmntCancelled'
+
+                    String payeeName = ""
+                    EntityValue otherParty = payment.toPartyId ? ec.entity.find("mantle.party.PartyDetail").condition("partyId", payment.toPartyId).one() : null
+                    if (otherParty) {
+                        payeeName = otherParty.firstName ? otherParty.firstName + " " + otherParty.lastName : otherParty.organizationName
+                        if (payeeName.length() > 30) payeeName = payeeName.substring(0, 30)
+                    }
+
+                    // Detail Line
+                    StringBuilder detailLine = new StringBuilder(80)
+                    // 01-13: Account Number (13 chars, left 0 padded)
+                    detailLine.append(accountNumber.padLeft(13, '0'))
+                    // 14-23: Check number (10 numbers, left 0 padded)
+                    detailLine.append(payment.paymentRefNum.padLeft(10, '0'))
+                    // 24-33: Check amount (10 numbers, last 2 are cents, left 0 padded); for voids enter all 0s
+                    detailLine.append((isVoid ? '0' : amountStr).padLeft(10, '0'))
+                    // 34-41: Date of issue (yyyyMMdd)
+                    detailLine.append(ec.l10n.format(payment.effectiveDate, 'yyyyMMdd'))
+                    // 42-42: Void indicator Blank for issue record, '-' for cancel
+                    detailLine.append((isVoid || isCancel ? 'V' : ' '))
+                    // 43-72: Additional data; Payee information (30 chars; pad right with spaces)
+                    detailLine.append(payeeName.padRight(30, ' '))
+                    // 55-80: Filler (8 spaces)
+                    detailLine.append("".padRight(8, ' '))
+
+                    lines.add(detailLine)
+                }
+
+                // NOTE: No Trailer for Wachovia AR file
+
+                // combine the lines
+                StringBuilder ftSb = new StringBuilder(81 * lines.size())
+                for (StringBuilder line in lines) {
+                    if (line.length() != 80) ec.message.addError("Generated line does not have exactly 80 chars: ${line}")
+                    ftSb.append(line).append('\n')
+                }
+                // get the String value
+                fileText = ftSb.toString()
+            ]]></script>
+        </actions>
+    </service>
     <service verb="generate" noun="PmftWellsFargoArp">
         <in-parameters>
             <parameter name="bankAccount" type="Map" required="true"/>
@@ -274,7 +376,7 @@ along with this software (see the LICENSE.md file). If not, see
                     EntityValue otherParty = payment.toPartyId ? ec.entity.find("mantle.party.PartyDetail").condition("partyId", payment.toPartyId).one() : null
                     if (otherParty) {
                         payeeName = otherParty.firstName ? otherParty.firstName + " " + otherParty.lastName : otherParty.organizationName
-                        if (payeeName.length() > 43) indName = indName.substring(0, 43)
+                        if (payeeName.length() > 40) payeeName = payeeName.substring(0, 40)
                     }
 
                     // Detail Line
@@ -320,7 +422,7 @@ along with this software (see the LICENSE.md file). If not, see
                 fileTrailer.append(' '.padRight(3, ' '))
                 // 24-33: Sum of check amounts (issues and cancels; 10 numbers, last 2 are cents, left 0 padded)
                 fileTrailer.append(debitAmountTotalStr.padLeft(10, '0'))
-                // 34-80: Blanks (30)
+                // 34-80: Blanks (47)
                 fileTrailer.append(" ".padRight(47, ' '))
 
                 lines.add(fileTrailer)
