@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+
+<!-- General Guideline Verbs: GET=find, POST=create, PUT=store (create or update), PATCH=update, DELETE=delete  -->
+
+<resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-1.5.xsd"
+        name="mantle">
+    <resource name="orders">
+        <method type="get"><entity name="orders" masterName="default" operation="list"/></method>
+        <method type="post"><service name="mantle.order.OrderServices.create#Order"/></method>
+        <method type="put"><service name="mantle.order.OrderBulkServices.store#Order"/></method>
+
+        <id name="orderId">
+            <method type="get"><entity name="orders" masterName="default" operation="one"/></method>
+            <method type="put"><service name="mantle.order.OrderBulkServices.store#Order"/></method>
+
+            <resource name="parts">
+                <id name="orderPartSeqId">
+                    <method type="post"><service name="mantle.order.OrderServices.create#OrderPart"/></method>
+                    <method type="patch"><service name="mantle.order.OrderServices.update#OrderPart"/></method>
+                    <!-- TODO <method type="delete"><service name="mantle.order.OrderServices.delete#OrderPart"/></method> -->
+
+                    <resource name="payments">
+                        <method type="post"><service name="mantle.order.OrderServices.add#OrderPartPayment"/></method>
+                        <!-- TODO get payments, etc -->
+                    </resource>
+                    <resource name="invoices">
+                        <method type="post"><service name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/></method>
+                        <!-- TODO get invoices, etc -->
+                    </resource>
+                    <resource name="shipments">
+                        <method type="post"><service name="mantle.shipment.ShipmentServices.ship#OrderPart"/></method>
+                        <!-- TODO get shipments, etc -->
+                        <id name="shipmentId">
+                            <method type="post"><service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method>
+                        </id>
+                    </resource>
+                </id>
+            </resource>
+            <resource name="items">
+                <id name="orderItemSeqId">
+                    <method type="post"><service name="mantle.order.OrderServices.create#OrderItem"/></method>
+                    <method type="patch"><service name="mantle.order.OrderServices.update#OrderItem"/></method>
+                    <method type="delete"><service name="mantle.order.OrderServices.delete#OrderItem"/></method>
+                </id>
+            </resource>
+            <resource name="productItems">
+                <id name="orderItemSeqId">
+                    <method type="put"><service name="mantle.order.OrderServices.add#OrderProductQuantity"/></method>
+                    <method type="patch"><service name="mantle.order.OrderServices.update#OrderProductQuantity"/></method>
+                    <method type="delete"><service name="mantle.order.OrderServices.delete#OrderItem"/></method>
+                </id>
+            </resource>
+            <resource name="shippingBilling"><method type="put">
+                <service name="mantle.order.OrderServices.set#OrderBillingShippingInfo"/></method></resource>
+            <resource name="propose"><method type="patch">
+                <service name="mantle.order.OrderServices.propose#Order"/></method></resource>
+            <resource name="place"><method type="patch">
+                <service name="mantle.order.OrderServices.place#Order"/></method></resource>
+            <resource name="approve"><method type="patch">
+                <service name="mantle.order.OrderServices.approve#Order"/></method></resource>
+            <resource name="cancel"><method type="patch">
+                <service name="mantle.order.OrderServices.cancel#Order"/></method></resource>
+        </id>
+    </resource>
+
+    <resource name="payments">
+        <method type="get"><entity name="payments" masterName="default" operation="list"/></method>
+        <method type="post"><service name="mantle.account.PaymentServices.create#Payment"/></method>
+
+        <id name="paymentId">
+            <!-- NOTE: currently no PaymentServices.update#Payment service -->
+            <method type="patch"><entity name="mantle.account.payment.Payment" operation="update"/></method>
+        </id>
+    </resource>
+
+    <resource name="invoices">
+        <method type="get"><entity name="invoices" masterName="default" operation="list"/></method>
+        <method type="post"><service name="mantle.account.InvoiceServices.create#Invoice"/></method>
+
+        <id name="invoiceId">
+            <method type="get"><entity name="invoices" masterName="default" operation="one"/></method>
+            <method type="patch"><service name="mantle.account.InvoiceServices.update#Invoice"/></method>
+            <resource name="items">
+                <id name="invoiceItemSeqId">
+                    <method type="post"><service name="mantle.account.InvoiceServices.create#InvoiceItem"/></method>
+                    <method type="patch"><service name="mantle.account.InvoiceServices.update#InvoiceItem"/></method>
+                    <method type="delete"><service name="mantle.account.InvoiceServices.delete#InvoiceItem"/></method>
+                </id>
+            </resource>
+        </id>
+    </resource>
+</resource>
