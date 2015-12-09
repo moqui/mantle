@@ -133,9 +133,14 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </if>
 
-            <!-- if there is a pieceCount but no pieceRateTypeEnumId set to RatpPiece -->
+            <!-- if there is a pieceCount but no pieceRateTypeEnumId lookup by related or set to RatpPiece -->
             <if condition="pieceCount &amp;&amp; !pieceRateTypeEnumId">
-                <set field="pieceRateTypeEnumId" value="RatpPiece"/></if>
+                <entity-find entity-name="moqui.basic.Enumeration" list="relatedEnumList">
+                    <econdition field-name="relatedEnumId" from="rateTypeEnumId"/></entity-find>
+                <if condition="relatedEnumList"><set field="pieceRateTypeEnumId" value="relatedEnumList[0].enumId"/>
+                    <else><set field="pieceRateTypeEnumId" value="RatpPiece"/></else></if>
+
+            </if>
 
             <service-call name="store#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
             <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="context" in-map="context"/>
