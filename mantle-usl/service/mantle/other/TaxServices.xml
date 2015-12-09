@@ -235,10 +235,18 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
 
-            <!-- TODO: split out various item types instead of all in otherIncome -->
+            <!-- split out various item types instead of all in otherIncome -->
+            <set field="rentTypes" from="['ItemExpLeaseVehicle', 'ItemExpLeaseEquip', 'ItemExpLeaseRealEst', 'ItemExpLeaseOther']"/>
+            <set field="royaltyTypes" from="['ItemExpRoyalties']"/>
+            <set field="medicalHealthTypes" from="['ItemExpMedical', 'ItemExpInsHealth']"/>
+            <set field="nonEmpCompTypes" from="['ItemExpCommissionFee', 'ItemExpServAccount', 'ItemExpServLabor']"/>
+            <set field="attorneyTypes" from="['ItemExpServLegal']"/>
+            <!-- <set field="nonOtherTypes" from="rentTypes + royaltyTypes + medicalHealthTypes + attorneyTypes + nonEmpCompTypes"/> -->
+            <!-- NOTE: consider all other types otherIncome -->
+
             <set field="fromTimestamp" from="ec.l10n.parseTimestamp(&quot;${timePeriod.fromDate} 00:00:00.000&quot;, '')"/>
             <set field="thruTimestamp" from="ec.l10n.parseTimestamp(&quot;${timePeriod.thruDate} 23:59:59.999&quot;, '')"/>
-            <entity-find entity-name="mantle.account.invoice.InvoiceSummary" list="invoiceSummaryList">
+            <entity-find entity-name="mantle.account.invoice.InvoiceItemSummary" list="invoiceItemSummaryList">
                 <econdition field-name="fromPartyId" from="partyId"/>
                 <econdition field-name="toPartyId" from="timePeriod.partyId"/>
                 <!-- NOTE: should ever include InvoiceBilledThrough? -->
@@ -247,15 +255,32 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="invoiceTypeEnumId" operator="not-in" value="InvoicePayroll,InvoiceTax"/>
                 <econdition field-name="invoiceDate" operator="greater-equals" from="fromTimestamp"/>
                 <econdition field-name="invoiceDate" operator="less-equals" from="thruTimestamp"/>
-                <select-field field-name="grandTotal"/>
+                <select-field field-name="itemsTotal"/><select-field field-name="itemTypeEnumId"/>
             </entity-find>
 
-            <if condition="!invoiceSummaryList"><return message="No invoices found in period ${timePeriodId} for party ${partyId}"/></if>
-            <!-- should never happen unless there is an issue with the query -->
-            <if condition="invoiceSummaryList.size() > 1"><return error="true" message="More than one total found in period ${timePeriodId} for party ${partyId}"/></if>
+            <if condition="!invoiceItemSummaryList"><return message="No invoices found in period ${timePeriodId} for party ${partyId}"/></if>
+
+            <set field="rents" from="0"/><set field="royalties" from="0"/>
+            <set field="medicalAndHealthCarePayments" from="0"/><set field="nonemployeeCompensation" from="0"/>
+            <set field="cropInsuranceProceeds" from="0"/><set field="grossProceedsToAttorney" from="0"/>
+            <set field="otherIncome" from="0"/>
+            <iterate list="invoiceItemSummaryList" entry="invoiceItemSummary">
+                <if condition="rentTypes.contains(invoiceItemSummary.itemTypeEnumId)">
+                    <then><set field="rents" from="rents + invoiceItemSummary.itemsTotal"/></then>
+                    <else-if condition="royaltyTypes.contains(invoiceItemSummary.itemTypeEnumId)">
+                        <set field="royalties" from="royalties + invoiceItemSummary.itemsTotal"/></else-if>
+                    <else-if condition="medicalHealthTypes.contains(invoiceItemSummary.itemTypeEnumId)">
+                        <set field="medicalAndHealthCarePayments" from="medicalAndHealthCarePayments + invoiceItemSummary.itemsTotal"/></else-if>
+                    <else-if condition="nonEmpCompTypes.contains(invoiceItemSummary.itemTypeEnumId)">
+                        <set field="nonemployeeCompensation" from="nonemployeeCompensation + invoiceItemSummary.itemsTotal"/></else-if>
+                    <else-if condition="attorneyTypes.contains(invoiceItemSummary.itemTypeEnumId)">
+                        <set field="grossProceedsToAttorney" from="grossProceedsToAttorney + invoiceItemSummary.itemsTotal"/></else-if>
+                    <else><set field="otherIncome" from="otherIncome + invoiceItemSummary.itemsTotal"/></else>
+                </if>
+            </iterate>
 
             <service-call name="mantle.other.TaxServices.get#UsaIrs1099MiscFormData" out-map="context"
-                    in-map="[recipientPartyId:partyId, payerPartyId:timePeriod.partyId, otherIncome:invoiceSummaryList[0].grandTotal]"/>
+                    in-map="context + [recipientPartyId:partyId, payerPartyId:timePeriod.partyId]"/>
 
             <service-call name="mantle.other.TaxServices.create#TaxStatement" in-map="context" out-map="context"/>
         </actions>
