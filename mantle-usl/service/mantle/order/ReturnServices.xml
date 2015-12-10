@@ -49,4 +49,34 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="add" noun="OrderItemToReturn">
+        <in-parameters>
+            <parameter name="returnId" required="true"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderItemSeqId" required="true"/>
+            <auto-parameters entity-name="mantle.order.return.ReturnItem" include="nonpk">
+                <exclude field-name="statusId"/><exclude field-name="itemTypeEnumId"/><exclude field-name="productId"/>
+                <exclude field-name="returnQuantity"/><exclude field-name="receivedQuantity"/>
+                <exclude field-name="replacementOrderId"/><exclude field-name="refundPaymentId"/>
+                <exclude field-name="finAccountTransId"/>
+                <exclude field-name="responseAmount"/><exclude field-name="responseDate"/></auto-parameters>
+            <parameter name="statusId" default-value="ReturnCreated"/>
+            <parameter name="returnQuantity" type="BigDecimal" required="true"/>
+            <parameter name="returnReasonEnumId" required="true"/>
+            <parameter name="returnResponseEnumId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="returnItemId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <if condition="!orderItem"><return error="true" message="Could not find Order Item [${orderId}:${orderItemSeqId}]"/></if>
+            <if condition="returnQuantity &gt; orderItem.quantity">
+                <return error="true" message="Cannot return more than original order quantity (${orderItem.quantity}), tried ${returnQuantity}"/></if>
+
+            <set field="itemTypeEnumId" from="orderItem.itemTypeEnumId"/>
+            <set field="productId" from="orderItem.productId"/>
+            <if condition="!description"><set field="description" from="orderItem.itemDescription"/></if>
+
+            <service-call name="create#mantle.order.return.ReturnItem" in-map="context" out-map="context"/>
+        </actions>
+    </service>
 </services>
