@@ -309,16 +309,16 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="acctgTransResultEnumId" type="id"/>
         <field name="systemMessageRemoteId" type="id"/>
 
-        <relationship type="one" title="InvoiceType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="InvoiceType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="invoiceTypeEnumId"/></relationship>
-        <relationship type="one" title="From" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="From" related-entity-name="mantle.party.Party" short-alias="fromParty">
             <key-map field-name="fromPartyId"/></relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="To" related-entity-name="mantle.party.Party" short-alias="toParty">
             <key-map field-name="toPartyId"/></relationship>
-        <relationship type="one" title="Invoice" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" title="Invoice" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" related-entity-name="mantle.account.billing.BillingAccount"/>
         <relationship type="one" related-entity-name="mantle.account.invoice.SettlementTerm"/>
-        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom" short-alias="currencyUom">
             <key-map field-name="currencyUomId"/></relationship>
         <relationship type="one" title="OverrideOrg" related-entity-name="mantle.party.Party">
             <key-map field-name="overrideOrgPartyId"/></relationship>
@@ -328,6 +328,8 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" title="AcctgTransResult" related-entity-name="moqui.basic.Enumeration">
             <key-map field-name="acctgTransResultEnumId"/></relationship>
         <relationship type="one" related-entity-name="moqui.service.message.SystemMessageRemote"/>
+
+        <relationship type="many" related-entity-name="mantle.account.invoice.InvoiceItem" short-alias="items"/>
 
         <seed-data>
             <!-- Invoice Type -->
@@ -401,6 +403,18 @@ along with this software (see the LICENSE.md file). If not, see
             -->
 
         </seed-data>
+        <master>
+            <detail relationship="type"/>
+            <detail relationship="status"/>
+            <detail relationship="currencyUom"/>
+            <detail relationship="fromParty" use-master="basic"/>
+            <detail relationship="toParty" use-master="basic"/>
+            <detail relationship="items">
+                <detail relationship="type"/>
+                <detail relationship="product"/>
+                <detail relationship="quantityUom"/>
+            </detail>
+        </master>
     </entity>
     <extend-entity entity-name="SystemMessage" package-name="moqui.service.message">
         <field name="invoiceId" type="id"/>
@@ -458,18 +472,18 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="taxAuthorityId" type="id"/>
         <field name="payrollAdjustmentId" type="id"/>
 
-        <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="itemTypeEnumId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.invoice.Invoice"/>
         <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" related-entity-name="mantle.product.Product" short-alias="product"/>
         <relationship type="one" title="Parent" related-entity-name="mantle.account.invoice.InvoiceItem">
             <key-map field-name="parentInvoiceId" related-field-name="invoiceId"/>
             <key-map field-name="parentInvoiceItemSeqId" related-field-name="invoiceItemSeqId"/>
         </relationship>
         <relationship type="one" title="Override" related-entity-name="mantle.ledger.account.GlAccount">
             <key-map field-name="overrideGlAccountId"/></relationship>
-        <relationship type="one" title="Quantity" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="Quantity" related-entity-name="moqui.basic.Uom" short-alias="quantityUom">
             <key-map field-name="quantityUomId"/></relationship>
         <relationship type="one" related-entity-name="SalesOpportunity"/>
         <relationship type="one" related-entity-name="mantle.other.tax.TaxAuthority"/>
