@@ -26,13 +26,13 @@ along with this software (see the LICENSE.md file). If not, see
 
     <fo:page-sequence master-reference="letter-portrait" id="mainSequence">
         <fo:static-content flow-name="xsl-region-before">
-            <fo:block font-size="14pt" text-align="center" margin-bottom="0.1in">Shipment #${shipmentId}</fo:block>
+            <fo:block font-size="14pt" text-align="center" margin-bottom="0.1in">Bill of Lading #${shipmentId}</fo:block>
             <fo:table table-layout="fixed" margin-bottom="0.1in" width="7.5in">
                 <fo:table-body><fo:table-row>
                     <fo:table-cell padding="3pt" width="3.75in">
-                        <fo:block font-weight="bold">Vendor</fo:block>
+                        <fo:block font-weight="bold">Shipper</fo:block>
                         <fo:block>${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(fromPartyDetail.organizationName!"", false))!""}${(fromPartyDetail.firstName)!""} ${(fromPartyDetail.lastName)!""}</fo:block>
-                        <fo:block font-weight="bold">Customer</fo:block>
+                        <fo:block font-weight="bold">Consignee</fo:block>
                         <fo:block>${(Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(toPartyDetail.organizationName!"", false))!""}${(toPartyDetail.firstName)!""} ${(toPartyDetail.lastName)!""}</fo:block>
                     </fo:table-cell>
                     <fo:table-cell padding="3pt" width="2in">
@@ -64,7 +64,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:static-content flow-name="xsl-region-after" font-size="8pt">
             <fo:block border-top="thin solid black">
                 <#-- TODO: show vendor's contact info (customer service or billing address, phone, email)? -->
-                <fo:block text-align="center">Shipment #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")}<#else>Not yet shipped</#if> -- Page <fo:page-number/></fo:block>
+                <fo:block text-align="center">Bill of Lading #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")}<#else>Not yet shipped</#if> -- Page <fo:page-number/></fo:block>
             </fo:block>
         </fo:static-content>
 
@@ -72,7 +72,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:flow flow-name="xsl-region-body">
             <fo:block border-top="thin solid black">
                 <#-- TODO: show vendor's contact info (customer service or billing address, phone, email)? -->
-                <fo:block text-align="center">Shipment #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")}<#else>Not yet shipped</#if> -- Page <fo:page-number/></fo:block>
+                <fo:block text-align="center">Bill of Lading #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")}<#else>Not yet shipped</#if> -- Page <fo:page-number/></fo:block>
             </fo:block>
         <#--
             <#list orderPartInfoList as orderPartInfo>
