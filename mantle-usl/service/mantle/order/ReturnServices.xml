@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+    <service verb="create" noun="ReturnFromOrder">
+        <in-parameters>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderPartSeqId" required="true"/>
+            <auto-parameters entity-name="mantle.order.return.ReturnHeader" include="nonpk">
+                <exclude field-name="statusId"/><exclude field-name="customerPartyId"/><exclude field-name="vendorPartyId"/>
+                <exclude field-name="entryDate"/><exclude field-name="currencyUomId"/></auto-parameters>
+            <parameter name="statusId" default-value="ReturnCreated"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <out-parameters><parameter name="returnId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
+            <if condition="!orderPart"><return error="true" message="Could not find Order Part [${orderId}:${orderPartSeqId}]"/></if>
+            <!-- Ideally order should be completed, but allow Approved and Sent for partially fulfilled orders,
+                will check actual fulfillment when adding items -->
+            <if condition="!(orderPart.statusId in ['OrderApproved', 'OrderSent', 'OrderCompleted'])">
+                <return error="true" message="Order in status ${orderPart.statusId} cannot be returned"/></if>
+
+            <set field="customerPartyId" from="orderPart.customerPartyId"/>
+            <set field="vendorPartyId" from="orderPart.vendorPartyId"/>
+            <set field="currencyUomId" from="orderHeader.currencyUomId"/>
+
+            <if condition="!destinationFacilityId"><set field="destinationFacilityId" from="orderPart.facilityId"/></if>
+            <if condition="!originPostalContactMechId"><set field="originPostalContactMechId" from="orderPart.postalContactMechId"/></if>
+            <if condition="!paymentMethodId">
+                <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
+                    <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/></entity-find>
+                <iterate list="paymentList" entry="payment"><if condition="payment.paymentMethodId">
+                    <set field="paymentMethodId" from="payment.paymentMethodId"/></if></iterate>
+            </if>
+
+            <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="add" noun="OrderItemToReturn">
+        <in-parameters>
+            <parameter name="returnId" required="true"/>
+            <parameter name="orderId" required="true"/>
+            <parameter name="orderItemSeqId" required="true"/>
+            <auto-parameters entity-name="mantle.order.return.ReturnItem" include="nonpk">
+                <exclude field-name="statusId"/><exclude field-name="itemTypeEnumId"/><exclude field-name="productId"/>
+                <exclude field-name="returnQuantity"/><exclude field-name="receivedQuantity"/>
+                <exclude field-name="replacementOrderId"/><exclude field-name="refundPaymentId"/>
+                <exclude field-name="finAccountTransId"/>
+                <exclude field-name="responseAmount"/><exclude field-name="responseDate"/></auto-parameters>
+            <parameter name="statusId" default-value="ReturnCreated"/>
+            <parameter name="returnQuantity" type="BigDecimal" required="true"/>
+            <parameter name="returnReasonEnumId" required="true"/>
+            <parameter name="returnResponseEnumId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="returnItemId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderItem" value-field="orderItem"/>
+            <if condition="!orderItem"><return error="true" message="Could not find Order Item [${orderId}:${orderItemSeqId}]"/></if>
+            <if condition="returnQuantity &gt; orderItem.quantity">
+                <return error="true" message="Cannot return more than original order quantity (${orderItem.quantity}), tried ${returnQuantity}"/></if>
+
+            <set field="itemTypeEnumId" from="orderItem.itemTypeEnumId"/>
+            <set field="productId" from="orderItem.productId"/>
+            <if condition="!description"><set field="description" from="orderItem.itemDescription"/></if>
+
+            <service-call name="create#mantle.order.return.ReturnItem" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+</services>
