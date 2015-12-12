@@ -715,44 +715,32 @@ h2. General Order Placement and eCommerce Usage
             <entity-update value-field="orderPart"/>
 
             <!-- Find the shipment IDs for this order part -->
-            <entity-find-related value-field="orderHeader" relationship-name="mantle.order.OrderItem"
-                                 list="orderItemList" order-by-list="['orderItemSeqId']"/>
             <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
                 <econdition field-name="orderId"/></entity-find>
-            <set field="shipmentIdSet" from="new TreeSet()"/>
-            <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
-                <script>shipmentIdSet.add(shipmentItemSource.shipmentId)</script></iterate>
-            <script>
-            import org.moqui.entity.EntityList
-            import org.moqui.entity.EntityValue
-            import org.moqui.context.ExecutionContext
-            ExecutionContext ec = context.ec
+            <if condition="shipmentItemSourceList">
+                <entity-find entity-name="mantle.order.OrderItem" list="partOrderItemList">
+                    <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/></entity-find>
+                <script>
+                    List orderItemSeqIdList = partOrderItemList.orderItemSeqId
+                    partShipmentIdSet = new TreeSet()
+                    for (EntityValue sis in shipmentItemSourceList) if (sis.orderItemSeqId in orderItemSeqIdList) {
+                        partShipmentIdSet.add(sis.shipmentId)
+                    }
+                </script>
 
-            partOrderItemList = orderItemList.cloneList().filterByAnd([orderPartSeqId:orderPart.orderPartSeqId])
-            List orderItemSeqIdList = partOrderItemList.orderItemSeqId
-            List partShipmentItemSourceList = []
-            Set partShipmentIdSet = new TreeSet()
-            for (EntityValue sis in shipmentItemSourceList) if (sis.orderItemSeqId in orderItemSeqIdList) {
-                partShipmentItemSourceList.add(sis)
-                partShipmentIdSet.add(sis.shipmentId)
-            }
-            </script>
-
-            <!-- Update shipment method and shipping address on the last route segment(s) of this order part -->
-            <iterate list="partShipmentIdSet" entry="shipmentId">
-                <log message="${shipmentId}"/>
-                <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegments">
-                    <econdition field-name="shipmentId"/>
-                    <order-by field-name="-shipmentRouteSegmentSeqId"/>
-                </entity-find>
-                <if condition="shipmentRouteSegments">
-                    <set field="shipmentRouteSegment" from="shipmentRouteSegments[0]"/>
-                    <set field="shipmentRouteSegment.shipmentMethodEnumId" from="shipmentMethodEnumId"/>
-                    <set field="shipmentRouteSegment.destPostalContactMechId" from="shippingPostalContactMechId"/>
-                    <set field="shipmentRouteSegment.destTelecomContactMechId" from="shippingTelecomContactMechId"/>
-                    <entity-update value-field="shipmentRouteSegment"/>
-                </if>
-            </iterate>
+                <!-- Update shipment method and shipping address on the last route segment(s) of this order part -->
+                <iterate list="partShipmentIdSet" entry="shipmentId">
+                    <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegments">
+                        <econdition field-name="shipmentId"/><order-by field-name="-shipmentRouteSegmentSeqId"/></entity-find>
+                    <if condition="shipmentRouteSegments">
+                        <set field="shipmentRouteSegment" from="shipmentRouteSegments[0]"/>
+                        <set field="shipmentRouteSegment.shipmentMethodEnumId" from="shipmentMethodEnumId"/>
+                        <set field="shipmentRouteSegment.destPostalContactMechId" from="shippingPostalContactMechId"/>
+                        <set field="shipmentRouteSegment.destTelecomContactMechId" from="shippingTelecomContactMechId"/>
+                        <entity-update value-field="shipmentRouteSegment"/>
+                    </if>
+                </iterate>
+            </if>
 
             <!-- TODO: find a better place/way to call these, maybe even turn this service into some sort of workflow -->
             <if condition="orderHeader.productStoreId">
