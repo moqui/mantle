@@ -212,6 +212,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <detail relationship="shipmentMethod"/>
                 <detail relationship="postal" use-master="default"/>
                 <detail relationship="telecom" use-master="default"/>
+                <detail relationship="facility"/>
                 <detail relationship="payments" use-master="default"/>
             </detail>
             <detail relationship="contents"><detail relationship="type"/></detail>
@@ -501,25 +502,42 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="finAccountId" type="id"/>
         <field name="billingAccountId" type="id"/>
         <field name="entryDate" type="date-time"/>
-        <field name="originPostalContactMechId" type="id"/>
-        <field name="destinationFacilityId" type="id"/>
+        <field name="postalContactMechId" type="id"><description>If customer is internal org is shipment destination, otherwise is origin</description></field>
+        <field name="telecomContactMechId" type="id"><description>If customer is internal org is shipment destination, otherwise is origin</description></field>
+        <field name="facilityId" type="id"><description>If customer is internal org is shipment origin, otherwise is destination</description></field>
+        <field name="shipmentMethodEnumId" type="id"><description>Only needed for generating a return label, can also be specified on return shipment</description></field>
+        <field name="carrierPartyId" type="id"><description>Only needed for generating a return label, can also be specified on return shipment</description></field>
         <field name="needsInventoryReceive" type="text-indicator"/>
         <field name="currencyUomId" type="id"/>
         <field name="supplierRmaId" type="id"/>
-        <relationship type="one" title="ReturnHeader" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="Customer" related-entity-name="mantle.party.Party">
+        <field name="visitId" type="id"/>
+
+        <relationship type="one" title="ReturnHeader" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="Customer" related-entity-name="mantle.party.Party" short-alias="customer">
             <key-map field-name="customerPartyId"/></relationship>
-        <relationship type="one" title="Vendor" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="Vendor" related-entity-name="mantle.party.Party" short-alias="vendor">
             <key-map field-name="vendorPartyId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.billing.BillingAccount"/>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccount"/>
         <relationship type="one" related-entity-name="mantle.account.method.PaymentMethod"/>
-        <relationship type="one" title="Destination" related-entity-name="mantle.facility.Facility">
-            <key-map field-name="destinationFacilityId"/></relationship>
-        <relationship type="one" title="Origin" related-entity-name="mantle.party.contact.ContactMech">
-            <key-map field-name="originPostalContactMechId"/></relationship>
-        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="Postal" related-entity-name="mantle.party.contact.ContactMech" short-alias="postal">
+            <key-map field-name="postalContactMechId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.party.contact.PostalAddress">
+            <key-map field-name="postalContactMechId"/></relationship>
+        <relationship type="one" title="Telecom" related-entity-name="mantle.party.contact.ContactMech" short-alias="telecom">
+            <key-map field-name="telecomContactMechId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.facility.Facility" short-alias="facility"/>
+        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration" short-alias="shipmentMethod">
+            <key-map field-name="shipmentMethodEnumId"/></relationship>
+        <relationship type="one" title="Carrier" related-entity-name="mantle.party.Party" short-alias="carrier">
+            <key-map field-name="carrierPartyId"/></relationship>
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom" short-alias="currencyUom">
             <key-map field-name="currencyUomId"/></relationship>
+        <relationship type="one" related-entity-name="moqui.server.Visit" short-alias="visit"/>
+
+        <relationship type="many" related-entity-name="mantle.order.return.ReturnItem" short-alias="items">
+            <key-map field-name="returnId"/></relationship>
+
         <seed-data>
             <!-- Return Header Status -->
             <moqui.basic.StatusType description="Return Header Status" statusTypeId="ReturnHeader"/>
@@ -546,6 +564,33 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ReturnReceived" toStatusId="ReturnManResp" transitionName="Manual Response"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ReturnManResp" toStatusId="ReturnCompleted" transitionName="Complete"/>
         </seed-data>
+        <master>
+            <detail relationship="status"/>
+            <!-- TODO: add status history using EntityAuditLog -->
+            <detail relationship="vendor" use-master="basic"/>
+            <detail relationship="customer" use-master="basic"/>
+            <detail relationship="carrier" use-master="basic"/>
+            <detail relationship="shipmentMethod"/>
+            <detail relationship="postal" use-master="default"/>
+            <detail relationship="telecom" use-master="default"/>
+            <detail relationship="currencyUom"/>
+            <detail relationship="visit"/>
+            <!-- TODO <detail relationship="contents"><detail relationship="type"/></detail> -->
+
+            <detail relationship="items">
+                <detail relationship="reason"/>
+                <detail relationship="response"/>
+                <detail relationship="itemType"/>
+                <detail relationship="status"/>
+                <detail relationship="product"/>
+                <detail relationship="orderItem"/>
+
+                <detail relationship="issuances"/>
+                <detail relationship="receipts"/>
+                <detail relationship="shipmentSources"/>
+                <detail relationship="billings"/>
+            </detail>
+        </master>
     </entity>
     <entity entity-name="ReturnItem" package-name="mantle.order.return" short-alias="returnItems">
         <field name="returnId" type="id" is-pk="true"/>
@@ -575,17 +620,17 @@ along with this software (see the LICENSE.md file). If not, see
 
         <relationship type="one" related-entity-name="mantle.order.return.ReturnHeader">
             <key-map field-name="returnId"/></relationship>
-        <relationship type="one" title="ReturnReason" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="ReturnReason" related-entity-name="moqui.basic.Enumeration" short-alias="reason">
             <key-map field-name="returnReasonEnumId"/></relationship>
-        <relationship type="one" title="ReturnResponse" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="ReturnResponse" related-entity-name="moqui.basic.Enumeration" short-alias="response">
             <key-map field-name="returnResponseEnumId"/></relationship>
-        <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="ItemType" related-entity-name="moqui.basic.Enumeration" short-alias="itemType">
             <key-map field-name="itemTypeEnumId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.order.OrderItem"/>
-        <relationship type="one" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" related-entity-name="mantle.order.OrderItem" short-alias="orderItem"/>
+        <relationship type="one" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" title="ExpectedInventory" related-entity-name="moqui.basic.StatusItem">
             <key-map field-name="expectedInventoryStatusId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
+        <relationship type="one" related-entity-name="mantle.product.Product" short-alias="product"/>
 
         <relationship type="one" title="Replacement" related-entity-name="mantle.order.OrderHeader">
             <key-map field-name="replacementOrderId"/></relationship>
@@ -595,6 +640,15 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="refundPaymentId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.billing.BillingAccount"/>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountTrans"/>
+
+        <relationship type="many" related-entity-name="mantle.product.issuance.AssetIssuance" short-alias="issuances">
+            <key-map field-name="returnId"/><key-map field-name="returnItemSeqId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.product.receipt.AssetReceipt" short-alias="receipts">
+            <key-map field-name="returnId"/><key-map field-name="returnItemSeqId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentItemSource" short-alias="shipmentSources">
+            <key-map field-name="returnId"/><key-map field-name="returnItemSeqId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.order.return.ReturnItemBilling" short-alias="billings">
+            <key-map field-name="returnId"/><key-map field-name="returnItemSeqId"/></relationship>
 
         <index name="RTN_ITM_BYORDITM"><index-field name="orderId"/><index-field name="orderItemSeqId"/></index>
 
