@@ -13,6 +13,18 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+    <service verb="create" noun="Return">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.order.return.ReturnHeader" include="nonpk"/>
+            <parameter name="vendorPartyId" required="true"/>
+            <parameter name="customerPartyId" required="true"/>
+            <parameter name="statusId" default-value="ReturnCreated"/>
+            <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <actions>
+            <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
+        </actions>
+    </service>
     <service verb="create" noun="ReturnFromOrder">
         <in-parameters>
             <parameter name="orderId" required="true"/>
@@ -47,6 +59,56 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="find" noun="ReturnableOrderItems">
+        <in-parameters>
+            <parameter name="returnId" required="true"/>
+            <parameter name="lookBackDays" type="Integer" default="30"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="orderItemInfoList" type="List"><parameter name="orderItemInfo" type="Map">
+                <parameter name="orderId"/>
+                <parameter name="orderItemSeqId"/>
+                <parameter name="itemTypeEnumId"/>
+                <parameter name="productId"/>
+                <parameter name="orderQuantity" type="BigDecimal"/>
+                <parameter name="invoiceQuantity" type="BigDecimal"/>
+                <parameter name="returnQuantity" type="BigDecimal"/>
+                <parameter name="returnableQuantity" type="BigDecimal"/>
+            </parameter></parameter>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.return.ReturnHeader" value-field="returnHeader"/>
+            <script>
+                Calendar lookBackCal = ec.user.nowCalendar()
+                lookBackCal.add(Calendar.MONTH, -lookBackDays)
+                lookBackTs = new java.sql.Timestamp(lookBackCal.getTimeInMillis())
+            </script>
+
+            <!-- Match customerPartyId, vendorPartyId (to OrderPart), include (invoiced items (physical shipped or not); shipped items/quantities), exclude returned -->
+            <!-- TODO: test this and make sure query produces correct invoiceQuantity and returnQuantity, have doubts -->
+            <entity-find entity-name="mantle.order.return.ReturnableOrderItemView" list="returnableItems">
+                <econdition field-name="customerPartyId" from="returnHeader.customerPartyId"/>
+                <econdition field-name="vendorPartyId" from="returnHeader.vendorPartyId"/>
+                <econdition field-name="placedDate" operator="greater-equals" from="lookBackTs"/>
+                <having-econditions><econdition field-name="invoiceQuantity" operator="greater" to-field-name="returnQuantity"/></having-econditions>
+                <select-field field-name="orderId"/><select-field field-name="orderItemSeqId"/>
+                <select-field field-name="itemTypeEnumId"/><select-field field-name="productId"/>
+                <select-field field-name="quantity"/><select-field field-name="invoiceQuantity"/>
+                <select-field field-name="returnQuantity"/>
+            </entity-find>
+
+            <set field="orderItemInfoList" from="[]"/>
+            <iterate list="returnableItems" entry="returnableItem">
+                <set field="returnableQuantity" from="(returnableItem.invoiceQuantity ?: 0) - (returnableItem.returnQuantity ?: 0)"/>
+                <if condition="returnableQuantity > 0">
+                    <script>orderItemInfoList.add([orderId:returnableItem.orderId, orderItemSeqId:returnableItem.orderItemSeqId,
+                               itemTypeEnumId:returnableItem.itemTypeEnumId, productId:returnableItem.productId,
+                               orderQuantity:returnableItem.quantity, invoiceQuantity:returnableItem.invoiceQuantity,
+                               returnQuantity:returnableItem.returnQuantity, returnableQuantity:returnableQuantity])</script>
+                </if>
+            </iterate>
         </actions>
     </service>
     <service verb="add" noun="OrderItemToReturn">
