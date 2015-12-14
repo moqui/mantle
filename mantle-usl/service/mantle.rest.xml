@@ -18,7 +18,7 @@ along with this software (see the LICENSE.md file). If not, see
 <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-1.6.xsd"
         name="mantle" displayName="Mantle Business Artifacts REST API" version="1.2.0">
     <resource name="orders">
-        <method type="get"><entity name="orders" masterName="default" operation="list"/></method>
+        <method type="get"><entity name="mantle.order.OrderHeaderAndPart" operation="list"/></method>
         <method type="post"><service name="mantle.order.OrderServices.create#Order"/></method>
         <method type="put"><service name="mantle.order.OrderBulkServices.store#Order"/></method>
 
@@ -32,17 +32,17 @@ along with this software (see the LICENSE.md file). If not, see
                     <method type="patch"><service name="mantle.order.OrderServices.update#OrderPart"/></method>
                     <!-- TODO <method type="delete"><service name="mantle.order.OrderServices.delete#OrderPart"/></method> -->
 
+                    <resource name="shippingBilling"><method type="put">
+                        <service name="mantle.order.OrderServices.set#OrderBillingShippingInfo"/></method></resource>
                     <resource name="payments">
+                        <method type="get"><entity name="payments" operation="list"/></method>
                         <method type="post"><service name="mantle.order.OrderServices.add#OrderPartPayment"/></method>
-                        <!-- TODO get payments, etc -->
                     </resource>
                     <resource name="invoices">
                         <method type="post"><service name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/></method>
-                        <!-- TODO get invoices, etc -->
                     </resource>
                     <resource name="shipments">
                         <method type="post"><service name="mantle.shipment.ShipmentServices.ship#OrderPart"/></method>
-                        <!-- TODO get shipments, etc -->
                         <id name="shipmentId">
                             <method type="post"><service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method>
                         </id>
@@ -55,6 +55,22 @@ along with this software (see the LICENSE.md file). If not, see
                 <id name="orderItemSeqId">
                     <method type="patch"><service name="mantle.order.OrderServices.update#OrderItem"/></method>
                     <method type="delete"><service name="mantle.order.OrderServices.delete#OrderItem"/></method>
+
+                    <resource name="reservations">
+                        <method type="get"><entity name="mantle.product.issuance.AssetReservation" operation="list"/></method>
+                    </resource>
+                    <resource name="billings" description="Billings associate order item with invoice item, shipment, etc">
+                        <method type="get"><entity name="mantle.order.OrderItemBilling" operation="list"/></method>
+                    </resource>
+                    <resource name="shipments" description="Item shipments for shipment allocation, pick status, etc">
+                        <method type="get"><entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method>
+                    </resource>
+                    <resource name="issuances">
+                        <method type="get"><entity name="mantle.product.issuance.AssetIssuance" operation="list"/></method>
+                    </resource>
+                    <resource name="receipts">
+                        <method type="get"><entity name="mantle.product.receipt.AssetReceipt" operation="list"/></method>
+                    </resource>
                 </id>
             </resource>
             <resource name="productItems">
@@ -64,8 +80,6 @@ along with this software (see the LICENSE.md file). If not, see
                     <method type="delete"><service name="mantle.order.OrderServices.delete#OrderItem"/></method>
                 </id>
             </resource>
-            <resource name="shippingBilling"><method type="put">
-                <service name="mantle.order.OrderServices.set#OrderBillingShippingInfo"/></method></resource>
             <resource name="propose"><method type="patch">
                 <service name="mantle.order.OrderServices.propose#Order"/></method></resource>
             <resource name="place"><method type="patch">
