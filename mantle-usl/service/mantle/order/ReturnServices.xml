@@ -15,13 +15,15 @@ along with this software (see the LICENSE.md file). If not, see
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
     <service verb="create" noun="Return">
         <in-parameters>
-            <auto-parameters entity-name="mantle.order.return.ReturnHeader" include="nonpk"/>
+            <auto-parameters entity-name="mantle.order.return.ReturnHeader" include="nonpk">
+                <exclude field-name="visitId"/></auto-parameters>
             <parameter name="vendorPartyId" required="true"/>
             <parameter name="customerPartyId" required="true"/>
             <parameter name="statusId" default-value="ReturnCreated"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <actions>
+            <set field="visitId" from="ec.user.visitId"/>
             <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -31,7 +33,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="orderPartSeqId" required="true"/>
             <auto-parameters entity-name="mantle.order.return.ReturnHeader" include="nonpk">
                 <exclude field-name="statusId"/><exclude field-name="customerPartyId"/><exclude field-name="vendorPartyId"/>
-                <exclude field-name="entryDate"/><exclude field-name="currencyUomId"/></auto-parameters>
+                <exclude field-name="entryDate"/><exclude field-name="currencyUomId"/><exclude field-name="visitId"/></auto-parameters>
             <parameter name="statusId" default-value="ReturnCreated"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
@@ -51,6 +53,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <if condition="!destinationFacilityId"><set field="destinationFacilityId" from="orderPart.facilityId"/></if>
             <if condition="!originPostalContactMechId"><set field="originPostalContactMechId" from="orderPart.postalContactMechId"/></if>
+            <if condition="!shipmentMethodEnumId"><set field="shipmentMethodEnumId" from="orderPart.shipmentMethodEnumId"/></if>
+            <if condition="!carrierPartyId"><set field="carrierPartyId" from="orderPart.carrierPartyId"/></if>
             <if condition="!paymentMethodId">
                 <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
                     <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/></entity-find>
@@ -58,6 +62,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="paymentMethodId" from="payment.paymentMethodId"/></if></iterate>
             </if>
 
+            <set field="visitId" from="ec.user.visitId"/>
             <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -139,6 +144,19 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!description"><set field="description" from="orderItem.itemDescription"/></if>
 
             <service-call name="create#mantle.order.return.ReturnItem" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="process" noun="ReturnItemResponses">
+        <in-parameters>
+            <parameter name="returnId" required="true"/>
+            <parameter name="shipmentId"><description>If specified only processes responses for items (and quantities)
+                on received Shipment</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.return.ReturnHeader" value-field="returnHeader"/>
+
+            <!-- TODO -->
         </actions>
     </service>
 </services>
