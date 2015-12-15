@@ -92,11 +92,12 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
 
             <!-- Match customerPartyId, vendorPartyId (to OrderPart), include (invoiced items (physical shipped or not); shipped items/quantities), exclude returned -->
-            <!-- TODO: test this and make sure query produces correct invoiceQuantity and returnQuantity, have doubts -->
+            <!-- TODO: test this and make sure query produces correct invoiceQuantity and returnQuantity, have doubts, may need to split into 2 queries -->
             <entity-find entity-name="mantle.order.return.ReturnableOrderItemView" list="returnableItems">
                 <econdition field-name="customerPartyId" from="returnHeader.customerPartyId"/>
                 <econdition field-name="vendorPartyId" from="returnHeader.vendorPartyId"/>
                 <econdition field-name="placedDate" operator="greater-equals" from="lookBackTs"/>
+                <econdition field-name="returnStatusId" operator="not-equals" value="ReturnCancelled"/>
                 <having-econditions><econdition field-name="invoiceQuantity" operator="greater" to-field-name="returnQuantity"/></having-econditions>
                 <select-field field-name="orderId"/><select-field field-name="orderItemSeqId"/>
                 <select-field field-name="itemTypeEnumId"/><select-field field-name="productId"/>
@@ -142,7 +143,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/></entity-find>
             <set field="billedQuantity" from="oibqList ? oibqList[0].quantity : 0"/>
             <entity-find entity-name="mantle.order.return.ReturnItemQuantity" list="riqList">
-                <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/></entity-find>
+                <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
+                <econdition field-name="statusId" operator="not-equals" value="ReturnCancelled"/>
+                <select-field field-name="returnQuantity"/>
+            </entity-find>
             <set field="returnedQuantity" from="riqList ? riqList[0].returnQuantity : 0"/>
 
             <if condition="(returnedQuantity + returnQuantity) &gt; returnableQuantity">
@@ -157,6 +161,11 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="process" noun="ReturnItemResponses">
+        <description>
+            Process responses for items with statuses other than Created, Requested, or Cancelled.
+            If ReturnHeader.needsInventoryReceive = 'N' called by SECA rule on Approved status.
+            If ReturnHeader.needsInventoryReceive = 'Y' (or null) called by SECA rule on Received status.
+        </description>
         <in-parameters>
             <parameter name="returnId" required="true"/>
             <parameter name="shipmentId"><description>If specified only processes responses for items (and quantities)
@@ -165,9 +174,16 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.order.return.ReturnHeader" value-field="returnHeader"/>
 
-            <!-- TODO -->
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="returnId"/></entity-find>
+            <iterate list="returnItemList" entry="returnItem">
+                <!-- TODO -->
+            </iterate>
         </actions>
     </service>
+    <!-- TODO on receive return shipment update item status to Received; if all items received update header status to
+        Received (NOTE: even need a ReturnHeader.statusId?) -->
+    <!-- TODO: add cancel#Return service, cancel items not received/sent, reduce quantities and complete if partially received/sent -->
 
     <!-- ============================================== -->
     <!-- ========== Return Shipment Services ========== -->
