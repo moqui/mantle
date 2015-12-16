@@ -507,7 +507,6 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="facilityId" type="id"><description>If customer is internal org is shipment origin, otherwise is destination</description></field>
         <field name="shipmentMethodEnumId" type="id"><description>Only needed for generating a return label, can also be specified on return shipment</description></field>
         <field name="carrierPartyId" type="id"><description>Only needed for generating a return label, can also be specified on return shipment</description></field>
-        <field name="needsInventoryReceive" type="text-indicator"/>
         <field name="currencyUomId" type="id"/>
         <field name="supplierRmaId" type="id"/>
         <field name="visitId" type="id"/>
@@ -539,16 +538,16 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="returnId"/></relationship>
 
         <seed-data>
-            <!-- Return Header Status -->
-            <moqui.basic.StatusType description="Return Header Status" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Created" sequenceNum="0" statusId="ReturnCreated" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Requested" sequenceNum="1" statusId="ReturnRequested" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Approved" sequenceNum="2" statusId="ReturnApproved" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Shipped" sequenceNum="3" statusId="ReturnShipped" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Received" sequenceNum="4" statusId="ReturnReceived" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Completed" sequenceNum="10" statusId="ReturnCompleted" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Manual Response Required" sequenceNum="11" statusId="ReturnManResp" statusTypeId="ReturnHeader"/>
-            <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="ReturnCancelled" statusTypeId="ReturnHeader"/>
+            <!-- Return Header and Item Status -->
+            <moqui.basic.StatusType description="Return Header and Item Status" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Created" sequenceNum="0" statusId="ReturnCreated" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Requested" sequenceNum="1" statusId="ReturnRequested" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Approved" sequenceNum="2" statusId="ReturnApproved" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Shipped" sequenceNum="3" statusId="ReturnShipped" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Received" sequenceNum="4" statusId="ReturnReceived" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Completed" sequenceNum="10" statusId="ReturnCompleted" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Manual Response Required" sequenceNum="11" statusId="ReturnManResp" statusTypeId="Return"/>
+            <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="ReturnCancelled" statusTypeId="Return"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ReturnCreated" toStatusId="ReturnRequested" transitionName="Request"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ReturnCreated" toStatusId="ReturnApproved" transitionName="Approve"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ReturnRequested" toStatusId="ReturnApproved" transitionName="Approve"/>
@@ -597,26 +596,28 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="returnItemSeqId" type="id" is-pk="true"/>
         <field name="returnReasonEnumId" type="id" enable-audit-log="true"/>
         <field name="returnResponseEnumId" type="id" enable-audit-log="true"/>
+        <field name="responseImmediate" type="text-indicator"><description>Process response immediately (Y) or wait for returned inventory (N)</description></field>
         <field name="itemTypeEnumId" type="id"/>
         <field name="productId" type="id"/>
         <field name="description" type="text-medium"/>
         <field name="orderId" type="id"/>
         <field name="orderItemSeqId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
-        <field name="expectedInventoryStatusId" type="id"/>
+        <field name="inventoryStatusId" type="id"><description>If specified the status of received inventory (for resell, damaged, etc)</description></field>
         <field name="returnQuantity" type="number-decimal" enable-audit-log="true">
             <description>Quantity promised by customer</description></field>
         <field name="receivedQuantity" type="number-decimal" enable-audit-log="true">
             <description>Quantity actually received from customer</description></field>
         <field name="returnPrice" type="currency-amount" enable-audit-log="true"/>
         <!-- Response Detail Fields -->
-        <field name="replacementOrderId" type="id"/>
-        <field name="originalPaymentId" type="id"/>
-        <field name="refundPaymentId" type="id"/>
-        <field name="billingAccountId" type="id"/>
-        <field name="finAccountTransId" type="id"/>
         <field name="responseAmount" type="currency-amount"/>
         <field name="responseDate" type="date-time"/>
+        <field name="replacementOrderId" type="id"/>
+        <field name="finAccountTransId" type="id"/>
+        <field name="refundPaymentId" type="id"/>
+
+        <field name="originalPaymentId" type="id"/>
+        <field name="billingAccountId" type="id"/>
 
         <relationship type="one" related-entity-name="mantle.order.return.ReturnHeader">
             <key-map field-name="returnId"/></relationship>
@@ -634,12 +635,12 @@ along with this software (see the LICENSE.md file). If not, see
 
         <relationship type="one" title="Replacement" related-entity-name="mantle.order.OrderHeader">
             <key-map field-name="replacementOrderId"/></relationship>
-        <relationship type="one" title="Original" related-entity-name="mantle.account.payment.Payment">
-            <key-map field-name="originalPaymentId"/></relationship>
+        <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountTrans"/>
         <relationship type="one" title="Refund" related-entity-name="mantle.account.payment.Payment">
             <key-map field-name="refundPaymentId"/></relationship>
+        <relationship type="one" title="Original" related-entity-name="mantle.account.payment.Payment">
+            <key-map field-name="originalPaymentId"/></relationship>
         <relationship type="one" related-entity-name="mantle.account.billing.BillingAccount"/>
-        <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountTrans"/>
 
         <relationship type="many" related-entity-name="mantle.product.issuance.AssetIssuance" short-alias="issuances">
             <key-map field-name="returnId"/><key-map field-name="returnItemSeqId"/></relationship>
@@ -658,21 +659,15 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="RrsnDidNotWant" description="Did Not Want" enumTypeId="ReturnReason"/>
             <moqui.basic.Enumeration enumId="RrsnDefective" description="Defective" enumTypeId="ReturnReason"/>
             <moqui.basic.Enumeration enumId="RrsnMisShip" description="Mis-Shipped" enumTypeId="ReturnReason"/>
-            <moqui.basic.Enumeration enumId="RrsnDigFulFailed" description="Digital Fulfillment Failed" enumTypeId="ReturnReason"/>
             <moqui.basic.Enumeration enumId="RrsnCodPmtRejected" description="COD Payment Rejected" enumTypeId="ReturnReason"/>
             <moqui.basic.Enumeration enumId="RrsnSizeExchange" description="Size Exchange" enumTypeId="ReturnReason"/>
 
             <!-- Return Response -->
             <moqui.basic.EnumerationType description="Return Response" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspStoreCredit" description="Store Credit" enumTypeId="ReturnResponse"/>
+            <moqui.basic.Enumeration enumId="RrspCredit" description="Credit" enumTypeId="ReturnResponse"/>
             <moqui.basic.Enumeration enumId="RrspRefund" description="Refund" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspWaitReplace" description="Wait Replacement" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspCrossReplace" description="Cross-Ship Replacement" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspRepairReplace" description="Repair Replacement" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspWairReplaceRes" description="Wait Replacement Reserved" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspReplaceImmed" description="Replace Immediately" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspRefundImmed" description="Refund immediately" enumTypeId="ReturnResponse"/>
-            <moqui.basic.Enumeration enumId="RrspManual" description="Manual Response" enumTypeId="ReturnResponse"/>
+            <moqui.basic.Enumeration enumId="RrspReplace" description="Replace" enumTypeId="ReturnResponse"/>
+            <moqui.basic.Enumeration enumId="RrspManual" description="Manual" enumTypeId="ReturnResponse"/>
         </seed-data>
     </entity>
     <entity entity-name="ReturnItemBilling" package-name="mantle.order.return">
