@@ -210,14 +210,14 @@ along with this software (see the LICENSE.md file). If not, see
                     <continue/>
                 </if>
 
-                <!-- this returns finAccountId -->
-                <service-call name="mantle.account.FinancialAccountServices.getOrCreate#FinancialAccount"
-                        in-map="[finAccountTypeId:'CustomerCredit', ownerPartyId:returnHeader.customerPartyId,
-                            organizationPartyId:returnHeader.vendorPartyId]" out-map="context"/>
-                <!-- will set finAccountTransId in context -->
+                <set field="finAccountId" from="returnHeader.finAccountId"/>
+                <if condition="!finAccountId">
+                    <service-call name="mantle.account.FinancialAccountServices.getOrCreate#FinancialAccount"
+                            in-map="[finAccountTypeId:'CustomerCredit', ownerPartyId:returnHeader.customerPartyId,
+                                organizationPartyId:returnHeader.vendorPartyId]" out-map="context"/>
+                </if>
                 <service-call name="mantle.account.FinancialAccountServices.deposit#FinancialAccount" out-map="context"
                         in-map="[finAccountId:finAccountId, reasonEnumId:'FatrRefund', amount:itemAmount]"/>
-
                 <set field="returnItem.finAccountTransId" from="finAccountTransId"/>
 
                 <set field="returnItem.responseAmount" from="itemAmount"/>
@@ -238,7 +238,7 @@ along with this software (see the LICENSE.md file). If not, see
                         <continue/>
                     </if>
 
-                    <!-- TODO: handle CC refunds, other paymentInstrumentEnumId based on original payment method -->
+                    <!-- TODO: handle CC refunds, other paymentInstrumentEnumId based on original payment method or ReturnHeader.paymentMethodId -->
                     <set field="checkAmount" from="checkAmount + itemAmount"/>
                     <script>checkItemList.add(returnItem)</script>
                     <set field="returnItem.responseAmount" from="itemAmount"/>
@@ -258,7 +258,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <service-call name="mantle.account.PaymentServices.create#Payment" out-map="context"
                         in-map="[paymentTypeEnumId:'PtRefund', statusId:'PmntPromised',
                             fromPartyId:returnHeader.vendorPartyId, toPartyId:returnHeader.customerPartyId,
-                            paymentInstrumentEnumId:'PiCompanyCheck', paymentMethodId:paymentMethodId,
+                            paymentInstrumentEnumId:'PiCompanyCheck',
+                            paymentMethodId:paymentMethodId, toPaymentMethodId:returnHeader.paymentMethodId,
                             amount:checkAmount, amountUomId:returnHeader.currencyUomId]"/>
 
                     <iterate list="checkItemList" entry="returnItem">
@@ -270,14 +271,26 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- Replace (Order); consolidate all -->
             <if condition="replaceItemList">
+                <service-call name="mantle.order.OrderServices.create#Order" out-map="context"
+                        in-map="[vendorPartyId:returnHeader.vendorPartyId, customerPartyId:returnHeader.customerPartyId]"/>
+                
                 <iterate list="replaceItemList" entry="returnItem">
                     <set field="itemQuantity" from="returnItem.receivedQuantity ?: returnItem.returnQuantity"/>
 
-                    <!-- TODO -->
+                    <service-call name="mantle.order.OrderServices.add#OrderProductQuantity"
+                            in-map="[orderId:orderId, productId:returnItem.productId, quantity:itemQuantity, unitAmount:0]"/>
 
+                    <set field="returnItem.replacementOrderId" from="orderId"/>
                     <set field="returnItem.responseDate" from="ec.user.nowTimestamp"/>
                     <entity-update value-field="returnItem"/>
                 </iterate>
+
+                <service-call name="mantle.order.OrderServices.set#OrderBillingShippingInfo"
+                        in-map="[orderId:orderId, shippingPostalContactMechId:returnHeader.postalContactMechId,
+                            shippingTelecomContactMechId:returnHeader.telecomContactMechId,
+                            shippingFacilityId:returnHeader.facilityId, carrierPartyId:returnHeader.carrierPartyId,
+                            shipmentMethodEnumId:returnHeader.shipmentMethodEnumId]"/>
+                <service-call name="mantle.order.OrderServices.place#Order" in-map="[orderId:orderId]"/>
             </if>
         </actions>
     </service>
