@@ -163,27 +163,94 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="process" noun="ReturnItemResponses">
         <description>
             Process responses for items with statuses other than Created, Requested, or Cancelled.
-            If ReturnHeader.needsInventoryReceive = 'N' called by SECA rule on Approved status.
-            If ReturnHeader.needsInventoryReceive = 'Y' (or null) called by SECA rule on Received status.
+            Called by SECA rule on Approved and Received item statuses.
+            If ReturnItem.responseImmediate = 'Y' process on Approved status or later (Shipped, Received, Completed).
+            If ReturnItem.responseImmediate = 'N' (or null) process on Received status or later (Completed).
+            Only processes responses for items with no response already (responseDate != null).
         </description>
         <in-parameters>
             <parameter name="returnId" required="true"/>
-            <parameter name="shipmentId"><description>If specified only processes responses for items (and quantities)
-                on received Shipment</description></parameter>
+            <parameter name="returnItemSeqId"><description>If not specified try processing all items</description></parameter>
         </in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.order.return.ReturnHeader" value-field="returnHeader"/>
 
-            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
-                <econdition field-name="returnId"/></entity-find>
+            <!-- make sure customer is not an internal org, ie this is a sales return and not a purchase return -->
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
+                <field-map field-name="partyId" from="returnHeader.customerPartyId"/>
+                <field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+            <if condition="customerOrgInternal"><return message="Cannot process return responses for supplier purchase return"/></if>
+
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList" for-update="true">
+                <econdition field-name="returnId"/><econdition field-name="returnItemSeqId" ignore-if-empty="true"/></entity-find>
             <iterate list="returnItemList" entry="returnItem">
-                <!-- TODO -->
+                <if condition="returnItem.responseDate != null"><continue/></if>
+                <set field="validStatus" from="returnItem.statusId in ['ReturnReceived', 'ReturnCompleted'] ||
+                        (ReturnItem.responseImmediate = 'Y' &amp;&amp; returnItem.statusId in ['ReturnApproved', 'ReturnShipped'])"/>
+                <if condition="!validStatus"><continue/></if>
+
+                <!-- TODO calculate amount -->
+                <set field="amount" from="0"/>
+
+                <if condition="returnItem.returnResponseEnumId == 'RrspCredit'">
+                    <then>
+                        <!-- returns finAccountId -->
+                        <service-call name="mantle.account.FinancialAccountServices.getOrCreate#FinancialAccount"
+                                in-map="[finAccountTypeId:'CustomerCredit', ownerPartyId:returnHeader.customerPartyId,
+                                    organizationPartyId:returnHeader.vendorPartyId]" out-map="context"/>
+                        <!-- will set finAccountTransId in context -->
+                        <service-call name="mantle.account.FinancialAccountServices.deposit#FinancialAccount" out-map="context"
+                                in-map="[finAccountId:finAccountId, reasonEnumId:'FatrRefund', amount:amount]"/>
+
+                        <set field="returnItem.responseAmount" from="amount"/>
+                        <set field="returnItem.responseDate" from="ec.user.nowTimestamp"/>
+                        <set field="returnItem.finAccountTransId" from="finAccountTransId"/>
+                    </then>
+                    <else-if condition="returnItem.returnResponseEnumId == 'RrspRefund'">
+                        <!-- TODO -->
+                    </else-if>
+                    <else-if condition="returnItem.returnResponseEnumId == 'RrspReplace'">
+                        <!-- TODO -->
+                    </else-if>
+                    <!-- NOTE: for RrspManual do nothing -->
+                </if>
+                <if condition="returnItem.isModified()"><entity-update value-field="returnItem"/></if>
             </iterate>
         </actions>
     </service>
-    <!-- TODO on receive return shipment update item status to Received; if all items received update header status to
-        Received (NOTE: even need a ReturnHeader.statusId?) -->
-    <!-- TODO: add cancel#Return service, cancel items not received/sent, reduce quantities and complete if partially received/sent -->
+
+    <service verb="approve" noun="Return">
+        <in-parameters><parameter name="returnId" required="true"/></in-parameters>
+        <actions>
+            <!-- TODO -->
+        </actions>
+    </service>
+    <service verb="receive" noun="ReturnItem">
+        <description>Called per item when return Shipment received</description>
+        <in-parameters>
+            <parameter name="returnId" required="true"/>
+            <parameter name="returnItemSeqId" required="true"/>
+            <parameter name="receivedQuantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <actions>
+            <!-- TODO on receive return shipment update item status to Received; if all items received update header status to Received -->
+        </actions>
+    </service>
+    <service verb="cancel" noun="Return">
+        <in-parameters><parameter name="returnId" required="true"/></in-parameters>
+        <actions>
+            <!-- TODO cancel items not received/sent, reduce quantities and complete if partially received/sent -->
+        </actions>
+    </service>
+    <service verb="cancel" noun="ReturnItem">
+        <in-parameters>
+            <parameter name="returnId" required="true"/>
+            <parameter name="returnItemSeqId" required="true"/>
+        </in-parameters>
+        <actions>
+            <!-- TODO cancel items not received/sent, reduce quantities and complete if partially received/sent -->
+        </actions>
+    </service>
 
     <!-- ============================================== -->
     <!-- ========== Return Shipment Services ========== -->
@@ -206,7 +273,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- is this an outgoing Shipment (use ShpTpPurchaseReturn) or incoming (use ShpTpSalesReturn) order based on internal org? -->
             <!-- TODO: what to do if both are internal orgs? need a flag or something for which side we're dealing with... -->
             <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
-                <field-map field-name="partyId" from="orderPart.customerPartyId"/>
+                <field-map field-name="partyId" from="returnHeader.customerPartyId"/>
                 <field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
             <set field="shipmentTypeEnumId" from="customerOrgInternal ? 'ShpTpPurchaseReturn' : 'ShpTpSalesReturn'"/>
 
@@ -226,7 +293,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- create Shipment record, get shipmentId -->
             <service-call name="create#mantle.shipment.Shipment" out-map="context"
                     in-map="[shipmentTypeEnumId:shipmentTypeEnumId, statusId:'ShipInput',
-                        fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
+                        fromPartyId:returnHeader.customerPartyId, toPartyId:returnHeader.vendorPartyId,
                         systemMessageRemoteId:orderHeader.systemMessageRemoteId]"/>
 
             <if condition="createPackage">
