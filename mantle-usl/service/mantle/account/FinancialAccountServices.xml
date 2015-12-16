@@ -106,6 +106,31 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="update#mantle.account.financial.FinancialAccount" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="getOrCreate" noun="FinancialAccount">
+        <in-parameters>
+            <parameter name="finAccountTypeId" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="ownerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="finAccountId"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.account.financial.FinancialAccount" list="finAccountList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="finAccountTypeId"/></entity-find>
+            <if condition="finAccountList">
+                <then>
+                    <set field="finAccountId" from="finAccountList[0].finAccountList"/>
+                </then>
+                <else>
+                    <entity-find-one entity-name="mantle.account.financial.FinancialAccountType" value-field="financialAccountType"/>
+                    <entity-find-one entity-name="mantle.party.PartyDetail" value-field="owner">
+                        <field-map field-name="partyId" from="ownerPartyId"/></entity-find-one>
+                    <set field="finAccountName" value="${owner.organizationName?:''}${owner.firstName?:''}${owner.lastName ? ' ' + owner.lastName : ''} ${financialAccountType.description}"/>
+                    <service-call name="mantle.account.FinancialAccountServices.create#FinancialAccount"
+                            in-map="context" out-map="context"/>
+                </else>
+            </if>
+        </actions>
+    </service>
 
     <service verb="calculate" noun="FinancialAccountTotals">
         <description>Calculates totals from FinancialAccountTrans and FinancialAccountAuth records, records them
