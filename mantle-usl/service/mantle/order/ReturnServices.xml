@@ -189,12 +189,19 @@ along with this software (see the LICENSE.md file). If not, see
                         (ReturnItem.responseImmediate = 'Y' &amp;&amp; returnItem.statusId in ['ReturnApproved', 'ReturnShipped'])"/>
                 <if condition="!validStatus"><continue/></if>
 
-                <!-- TODO calculate amount -->
-                <set field="amount" from="0"/>
+                <!-- calculate amount -->
+                <set field="quantity" from="returnItem.receivedQuantity ?: returnItem.returnQuantity"/>
+                <set field="amount" from="returnItem.responseAmount"/>
+                <if condition="amount == null &amp;&amp; returnItem.orderId">
+                    <!-- calculate from quantity and OrderItem.unitAmount -->
+                    <entity-find-related-one value-field="returnItem" relationship-name="orderItem" to-value-field="orderItem"/>
+                    <set field="amount" from="(quantity?:0) * (orderItem.unitAmount?:0)"/>
+                </if>
 
                 <if condition="returnItem.returnResponseEnumId == 'RrspCredit'">
                     <then>
-                        <!-- returns finAccountId -->
+                        <if condition="!amount"><return error="true" message="Return Item ${returnId}:${returnItem.returnItemSeqId} has no amount, not processing response"/></if>
+                        <!-- this returns finAccountId -->
                         <service-call name="mantle.account.FinancialAccountServices.getOrCreate#FinancialAccount"
                                 in-map="[finAccountTypeId:'CustomerCredit', ownerPartyId:returnHeader.customerPartyId,
                                     organizationPartyId:returnHeader.vendorPartyId]" out-map="context"/>
@@ -203,18 +210,28 @@ along with this software (see the LICENSE.md file). If not, see
                                 in-map="[finAccountId:finAccountId, reasonEnumId:'FatrRefund', amount:amount]"/>
 
                         <set field="returnItem.responseAmount" from="amount"/>
-                        <set field="returnItem.responseDate" from="ec.user.nowTimestamp"/>
                         <set field="returnItem.finAccountTransId" from="finAccountTransId"/>
                     </then>
                     <else-if condition="returnItem.returnResponseEnumId == 'RrspRefund'">
-                        <!-- TODO -->
+                        <if condition="!amount"><return error="true" message="Return Item ${returnId}:${returnItem.returnItemSeqId} has no amount, not processing response"/></if>
+
+                        <service-call name="mantle.account.PaymentServices.create#Payment" out-map="context"
+                            in-map="[paymentTypeEnumId:'PtRefund', statusId:'PmntPromised',
+                                fromPartyId:returnHeader.vendorPartyId, toPartyId:returnHeader.customerPartyId,
+                                amount:amount, amountUomId:returnHeader.currencyUomId]"/>
+
+                        <set field="returnItem.responseAmount" from="amount"/>
+                        <set field="returnItem.refundPaymentId" from="paymentId"/>
                     </else-if>
                     <else-if condition="returnItem.returnResponseEnumId == 'RrspReplace'">
                         <!-- TODO -->
                     </else-if>
                     <!-- NOTE: for RrspManual do nothing -->
                 </if>
-                <if condition="returnItem.isModified()"><entity-update value-field="returnItem"/></if>
+                <if condition="returnItem.isModified()">
+                    <set field="returnItem.responseDate" from="ec.user.nowTimestamp"/>
+                    <entity-update value-field="returnItem"/>
+                </if>
             </iterate>
         </actions>
     </service>
