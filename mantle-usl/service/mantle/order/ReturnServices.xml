@@ -370,19 +370,53 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="cancel" noun="Return">
+        <description>Cancel items not received/sent, if all items cancelled then cancel header</description>
         <in-parameters><parameter name="returnId" required="true"/></in-parameters>
+        <out-parameters><parameter name="statusId"/><parameter name="oldStatusId"/>
+            <parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <!-- TODO cancel items not received/sent, reduce quantities and complete if partially received/sent -->
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="returnId"/></entity-find>
+            <set field="allCancelled" from="true"/>
+            <iterate list="returnItemList" entry="returnItem">
+                <service-call name="mantle.order.ReturnServices.cancel#ReturnItem" out-map="itemOut"
+                        in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId]"/>
+                <if condition="itemOut.statusId != 'ReturnCancelled'"><set field="allCancelled" from="false"/></if>
+            </iterate>
+            <if condition="allCancelled">
+                <then>
+                    <set field="statusId" value="ReturnCancelled"/>
+                    <service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
+                            in-map="[returnId:returnId, statusId:statusId]"/>
+                </then>
+                <else>
+                    <entity-find-one entity-name="mantle.order.return.ReturnHeader" value-field="returnHeader"/>
+                    <set field="statusId" from="returnHeader.statusId"/>
+                    <set field="oldStatusId" from="returnHeader.statusId"/>
+                    <set field="statusChanged" from="false"/>
+                </else>
+            </if>
         </actions>
     </service>
     <service verb="cancel" noun="ReturnItem">
-        <in-parameters>
-            <parameter name="returnId" required="true"/>
-            <parameter name="returnItemSeqId" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="statusId"/></out-parameters>
+        <description>Cancel item if not received/sent, otherwise do nothing</description>
+        <in-parameters><parameter name="returnId" required="true"/><parameter name="returnItemSeqId" required="true"/></in-parameters>
+        <out-parameters><parameter name="statusId"/><parameter name="oldStatusId"/>
+            <parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <!-- TODO cancel items not received/sent, reduce quantities and complete if partially received/sent -->
+            <entity-find-one entity-name="mantle.order.return.ReturnItem" value-field="returnItem"/>
+            <if condition="returnItem.statusId in ['ReturnCreated', 'ReturnRequested', 'ReturnApproved']">
+                <then>
+                    <set field="statusId" value="ReturnCancelled"/>
+                    <service-call name="update#mantle.order.return.ReturnItem" out-map="context"
+                            in-map="[returnId:returnId, returnItemSeqId:returnItemSeqId, statusId:statusId]"/>
+                </then>
+                <else>
+                    <set field="statusId" from="returnItem.statusId"/>
+                    <set field="oldStatusId" from="returnItem.statusId"/>
+                    <set field="statusChanged" from="false"/>
+                </else>
+            </if>
         </actions>
     </service>
 
