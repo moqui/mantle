@@ -295,11 +295,42 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
-    <service verb="approve" noun="Return">
+    <service verb="change" noun="ReturnStatusInterface" type="interface">
         <in-parameters><parameter name="returnId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+    </service>
+    <service verb="update" noun="ReturnStatus">
+        <in-parameters><parameter name="returnId" required="true"/><parameter name="statusId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <!-- TODO -->
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="returnId"/></entity-find>
+            <iterate list="returnItemList" entry="returnItem"><service-call name="update#mantle.order.return.ReturnItem"
+                    in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId, statusId:statusId]"/></iterate>
+
+            <service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
+                    in-map="[returnId:returnId, statusId:statusId]"/>
         </actions>
+    </service>
+    <service verb="checkUpdate" noun="ReturnHeaderStatus">
+        <in-parameters><parameter name="returnId" required="true"/><parameter name="statusId" required="true"/>
+            <parameter name="itemStatusIds" type="Collection" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <actions>
+            <set field="allMatch" from="true"/>
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="returnId"/></entity-find>
+            <iterate list="returnItemList" entry="otherItem">
+                <if condition="!(otherItem.statusId in itemStatusIds)">
+                    <set field="allMatch" from="false"/></if></iterate>
+            <if condition="allMatch"><service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
+                    in-map="[returnId:returnId, statusId:statusId]"/></if>
+        </actions>
+    </service>
+
+    <service verb="approve" noun="Return">
+        <implements service="mantle.order.ReturnServices.change#ReturnStatusInterface"/>
+        <actions><service-call name="mantle.order.ReturnServices.update#ReturnStatus" out-map="context" in-map="context + [statusId:'ReturnApproved']"/></actions>
     </service>
     <service verb="receive" noun="ReturnItem">
         <description>Called per item when return Shipment received</description>
@@ -308,8 +339,34 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="returnItemSeqId" required="true"/>
             <parameter name="receivedQuantity" type="BigDecimal" required="true"/>
         </in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
         <actions>
-            <!-- TODO on receive return shipment update item status to Received; if all items received update header status to Received -->
+            <entity-find-one entity-name="mantle.order.return.ReturnItem" value-field="returnItem"/>
+
+            <if condition="returnItem.receivedQuantity">
+                <set field="receivedQuantity" from="receivedQuantity + returnItem.receivedQuantity"/></if>
+            <service-call name="update#mantle.order.return.ReturnItem" out-map="context" in-map="[returnId:returnId,
+                    returnItemSeqId:returnItemSeqId, statusId:'ReturnReceived', receivedQuantity:receivedQuantity]"/>
+
+            <!-- if all items received update header status to Received -->
+            <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
+                    statusId:'ReturnReceived', itemStatusIds:['ReturnReceived', 'ReturnManResp', 'ReturnCompleted', 'ReturnCancelled']]"/>
+
+            <!-- if returnResponseEnumId=RrspManual and not already processed, set statusId to ReturnManResp, and on header too -->
+            <if condition="returnItem.returnResponseEnumId == 'RrspManual' &amp;&amp; !returnItem.responseDate">
+                <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
+                        returnItemSeqId:returnItemSeqId, statusId:'ReturnManResp']"/>
+                <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
+                        statusId:'ReturnManResp', itemStatusIds:['ReturnReceived', 'ReturnManResp', 'ReturnCancelled']]"/>
+            </if>
+
+            <!-- if response already processed (responseDate set) status to ReturnCompleted, and on header too -->
+            <if condition="returnItem.responseDate">
+                <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
+                        returnItemSeqId:returnItemSeqId, statusId:'ReturnCompleted']"/>
+                <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
+                        statusId:'ReturnCompleted', itemStatusIds:['ReturnCompleted', 'ReturnCancelled']]"/>
+            </if>
         </actions>
     </service>
     <service verb="cancel" noun="Return">
@@ -323,6 +380,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="returnId" required="true"/>
             <parameter name="returnItemSeqId" required="true"/>
         </in-parameters>
+        <out-parameters><parameter name="statusId"/></out-parameters>
         <actions>
             <!-- TODO cancel items not received/sent, reduce quantities and complete if partially received/sent -->
         </actions>
