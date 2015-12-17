@@ -139,20 +139,19 @@ h2. General Order Placement and eCommerce Usage
                     paymentsTotal += (partPayment.amount ?: 0)
                     Map partPaymentInfo = [partPayment:partPayment]
                     EntityValue paymentMethod = partPayment.PaymentMethod
-                    EntityValue paymentMethodTypeEnum = partPayment."PaymentMethodType#moqui.basic.Enumeration"
                     if (paymentMethod) {
                         partPaymentInfo.paymentMethod = paymentMethod
                         creditCard = paymentMethod.CreditCard
                         partPaymentInfo.creditCard = creditCard
-                        partPaymentInfo.creditCardTypeEnum = partPaymentInfo.creditCard."CreditCardType#moqui.basic.Enumeration"
+                        partPaymentInfo.creditCardTypeEnum = creditCard?."CreditCardType#moqui.basic.Enumeration"
                         cardNumber = creditCard?.cardNumber
                         partPaymentInfo.maskedCardNumber = cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''
                         partPaymentInfo.postalAddress = paymentMethod.PostalAddress
                         partPaymentInfo.postalAddressStateGeo = partPaymentInfo.postalAddress?."StateProvince#moqui.basic.Geo"
                         partPaymentInfo.telecomNumber = paymentMethod.TelecomNumber
-                        if (!paymentMethodTypeEnum) paymentMethodTypeEnum = paymentMethod."PaymentMethodType#moqui.basic.Enumeration"
+                        partPaymentInfo.paymentMethodTypeEnum = paymentMethod.methodType
                     }
-                    partPaymentInfo.paymentMethodTypeEnum = paymentMethodTypeEnum
+                    partPaymentInfo.paymentInstrumentEnum = partPayment.instrument
                     partPaymentInfoList.add(partPaymentInfo)
                 }
 
