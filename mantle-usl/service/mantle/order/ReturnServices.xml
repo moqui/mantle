@@ -336,6 +336,29 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="mantle.order.ReturnServices.change#ReturnStatusInterface"/>
         <actions><service-call name="mantle.order.ReturnServices.update#ReturnStatus" out-map="context" in-map="context + [statusId:'ReturnApproved']"/></actions>
     </service>
+
+    <service verb="receive" noun="ReturnShipmentItems">
+        <description>Call receive#ReturnItem for all items returned on a Shipment. Called be SECA rule on Shipment status Delivered.</description>
+        <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <if condition="shipment.shipmentTypeEnumId != 'ShpTpSalesReturn'">
+                <log level="trace" message="Tried to receive return items for shipment ${shipmentId} which is not a Sales Return shipment"/>
+                <return/>
+            </if>
+
+            <entity-find entity-name="mantle.product.receipt.AssetReceiptSummary" list="receiptSummaryList">
+                <econdition field-name="shipmentId"/>
+                <select-field field-name="returnId"/><select-field field-name="returnItemSeqId"/>
+                <select-field field-name="quantityAccepted"/>
+            </entity-find>
+            <iterate list="receiptSummaryList" entry="receiptSummary">
+                <service-call name="mantle.order.ReturnServices.receive#ReturnItem"
+                        in-map="[returnId:receiptSummary.returnId, returnItemSeqId:receiptSummary.returnItemSeqId,
+                            receivedQuantity:receiptSummary.quantityAccepted]"/>
+            </iterate>
+        </actions>
+    </service>
     <service verb="receive" noun="ReturnItem">
         <description>Called per item when return Shipment received</description>
         <in-parameters>
@@ -373,6 +396,7 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+
     <service verb="cancel" noun="Return">
         <description>Cancel items not received/sent, if all items cancelled then cancel header</description>
         <in-parameters><parameter name="returnId" required="true"/></in-parameters>
@@ -429,6 +453,8 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ============================================== -->
 
     <service verb="create" noun="ReturnShipment">
+        <description>Create a Shipment for items on a return using settings on ReturnHeader. Called by SECA rule when
+            Return is Approved.</description>
         <in-parameters>
             <parameter name="returnId" required="true"/>
             <parameter name="createPackage" type="Boolean" default="false"/>
