@@ -13,6 +13,11 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
+
+    <!-- ============================================ -->
+    <!-- ========== Create Return Services ========== -->
+    <!-- ============================================ -->
+
     <service verb="create" noun="Return">
         <in-parameters>
             <auto-parameters entity-name="mantle.order.return.ReturnHeader" include="nonpk">
@@ -161,6 +166,114 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ============================================= -->
+    <!-- ========== Process Return Services ========== -->
+    <!-- ============================================= -->
+
+    <service verb="change" noun="ReturnStatusInterface" type="interface">
+        <in-parameters><parameter name="returnId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+    </service>
+    <service verb="update" noun="ReturnStatus">
+        <in-parameters><parameter name="returnId" required="true"/><parameter name="statusId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="returnId"/></entity-find>
+            <iterate list="returnItemList" entry="returnItem">
+                <if condition="returnItem.statusId == 'ReturnCancelled'"><continue/></if>
+                <service-call name="update#mantle.order.return.ReturnItem"
+                    in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId, statusId:statusId]"/>
+            </iterate>
+
+            <service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
+                    in-map="[returnId:returnId, statusId:statusId]"/>
+        </actions>
+    </service>
+    <service verb="checkUpdate" noun="ReturnHeaderStatus">
+        <in-parameters><parameter name="returnId" required="true"/><parameter name="statusId" required="true"/>
+            <parameter name="itemStatusIds" type="Collection" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <actions>
+            <set field="allMatch" from="true"/>
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="returnId"/></entity-find>
+            <iterate list="returnItemList" entry="otherItem">
+                <if condition="!(otherItem.statusId in itemStatusIds)">
+                    <set field="allMatch" from="false"/></if></iterate>
+            <if condition="allMatch"><service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
+                    in-map="[returnId:returnId, statusId:statusId]"/></if>
+        </actions>
+    </service>
+
+    <service verb="request" noun="Return">
+        <implements service="mantle.order.ReturnServices.change#ReturnStatusInterface"/>
+        <actions><service-call name="mantle.order.ReturnServices.update#ReturnStatus" out-map="context" in-map="context + [statusId:'ReturnRequested']"/></actions>
+    </service>
+    <service verb="approve" noun="Return">
+        <implements service="mantle.order.ReturnServices.change#ReturnStatusInterface"/>
+        <actions><service-call name="mantle.order.ReturnServices.update#ReturnStatus" out-map="context" in-map="context + [statusId:'ReturnApproved']"/></actions>
+    </service>
+
+    <service verb="receive" noun="ReturnShipmentItems">
+        <description>Call receive#ReturnItem for all items returned on a Shipment. Called be SECA rule on Shipment status Delivered.</description>
+        <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <!-- If not a Sales Return Shipment return now -->
+            <if condition="shipment.shipmentTypeEnumId != 'ShpTpSalesReturn'"><return/></if>
+
+            <entity-find entity-name="mantle.product.receipt.AssetReceiptSummary" list="receiptSummaryList">
+                <econdition field-name="shipmentId"/>
+                <select-field field-name="returnId"/><select-field field-name="returnItemSeqId"/>
+                <select-field field-name="quantityAccepted"/>
+            </entity-find>
+            <log message="receiptSummaryList: ${receiptSummaryList}"/>
+            <iterate list="receiptSummaryList" entry="receiptSummary">
+                <service-call name="mantle.order.ReturnServices.receive#ReturnItem"
+                        in-map="[returnId:receiptSummary.returnId, returnItemSeqId:receiptSummary.returnItemSeqId,
+                            receivedQuantity:receiptSummary.quantityAccepted]"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="receive" noun="ReturnItem">
+        <description>Called per item when return Shipment received</description>
+        <in-parameters>
+            <parameter name="returnId" required="true"/>
+            <parameter name="returnItemSeqId" required="true"/>
+            <parameter name="receivedQuantity" type="BigDecimal" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.return.ReturnItem" value-field="returnItem"/>
+
+            <if condition="returnItem.receivedQuantity">
+                <set field="receivedQuantity" from="receivedQuantity + returnItem.receivedQuantity"/></if>
+            <service-call name="update#mantle.order.return.ReturnItem" out-map="context" in-map="[returnId:returnId,
+                    returnItemSeqId:returnItemSeqId, statusId:'ReturnReceived', receivedQuantity:receivedQuantity]"/>
+
+            <!-- if all items received update header status to Received -->
+            <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
+                    statusId:'ReturnReceived', itemStatusIds:['ReturnReceived', 'ReturnManResp', 'ReturnCompleted', 'ReturnCancelled']]"/>
+
+            <!-- if returnResponseEnumId=RrspManual and not already processed, set statusId to ReturnManResp, and on header too -->
+            <if condition="returnItem.returnResponseEnumId == 'RrspManual' &amp;&amp; !returnItem.responseDate">
+                <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
+                        returnItemSeqId:returnItemSeqId, statusId:'ReturnManResp']"/>
+                <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
+                        statusId:'ReturnManResp', itemStatusIds:['ReturnReceived', 'ReturnManResp', 'ReturnCancelled']]"/>
+            </if>
+
+            <!-- if response already processed (responseDate set) status to ReturnCompleted, and on header too -->
+            <if condition="returnItem.responseDate">
+                <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
+                        returnItemSeqId:returnItemSeqId, statusId:'ReturnCompleted']"/>
+                <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
+                        statusId:'ReturnCompleted', itemStatusIds:['ReturnCompleted', 'ReturnCancelled']]"/>
+            </if>
+        </actions>
+    </service>
+
     <service verb="process" noun="ReturnItemResponses">
         <description>
             Process responses for items with statuses other than Created, Requested, or Cancelled.
@@ -292,111 +405,6 @@ along with this software (see the LICENSE.md file). If not, see
                             shippingFacilityId:returnHeader.facilityId, carrierPartyId:returnHeader.carrierPartyId,
                             shipmentMethodEnumId:returnHeader.shipmentMethodEnumId]"/>
                 <service-call name="mantle.order.OrderServices.place#Order" in-map="[orderId:orderId]"/>
-            </if>
-        </actions>
-    </service>
-
-    <service verb="change" noun="ReturnStatusInterface" type="interface">
-        <in-parameters><parameter name="returnId" required="true"/></in-parameters>
-        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
-    </service>
-    <service verb="update" noun="ReturnStatus">
-        <in-parameters><parameter name="returnId" required="true"/><parameter name="statusId" required="true"/></in-parameters>
-        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
-        <actions>
-            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
-                <econdition field-name="returnId"/></entity-find>
-            <iterate list="returnItemList" entry="returnItem">
-                <if condition="returnItem.statusId == 'ReturnCancelled'"><continue/></if>
-                <service-call name="update#mantle.order.return.ReturnItem"
-                    in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId, statusId:statusId]"/>
-            </iterate>
-
-            <service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
-                    in-map="[returnId:returnId, statusId:statusId]"/>
-        </actions>
-    </service>
-    <service verb="checkUpdate" noun="ReturnHeaderStatus">
-        <in-parameters><parameter name="returnId" required="true"/><parameter name="statusId" required="true"/>
-            <parameter name="itemStatusIds" type="Collection" required="true"/></in-parameters>
-        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
-        <actions>
-            <set field="allMatch" from="true"/>
-            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
-                <econdition field-name="returnId"/></entity-find>
-            <iterate list="returnItemList" entry="otherItem">
-                <if condition="!(otherItem.statusId in itemStatusIds)">
-                    <set field="allMatch" from="false"/></if></iterate>
-            <if condition="allMatch"><service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
-                    in-map="[returnId:returnId, statusId:statusId]"/></if>
-        </actions>
-    </service>
-
-    <service verb="request" noun="Return">
-        <implements service="mantle.order.ReturnServices.change#ReturnStatusInterface"/>
-        <actions><service-call name="mantle.order.ReturnServices.update#ReturnStatus" out-map="context" in-map="context + [statusId:'ReturnRequested']"/></actions>
-    </service>
-    <service verb="approve" noun="Return">
-        <implements service="mantle.order.ReturnServices.change#ReturnStatusInterface"/>
-        <actions><service-call name="mantle.order.ReturnServices.update#ReturnStatus" out-map="context" in-map="context + [statusId:'ReturnApproved']"/></actions>
-    </service>
-
-    <service verb="receive" noun="ReturnShipmentItems">
-        <description>Call receive#ReturnItem for all items returned on a Shipment. Called be SECA rule on Shipment status Delivered.</description>
-        <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
-        <actions>
-            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
-            <if condition="shipment.shipmentTypeEnumId != 'ShpTpSalesReturn'">
-                <log level="trace" message="Tried to receive return items for shipment ${shipmentId} which is not a Sales Return shipment"/>
-                <return/>
-            </if>
-
-            <entity-find entity-name="mantle.product.receipt.AssetReceiptSummary" list="receiptSummaryList">
-                <econdition field-name="shipmentId"/>
-                <select-field field-name="returnId"/><select-field field-name="returnItemSeqId"/>
-                <select-field field-name="quantityAccepted"/>
-            </entity-find>
-            <iterate list="receiptSummaryList" entry="receiptSummary">
-                <service-call name="mantle.order.ReturnServices.receive#ReturnItem"
-                        in-map="[returnId:receiptSummary.returnId, returnItemSeqId:receiptSummary.returnItemSeqId,
-                            receivedQuantity:receiptSummary.quantityAccepted]"/>
-            </iterate>
-        </actions>
-    </service>
-    <service verb="receive" noun="ReturnItem">
-        <description>Called per item when return Shipment received</description>
-        <in-parameters>
-            <parameter name="returnId" required="true"/>
-            <parameter name="returnItemSeqId" required="true"/>
-            <parameter name="receivedQuantity" type="BigDecimal" required="true"/>
-        </in-parameters>
-        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
-        <actions>
-            <entity-find-one entity-name="mantle.order.return.ReturnItem" value-field="returnItem"/>
-
-            <if condition="returnItem.receivedQuantity">
-                <set field="receivedQuantity" from="receivedQuantity + returnItem.receivedQuantity"/></if>
-            <service-call name="update#mantle.order.return.ReturnItem" out-map="context" in-map="[returnId:returnId,
-                    returnItemSeqId:returnItemSeqId, statusId:'ReturnReceived', receivedQuantity:receivedQuantity]"/>
-
-            <!-- if all items received update header status to Received -->
-            <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
-                    statusId:'ReturnReceived', itemStatusIds:['ReturnReceived', 'ReturnManResp', 'ReturnCompleted', 'ReturnCancelled']]"/>
-
-            <!-- if returnResponseEnumId=RrspManual and not already processed, set statusId to ReturnManResp, and on header too -->
-            <if condition="returnItem.returnResponseEnumId == 'RrspManual' &amp;&amp; !returnItem.responseDate">
-                <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
-                        returnItemSeqId:returnItemSeqId, statusId:'ReturnManResp']"/>
-                <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
-                        statusId:'ReturnManResp', itemStatusIds:['ReturnReceived', 'ReturnManResp', 'ReturnCancelled']]"/>
-            </if>
-
-            <!-- if response already processed (responseDate set) status to ReturnCompleted, and on header too -->
-            <if condition="returnItem.responseDate">
-                <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
-                        returnItemSeqId:returnItemSeqId, statusId:'ReturnCompleted']"/>
-                <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
-                        statusId:'ReturnCompleted', itemStatusIds:['ReturnCompleted', 'ReturnCancelled']]"/>
             </if>
         </actions>
     </service>
