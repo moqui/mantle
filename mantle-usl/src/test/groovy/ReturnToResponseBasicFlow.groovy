@@ -14,6 +14,7 @@
 
 import org.moqui.Moqui
 import org.moqui.context.ExecutionContext
+import org.moqui.entity.EntityList
 import org.moqui.entity.EntityValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -33,9 +34,9 @@ class ReturnToResponseBasicFlow extends Specification {
     @Shared
     ExecutionContext ec
     @Shared
-    String returnId = null, originalOrderId = "55500", replaceOrderId, replaceOrderPartSeqId
+    String returnId = null, originalOrderId = "55500", returnShipmentId, replaceOrderId, replaceOrderPartSeqId
     @Shared
-    Map returnShipResult, replaceShipResult
+    Map replaceShipResult
     @Shared
     long effectiveTime = System.currentTimeMillis()
 
@@ -120,10 +121,12 @@ class ReturnToResponseBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    /*
     def "approve Return"() {
         when:
         ec.user.loginUser("john.doe", "moqui", null)
+
+        // triggers SECA rule to create an Sales Return (incoming) Shipment
+        ec.service.sync().name("mantle.order.ReturnServices.approve#Return").parameters([returnId:returnId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
@@ -137,6 +140,14 @@ class ReturnToResponseBasicFlow extends Specification {
 
     def "receive Return Shipment"() {
         when:
+
+        // find Shipment created on return approve
+        EntityList sisEl = ec.entity.find("mantle.shipment.ShipmentItemSource").condition("returnId", returnId).list()
+        returnShipmentId = sisEl.get(0).shipmentId
+
+        // receive Return Shipment
+        // triggers SECA rules to receive ReturnItems
+        ec.service.sync().name("mantle.shipment.ShipmentServices.receive#EntireShipment").parameters([shipmentId:returnShipmentId]).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
@@ -172,6 +183,7 @@ class ReturnToResponseBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
+    /*
     def "ship Replacement Order"() {
         when:
 
