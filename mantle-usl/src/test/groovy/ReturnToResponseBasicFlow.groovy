@@ -46,19 +46,19 @@ class ReturnToResponseBasicFlow extends Specification {
         // set an effective date so data check works, etc
         ec.user.setEffectiveTime(new Timestamp(effectiveTime))
 
-        ec.entity.tempSetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetReservation", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.product.receipt.AssetReceipt", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderHeader", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.order.return.ReturnHeader", 55600, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.order.return.ReturnItemBilling", 55600, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetReservation", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.product.receipt.AssetReceipt", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderHeader", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.order.return.ReturnHeader", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.order.return.ReturnItemBilling", 55700, 10)
     }
 
     def cleanupSpec() {
