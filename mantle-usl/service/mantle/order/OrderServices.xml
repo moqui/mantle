@@ -241,6 +241,14 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <if condition="productStoreId">
+                <!-- Get some unspecified values from the ProductStore -->
+                <entity-find-one entity-name="mantle.product.store.ProductStore" value-field="productStore"/>
+                <set field="vendorPartyId" from="vendorPartyId ?: productStore?.organizationPartyId"/>
+                <set field="currencyUomId" from="currencyUomId ?: productStore?.defaultCurrencyUomId"/>
+                <set field="facilityId" from="facilityId ?: productStore?.inventoryFacilityId"/>
+            </if>
+
             <if condition="!currencyUomId">
                 <if condition="customerPartyId">
                     <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
