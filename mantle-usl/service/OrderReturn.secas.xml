@@ -13,14 +13,25 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <secas xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-eca-1.6.xsd">
-    <!-- Create Return Shipment on Approved -->
     <seca service="update#mantle.order.return.ReturnHeader" when="post-service">
         <condition><expression>statusChanged &amp;&amp; statusId == 'ReturnApproved'</expression></condition>
-        <actions><service-call name="mantle.order.ReturnServices.create#ReturnShipment" in-map="context"/></actions>
+        <actions>
+            <!-- Create Return Shipment on Approved -->
+            <service-call name="mantle.order.ReturnServices.create#ReturnShipment" in-map="context"/>
+            <!-- On ReturnHeader Approved process#ReturnItemResponses, for those with responseImmediate=Y -->
+            <service-call name="mantle.order.ReturnServices.process#ReturnItemResponses" in-map="context"/>
+        </actions>
     </seca>
+
     <!-- Receive ReturnItems when Return Shipment Delivered (statusId=ShipDelivered, shipmentTypeEnumId=ShpTpSalesReturn) -->
     <seca service="update#mantle.shipment.Shipment" when="post-service">
         <condition><expression>statusChanged &amp;&amp; statusId == 'ShipDelivered'</expression></condition>
         <actions><service-call name="mantle.order.ReturnServices.receive#ReturnShipmentItems" in-map="context"/></actions>
+    </seca>
+
+    <!-- On ReturnItem Received process#ReturnItemResponses, all responses not yet processed -->
+    <seca service="update#mantle.order.return.ReturnItem" when="post-service">
+        <condition><expression>statusChanged &amp;&amp; statusId == 'ReturnReceived'</expression></condition>
+        <actions><service-call name="mantle.order.ReturnServices.process#ReturnItemResponses" in-map="context"/></actions>
     </seca>
 </secas>
