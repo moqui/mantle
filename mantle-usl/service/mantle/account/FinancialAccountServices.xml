@@ -161,16 +161,32 @@ along with this software (see the LICENSE.md file). If not, see
                     for-update="true"/>
             <set field="currencyUomId" from="financialAccount.currencyUomId"/>
 
-            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
-                <econdition field-name="finAccountId"/></entity-find>
-            <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+            <!-- View queries won't work with transaction cache, so if active use different approach -->
+            <if condition="ec.transaction.isTransactionCacheActive()"><then>
+                <set field="actualBalance" from="0"/>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountTrans" list="fatList">
+                    <econdition field-name="finAccountId"/><select-field field-name="amount"/></entity-find>
+                <iterate list="fatList" entry="fat"><set field="actualBalance" from="actualBalance + fat.amount"/></iterate>
 
-            <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
-                <econdition field-name="finAccountId"/>
-                <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
-                <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
-            </entity-find>
-            <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+                <set field="authBalance" from="0"/>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountAuth" list="faaList">
+                    <econdition field-name="finAccountId"/>
+                    <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                    <select-field field-name="amount"/>
+                </entity-find>
+                <iterate list="faaList" entry="faa"><set field="authBalance" from="authBalance + faa.amount"/></iterate>
+            </then><else>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                    <econdition field-name="finAccountId"/></entity-find>
+                <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+
+                <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
+                    <econdition field-name="finAccountId"/>
+                    <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                    <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
+                </entity-find>
+                <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+            </else></if>
 
             <set field="availableBalance" from="actualBalance - authBalance"/>
 
