@@ -51,8 +51,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="vendorPartyId" from="orderPart.vendorPartyId"/>
             <set field="currencyUomId" from="orderHeader.currencyUomId"/>
 
-            <if condition="!destinationFacilityId"><set field="destinationFacilityId" from="orderPart.facilityId"/></if>
-            <if condition="!originPostalContactMechId"><set field="originPostalContactMechId" from="orderPart.postalContactMechId"/></if>
+            <if condition="!facilityId"><set field="facilityId" from="orderPart.facilityId"/></if>
+            <if condition="!postalContactMechId"><set field="postalContactMechId" from="orderPart.postalContactMechId"/></if>
+            <if condition="!telecomContactMechId"><set field="telecomContactMechId" from="orderPart.telecomContactMechId"/></if>
             <if condition="!shipmentMethodEnumId"><set field="shipmentMethodEnumId" from="orderPart.shipmentMethodEnumId"/></if>
             <if condition="!carrierPartyId"><set field="carrierPartyId" from="orderPart.carrierPartyId"/></if>
             <if condition="!paymentMethodId">
@@ -163,7 +164,7 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="process" noun="ReturnItemResponses">
         <description>
             Process responses for items with statuses other than Created, Requested, or Cancelled.
-            Called by SECA rule on Approved and Received item statuses.
+            Called by SECA rule on ReturnHeader Approved and ReturnItem Received statuses.
             If ReturnItem.responseImmediate = 'Y' process on Approved status or later (Shipped, Received, Completed).
             If ReturnItem.responseImmediate = 'N' (or null) process on Received status or later (Completed).
             Only processes responses for items with no response already (responseDate != null).
@@ -305,8 +306,11 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
                 <econdition field-name="returnId"/></entity-find>
-            <iterate list="returnItemList" entry="returnItem"><service-call name="update#mantle.order.return.ReturnItem"
-                    in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId, statusId:statusId]"/></iterate>
+            <iterate list="returnItemList" entry="returnItem">
+                <if condition="returnItem.statusId == 'ReturnCancelled'"><continue/></if>
+                <service-call name="update#mantle.order.return.ReturnItem"
+                    in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId, statusId:statusId]"/>
+            </iterate>
 
             <service-call name="update#mantle.order.return.ReturnHeader" out-map="context"
                     in-map="[returnId:returnId, statusId:statusId]"/>
@@ -491,8 +495,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- create Shipment record, get shipmentId -->
             <service-call name="create#mantle.shipment.Shipment" out-map="context"
                     in-map="[shipmentTypeEnumId:shipmentTypeEnumId, statusId:'ShipInput',
-                        fromPartyId:returnHeader.customerPartyId, toPartyId:returnHeader.vendorPartyId,
-                        systemMessageRemoteId:orderHeader.systemMessageRemoteId]"/>
+                        fromPartyId:returnHeader.customerPartyId, toPartyId:returnHeader.vendorPartyId]"/>
 
             <if condition="createPackage">
                 <service-call name="create#mantle.shipment.ShipmentPackage" in-map="context" out-map="context"/>
@@ -508,7 +511,7 @@ along with this software (see the LICENSE.md file). If not, see
                                 shipmentRouteSegmentSeqId:shipmentRouteSegmentSeqId]"/>
             </if>
 
-            <service-call name="mantle.shipment.ShipmentServices.add#ReturnToShipment"
+            <service-call name="mantle.order.ReturnServices.add#ReturnToShipment"
                     in-map="[shipmentId:shipmentId, returnId:returnId]"/>
         </actions>
     </service>
@@ -532,23 +535,23 @@ along with this software (see the LICENSE.md file). If not, see
                             <field-map field-name="shipmentId"/><field-map field-name="productId" from="returnItem.productId"/></entity-find-one>
                         <if condition="shipmentItem">
                             <then>
-                                <set field="shipmentItem.quantity" from="shipmentItem.quantity + returnItem.quantity"/>
+                                <set field="shipmentItem.quantity" from="shipmentItem.quantity + returnItem.returnQuantity"/>
                                 <entity-update value-field="shipmentItem"/>
                             </then>
                             <else>
                                 <service-call name="create#mantle.shipment.ShipmentItem"
-                                        in-map="[shipmentId:shipmentId, productId:returnItem.productId, quantity:returnItem.quantity]"/>
+                                        in-map="[shipmentId:shipmentId, productId:returnItem.productId, quantity:returnItem.returnQuantity]"/>
                             </else>
                         </if>
 
                         <service-call name="create#mantle.shipment.ShipmentItemSource"
                                 in-map="[shipmentId:shipmentId, productId:returnItem.productId, statusId:'SisPending',
-                                    quantity:returnItem.quantity, quantityNotHandled:returnItem.quantity,
+                                    quantity:returnItem.returnQuantity, quantityNotHandled:returnItem.returnQuantity,
                                     returnId:returnItem.returnId, returnItemSeqId:returnItem.returnItemSeqId]"/>
 
-                        <!-- for mantle.order.OrderItemBilling set the invoiceId/invoiceItemSeqId on it -->
-                        <set field="quantityNotBilled" from="returnItem.quantity"/>
-                        <entity-find entity-name="mantle.order.OrderItemBilling" list="returnItemBillingList">
+                        <!-- for ReturnItemBilling set the invoiceId/invoiceItemSeqId on it -->
+                        <set field="quantityNotBilled" from="returnItem.returnQuantity"/>
+                        <entity-find entity-name="mantle.order.return.ReturnItemBilling" list="returnItemBillingList">
                             <econdition field-name="returnId"/><econdition field-name="returnItemSeqId" from="returnItem.returnItemSeqId"/>
                         </entity-find>
                         <iterate list="returnItemBillingList" entry="returnItemBilling">
