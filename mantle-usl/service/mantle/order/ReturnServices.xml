@@ -280,11 +280,19 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if response already processed (responseDate set) status to ReturnCompleted, and on header too -->
             <if condition="returnItem.responseDate">
-                <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
-                        returnItemSeqId:returnItemSeqId, statusId:'ReturnCompleted']"/>
-                <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
-                        statusId:'ReturnCompleted', itemStatusIds:['ReturnCompleted', 'ReturnCancelled']]"/>
+                <service-call name="mantle.order.ReturnServices.complete#ReturnItem"
+                        in-map="[returnId:returnId, returnItemSeqId:returnItemSeqId]"/>
             </if>
+        </actions>
+    </service>
+    <service verb="complete" noun="ReturnItem">
+        <in-parameters><parameter name="returnId" required="true"/><parameter name="returnItemSeqId" required="true"/></in-parameters>
+        <out-parameters><parameter name="oldStatusId"/><parameter name="statusChanged" type="Boolean"/></out-parameters>
+        <actions>
+            <service-call name="update#mantle.order.return.ReturnItem" in-map="[returnId:returnId,
+                    returnItemSeqId:returnItemSeqId, statusId:'ReturnCompleted']"/>
+            <service-call name="mantle.order.ReturnServices.checkUpdate#ReturnHeaderStatus" in-map="[returnId:returnId,
+                    statusId:'ReturnCompleted', itemStatusIds:['ReturnCompleted', 'ReturnCancelled']]"/>
         </actions>
     </service>
 
@@ -338,6 +346,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="validStatus" from="returnItem.statusId in ['ReturnReceived', 'ReturnCompleted'] ||
                     (returnItem.responseImmediate == 'Y' &amp;&amp; returnItem.statusId in ['ReturnApproved', 'ReturnShipped'])"/>
                 <if condition="!validStatus"><continue/></if>
+
                 <if condition="returnItem.returnResponseEnumId == 'RrspCredit'"><then>
                     <script>creditItemList.add(returnItem)</script>
                 </then><else-if condition="returnItem.returnResponseEnumId == 'RrspRefund'">
@@ -346,9 +355,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <script>replaceItemList.add(returnItem)</script>
                 </else-if></if>
             </iterate>
-
-            <log message="Response ${returnId}:${returnItemSeqId} \n creditItemList: ${creditItemList} \n refundItemList: ${refundItemList} \n replaceItemList: ${replaceItemList}"/>
-
+            <!-- <log message="Response ${returnId}:${returnItemSeqId} \n creditItemList: ${creditItemList} \n refundItemList: ${refundItemList} \n replaceItemList: ${replaceItemList}"/> -->
 
             <!-- Customer Credit (Financial Account Transaction); do one TX for each item -->
             <iterate list="creditItemList" entry="returnItem">
@@ -373,6 +380,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="returnItem.responseAmount" from="itemAmount"/>
                 <set field="returnItem.responseDate" from="ec.user.nowTimestamp"/>
                 <entity-update value-field="returnItem"/>
+
+                <if condition="returnItem.statusId == 'ReturnReceived'">
+                    <service-call name="mantle.order.ReturnServices.complete#ReturnItem"
+                            in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId]"/></if>
             </iterate>
 
             <!-- Refund (Payment); consolidate for checks -->
@@ -415,6 +426,10 @@ along with this software (see the LICENSE.md file). If not, see
                     <iterate list="checkItemList" entry="returnItem">
                         <set field="returnItem.refundPaymentId" from="paymentId"/>
                         <entity-update value-field="returnItem"/>
+
+                        <if condition="returnItem.statusId == 'ReturnReceived'">
+                            <service-call name="mantle.order.ReturnServices.complete#ReturnItem"
+                                    in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId]"/></if>
                     </iterate>
                 </if>
             </if>
@@ -433,6 +448,10 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="returnItem.replacementOrderId" from="orderId"/>
                     <set field="returnItem.responseDate" from="ec.user.nowTimestamp"/>
                     <entity-update value-field="returnItem"/>
+
+                    <if condition="returnItem.statusId == 'ReturnReceived'">
+                        <service-call name="mantle.order.ReturnServices.complete#ReturnItem"
+                                in-map="[returnId:returnId, returnItemSeqId:returnItem.returnItemSeqId]"/></if>
                 </iterate>
 
                 <service-call name="mantle.order.OrderServices.set#OrderBillingShippingInfo"
