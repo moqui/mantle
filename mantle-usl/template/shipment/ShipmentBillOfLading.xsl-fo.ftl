@@ -14,6 +14,13 @@ along with this software (see the LICENSE.md file). If not, see
 <#-- See the mantle.shipment.ShipmentServices.get#ShipmentDisplayInfo service for data preparation -->
 
 <#assign cellPadding = "1pt">
+<#if shipmentRouteSegmentList?? && shipmentRouteSegmentList[0].actualStartDate?? >
+  <#assign actualShipDate = ec.l10n.format(shipmentRouteSegmentList[0].actualStartDate, "dd MMM yyyy")>
+<#elseif shipment.estimatedShipDate??>
+  <#assign actualShipDate = ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")>
+<#else>
+  <#assign actualShipDate = "Not yet shipped">
+</#if>
 <fo:root xmlns:fo="http://www.w3.org/1999/XSL/Format" font-family="Helvetica, sans-serif" font-size="10pt">
     <fo:layout-master-set>
         <fo:simple-page-master master-name="letter-portrait" page-width="8.5in" page-height="11in"
@@ -37,7 +44,7 @@ along with this software (see the LICENSE.md file). If not, see
                     </fo:table-cell>
                     <fo:table-cell padding="3pt" width="2in">
                         <fo:block font-weight="bold">Date</fo:block>
-                        <fo:block><#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")}<#else>Not yet shipped</#if></fo:block>
+                        <fo:block>${actualShipDate}</fo:block>
                     </fo:table-cell>
                     <fo:table-cell padding="3pt" width="1.75in">
                         <fo:block text-align="right">
@@ -64,7 +71,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:static-content flow-name="xsl-region-after" font-size="8pt">
             <fo:block border-top="thin solid black">
                 <#-- TODO: show vendor's contact info (customer service or billing address, phone, email)? -->
-                <fo:block text-align="center">Bill of Lading #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")}<#else>Not yet shipped</#if> -- Page <fo:page-number/></fo:block>
+                <fo:block text-align="center">Bill of Lading #${shipmentId} -- ${actualShipDate} -- Page <fo:page-number/></fo:block>
             </fo:block>
         </fo:static-content>
 
@@ -72,7 +79,7 @@ along with this software (see the LICENSE.md file). If not, see
         <fo:flow flow-name="xsl-region-body">
             <fo:block border-top="thin solid black">
                 <#-- TODO: show vendor's contact info (customer service or billing address, phone, email)? -->
-                <fo:block text-align="center">Bill of Lading #${shipmentId} -- <#if shipment.estimatedShipDate??>${ec.l10n.format(shipment.estimatedShipDate, "dd MMM yyyy")}<#else>Not yet shipped</#if> -- Page <fo:page-number/></fo:block>
+                <fo:block text-align="center">Bill of Lading #${shipmentId} -- ${actualShipDate} -- Page <fo:page-number/></fo:block>
             </fo:block>
         <#--
             <#list orderPartInfoList as orderPartInfo>
