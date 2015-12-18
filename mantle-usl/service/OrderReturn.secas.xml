@@ -29,9 +29,17 @@ along with this software (see the LICENSE.md file). If not, see
         <actions><service-call name="mantle.order.ReturnServices.receive#ReturnShipmentItems" in-map="context"/></actions>
     </seca>
 
-    <!-- On ReturnItem Received process#ReturnItemResponses, all responses not yet processed -->
+    <!-- On ReturnHeader Received process#ReturnItemResponses, all responses not yet processed;
+        consolidates responses as possible (especially for check refunds, replacement orders) -->
+    <seca service="update#mantle.order.return.ReturnHeader" when="post-service">
+        <condition><expression>statusChanged &amp;&amp; statusId == 'ReturnReceived'</expression></condition>
+        <actions><service-call name="mantle.order.ReturnServices.process#ReturnItemResponses" in-map="context"/></actions>
+    </seca>
+    <!-- On ReturnItem Received process#ReturnItemResponses, all responses not yet processed;
+        more immediate response, but no consolidation (which is nice for check refunds, replacement orders)
     <seca service="update#mantle.order.return.ReturnItem" when="post-service">
         <condition><expression>statusChanged &amp;&amp; statusId == 'ReturnReceived'</expression></condition>
         <actions><service-call name="mantle.order.ReturnServices.process#ReturnItemResponses" in-map="context"/></actions>
     </seca>
+     -->
 </secas>
