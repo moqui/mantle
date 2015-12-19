@@ -46,35 +46,43 @@ class ReturnToResponseBasicFlow extends Specification {
         // set an effective date so data check works, etc
         ec.user.setEffectiveTime(new Timestamp(effectiveTime))
 
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.financial.FinancialAccount", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.financial.FinancialAccountTrans", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.Payment", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55700, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetReservation", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.issuance.AssetIssuance", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.receipt.AssetReceipt", 55700, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55700, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.account.payment.PaymentApplication", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.order.OrderHeader", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.order.return.ReturnHeader", 55700, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.order.return.ReturnItemBilling", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.shipment.Shipment", 55700, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55700, 10)
     }
 
     def cleanupSpec() {
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.financial.FinancialAccount")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.financial.FinancialAccountTrans")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.Payment")
+        ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.PaymentApplication")
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
-        ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetDetail")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetReservation")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.issuance.AssetIssuance")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.receipt.AssetReceipt")
-        ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
-        ec.entity.tempResetSequencedIdPrimary("mantle.account.payment.PaymentApplication")
         ec.entity.tempResetSequencedIdPrimary("mantle.order.OrderHeader")
         ec.entity.tempResetSequencedIdPrimary("mantle.order.return.ReturnHeader")
         ec.entity.tempResetSequencedIdPrimary("mantle.order.return.ReturnItemBilling")
+        ec.entity.tempResetSequencedIdPrimary("mantle.shipment.Shipment")
+        ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.destroy()
     }
 
@@ -183,12 +191,13 @@ class ReturnToResponseBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    /*
     def "ship Replacement Order"() {
         when:
 
-        shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
-                .parameters([orderId:cartOrderId, orderPartSeqId:orderPartSeqId]).call()
+        // the first ReturnItem is the replace item
+        EntityValue returnItem = ec.entity.find("mantle.order.return.ReturnItem").condition([returnId:returnId, returnItemSeqId:'01']).one()
+        Map shipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
+                .parameters([orderId:returnItem.replacementOrderId, orderPartSeqId:'01']).call()
 
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
@@ -199,6 +208,7 @@ class ReturnToResponseBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
+    /*
     def "validate Replacement Order Complete"() {
         when:
         // NOTE: this has sequenced IDs so is sensitive to run order!
