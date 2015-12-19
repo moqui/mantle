@@ -13,10 +13,11 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 
-<!-- General Guideline Verbs: GET=find, POST=create, PUT=store (create or update), PATCH=update, DELETE=delete  -->
+<!-- General Guideline Verbs: GET=find, POST=create/do, PUT=store (create or update), PATCH=update, DELETE=delete  -->
 
 <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-1.6.xsd"
         name="mantle" displayName="Mantle Business Artifacts REST API" version="1.2.0">
+    <!-- ========== Orders ========== -->
     <resource name="orders">
         <method type="get"><entity name="mantle.order.OrderHeaderAndPart" operation="list"/></method>
         <method type="post"><service name="mantle.order.OrderServices.create#Order"/></method>
@@ -39,14 +40,19 @@ along with this software (see the LICENSE.md file). If not, see
                         <method type="post"><service name="mantle.order.OrderServices.add#OrderPartPayment"/></method>
                     </resource>
                     <resource name="invoices">
+                        <!-- TODO: get order invoices -->
                         <method type="post"><service name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/></method>
                     </resource>
                     <resource name="shipments">
+                        <!-- TODO: get order shipments -->
                         <method type="post"><service name="mantle.shipment.ShipmentServices.ship#OrderPart"/></method>
                         <id name="shipmentId">
                             <method type="post"><service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method>
                         </id>
                     </resource>
+
+                    <resource name="return"><method type="post">
+                        <service name="mantle.order.ReturnServices.create#ReturnFromOrder"/></method></resource>
                 </id>
             </resource>
 
@@ -71,6 +77,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <resource name="receipts">
                         <method type="get"><entity name="mantle.product.receipt.AssetReceipt" operation="list"/></method>
                     </resource>
+
+                    <resource name="return"><method type="post">
+                        <service name="mantle.order.ReturnServices.add#OrderItemToReturn"/></method></resource>
                 </id>
             </resource>
             <resource name="productItems">
@@ -80,6 +89,7 @@ along with this software (see the LICENSE.md file). If not, see
                     <method type="delete"><service name="mantle.order.OrderServices.delete#OrderItem"/></method>
                 </id>
             </resource>
+
             <resource name="propose"><method type="patch">
                 <service name="mantle.order.OrderServices.propose#Order"/></method></resource>
             <resource name="place"><method type="patch">
@@ -91,17 +101,67 @@ along with this software (see the LICENSE.md file). If not, see
         </id>
     </resource>
 
-    <resource name="payments">
-        <method type="get"><entity name="payments" masterName="default" operation="list"/></method>
-        <method type="post"><service name="mantle.account.PaymentServices.create#Payment"/></method>
+    <!-- ========== Shipments ========== -->
+    <resource name="shipments">
+        <method type="get"><entity name="mantle.shipment.ShipmentFindView" operation="list"/></method>
 
-        <id name="paymentId">
-            <method type="patch"><entity name="mantle.account.payment.Payment" operation="update"/></method>
+        <id name="shipmentId">
+            <method type="get"><entity name="shipments" masterName="default" operation="one"/></method>
         </id>
     </resource>
 
+    <!-- ========== Returns ========== -->
+    <resource name="returns">
+        <method type="get"><entity name="returns" operation="list"/></method>
+        <method type="post"><service name="mantle.order.ReturnServices.create#Return"/></method>
+
+        <id name="returnId">
+            <method type="get"><entity name="returns" masterName="default" operation="one"/></method>
+
+            <resource name="returnable"><method type="get">
+                <service name="mantle.order.ReturnServices.find#ReturnableOrderItems"/></method></resource>
+            <resource name="items">
+                <method type="get"><entity name="returnItems" operation="list"/></method>
+                <method type="post"><entity name="returnItems" operation="create"/></method>
+
+                <id name="returnItemSeqId">
+                    <method type="get"><entity name="returnItems" operation="one"/></method>
+
+                    <resource name="receive"><method type="post">
+                        <service name="mantle.order.ReturnServices.receive#ReturnItem"/></method></resource>
+                    <resource name="response"><method type="post">
+                        <service name="mantle.order.ReturnServices.process#ReturnItemResponses"/></method></resource>
+                    <resource name="cancel"><method type="patch">
+                        <service name="mantle.order.ReturnServices.cancel#ReturnItem"/></method></resource>
+                </id>
+
+                <resource name="orderItem"><method type="post">
+                    <service name="mantle.order.ReturnServices.add#OrderItemToReturn"/></method></resource>
+            </resource>
+
+            <resource name="request"><method type="patch">
+                <service name="mantle.order.ReturnServices.request#Return"/></method></resource>
+            <resource name="approve"><method type="patch">
+                <service name="mantle.order.ReturnServices.approve#Return"/></method></resource>
+            <resource name="cancel"><method type="patch">
+                <service name="mantle.order.ReturnServices.cancel#Return"/></method></resource>
+
+            <resource name="shipments">
+                <!-- TODO: get return shipments -->
+                <method type="post"><service name="mantle.order.ReturnServices.create#ReturnShipment"/></method>
+                <id name="shipmentId">
+                    <method type="post"><service name="mantle.order.ReturnServices.add#ReturnToShipment"/></method>
+                </id>
+            </resource>
+
+            <resource name="response"><method type="post">
+                <service name="mantle.order.ReturnServices.process#ReturnItemResponses"/></method></resource>
+        </id>
+    </resource>
+
+    <!-- ========== Invoices ========== -->
     <resource name="invoices">
-        <method type="get"><entity name="invoices" masterName="default" operation="list"/></method>
+        <method type="get"><entity name="invoices" operation="list"/></method>
         <method type="post"><service name="mantle.account.InvoiceServices.create#Invoice"/></method>
 
         <id name="invoiceId">
@@ -114,6 +174,17 @@ along with this software (see the LICENSE.md file). If not, see
                     <method type="delete"><service name="mantle.account.InvoiceServices.delete#InvoiceItem"/></method>
                 </id>
             </resource>
+        </id>
+    </resource>
+
+    <!-- ========== Payments ========== -->
+    <resource name="payments">
+        <method type="get"><entity name="payments" operation="list"/></method>
+        <method type="post"><service name="mantle.account.PaymentServices.create#Payment"/></method>
+
+        <id name="paymentId">
+            <method type="get"><entity name="payments" masterName="default" operation="one"/></method>
+            <method type="patch"><entity name="mantle.account.payment.Payment" operation="update"/></method>
         </id>
     </resource>
 </resource>

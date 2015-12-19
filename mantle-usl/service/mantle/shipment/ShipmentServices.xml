@@ -443,12 +443,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- is this an outgoing Shipment (use ShpTpSales) or incoming (use ShpTpPurchase) order based on internal org? -->
             <!-- TODO: what to do if both are internal orgs? need a flag or something for which side we're dealing with... -->
             <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
-                <field-map field-name="partyId" from="orderPart.customerPartyId"/><field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+                <field-map field-name="partyId" from="orderPart.customerPartyId"/>
+                <field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
             <set field="shipmentTypeEnumId" from="customerOrgInternal ? 'ShpTpPurchase' : 'ShpTpSales'"/>
 
             <if condition="orderPart.facilityId">
                 <if condition="customerOrgInternal">
-                    <set field="destinationFacilityId" from="destinationFacilityId ?: orderPart.facilityId"/>
+                    <then><set field="destinationFacilityId" from="destinationFacilityId ?: orderPart.facilityId"/></then>
                     <else><set field="originFacilityId" from="originFacilityId ?: orderPart.facilityId"/></else>
                 </if>
             </if>
@@ -468,7 +469,8 @@ along with this software (see the LICENSE.md file). If not, see
                             shipmentMethodEnumId:shipmentMethodEnumId,
                             destPostalContactMechId:orderPart.postalContactMechId,
                             destTelecomContactMechId:orderPart.telecomContactMechId,
-                            originFacilityId:originFacilityId, destinationFacilityId:destinationFacilityId]"/>
+                            originFacilityId:originFacilityId, destinationFacilityId:destinationFacilityId,
+                            shipmentMethodEnumId:orderPart.shipmentMethodEnumId]"/>
             </if>
             <if condition="shipmentPackageSeqId &amp;&amp; shipmentRouteSegmentSeqId">
                 <service-call name="create#mantle.shipment.ShipmentPackageRouteSeg"
@@ -1185,8 +1187,9 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <service-call name="mantle.product.AssetServices.receive#Asset" out-map="receiveAssetOut"
                         in-map="context + [productId:productId, quantity:quantityToAccept, shipmentId:shipmentId,
-                            shipmentPackageSeqId:null, orderId:shipmentItemSource.orderId,
-                            orderItemSeqId:shipmentItemSource.orderItemSeqId, facilityId:facilityId,
+                            shipmentPackageSeqId:null, facilityId:facilityId,
+                            orderId:shipmentItemSource.orderId, orderItemSeqId:shipmentItemSource.orderItemSeqId,
+                            returnId:shipmentItemSource.returnId, returnItemSeqId:shipmentItemSource.returnItemSeqId,
                             quantityRejected:quantityToReject, rejectionReasonEnumId:rejectionReasonEnumId]"/>
                 <script>assetIdList.add(receiveAssetOut.assetId)</script>
 
@@ -1271,6 +1274,11 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <service-call name="update#mantle.shipment.Shipment" out-map="context"
                     in-map="[shipmentId:shipmentId, statusId:'ShipShipped']"/>
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegmentDetail" list="shipmentRouteSegmentList">
+                <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+            <service-call name="update#mantle.shipment.ShipmentRouteSegment"
+                    in-map="[shipmentId:shipmentId, shipmentRouteSegmentSeqId:shipmentRouteSegmentList[0].shipmentRouteSegmentSeqId,
+                             actualStartDate:shipmentRouteSegmentList[0].actualStartDate?:ec.user.nowTimestamp]"/>
         </actions>
     </service>
 

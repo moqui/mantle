@@ -106,6 +106,31 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="update#mantle.account.financial.FinancialAccount" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="getOrCreate" noun="FinancialAccount">
+        <in-parameters>
+            <parameter name="finAccountTypeId" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="ownerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="finAccountId"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.account.financial.FinancialAccount" list="finAccountList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="finAccountTypeId"/></entity-find>
+            <if condition="finAccountList">
+                <then>
+                    <set field="finAccountId" from="finAccountList[0].finAccountList"/>
+                </then>
+                <else>
+                    <entity-find-one entity-name="mantle.account.financial.FinancialAccountType" value-field="financialAccountType"/>
+                    <entity-find-one entity-name="mantle.party.PartyDetail" value-field="owner">
+                        <field-map field-name="partyId" from="ownerPartyId"/></entity-find-one>
+                    <set field="finAccountName" value="${owner.organizationName?:''}${owner.firstName?:''}${owner.lastName ? ' ' + owner.lastName : ''} ${financialAccountType.description}"/>
+                    <service-call name="mantle.account.FinancialAccountServices.create#FinancialAccount"
+                            in-map="context" out-map="context"/>
+                </else>
+            </if>
+        </actions>
+    </service>
 
     <service verb="calculate" noun="FinancialAccountTotals">
         <description>Calculates totals from FinancialAccountTrans and FinancialAccountAuth records, records them
@@ -136,16 +161,32 @@ along with this software (see the LICENSE.md file). If not, see
                     for-update="true"/>
             <set field="currencyUomId" from="financialAccount.currencyUomId"/>
 
-            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
-                <econdition field-name="finAccountId"/></entity-find>
-            <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+            <!-- View queries won't work with transaction cache, so if active use different approach -->
+            <if condition="ec.transaction.isTransactionCacheActive()"><then>
+                <set field="actualBalance" from="0"/>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountTrans" list="fatList">
+                    <econdition field-name="finAccountId"/><select-field field-name="amount"/></entity-find>
+                <iterate list="fatList" entry="fat"><set field="actualBalance" from="actualBalance + fat.amount"/></iterate>
 
-            <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
-                <econdition field-name="finAccountId"/>
-                <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
-                <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
-            </entity-find>
-            <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+                <set field="authBalance" from="0"/>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountAuth" list="faaList">
+                    <econdition field-name="finAccountId"/>
+                    <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                    <select-field field-name="amount"/>
+                </entity-find>
+                <iterate list="faaList" entry="faa"><set field="authBalance" from="authBalance + faa.amount"/></iterate>
+            </then><else>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                    <econdition field-name="finAccountId"/></entity-find>
+                <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+
+                <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
+                    <econdition field-name="finAccountId"/>
+                    <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                    <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
+                </entity-find>
+                <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+            </else></if>
 
             <set field="availableBalance" from="actualBalance - authBalance"/>
 

@@ -24,7 +24,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- mantle.shipment -->
     <!-- ========================================================= -->
 
-    <entity entity-name="Shipment" package-name="mantle.shipment">
+    <entity entity-name="Shipment" package-name="mantle.shipment" short-alias="shipments">
         <field name="shipmentId" type="id" is-pk="true"/>
         <field name="shipmentTypeEnumId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
@@ -52,21 +52,32 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="handlingInstructions" type="text-medium"/>
         <field name="systemMessageRemoteId" type="id"/>
 
-        <relationship type="one" title="ShipmentType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="ShipmentType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="shipmentTypeEnumId"/></relationship>
-        <relationship type="one" title="Shipment" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="From" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="Shipment" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="From" related-entity-name="mantle.party.Party" short-alias="fromParty">
             <key-map field-name="fromPartyId"/></relationship>
-        <relationship type="one" title="To" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="To" related-entity-name="mantle.party.Party" short-alias="toParty">
             <key-map field-name="toPartyId"/></relationship>
 
-        <relationship type="one" title="Ship" related-entity-name="mantle.work.effort.WorkEffort">
+        <relationship type="one" title="Ship" related-entity-name="mantle.work.effort.WorkEffort" short-alias="shipWorkEffort">
             <key-map field-name="shipWorkEffortId"/></relationship>
-        <relationship type="one" title="Receive" related-entity-name="mantle.work.effort.WorkEffort">
+        <relationship type="one" title="Receive" related-entity-name="mantle.work.effort.WorkEffort" short-alias="receiveWorkEffort">
             <key-map field-name="receiveWorkEffortId"/></relationship>
-        <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom" short-alias="costUom">
             <key-map field-name="costUomId"/></relationship>
         <relationship type="one" related-entity-name="moqui.service.message.SystemMessageRemote"/>
+
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentContent" short-alias="contents">
+            <key-map field-name="shipmentId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentItem" short-alias="items">
+            <key-map field-name="shipmentId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentItemSource" short-alias="itemSources">
+            <key-map field-name="shipmentId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentPackage" short-alias="packages">
+            <key-map field-name="shipmentId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentRouteSegment" short-alias="routeSegments">
+            <key-map field-name="shipmentId"/></relationship>
 
         <seed-data>
             <!-- Shipment Type -->
@@ -108,6 +119,37 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipShipped" toStatusId="ShipDelivered" transitionName="Deliver"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="ShipPicked" toStatusId="ShipCancelled" transitionName="Cancel"/>
         </seed-data>
+        <master>
+            <detail relationship="type"/>
+            <detail relationship="status"/>
+            <detail relationship="fromParty" use-master="basic"/>
+            <detail relationship="toParty" use-master="basic"/>
+            <detail relationship="shipWorkEffort"/>
+            <detail relationship="receiveWorkEffort"/>
+            <detail relationship="costUom"/>
+            <detail relationship="contents"/>
+            <detail relationship="items"/>
+            <detail relationship="itemSources">
+                <detail relationship="status"/>
+            </detail>
+            <detail relationship="packages">
+                <detail relationship="contents"/>
+                <detail relationship="routeSegments"/>
+            </detail>
+            <detail relationship="routeSegments">
+                <detail relationship="carrierParty" use-master="basic"/>
+                <detail relationship="shipmentMethod"/>
+                <detail relationship="originFacility"/>
+                <detail relationship="originPostal" use-master="default"/>
+                <detail relationship="originTelecom" use-master="default"/>
+                <detail relationship="destFacility"/>
+                <detail relationship="destPostal" use-master="default"/>
+                <detail relationship="destTelecom" use-master="default"/>
+                <detail relationship="status"/>
+                <detail relationship="costUom"/>
+                <detail relationship="billingWeightUom"/>
+            </detail>
+        </master>
     </entity>
     <extend-entity entity-name="SystemMessage" package-name="moqui.service.message">
         <field name="shipmentId" type="id"/>
@@ -193,7 +235,7 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one-nofk" related-entity-name="mantle.order.OrderHeader"/>
         <relationship type="one" related-entity-name="mantle.order.OrderItem"/>
         <relationship type="one" related-entity-name="mantle.order.return.ReturnHeader"/>
-        <relationship type="one" title="ShipmentItemSource" related-entity-name="moqui.basic.StatusItem"/>
+        <relationship type="one" title="ShipmentItemSource" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
         <relationship type="one" related-entity-name="mantle.account.invoice.InvoiceItem">
             <key-map field-name="invoiceId"/>
             <key-map field-name="invoiceItemSeqId"/>
@@ -225,6 +267,10 @@ along with this software (see the LICENSE.md file). If not, see
         <relationship type="one" related-entity-name="mantle.shipment.ShipmentBoxType"/>
         <relationship type="one" title="Weight" related-entity-name="moqui.basic.Uom">
             <key-map field-name="weightUomId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentPackageContent" short-alias="contents">
+            <key-map field-name="shipmentId"/><key-map field-name="shipmentPackageSeqId"/></relationship>
+        <relationship type="many" related-entity-name="mantle.shipment.ShipmentPackageRouteSeg" short-alias="routeSegments">
+            <key-map field-name="shipmentId"/><key-map field-name="shipmentPackageSeqId"/></relationship>
     </entity>
     <entity entity-name="ShipmentPackageContent" package-name="mantle.shipment">
         <field name="shipmentId" type="id" is-pk="true"/>
@@ -312,26 +358,34 @@ along with this software (see the LICENSE.md file). If not, see
 
         <relationship type="one" related-entity-name="mantle.shipment.Shipment"/>
         <relationship type="one" related-entity-name="mantle.shipment.carrier.Delivery"/>
-        <relationship type="one" title="Carrier" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="Carrier" related-entity-name="mantle.party.Party" short-alias="carrierParty">
             <key-map field-name="carrierPartyId"/></relationship>
-        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="ShipmentMethod" related-entity-name="moqui.basic.Enumeration" short-alias="shipmentMethod">
             <key-map field-name="shipmentMethodEnumId"/></relationship>
-        <relationship type="one" title="Origin" related-entity-name="mantle.facility.Facility">
+        <relationship type="one" title="Origin" related-entity-name="mantle.facility.Facility" short-alias="originFacility">
             <key-map field-name="originFacilityId"/></relationship>
+        <relationship type="one-nofk" title="Origin" related-entity-name="mantle.party.contact.ContactMech" short-alias="originPostal">
+            <key-map field-name="originPostalContactMechId"/></relationship>
         <relationship type="one" title="Origin" related-entity-name="mantle.party.contact.PostalAddress">
             <key-map field-name="originPostalContactMechId"/></relationship>
+        <relationship type="one-nofk" title="Origin" related-entity-name="mantle.party.contact.ContactMech" short-alias="originTelecom">
+            <key-map field-name="originTelecomContactMechId"/></relationship>
         <relationship type="one" title="Origin" related-entity-name="mantle.party.contact.TelecomNumber">
             <key-map field-name="originTelecomContactMechId"/></relationship>
-        <relationship type="one" title="Destination" related-entity-name="mantle.facility.Facility">
+        <relationship type="one" title="Destination" related-entity-name="mantle.facility.Facility" short-alias="destFacility">
             <key-map field-name="destinationFacilityId"/></relationship>
+        <relationship type="one-nofk" title="Destination" related-entity-name="mantle.party.contact.ContactMech" short-alias="destPostal">
+            <key-map field-name="destPostalContactMechId"/></relationship>
         <relationship type="one" title="Destination" related-entity-name="mantle.party.contact.PostalAddress">
             <key-map field-name="destPostalContactMechId"/></relationship>
+        <relationship type="one-nofk" title="Destination" related-entity-name="mantle.party.contact.ContactMech" short-alias="destTelecom">
+            <key-map field-name="destTelecomContactMechId"/></relationship>
         <relationship type="one" title="Destination" related-entity-name="mantle.party.contact.TelecomNumber">
             <key-map field-name="destTelecomContactMechId"/></relationship>
-        <relationship type="one" title="ShipmentRouteSegment" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="ShipmentRouteSegment" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="Cost" related-entity-name="moqui.basic.Uom" short-alias="costUom">
             <key-map field-name="costUomId"/></relationship>
-        <relationship type="one" title="BillingWeight" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="BillingWeight" related-entity-name="moqui.basic.Uom" short-alias="billingWeightUom">
             <key-map field-name="billingWeightUomId"/></relationship>
         <seed-data>
             <!-- Shipment Route Segment Status -->
