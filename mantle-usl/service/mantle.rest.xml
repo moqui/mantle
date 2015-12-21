@@ -18,20 +18,21 @@ along with this software (see the LICENSE.md file). If not, see
 <resource xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/rest-api-1.6.xsd"
         name="mantle" displayName="Mantle Business Artifacts REST API" version="1.2.0">
     <!-- ========== Orders ========== -->
-    <resource name="orders">
+    <resource name="orders" description="Orders - Purchase and Sales">
         <method type="get"><entity name="mantle.order.OrderHeaderAndPart" operation="list"/></method>
         <method type="post"><service name="mantle.order.OrderServices.create#Order"/></method>
         <method type="put"><service name="mantle.order.OrderBulkServices.store#Order"/></method>
 
         <id name="orderId">
             <method type="get"><entity name="orders" masterName="default" operation="one"/></method>
+            <resource name="displayInfo"><method type="get">
+                <service name="mantle.order.OrderServices.get#OrderDisplayInfo"/></method></resource>
 
             <resource name="parts">
                 <method type="post"><service name="mantle.order.OrderServices.create#OrderPart"/></method>
 
                 <id name="orderPartSeqId">
                     <method type="patch"><service name="mantle.order.OrderServices.update#OrderPart"/></method>
-                    <!-- TODO <method type="delete"><service name="mantle.order.OrderServices.delete#OrderPart"/></method> -->
 
                     <resource name="shippingBilling"><method type="put">
                         <service name="mantle.order.OrderServices.set#OrderBillingShippingInfo"/></method></resource>
@@ -40,11 +41,9 @@ along with this software (see the LICENSE.md file). If not, see
                         <method type="post"><service name="mantle.order.OrderServices.add#OrderPartPayment"/></method>
                     </resource>
                     <resource name="invoices">
-                        <!-- TODO: get order invoices -->
                         <method type="post"><service name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/></method>
                     </resource>
                     <resource name="shipments">
-                        <!-- TODO: get order shipments -->
                         <method type="post"><service name="mantle.shipment.ShipmentServices.ship#OrderPart"/></method>
                         <id name="shipmentId">
                             <method type="post"><service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method>
@@ -90,28 +89,104 @@ along with this software (see the LICENSE.md file). If not, see
                 </id>
             </resource>
 
-            <resource name="propose"><method type="patch">
+            <resource name="propose"><method type="post">
                 <service name="mantle.order.OrderServices.propose#Order"/></method></resource>
-            <resource name="place"><method type="patch">
+            <resource name="place"><method type="post">
                 <service name="mantle.order.OrderServices.place#Order"/></method></resource>
-            <resource name="approve"><method type="patch">
+            <resource name="approve"><method type="post">
                 <service name="mantle.order.OrderServices.approve#Order"/></method></resource>
-            <resource name="cancel"><method type="patch">
+            <resource name="cancel"><method type="post">
                 <service name="mantle.order.OrderServices.cancel#Order"/></method></resource>
         </id>
     </resource>
 
     <!-- ========== Shipments ========== -->
-    <resource name="shipments">
+    <resource name="shipments" description="Shipments - Incoming and Outgoing">
         <method type="get"><entity name="mantle.shipment.ShipmentFindView" operation="list"/></method>
+        <method type="post"><service name="mantle.shipment.ShipmentServices.create#Shipment"/></method>
 
         <id name="shipmentId">
             <method type="get"><entity name="shipments" masterName="default" operation="one"/></method>
+            <method type="patch"><service name="mantle.shipment.ShipmentServices.update#ShipmentAndRouteSegment"/></method>
+
+            <resource name="items">
+                <method type="get"><entity name="mantle.shipment.ShipmentItem" operation="list"/></method>
+                <method type="post"><service name="mantle.shipment.ShipmentServices.create#ShipmentItem"/></method>
+
+                <id name="productId">
+                    <method type="patch"><service name="mantle.shipment.ShipmentServices.update#ShipmentItem"/></method>
+
+                    <resource name="sources"><method type="get">
+                        <entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method></resource>
+                    <resource name="contents">
+                        <method type="get"><entity name="mantle.shipment.ShipmentPackageContent" operation="list"/></method>
+                        <id name="shipmentPackageSeqId"><method type="get">
+                            <entity name="mantle.shipment.ShipmentPackageContent" operation="one"/></method></id>
+                    </resource>
+
+                    <resource name="pack"><method type="post">
+                        <service name="mantle.shipment.ShipmentServices.pack#ShipmentProduct"/></method></resource>
+                    <resource name="issuances"><method type="get">
+                        <entity name="mantle.product.issuance.AssetIssuance" operation="list"/></method></resource>
+
+                    <resource name="receive"><method type="post">
+                        <service name="mantle.shipment.ShipmentServices.receive#ShipmentProduct"/></method></resource>
+                    <resource name="receipts"><method type="get">
+                        <entity name="mantle.product.receipt.AssetReceipt" operation="list"/></method></resource>
+                </id>
+            </resource>
+            <resource name="itemSources"><method type="get">
+                <entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method></resource>
+            <resource name="packages">
+                <method type="get"><entity name="mantle.shipment.ShipmentPackage" operation="list"/></method>
+                <method type="post"><service name="mantle.shipment.ShipmentServices.create#ShipmentPackage"/></method>
+
+                <id name="shipmentPackageSeqId">
+                    <method type="get"><entity name="mantle.shipment.ShipmentPackage" operation="one"/></method>
+                    <method type="patch"><entity name="mantle.shipment.ShipmentPackage" operation="update"/></method>
+
+                    <resource name="contents">
+                        <method type="get"><entity name="mantle.shipment.ShipmentPackageContent" operation="list"/></method>
+                        <method type="post"><entity name="mantle.shipment.ShipmentPackageContent" operation="create"/></method>
+                        <id name="productId">
+                            <method type="get"><entity name="mantle.shipment.ShipmentPackageContent" operation="one"/></method>
+                            <method type="patch"><entity name="mantle.shipment.ShipmentPackageContent" operation="update"/></method>
+                        </id>
+                    </resource>
+                </id>
+            </resource>
+            <resource name="routeSegments">
+                <method type="get"><entity name="mantle.shipment.ShipmentRouteSegment" operation="list"/></method>
+                <method type="post"><entity name="mantle.shipment.ShipmentRouteSegment" operation="create"/></method>
+
+                <id name="shipmentRouteSegmentSeqId">
+                    <method type="get"><entity name="mantle.shipment.ShipmentRouteSegment" operation="one"/></method>
+                    <method type="patch"><entity name="mantle.shipment.ShipmentRouteSegment" operation="update"/></method>
+                </id>
+            </resource>
+
+            <resource name="orders"><method type="post">
+                <service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method></resource>
+
+            <resource name="pack"><method type="post">
+                <service name="mantle.shipment.ShipmentServices.pack#Shipment"/></method></resource>
+            <resource name="ship"><method type="post">
+                <service name="mantle.shipment.ShipmentServices.ship#Shipment"/></method></resource>
+            <resource name="receive"><method type="post">
+                <service name="mantle.shipment.ShipmentServices.receive#EntireShipment"/></method></resource>
         </id>
+
+        <resource name="itemSources">
+            <id name="shipmentItemSourceId">
+                <method type="get"><entity name="mantle.shipment.ShipmentItemSource" operation="one"/></method>
+                <resource name="pack"><method type="post">
+                    <service name="mantle.shipment.ShipmentServices.pack#ShipmentItemSource"/></method></resource>
+            </id>
+        </resource>
     </resource>
 
     <!-- ========== Returns ========== -->
-    <resource name="returns">
+    <resource name="returns" description="Returns - Customer and Vendor">
         <method type="get"><entity name="returns" operation="list"/></method>
         <method type="post"><service name="mantle.order.ReturnServices.create#Return"/></method>
 
@@ -139,11 +214,11 @@ along with this software (see the LICENSE.md file). If not, see
                     <service name="mantle.order.ReturnServices.add#OrderItemToReturn"/></method></resource>
             </resource>
 
-            <resource name="request"><method type="patch">
+            <resource name="request"><method type="post">
                 <service name="mantle.order.ReturnServices.request#Return"/></method></resource>
-            <resource name="approve"><method type="patch">
+            <resource name="approve"><method type="post">
                 <service name="mantle.order.ReturnServices.approve#Return"/></method></resource>
-            <resource name="cancel"><method type="patch">
+            <resource name="cancel"><method type="post">
                 <service name="mantle.order.ReturnServices.cancel#Return"/></method></resource>
 
             <resource name="shipments">
@@ -160,7 +235,7 @@ along with this software (see the LICENSE.md file). If not, see
     </resource>
 
     <!-- ========== Invoices ========== -->
-    <resource name="invoices">
+    <resource name="invoices" description="Invoices - Incoming and Outgoing">
         <method type="get"><entity name="invoices" operation="list"/></method>
         <method type="post"><service name="mantle.account.InvoiceServices.create#Invoice"/></method>
 
@@ -178,7 +253,7 @@ along with this software (see the LICENSE.md file). If not, see
     </resource>
 
     <!-- ========== Payments ========== -->
-    <resource name="payments">
+    <resource name="payments" description="Payments - Incoming and Outgoing">
         <method type="get"><entity name="payments" operation="list"/></method>
         <method type="post"><service name="mantle.account.PaymentServices.create#Payment"/></method>
 
