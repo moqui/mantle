@@ -25,6 +25,7 @@ along with this software (see the LICENSE.md file). If not, see
 
         <id name="orderId">
             <method type="get"><entity name="orders" masterName="default" operation="one"/></method>
+
             <resource name="displayInfo"><method type="get">
                 <service name="mantle.order.OrderServices.get#OrderDisplayInfo"/></method></resource>
 
@@ -70,12 +71,10 @@ along with this software (see the LICENSE.md file). If not, see
                     <resource name="shipments" description="Item shipments for shipment allocation, pick status, etc">
                         <method type="get"><entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method>
                     </resource>
-                    <resource name="issuances">
-                        <method type="get"><entity name="mantle.product.issuance.AssetIssuance" operation="list"/></method>
-                    </resource>
-                    <resource name="receipts">
-                        <method type="get"><entity name="mantle.product.receipt.AssetReceipt" operation="list"/></method>
-                    </resource>
+                    <resource name="issuances"><method type="get">
+                        <entity name="mantle.product.issuance.AssetIssuance" operation="list"/></method></resource>
+                    <resource name="receipts"><method type="get">
+                        <entity name="mantle.product.receipt.AssetReceipt" operation="list"/></method></resource>
 
                     <resource name="return"><method type="post">
                         <service name="mantle.order.ReturnServices.add#OrderItemToReturn"/></method></resource>
@@ -109,6 +108,13 @@ along with this software (see the LICENSE.md file). If not, see
             <method type="get"><entity name="shipments" masterName="default" operation="one"/></method>
             <method type="patch"><service name="mantle.shipment.ShipmentServices.update#ShipmentAndRouteSegment"/></method>
 
+            <resource name="displayInfo"><method type="get">
+                <service name="mantle.shipment.ShipmentServices.get#ShipmentDisplayInfo"/></method></resource>
+            <resource name="contactInfo"><method type="get">
+                <service name="mantle.shipment.ShipmentServices.get#ShipmentContactInfo"/></method></resource>
+            <resource name="pickPackInfo"><method type="get">
+                <service name="mantle.shipment.ShipmentServices.get#ShipmentPickPackInfo"/></method></resource>
+
             <resource name="items">
                 <method type="get"><entity name="mantle.shipment.ShipmentItem" operation="list"/></method>
                 <method type="post"><service name="mantle.shipment.ShipmentServices.create#ShipmentItem"/></method>
@@ -137,6 +143,7 @@ along with this software (see the LICENSE.md file). If not, see
             </resource>
             <resource name="itemSources"><method type="get">
                 <entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method></resource>
+
             <resource name="packages">
                 <method type="get"><entity name="mantle.shipment.ShipmentPackage" operation="list"/></method>
                 <method type="post"><service name="mantle.shipment.ShipmentServices.create#ShipmentPackage"/></method>
@@ -167,6 +174,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <resource name="orders"><method type="post">
                 <service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method></resource>
+            <resource name="salesInvoices"><method type="post">
+                <service name="mantle.account.InvoiceServices.create#SalesShipmentInvoices"/></method></resource>
+            <resource name="purchaseInvoices"><method type="post">
+                <service name="mantle.account.InvoiceServices.create#PurchaseShipmentInvoices"/></method></resource>
 
             <resource name="pack"><method type="post">
                 <service name="mantle.shipment.ShipmentServices.pack#Shipment"/></method></resource>
@@ -202,6 +213,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <id name="returnItemSeqId">
                     <method type="get"><entity name="returnItems" operation="one"/></method>
 
+                    <resource name="shipments"><method type="get">
+                        <entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method></resource>
+                    <resource name="issuances"><method type="get">
+                        <entity name="mantle.product.issuance.AssetIssuance" operation="list"/></method></resource>
+                    <resource name="receipts"><method type="get">
+                        <entity name="mantle.product.receipt.AssetReceipt" operation="list"/></method></resource>
+
                     <resource name="receive"><method type="post">
                         <service name="mantle.order.ReturnServices.receive#ReturnItem"/></method></resource>
                     <resource name="response"><method type="post">
@@ -222,11 +240,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <service name="mantle.order.ReturnServices.cancel#Return"/></method></resource>
 
             <resource name="shipments">
-                <!-- TODO: get return shipments -->
+                <method type="get"><entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method>
                 <method type="post"><service name="mantle.order.ReturnServices.create#ReturnShipment"/></method>
-                <id name="shipmentId">
-                    <method type="post"><service name="mantle.order.ReturnServices.add#ReturnToShipment"/></method>
-                </id>
+                <id name="shipmentId"><method type="post">
+                    <service name="mantle.order.ReturnServices.add#ReturnToShipment"/></method></id>
             </resource>
 
             <resource name="response"><method type="post">
@@ -242,6 +259,17 @@ along with this software (see the LICENSE.md file). If not, see
         <id name="invoiceId">
             <method type="get"><entity name="invoices" masterName="default" operation="one"/></method>
             <method type="patch"><service name="mantle.account.InvoiceServices.update#Invoice"/></method>
+
+            <resource name="closed"><method type="patch">
+                <service name="mantle.account.InvoiceServices.update#InvoiceClosed"/></method></resource>
+
+            <resource name="totals"><method type="get">
+                <service name="mantle.account.InvoiceServices.get#InvoiceTotal"/></method></resource>
+            <resource name="displayInfo"><method type="get">
+                <service name="mantle.account.InvoiceServices.get#InvoiceDisplayInfo"/></method></resource>
+            <resource name="printInfo"><method type="get">
+                <service name="mantle.account.InvoiceServices.get#InvoicePrintInfo"/></method></resource>
+
             <resource name="items">
                 <method type="post"><service name="mantle.account.InvoiceServices.create#InvoiceItem"/></method>
                 <id name="invoiceItemSeqId">
@@ -249,6 +277,9 @@ along with this software (see the LICENSE.md file). If not, see
                     <method type="delete"><service name="mantle.account.InvoiceServices.delete#InvoiceItem"/></method>
                 </id>
             </resource>
+
+            <resource name="cancel"><method type="post">
+                <service name="mantle.account.InvoiceServices.cancel#Invoice"/></method></resource>
         </id>
     </resource>
 
