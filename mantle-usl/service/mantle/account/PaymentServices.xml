@@ -17,27 +17,30 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="PaymentDisplayInfo">
         <in-parameters><parameter name="paymentId" required="true"/></in-parameters>
         <out-parameters>
-            <parameter name="payment" type="EntityValue"/>
+            <parameter name="payment" type="Map"/>
             <parameter name="isFromPartyOrgInternal" type="Boolean"><description>If true payment is outgoing</description></parameter>
             <parameter name="isToPartyOrgInternal" type="Boolean"><description>If true payment is incoming</description></parameter>
-            <parameter name="dupPaymentList" type="List"><description>List of payments matching paymentRefNum and fromPartyId</description></parameter>
+            <parameter name="dupPaymentList" type="List">
+                <description>List of payments matching paymentRefNum and fromPartyId</description>
+                <parameter name="dupPayment" type="Map"/>
+            </parameter>
 
             <parameter name="paymentDescription"/>
             <parameter name="paymentTotal" type="BigDecimal"/>
             <parameter name="appliedTotal" type="BigDecimal"/>
             <parameter name="unappliedTotal" type="BigDecimal"/>
 
-            <parameter name="statusHistoryList" type="EntityList"/>
-            <parameter name="paymentApplicationList" type="EntityList"/>
-            <parameter name="orderItemBillingList" type="EntityList"/>
-            <parameter name="invoiceIdSet" type="Set"/>
+            <parameter name="statusHistoryList" type="List"><parameter name="auditLog" type="Map"/></parameter>
+            <parameter name="paymentApplicationList" type="List"><parameter name="paymentApplication" type="Map"/></parameter>
+            <parameter name="orderItemBillingList" type="List"><parameter name="orderItemBilling" type="Map"/></parameter>
+            <parameter name="invoiceIdSet" type="Set"><parameter name="invoiceId"/></parameter>
 
-            <parameter name="acctgTransList" type="EntityList"/>
-            <parameter name="acctgTransIdSet" type="Set"/>
+            <parameter name="acctgTransList" type="List"><parameter name="acctgTrans" type="Map"/></parameter>
+            <parameter name="acctgTransIdSet" type="Set"><parameter name="acctgTransId"/></parameter>
 
             <parameter name="unpaidInvoiceInfoList" type="List">
-                <parameter name="TheMap" type="Map">
-                    <parameter name="invoice" type="EntityValue"/>
+                <parameter name="unpaidInvoiceInfo" type="Map">
+                    <parameter name="invoice" type="Map"/>
                     <parameter name="invoiceTotal" type="BigDecimal"/>
                     <parameter name="appliedPaymentsTotal" type="BigDecimal"/>
                     <parameter name="unpaidTotal" type="BigDecimal"/>
@@ -192,8 +195,30 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="get" noun="PaymentCheckInfo">
-        <in-parameters><parameter name="paymentIdList" type="List" required="true"/></in-parameters>
-        <out-parameters><parameter name="paymentInfoList" type="List"/></out-parameters>
+        <in-parameters>
+            <parameter name="paymentIdList" type="List" required="true"><parameter name="paymentId"/></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="paymentInfoList" type="List"><parameter name="paymentInfo" type="Map">
+                <parameter name="payment" type="Map"/>
+                <parameter name="paymentId"/>
+                <parameter name="fromPartyDetail" type="Map"/>
+                <parameter name="toPartyDetail" type="Map"/>
+                <parameter name="toBillingContactInfo" type="Map"/>
+                <parameter name="paymentSignaturePrimaryLocation"/>
+                <parameter name="paymentSignatureSecondaryLocation"/>
+                <parameter name="paymentApplicationList" type="List">
+                    <parameter name="paymentApplication" type="Map"/></parameter>
+                <parameter name="financialAccount" type="Map"/>
+                <parameter name="orderItemBillingList" type="List">
+                    <parameter name="orderItemBilling" type="Map"/></parameter>
+                <parameter name="amountWords"/>
+                <parameter name="paymentDescription"/>
+                <parameter name="paymentTotal" type="BigDecimal"/>
+                <parameter name="appliedTotal" type="BigDecimal"/>
+                <parameter name="unappliedTotal" type="BigDecimal"/>
+            </parameter></parameter>
+        </out-parameters>
         <actions>
             <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
                 <econdition field-name="paymentId" operator="in" from="paymentIdList"/>
@@ -277,7 +302,6 @@ along with this software (see the LICENSE.md file). If not, see
                         paymentApplicationList:paymentApplicationList, invoiceList:invoiceList,
                         financialAccount:financialAccount, financialAccountTrans:financialAccountTrans,
                         orderItemBillingList:orderItemBillingList]"/>
-
                 <script>
                     paymentInfo.amountWords = StupidUtilities.numberToWordsWithDecimal(payment.amount)
 
@@ -410,7 +434,7 @@ along with this software (see the LICENSE.md file). If not, see
                 create#InvoicePayment.</description></parameter>
         </in-parameters>
         <out-parameters>
-            <parameter name="paymentApplicationId" type="List"/>
+            <parameter name="paymentApplicationId"/>
             <parameter name="amountApplied" type="BigDecimal"/>
         </out-parameters>
         <actions>
@@ -454,7 +478,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="amount" type="BigDecimal"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="paymentApplicationId" type="List"/>
+            <parameter name="paymentApplicationId"/>
             <parameter name="amountApplied" type="BigDecimal"/>
         </out-parameters>
         <actions>
@@ -485,10 +509,11 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[invoiceId:invoiceId]"/>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
             <if condition="unpaidTotal == 0">
-                <if condition="invoice.statusId == 'InvoiceSent' || invoice.statusId == 'InvoiceFinalized'">
+                <if condition="invoice.statusId == 'InvoiceSent' || invoice.statusId == 'InvoiceFinalized'"><then>
                     <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoicePmtRecvd']"/>
-                    <else><service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoicePmtSent']"/></else>
-                </if>
+                </then><else>
+                    <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:'InvoicePmtSent']"/>
+                </else></if>
             </if>
         </actions>
     </service>
