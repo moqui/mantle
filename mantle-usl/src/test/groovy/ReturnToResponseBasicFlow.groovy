@@ -34,7 +34,7 @@ class ReturnToResponseBasicFlow extends Specification {
     @Shared
     ExecutionContext ec
     @Shared
-    String returnId = null, originalOrderId = "55500", returnShipmentId, replaceOrderId, replaceOrderPartSeqId
+    String returnId = null, originalOrderId = "55500", returnShipmentId
     @Shared
     Map replaceShipResult
     @Shared
@@ -310,6 +310,21 @@ class ReturnToResponseBasicFlow extends Specification {
                 .parameters([orderId:returnItem.replacementOrderId, orderPartSeqId:'01']).call()
 
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <shipments shipmentId="55701" fromPartyId="ORG_ZIZI_RETAIL" toPartyId="CustJqp"
+                    shipmentTypeEnumId="ShpTpSales" statusId="ShipShipped">
+                <items quantity="1" productId="DEMO_1_1">
+                    <sources shipmentItemSourceId="55703" quantity="1" orderId="55700" orderItemSeqId="01"
+                            invoiceItemSeqId="01" statusId="SisPacked" quantityNotHandled="0"/>
+                    <contents shipmentPackageSeqId="01" quantity="1"/>
+                </items>
+                <packages shipmentPackageSeqId="01">
+                    <contents quantity="1" productId="DEMO_1_1"/>
+                    <routeSegments shipmentRouteSegmentSeqId="01"/>
+                </packages>
+                <routeSegments shipmentRouteSegmentSeqId="01" shipmentMethodEnumId="ShMthGround"
+                        actualStartDate="${effectiveTime}" destTelecomContactMechId="CustJqpTeln"
+                        originFacilityId="ORG_ZIZI_RETAIL_WH" destPostalContactMechId="CustJqpAddr"/>
+            </shipments>
         </entity-facade-xml>""").check()
         logger.info("ship Replacement Order data check results: " + dataCheckErrors)
 
@@ -317,12 +332,12 @@ class ReturnToResponseBasicFlow extends Specification {
         dataCheckErrors.size() == 0
     }
 
-    /*
     def "validate Replacement Order Complete"() {
         when:
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- OrderHeader status to Completed -->
-            <mantle.order.OrderHeader orderId="${replaceOrderId}" statusId="OrderCompleted"/>
+            <orders orderId="55700" orderRevision="8" statusId="OrderCompleted">
+                <parts orderPartSeqId="01" statusId="OrderCompleted"/></orders>
         </entity-facade-xml>""").check()
         logger.info("validate Replacement Order Complete data check results: " + dataCheckErrors)
 
@@ -333,6 +348,22 @@ class ReturnToResponseBasicFlow extends Specification {
     def "validate Asset Issuance and Accounting Transactions"() {
         when:
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <mantle.product.issuance.AssetIssuance assetIssuanceId="55700" assetId="55400" shipmentId="55701"
+                    orderId="55700" orderItemSeqId="01" issuedDate="${effectiveTime}" quantity="1" productId="DEMO_1_1"
+                    assetReservationId="55701" acctgTransResultEnumId="AtrSuccess">
+                <mantle.ledger.transaction.AcctgTrans postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y"
+                        assetId="55400" acctgTransTypeEnumId="AttInventoryIssuance" glFiscalTypeEnumId="GLFT_ACTUAL"
+                        transactionDate="${effectiveTime}" acctgTransId="55701" organizationPartyId="ORG_ZIZI_RETAIL">
+                    <mantle.ledger.transaction.AcctgTransEntry amount="8" productId="DEMO_1_1" glAccountId="141300000"
+                            reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatInventory"
+                            debitCreditFlag="C" assetId="55400" acctgTransEntrySeqId="01"/>
+                    <mantle.ledger.transaction.AcctgTransEntry amount="8" productId="DEMO_1_1" glAccountId="512000000"
+                            reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatCogs" debitCreditFlag="D"
+                            assetId="55400" acctgTransEntrySeqId="02"/>
+                </mantle.ledger.transaction.AcctgTrans>
+                <mantle.product.asset.AssetDetail assetDetailId="55706" assetId="55400" productId="DEMO_1_1"
+                        assetReservationId="55701" shipmentId="55701" effectiveDate="${effectiveTime}" quantityOnHandDiff="-1"/>
+            </mantle.product.issuance.AssetIssuance>
         </entity-facade-xml>""").check()
         logger.info("validate Asset Issuance and Accounting Transactions data check results: ")
         for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
@@ -340,5 +371,4 @@ class ReturnToResponseBasicFlow extends Specification {
         then:
         dataCheckErrors.size() == 0
     }
-    */
 }
