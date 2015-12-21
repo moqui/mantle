@@ -88,6 +88,11 @@ along with this software (see the LICENSE.md file). If not, see
                 </id>
             </resource>
 
+            <resource name="payments">
+                <resource name="authorize"><method type="post">
+                    <service name="mantle.account.PaymentServices.authorize#OrderPayments"/></method></resource>
+            </resource>
+
             <resource name="propose"><method type="post">
                 <service name="mantle.order.OrderServices.propose#Order"/></method></resource>
             <resource name="place"><method type="post">
@@ -278,6 +283,31 @@ along with this software (see the LICENSE.md file). If not, see
                 </id>
             </resource>
 
+            <resource name="payments">
+                <method type="post"><service name="mantle.account.PaymentServices.create#InvoicePayment"/></method>
+
+                <id name="paymentId">
+                    <resource name="apply"><method type="post">
+                        <service name="mantle.account.PaymentServices.apply#InvoicePayment"/></method></resource>
+                    <resource name="promisedSend"><method type="post">
+                        <service name="mantle.account.PaymentServices.send#PromisedPayment"/></method></resource>
+                </id>
+
+                <resource name="applications">
+                    <method type="get"><entity name="paymentApplications" operation="list"/></method>
+                </resource>
+            </resource>
+            <resource name="orders">
+                <id name="orderId">
+                    <resource name="parts">
+                        <id name="orderPartSeqId">
+                            <resource name="applyPayments"><method type="post">
+                                <service name="mantle.account.PaymentServices.apply#OrderPaymentsToInvoice"/></method></resource>
+                        </id>
+                    </resource>
+                </id>
+            </resource>
+
             <resource name="cancel"><method type="post">
                 <service name="mantle.account.InvoiceServices.cancel#Invoice"/></method></resource>
         </id>
@@ -291,6 +321,53 @@ along with this software (see the LICENSE.md file). If not, see
         <id name="paymentId">
             <method type="get"><entity name="payments" masterName="default" operation="one"/></method>
             <method type="patch"><entity name="mantle.account.payment.Payment" operation="update"/></method>
+
+            <resource name="totals"><method type="get">
+                <service name="mantle.account.PaymentServices.get#PaymentTotals"/></method></resource>
+            <resource name="displayInfo"><method type="get">
+                <service name="mantle.account.PaymentServices.get#PaymentDisplayInfo"/></method></resource>
+
+            <resource name="invoices">
+                <id name="invoiceId">
+                    <resource name="apply"><method type="post">
+                        <service name="mantle.account.PaymentServices.apply#InvoicePayment"/></method></resource>
+                </id>
+            </resource>
+            <resource name="applications">
+                <method type="get"><entity name="paymentApplications" operation="list"/></method>
+            </resource>
+            <resource name="gateways">
+                <id name="paymentGatewayConfigId">
+                    <resource name="authorize"><method type="post">
+                        <service name="mantle.account.PaymentServices.authorize#SinglePayment"/></method></resource>
+                </id>
+                <resource name="store"><id name="productStoreId">
+                    <resource name="authorize"><method type="post">
+                        <service name="mantle.account.PaymentServices.authorize#StorePayment"/></method></resource>
+                </id></resource>
+                <resource name="capture"><method type="post">
+                    <service name="mantle.account.PaymentServices.capture#SinglePayment"/></method></resource>
+                <resource name="release"><method type="post">
+                    <service name="mantle.account.PaymentServices.release#SinglePayment"/></method></resource>
+                <resource name="refund"><method type="post">
+                    <service name="mantle.account.PaymentServices.refund#SinglePayment"/></method></resource>
+            </resource>
+
+            <resource name="checkNumberAssign"><method type="post">
+                <service name="mantle.account.PaymentServices.assign#BankAccountCheckNumber"/></method></resource>
+            <resource name="void"><method type="post">
+                <service name="mantle.account.PaymentServices.void#Payment"/></method></resource>
         </id>
+
+        <resource name="checkInfo"><method type="get">
+            <service name="mantle.account.PaymentServices.get#PaymentCheckInfo"/></method></resource>
+        <resource name="applications">
+            <id name="paymentApplicationId">
+                <method type="get"><entity name="paymentApplications" operation="one"/></method>
+
+                <resource name="unapply"><method type="post">
+                    <service name="mantle.account.PaymentServices.unapply#PaymentApplication"/></method></resource>
+            </id>
+        </resource>
     </resource>
 </resource>
