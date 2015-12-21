@@ -72,6 +72,19 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
         </actions>
     </service>
+
+    <service verb="find" noun="OrderOpenReturns">
+        <in-parameters><parameter name="orderId" required="true"/><parameter name="orderPartSeqId" required="true"/></in-parameters>
+        <out-parameters><parameter name="openReturnList" type="List"><parameter name="returnHeader" type="Map"/></parameter></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
+            <entity-find entity-name="mantle.order.return.ReturnHeader" list="openReturnList">
+                <econdition field-name="customerPartyId" from="orderPart.customerPartyId"/>
+                <econdition field-name="vendorPartyId" from="orderPart.vendorPartyId"/>
+                <econdition field-name="statusId" operator="in" value="ReturnCreated,ReturnRequested"/>
+            </entity-find>
+        </actions>
+    </service>
     <service verb="find" noun="ReturnableOrderItems">
         <in-parameters>
             <parameter name="returnId" required="true"/>
@@ -123,6 +136,7 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
+
     <service verb="add" noun="OrderItemToReturn">
         <in-parameters>
             <parameter name="returnId" required="true"/>
