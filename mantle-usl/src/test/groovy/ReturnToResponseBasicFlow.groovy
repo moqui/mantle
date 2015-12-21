@@ -314,7 +314,7 @@ class ReturnToResponseBasicFlow extends Specification {
                     shipmentTypeEnumId="ShpTpSales" statusId="ShipShipped">
                 <items quantity="1" productId="DEMO_1_1">
                     <sources shipmentItemSourceId="55703" quantity="1" orderId="55700" orderItemSeqId="01"
-                            invoiceItemSeqId="01" statusId="SisPacked" quantityNotHandled="0"/>
+                            statusId="SisPacked" quantityNotHandled="0"/>
                     <contents shipmentPackageSeqId="01" quantity="1"/>
                 </items>
                 <packages shipmentPackageSeqId="01">
