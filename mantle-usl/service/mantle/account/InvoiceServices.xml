@@ -317,6 +317,36 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="adjust" noun="Invoice">
+        <description>
+            Adjust closed invoices (receivable: Finalized, Sent; payable: Approved) for charges or discounts
+            after the invoice has been posted to the GL but before payment is finalized. Posts an accounting
+            transaction immediately for the change as the invoice is already posted.
+
+            Relevant item types include: Write-off, Early Payment Discount, Late Payment Charge, Return (before paid)
+        </description>
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="description" required="true"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="quantity" type="BigDecimal" default="1"/>
+
+            <parameter name="invoiceItemSeqId">
+                <description>Optional, associate adjustment item with a another invoice item.</description></parameter>
+            <parameter name="itemDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="itemTypeEnumId" default-value="ItemInvAdjust"/>
+            <parameter name="overrideGlAccountId"/>
+        </in-parameters>
+        <out-parameters><parameter name="invoiceItemSeqId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <if condition="!(invoice.statusId in ['InvoiceFinalized', 'InvoiceSent', 'InvoiceApproved'])">
+                <return error="true" message="Invoices may only be adjusted in the Finalized and Sent for receivables and Approved for payables."/></if>
+
+            <!-- TODO -->
+        </actions>
+    </service>
+
     <service verb="create" noun="EntireOrderPartInvoice">
         <!-- Invoice based on OrderPart (for non-shipping orders or orders invoiced before shipping) -->
         <in-parameters>
