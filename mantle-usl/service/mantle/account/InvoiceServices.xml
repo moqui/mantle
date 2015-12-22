@@ -283,7 +283,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
             <if condition="!(invoice.statusId in ['InvoiceInProcess', 'InvoiceIncoming', 'InvoiceReceived'])">
-                <return error="true" message="Invoice ${invoiceId} is not in a status that allows change"/></if>
+                <return error="true" message="Invoice ${invoiceId} is not in a status that allows change (In Process for receivables, Incoming or Received for payables)"/></if>
 
             <service-call name="create#mantle.account.invoice.InvoiceItem" in-map="context" out-map="context"/>
         </actions>
@@ -320,10 +320,10 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="adjust" noun="Invoice">
         <description>
             Adjust closed invoices (receivable: Finalized, Sent; payable: Approved) for charges or discounts
-            after the invoice has been posted to the GL but before payment is finalized. Posts an accounting
-            transaction immediately for the change as the invoice is already posted.
+            after the invoice has been posted to the GL but before payment is finalized. SECA rule posts an accounting
+            transaction for the change as the invoice is already posted.
 
-            Relevant item types include: Write-off, Early Payment Discount, Late Payment Charge, Return (before paid)
+            Relevant item types include: Write-off, Prompt Payment Discount, Late Payment Charge, Return (before paid)
         </description>
         <in-parameters>
             <parameter name="invoiceId" required="true"/>
@@ -331,19 +331,33 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="quantity" type="BigDecimal" default="1"/>
 
-            <parameter name="invoiceItemSeqId">
+            <parameter name="parentInvoiceItemSeqId">
                 <description>Optional, associate adjustment item with a another invoice item.</description></parameter>
             <parameter name="itemDate" type="Timestamp" default="ec.user.nowTimestamp"/>
-            <parameter name="itemTypeEnumId" default-value="ItemInvAdjust"/>
+            <parameter name="itemTypeEnumId" default-value="ItemInvAdjust"><description>Should be an item type that is a
+                child of ItemInvAdjust (ItemWriteOff, ItemPromptDiscount, ItemLateCharge, ItemReturnAdjust)</description></parameter>
             <parameter name="overrideGlAccountId"/>
         </in-parameters>
         <out-parameters><parameter name="invoiceItemSeqId"/></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
             <if condition="!(invoice.statusId in ['InvoiceFinalized', 'InvoiceSent', 'InvoiceApproved'])">
-                <return error="true" message="Invoices may only be adjusted in the Finalized and Sent for receivables and Approved for payables."/></if>
+                <return error="true" message="Invoices may only be adjusted in the Finalized or Sent statuses for receivables, and the Approved status for payables; invoice ${invoiceId} is in status ${invoice.statusId}"/></if>
 
-            <!-- TODO -->
+            <set field="adjustTotal" from="(amount ?: 0) * quantity"/>
+
+            <!-- if adjustment is negative, have enough unpaid for it? -->
+            <if condition="adjustTotal &lt; 0">
+                <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="invTotal"/>
+                <if condition="(-adjustTotal) > invTotal.unpaidTotal">
+                    <return error="true" message="Cannot adjust invoice ${invoiceId}, adjustment total ${adjustTotal} is greater than unpaid total ${invTotal.unpaidTotal}"/></if>
+            </if>
+
+            <!-- create the InvoiceItem -->
+            <if condition="parentInvoiceItemSeqId"><set field="parentInvoiceId" from="invoiceId"/></if>
+            <service-call name="create#mantle.account.invoice.InvoiceItem" in-map="context" out-map="context"/>
+
+            <!-- NOTE: Invoice Adjustment GL posting done by SECA rule -->
         </actions>
     </service>
 
