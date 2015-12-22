@@ -390,7 +390,7 @@ class OrderToCashBasicFlow extends Specification {
                 amount="84.84" glAccountId="411000000" reconcileStatusId="AterNot" isSummary="N"
                 productId="DEMO_2_1" invoiceItemSeqId="03"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="04" debitCreditFlag="C"
-                amount="5" glAccountId="440000000" reconcileStatusId="AterNot" isSummary="N" invoiceItemSeqId="04"/>
+                amount="5" glAccountId="441000000" reconcileStatusId="AterNot" isSummary="N" invoiceItemSeqId="04"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55502" acctgTransEntrySeqId="05" debitCreditFlag="D"
                 amount="145.68" glAccountTypeEnumId="GatAccountsReceivable" glAccountId="121000000"
                 reconcileStatusId="AterNot" isSummary="N"/>
