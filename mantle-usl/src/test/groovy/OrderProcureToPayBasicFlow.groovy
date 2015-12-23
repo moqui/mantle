@@ -628,6 +628,28 @@ class OrderProcureToPayBasicFlow extends Specification {
         // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+            <invoices invoiceId="55400">
+                <items invoiceItemSeqId="06" amount="50" quantity="1" itemDate="${effectiveTime}" itemTypeEnumId="ItemLateCharge"/>
+                <items invoiceItemSeqId="07" amount="-15" quantity="1" itemDate="${effectiveTime}" itemTypeEnumId="ItemPromptDiscount"/>
+            </invoices>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55405" otherPartyId="ZiddlemanInc"
+                    postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttInvoiceAdjust"
+                    glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="50" glAccountId="517000000"
+                        reconcileStatusId="AterNot" invoiceItemSeqId="06" isSummary="N" glAccountTypeEnumId="GatCogs"
+                        debitCreditFlag="D"/>
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="50" glAccountId="210000000"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatAccountsPayable" debitCreditFlag="C"/>
+            </mantle.ledger.transaction.AcctgTrans>
+            <mantle.ledger.transaction.AcctgTrans acctgTransId="55406" otherPartyId="ZiddlemanInc"
+                    postedDate="${effectiveTime}" amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttInvoiceAdjust"
+                    glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="15" glAccountId="864000000"
+                        reconcileStatusId="AterNot" invoiceItemSeqId="07" isSummary="N" glAccountTypeEnumId="GatIncome"
+                        debitCreditFlag="C"/>
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="15" glAccountId="210000000"
+                        reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatAccountsPayable" debitCreditFlag="D"/>
+            </mantle.ledger.transaction.AcctgTrans>
         </entity-facade-xml>""").check(dataCheckErrors)
         totalFieldsChecked += fieldsChecked
         logger.info("Checked ${fieldsChecked} fields")
