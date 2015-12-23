@@ -27,6 +27,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="statusId" default-value="ReturnCreated"/>
             <parameter name="entryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
+        <out-parameters><parameter name="returnId"/></out-parameters>
         <actions>
             <set field="visitId" from="ec.user.visitId"/>
             <service-call name="create#mantle.order.return.ReturnHeader" in-map="context" out-map="context"/>
@@ -352,14 +353,57 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="returnResponseEnumId" value="RrspReplace"/></filter-map-list>
             -->
 
+            <!-- split list into credit, refund, replace; check credit and refund items for unpaid invoices to adjust instead -->
             <set field="creditItemList" from="[]"/>
             <set field="refundItemList" from="[]"/>
             <set field="replaceItemList" from="[]"/>
+            <set field="remainingAmountBySeqId" from="[:]"/>
             <iterate list="returnItemList" entry="returnItem">
                 <if condition="returnItem.responseDate"><continue/></if>
                 <set field="validStatus" from="returnItem.statusId in ['ReturnReceived', 'ReturnCompleted'] ||
                     (returnItem.responseImmediate == 'Y' &amp;&amp; returnItem.statusId in ['ReturnApproved', 'ReturnShipped'])"/>
                 <if condition="!validStatus"><continue/></if>
+
+                <!-- see if the invoice for returned order item is not yet paid, if so cancel/credit instead of credit or refund -->
+                <if condition="returnItem.returnResponseEnumId in ['RrspCredit', 'RrspRefund']">
+                    <entity-find-related-one value-field="returnItem" relationship-name="orderItem" to-value-field="orderItem"/>
+                    <set field="itemQuantity" from="returnItem.receivedQuantity ?: returnItem.returnQuantity"/>
+                    <set field="amountRemaining" from="returnItem.responseAmount ?: (itemQuantity ?: 0) * (orderItem?.unitAmount ?: 0)"/>
+                    <if condition="!amountRemaining">
+                        <message>Return Item ${returnId}:${returnItem.returnItemSeqId} has no amount, not processing credit response</message>
+                        <script>remainingAmountBySeqId.put(returnItem.returnItemSeqId, 0)</script>
+                        <continue/>
+                    </if>
+
+                    <entity-find entity-name="mantle.order.OrderItemBilling" list="oibList">
+                        <econdition field-name="orderId" from="returnItem.orderId"/>
+                        <econdition field-name="orderItemSeqId" from="returnItem.orderItemSeqId"/></entity-find>
+                    <iterate list="oibList" entry="oib">
+                        <set field="invoiceItem" from="oib.invoiceItem"/>
+                        <set field="iiTotal" from="(oib.quantity ?: 0) * (invoiceItem.amount ?: 0)"/>
+                        <if condition="iiTotal == 0"><continue/></if>
+                        <set field="adjustAmount" from="amountRemaining &gt; iiTotal ? iiTotal : amountRemaining"/>
+
+                        <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal"
+                                out-map="invTotal" out-map-add-to-existing="false" in-map="[invoiceId:oib.invoiceId]"/>
+                        <if condition="invTotal.unpaidTotal &gt; 0">
+                            <!-- adjust by full oib/ii total if unpaidTotal is enough, otherwise just by unpaid total -->
+                            <set field="adjustAmount" from="invTotal.unpaidTotal &gt; adjustAmount ? adjustAmount : invTotal.unpaidTotal"/>
+                            <!-- call invoice adjust, subtract adjustAmount -->
+                            <!-- TODO: more direct way to link back to return item (than new ii to parent ii to oib to oi to ri)? -->
+                            <set field="adjDesc" value="Return Item ${returnId}:${returnItem.returnItemSeqId} for Order Item ${orderItem.orderId}:${orderItem.orderItemSeqId}"/>
+                            <service-call name="mantle.account.InvoiceServices.adjust#Invoice"
+                                    in-map="[invoiceId:oib.invoiceId, description:adjDesc, amount:adjustAmount,
+                                        parentInvoiceItemSeqId:oib.invoiceItemSeqId, itemTypeEnumId:'ItemReturnAdjust']"/>
+                            <!-- reduce amountRemaining -->
+                            <set field="amountRemaining" from="amountRemaining - adjustAmount"/>
+                            <if condition="amountRemaining == 0"><break/></if>
+                        </if>
+                    </iterate>
+
+                    <!-- save the amountRemaining so if there is any credit or refund it is only that amount -->
+                    <script>remainingAmountBySeqId.put(returnItem.returnItemSeqId, amountRemaining)</script>
+                </if>
 
                 <if condition="returnItem.returnResponseEnumId == 'RrspCredit'"><then>
                     <script>creditItemList.add(returnItem)</script>
@@ -373,13 +417,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- Customer Credit (Financial Account Transaction); do one TX for each item -->
             <iterate list="creditItemList" entry="returnItem">
-                <entity-find-related-one value-field="returnItem" relationship-name="orderItem" to-value-field="orderItem"/>
-                <set field="itemQuantity" from="returnItem.receivedQuantity ?: returnItem.returnQuantity"/>
-                <set field="itemAmount" from="returnItem.responseAmount ?: (itemQuantity ?: 0) * (orderItem?.unitAmount ?: 0)"/>
-                <if condition="!itemAmount">
-                    <message>Return Item ${returnId}:${returnItem.returnItemSeqId} has no amount, not processing credit response</message>
-                    <continue/>
-                </if>
+                <set field="itemAmount" from="remainingAmountBySeqId.get(returnItem.returnItemSeqId)"/>
+                <if condition="itemAmount == 0"><continue/></if>
 
                 <set field="finAccountId" from="returnHeader.finAccountId"/>
                 <if condition="!finAccountId">
@@ -405,13 +444,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="checkAmount" from="0"/>
                 <set field="checkItemList" from="[]"/>
                 <iterate list="refundItemList" entry="returnItem">
-                    <entity-find-related-one value-field="returnItem" relationship-name="orderItem" to-value-field="orderItem"/>
-                    <set field="itemQuantity" from="returnItem.receivedQuantity ?: returnItem.returnQuantity"/>
-                    <set field="itemAmount" from="returnItem.responseAmount ?: (itemQuantity ?: 0) * (orderItem?.unitAmount ?: 0)"/>
-                    <if condition="!itemAmount">
-                        <message>Return Item ${returnId}:${returnItem.returnItemSeqId} has no amount, not processing refund response</message>
-                        <continue/>
-                    </if>
+                    <set field="itemAmount" from="remainingAmountBySeqId.get(returnItem.returnItemSeqId)"/>
+                    <if condition="itemAmount == 0"><continue/></if>
 
                     <!-- TODO: handle CC refunds, other paymentInstrumentEnumId based on original payment method or ReturnHeader.paymentMethodId -->
                     <set field="checkAmount" from="checkAmount + itemAmount"/>
