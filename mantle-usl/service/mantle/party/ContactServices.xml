@@ -470,7 +470,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="PostalAddress">
         <description>
             Create a Postal Address (and the corresponding ContactMech record).
-            If partyId and contactMechPurposeId are also passed will create a PartyContactMech record.
+            If partyId and contactMechPurposeId are specified will create a PartyContactMech record.
+            If facilityId and contactMechPurposeId are specified will create a FacilityContactMech record.
         </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
@@ -506,7 +507,7 @@ along with this software (see the LICENSE.md file). If not, see
             all purposes.
 
             NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
-            directly on the ContactMech entity (do not use this service).
+            with the update#ContactMechMutable service (do not use this service).
         </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.party.contact.PostalAddress" include="nonpk"/>
@@ -587,7 +588,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     <service verb="get" noun="PostalAddressGeoIdSet">
         <in-parameters><parameter name="contactMechId"/></in-parameters>
-        <out-parameters><parameter name="geoIdSet" type="Set"/></out-parameters>
+        <out-parameters><parameter name="geoIdSet" type="Set"><parameter name="geoId"/></parameter></out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress"/>
             <set field="geoIdSet" from="new HashSet()"/>
@@ -641,7 +642,8 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="TelecomNumber">
         <description>
             Create a Telecom Number (and the corresponding ContactMech record).
-            If partyId and contactMechPurposeId are also passed will create a PartyContactMech record.
+            If partyId and contactMechPurposeId are specified will create a PartyContactMech record.
+            If facilityId and contactMechPurposeId are specified will create a FacilityContactMech record.
         </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
@@ -680,7 +682,7 @@ along with this software (see the LICENSE.md file). If not, see
             all purposes.
 
             NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
-            directly on the ContactMech entity (do not use this service).
+            with the update#ContactMechMutable service (do not use this service).
         </description>
         <in-parameters>
             <auto-parameters entity-name="mantle.party.contact.TelecomNumber" include="nonpk"/>
@@ -818,11 +820,11 @@ along with this software (see the LICENSE.md file). If not, see
             this creates a new one and associates it with the Party, expiring the old associations (PartyContactMech
             records).
 
-            If a contactMechPurposeId is passed in it will only update for that purpose, otherwise it will update for
-            all purposes.
+            One or both of contactMechId and contactMechPurposeId must be specified. If a contactMechPurposeId is passed
+            in it will only update for that purpose, otherwise it will update for all purposes.
 
             NOTE: if you want to update the ContactMech.paymentFraudEvidenceId or .trustLevelEnumId fields, do so
-            directly on the ContactMech entity (do not use this service).
+            with the update#ContactMechMutable service (do not use this service).
         </description>
         <in-parameters>
             <parameter name="infoString" required="true"/>
@@ -881,8 +883,26 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ========== Mutable Update Service ========== -->
+
+    <service verb="update" noun="ContactMechMutable">
+        <description>Update mutable fields on ContactMech</description>
+        <in-parameters>
+            <parameter name="contactMechId" required="true"/>
+            <parameter name="dataSourceId"/>
+            <parameter name="trustLevelEnumId"/>
+            <parameter name="paymentFraudEvidenceId"/>
+        </in-parameters>
+        <actions>
+            <service-call name="update#mantle.party.contact.ContactMech" in-map="context"/>
+        </actions>
+    </service>
+
+    <!-- ========== Delete for Party Service ========== -->
+
     <service verb="delete" noun="PartyContactMech">
-        <description>Delete service for all types of ContactMech, actually expires PartyContactMech record.</description>
+        <description>Delete any type of ContactMech from a Party, actually expires PartyContactMech record (does not
+            delete it, and does not delete ContactMech or related records).</description>
         <in-parameters>
             <parameter name="partyId" required="true"/>
             <parameter name="contactMechId" required="true"/>
