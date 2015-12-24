@@ -38,6 +38,36 @@ along with this software (see the LICENSE.md file). If not, see
 
             <resource name="badges"><method type="get">
                 <entity name="mantle.party.PartyBadge" operation="list"/></method></resource>
+
+            <resource name="contactMechs">
+                <method type="get"><entity name="mantle.party.contact.PartyContactMechInfo" operation="list"/></method>
+                <method type="put"><service name="mantle.party.ContactServices.store#PartyContactInfo"/></method>
+
+                <id name="contactMechId">
+                    <method type="delete"><service name="mantle.party.ContactServices.delete#PartyContactMech"/></method>
+                    <resource name="postalAddress"><method type="patch">
+                        <service name="mantle.party.ContactServices.update#PartyPostalAddress"/></method></resource>
+                    <resource name="telecomNumber"><method type="patch">
+                        <service name="mantle.party.ContactServices.update#PartyTelecomNumber"/></method></resource>
+                </id>
+
+                <resource name="info"><method type="get">
+                    <service name="mantle.party.ContactServices.get#PartyContactInfo"/></method></resource>
+                <resource name="infoList"><method type="get">
+                    <service name="mantle.party.ContactServices.get#PartyContactInfoList"/></method></resource>
+
+                <resource name="postalAddresses">
+                    <method type="get"><entity name="mantle.party.contact.PartyContactMechPostalAddress" operation="list"/></method>
+                    <resource name="findOrCreate"><method type="post">
+                        <service name="mantle.party.ContactServices.findOrCreate#PartyPostalAddress"/></method></resource>
+                </resource>
+                <resource name="telecomNumbers"><method type="get">
+                    <entity name="mantle.party.contact.PartyContactMechTelecomNumber" operation="list"/></method></resource>
+                <resource name="emailAddresses"><resource name="primary"><method type="get">
+                    <service name="mantle.party.ContactServices.get#PrimaryEmailAddress"/></method></resource></resource>
+                <resource name="other"><method type="patch">
+                    <service name="mantle.party.ContactServices.update#PartyContactOther"/></method></resource>
+            </resource>
         </id>
 
         <resource name="person"><method type="post">
@@ -65,6 +95,27 @@ along with this software (see the LICENSE.md file). If not, see
                 <service name="mantle.party.PartyServices.scan#PartyBadge"/></method></id></resource>
         </resource>
     </resource>
+
+    <resource name="contactMechs" description="Contact Mechanisms - Postal Address, Telecom Number, Email Address, etc; limited options here, most under parties and facilities">
+        <id name="contactMechId">
+            <method type="get"><entity name="contactMechs" masterName="default" operation="one"/></method>
+            <resource name="mutable"><method type="patch">
+                <service name="mantle.party.ContactServices.update#ContactMechMutable"/></method></resource>
+            <resource name="postalAddress"><resource name="geoIdSet"><method type="get">
+                <service name="mantle.party.ContactServices.get#PostalAddressGeoIdSet"/></method></resource></resource>
+        </id>
+
+        <resource name="postalAddresses"><method type="post">
+            <service name="mantle.party.ContactServices.create#PostalAddress"/></method></resource>
+        <resource name="telecomNumbers"><method type="post">
+            <service name="mantle.party.ContactServices.create#TelecomNumber"/></method></resource>
+        <resource name="emailAddresses"><method type="post">
+            <service name="mantle.party.ContactServices.create#EmailAddress"/></method></resource>
+        <resource name="others"><method type="post">
+            <service name="mantle.party.ContactServices.create#ContactMechOther"/></method></resource>
+    </resource>
+
+    <!-- TODO ========== Facilities ========== -->
 
     <!-- ========== Products ========== -->
     <resource name="products" description="Products - Finished Goods, Materials, Supplies, Equipment, etc">
