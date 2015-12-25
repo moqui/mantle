@@ -304,6 +304,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <method type="get"><entity name="subscriptionResources" operation="list"/></method>
                 <id name="subscriptionResourceId">
                     <method type="get"><entity name="subscriptionResources" masterName="default" operation="one"/></method>
+                    <resource name="fulfill"><method type="post">
+                        <service name="mantle.product.SubscriptionServices.fulfill#ProductSubscriptionResource"/></method></resource>
                 </id>
             </resource>
         </resource>
@@ -327,8 +329,20 @@ along with this software (see the LICENSE.md file). If not, see
                 <resource name="displace"><method type="post">
                     <service name="mantle.product.AssetServices.displace#AssetReservations"/></method></resource>
             </resource>
+            <resource name="maintenance">
+                <method type="get"><entity name="mantle.product.maintenance.AssetMaintenance" operation="list"/></method>
+                <method type="post"><service name="mantle.product.EquipmentServices.create#AssetMaintenance"/></method>
+                <id name="assetMaintenanceId">
+                    <method type="get"><entity name="mantle.product.maintenance.AssetMaintenance" operation="one"/></method>
+                    <!-- TODO content services -->
+                </id>
+                <resource name="product"><id name="productMaintenanceId"><resource name="needed"><method type="get">
+                    <service name="mantle.product.EquipmentServices.get#AssetMaintenanceNeeded"/></method></resource></id></resource>
+            </resource>
         </id>
 
+        <resource name="equipment"><method type="post">
+            <service name="mantle.product.EquipmentServices.create#Equipment"/></method></resource>
         <resource name="receive"><method type="post">
             <service name="mantle.product.AssetServices.receive#Asset"/></method></resource>
 
@@ -370,15 +384,15 @@ along with this software (see the LICENSE.md file). If not, see
                         <method type="get"><entity name="payments" operation="list"/></method>
                         <method type="post"><service name="mantle.order.OrderServices.add#OrderPartPayment"/></method>
                     </resource>
-                    <resource name="invoices">
-                        <method type="post"><service name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/></method>
-                    </resource>
+                    <resource name="invoices"><method type="post">
+                        <service name="mantle.account.InvoiceServices.create#EntireOrderPartInvoice"/></method></resource>
                     <resource name="shipments">
                         <method type="post"><service name="mantle.shipment.ShipmentServices.ship#OrderPart"/></method>
-                        <id name="shipmentId">
-                            <method type="post"><service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method>
-                        </id>
+                        <id name="shipmentId"><method type="post">
+                            <service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method></id>
                     </resource>
+                    <resource name="subscriptions"><resource name="fulfill"><method type="post">
+                        <service name="mantle.product.SubscriptionServices.fulfill#OrderPartSubscriptions"/></method></resource></resource>
 
                     <resource name="return"><method type="post">
                         <service name="mantle.order.ReturnServices.create#ReturnFromOrder"/></method></resource>
@@ -426,6 +440,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <resource name="assets"><resource name="reserve"><method type="post">
                 <service name="mantle.product.AssetServices.reserve#AssetsForOrder"/></method></resource></resource>
+            <resource name="subscriptions"><resource name="fulfill"><method type="post">
+                <service name="mantle.product.SubscriptionServices.fulfill#OrderSubscriptions"/></method></resource></resource>
 
             <resource name="propose"><method type="post">
                 <service name="mantle.order.OrderServices.propose#Order"/></method></resource>
