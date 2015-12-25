@@ -123,7 +123,7 @@ along with this software (see the LICENSE.md file). If not, see
     </resource>
 
     <!-- ========== Communication Events ========== -->
-    <resource name="communicationEvents" description="Communication Events - Messages, Calls, etc">
+    <resource name="communicationEvents" description="Communication Events - Message, Call, etc">
         <method type="get"><entity name="communicationEvents" operation="list"/></method>
         <method type="post"><service name="mantle.party.CommunicationServices.create#Message"/></method>
         <id name="communicationEventId">
@@ -134,7 +134,68 @@ along with this software (see the LICENSE.md file). If not, see
         </id>
     </resource>
 
-    <!-- TODO ========== Facilities ========== -->
+    <!-- ========== Facilities ========== -->
+    <resource name="facilities" description="Facilities - Warehouse, Dock, Line, Office, Land, etc">
+        <method type="get"><entity name="facilities" operation="list"/></method>
+        <method type="post"><service name="mantle.facility.FacilityServices.create#Facility"/></method>
+
+        <id name="facilityId">
+            <method type="get"><entity name="facilities" masterName="default" operation="one"/></method>
+            <method type="patch"><service name="mantle.facility.FacilityServices.update#Facility"/></method>
+
+            <resource name="locations">
+                <method type="get"><entity name="mantle.facility.FacilityLocation" operation="list"/></method>
+                <method type="post"><service name="mantle.facility.FacilityServices.create#FacilityLocation"/></method>
+
+                <id name="locationSeqId">
+                    <method type="get"><entity name="mantle.facility.FacilityLocation" operation="one"/></method>
+                    <method type="patch"><entity name="mantle.facility.FacilityLocation" operation="update"/></method>
+                    <!-- maybe better not to go to this level of detail, in general for simple CrUD operations better to use Entity REST API:
+                    <resource name="products">
+                        <method type="get"><entity name="mantle.facility.ProductFacilityLocation" operation="list"/></method>
+                        <method type="post"><entity name="mantle.facility.ProductFacilityLocation" operation="create"/></method>
+                        <id name="productId">
+                            <method type="get"><entity name="mantle.facility.ProductFacilityLocation" operation="one"/></method>
+                            <method type="post"><entity name="mantle.facility.ProductFacilityLocation" operation="update"/></method>
+                            <method type="delete"><entity name="mantle.facility.ProductFacilityLocation" operation="delete"/></method>
+                        </id>
+                    </resource>
+                    -->
+                </id>
+            </resource>
+            <resource name="certifications">
+                <method type="get"><entity name="mantle.facility.FacilityCertification" operation="list"/></method>
+                <method type="post"><entity name="mantle.facility.FacilityCertification" operation="create"/></method>
+                <id name="facilityCertificationId">
+                    <!-- TODO handle documentFile type org.apache.commons.fileupload.FileItem; for the myriad *Content resources too -->
+                    <method type="patch"><service name="mantle.facility.FacilityServices.update#FacilityCertification"/></method>
+                </id>
+            </resource>
+            <resource name="contactMechs">
+                <method type="get"><entity name="mantle.facility.FacilityContactMechInfo" operation="list"/></method>
+
+                <id name="contactMechId">
+                    <method type="delete"><service name="mantle.facility.ContactServices.delete#FacilityContactMech"/></method>
+                    <resource name="postalAddress"><method type="patch">
+                        <service name="mantle.facility.ContactServices.update#FacilityPostalAddress"/></method></resource>
+                    <resource name="telecomNumber"><method type="patch">
+                        <service name="mantle.facility.ContactServices.update#FacilityTelecomNumber"/></method></resource>
+                    <resource name="other"><method type="patch">
+                        <service name="mantle.facility.ContactServices.update#FacilityContactOther"/></method></resource>
+                </id>
+
+                <resource name="info"><method type="get">
+                    <service name="mantle.facility.ContactServices.get#FacilityContactInfo"/></method></resource>
+
+                <resource name="postalAddresses"><method type="get">
+                    <entity name="mantle.facility.FacilityContactMechPostalAddress" operation="list"/></method></resource>
+                <resource name="telecomNumbers"><method type="get">
+                    <entity name="mantle.facility.FacilityContactMechTelecomNumber" operation="list"/></method></resource>
+                <resource name="other"><method type="patch">
+                    <service name="mantle.facility.ContactServices.update#FacilityContactOther"/></method></resource>
+            </resource>
+        </id>
+    </resource>
 
     <!-- ========== Products ========== -->
     <resource name="products" description="Products - Finished Goods, Materials, Supplies, Equipment, etc">
