@@ -233,6 +233,13 @@ along with this software (see the LICENSE.md file). If not, see
                     <service name="mantle.facility.ContactServices.update#FacilityContactOther"/></method></resource>
             </resource>
 
+            <resource name="products"><id name="productId">
+                <resource name="physicalQuantity"><method type="post">
+                    <service name="mantle.product.AssetServices.record#PhysicalInventoryQuantity"/></method></resource>
+                <resource name="physicalChange"><method type="post">
+                    <service name="mantle.product.AssetServices.record#PhysicalInventoryChange"/></method></resource>
+            </id></resource>
+
             <!-- TODO content services -->
         </id>
     </resource>
@@ -301,7 +308,42 @@ along with this software (see the LICENSE.md file). If not, see
         </resource>
     </resource>
 
-    <!-- TODO ========== Assets ========== -->
+    <!-- ========== Assets ========== -->
+    <resource name="assets" description="Assets - Inventory, Supplies, Equipment, etc">
+        <method type="get"><entity name="assets" operation="list"/></method>
+
+        <id name="assetId">
+            <method type="get"><entity name="assets" masterName="default" operation="one"/></method>
+
+            <resource name="displayInfo"><method type="get">
+                <service name="mantle.product.AssetServices.get#AssetDisplayInfo"/></method></resource>
+            <resource name="receipt"><method type="patch">
+                <service name="mantle.product.AssetServices.update#AssetAndReceipt"/></method></resource>
+            <resource name="replaceParty"><method type="post">
+                <service name="mantle.product.AssetServices.replace#AssetPartyAssignment"/></method></resource>
+
+            <resource name="reservations">
+                <resource name="displace"><method type="post">
+                    <service name="mantle.product.AssetServices.displace#AssetReservations"/></method></resource>
+            </resource>
+        </id>
+
+        <resource name="receive"><method type="post">
+            <service name="mantle.product.AssetServices.receive#Asset"/></method></resource>
+
+        <resource name="reservations">
+            <method type="get"><entity name="mantle.product.issuance.AssetReservation" operation="list"/></method>
+            <id name="assetReservationId">
+                <method type="get"><entity name="mantle.product.issuance.AssetReservation" operation="one"/></method>
+                <resource name="reduce"><method type="post">
+                    <service name="mantle.product.AssetServices.reduce#AssetReservation"/></method></resource>
+                <resource name="move"><method type="post">
+                    <service name="mantle.product.AssetServices.move#AssetReservation"/></method></resource>
+            </id>
+        </resource>
+    </resource>
+
+    <!-- TODO ========== Work Efforts ========== (remember issue#AssetToWorkEffort,AnyAssetToWorkEffort) -->
 
     <!-- ========== Orders ========== -->
     <resource name="orders" description="Orders - Purchase and Sales">
@@ -350,13 +392,15 @@ along with this software (see the LICENSE.md file). If not, see
 
                     <resource name="reservations">
                         <method type="get"><entity name="mantle.product.issuance.AssetReservation" operation="list"/></method>
+                        <method type="post"><service name="mantle.product.AssetServices.reserve#AssetForOrderItem"/></method>
+                        <method type="delete"><service name="mantle.product.AssetServices.remove#OrderItemReservations"/></method>
                     </resource>
-                    <resource name="billings" description="Billings associate order item with invoice item, shipment, etc">
-                        <method type="get"><entity name="mantle.order.OrderItemBilling" operation="list"/></method>
-                    </resource>
-                    <resource name="shipments" description="Item shipments for shipment allocation, pick status, etc">
-                        <method type="get"><entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method>
-                    </resource>
+
+                    <resource name="billings"><method type="get">
+                        <entity name="mantle.order.OrderItemBilling" operation="list"/></method></resource>
+                    <resource name="shipments"><method type="get">
+                        <entity name="mantle.shipment.ShipmentItemSource" operation="list"/></method></resource>
+
                     <resource name="issuances"><method type="get">
                         <entity name="mantle.product.issuance.AssetIssuance" operation="list"/></method></resource>
                     <resource name="receipts"><method type="get">
@@ -376,10 +420,11 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- TODO content services -->
 
-            <resource name="payments">
-                <resource name="authorize"><method type="post">
-                    <service name="mantle.account.PaymentServices.authorize#OrderPayments"/></method></resource>
-            </resource>
+            <resource name="payments"><resource name="authorize"><method type="post">
+                <service name="mantle.account.PaymentServices.authorize#OrderPayments"/></method></resource></resource>
+
+            <resource name="assets"><resource name="reserve"><method type="post">
+                <service name="mantle.product.AssetServices.reserve#AssetsForOrder"/></method></resource></resource>
 
             <resource name="propose"><method type="post">
                 <service name="mantle.order.OrderServices.propose#Order"/></method></resource>
@@ -476,6 +521,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <service name="mantle.account.InvoiceServices.create#SalesShipmentInvoices"/></method></resource>
             <resource name="purchaseInvoices"><method type="post">
                 <service name="mantle.account.InvoiceServices.create#PurchaseShipmentInvoices"/></method></resource>
+
+            <resource name="issue"><method type="post">
+                <service name="mantle.product.AssetServices.issue#Asset"/></method></resource>
 
             <resource name="pack"><method type="post">
                 <service name="mantle.shipment.ShipmentServices.pack#Shipment"/></method></resource>
