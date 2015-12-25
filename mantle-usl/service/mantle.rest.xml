@@ -74,6 +74,17 @@ along with this software (see the LICENSE.md file). If not, see
 
             <resource name="communicationEvents"><method type="get">
                 <service name="mantle.party.CommunicationServices.find#PartyCommunicationEvents"/></method></resource>
+
+            <!-- TODO content services -->
+
+            <resource name="paymentMethods">
+                <method type="put"><service name="mantle.account.PaymentMethodServices.store#PaymentMethodInfo"/></method>
+
+                <resource name="info"><method type="get">
+                    <service name="mantle.account.PaymentMethodServices.get#PartyPaymentMethodInfo"/></method></resource>
+                <resource name="infoList"><method type="get">
+                    <service name="mantle.account.PaymentMethodServices.get#PartyPaymentMethodInfoList"/></method></resource>
+            </resource>
         </id>
 
         <resource name="person"><method type="post">
@@ -131,6 +142,33 @@ along with this software (see the LICENSE.md file). If not, see
                 <resource name="reply"><method type="post">
                     <service name="mantle.party.CommunicationServices.reply#CommunicationEvent"/></method></resource>
             </id>
+        </resource>
+
+        <!-- ========== Payment Methods ========== -->
+        <resource name="paymentMethods" description="Payment Methods - Bank Accounts, Credit Cards, etc">
+            <method type="get"><entity name="paymentMethods" operation="list"/></method>
+
+            <id name="paymentMethodId">
+                <method type="get"><entity name="paymentMethods" masterName="default" operation="one"/></method>
+                <method type="delete"><service name="mantle.account.PaymentMethodServices.delete#PaymentMethod"/></method>
+
+                <resource name="mutable"><method type="patch">
+                    <service name="mantle.account.PaymentMethodServices.update#PaymentMethodMutable"/></method></resource>
+                <resource name="expunge"><method type="delete">
+                    <service name="mantle.account.PaymentMethodServices.expunge#PaymentMethod"/></method></resource>
+
+                <resource name="creditCard"><method type="patch">
+                    <service name="mantle.account.PaymentMethodServices.update#CreditCard"/></method></resource>
+                <resource name="bankAccount"><method type="patch">
+                    <service name="mantle.account.PaymentMethodServices.update#BankAccount"/></method></resource>
+
+                <!-- TODO content services -->
+            </id>
+
+            <resource name="creditCards"><method type="post">
+                <service name="mantle.account.PaymentMethodServices.create#CreditCard"/></method></resource>
+            <resource name="bankAccounts"><method type="post">
+                <service name="mantle.account.PaymentMethodServices.create#BankAccount"/></method></resource>
         </resource>
     </resource>
 
@@ -194,6 +232,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <resource name="other"><method type="patch">
                     <service name="mantle.facility.ContactServices.update#FacilityContactOther"/></method></resource>
             </resource>
+
+            <!-- TODO content services -->
         </id>
     </resource>
 
@@ -203,17 +243,44 @@ along with this software (see the LICENSE.md file). If not, see
 
         <id name="productId">
             <method type="get"><entity name="products" masterName="default" operation="one"/></method>
+            <method type="patch"><entity name="products" operation="update"/></method>
+            <method type="delete"><service name="mantle.product.ProductServices.delete#Product"/></method>
+
+            <resource name="features"><method type="get">
+                <service name="mantle.product.ProductServices.find#ProductFeatures"/></method></resource>
+            <resource name="featureGroups"><method type="get">
+                <service name="mantle.product.ProductServices.find#ProductFeatureGroups"/></method></resource>
+
+            <resource name="variants">
+                <method type="get"><service name="mantle.product.ProductServices.find#VariantProduct"/></method>
+                <method type="post"><service name="mantle.product.ProductServices.create#VariantProducts"/></method>
+                <method type="delete"><service name="mantle.product.ProductServices.delete#VariantProducts"/></method>
+            </resource>
+
+            <!-- TODO content services -->
+
+            <resource name="clone"><method type="post">
+                <service name="mantle.product.ProductServices.clone#Product"/></method></resource>
         </id>
 
         <resource name="categories">
+            <method type="get"><entity name="categories" operation="list"/></method>
             <id name="productCategoryId">
                 <method type="get"><entity name="categories" masterName="default" operation="one"/></method>
+
+                <resource name="features"><method type="get">
+                    <service name="mantle.product.ProductServices.find#ProductCategoryFeatures"/></method></resource>
             </id>
         </resource>
         <resource name="features">
+            <method type="get"><entity name="features" operation="list"/></method>
             <id name="productFeatureId">
                 <method type="get"><entity name="features" masterName="default" operation="one"/></method>
             </id>
+
+            <resource name="byIactnOrAll"><method type="get">
+                <service name="mantle.product.ProductServices.get#FeatureByIactnOrAll"/></method></resource>
+
             <resource name="groups">
                 <id name="productFeatureGroupId">
                     <method type="get"><entity name="featureGroups" masterName="default" operation="one"/></method>
@@ -221,10 +288,12 @@ along with this software (see the LICENSE.md file). If not, see
             </resource>
         </resource>
         <resource name="subscriptions">
+            <method type="get"><entity name="subscriptions" operation="list"/></method>
             <id name="subscriptionId">
                 <method type="get"><entity name="subscriptions" masterName="default" operation="one"/></method>
             </id>
             <resource name="resources">
+                <method type="get"><entity name="subscriptionResources" operation="list"/></method>
                 <id name="subscriptionResourceId">
                     <method type="get"><entity name="subscriptionResources" masterName="default" operation="one"/></method>
                 </id>
@@ -305,6 +374,8 @@ along with this software (see the LICENSE.md file). If not, see
                 </id>
             </resource>
 
+            <!-- TODO content services -->
+
             <resource name="payments">
                 <resource name="authorize"><method type="post">
                     <service name="mantle.account.PaymentServices.authorize#OrderPayments"/></method></resource>
@@ -318,6 +389,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <service name="mantle.order.OrderServices.approve#Order"/></method></resource>
             <resource name="cancel"><method type="post">
                 <service name="mantle.order.OrderServices.cancel#Order"/></method></resource>
+
+            <resource name="clone"><method type="post">
+                <service name="mantle.order.OrderServices.clone#Order"/></method></resource>
         </id>
     </resource>
 
@@ -393,6 +467,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <method type="patch"><entity name="mantle.shipment.ShipmentRouteSegment" operation="update"/></method>
                 </id>
             </resource>
+
+            <!-- TODO content services -->
 
             <resource name="orders"><method type="post">
                 <service name="mantle.shipment.ShipmentServices.add#OrderPartToShipment"/></method></resource>
@@ -518,6 +594,8 @@ along with this software (see the LICENSE.md file). If not, see
                     <service name="mantle.account.PaymentServices.apply#OrderPaymentsToInvoice"/></method></resource>
             </id></resource></id></resource>
 
+            <!-- TODO content services -->
+
             <!-- TODO <resource name="adjust"><method type="post">
                 <service name="mantle.account.InvoiceServices.adjust#Invoice"/></method></resource> -->
             <resource name="cancel"><method type="post">
@@ -543,9 +621,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <resource name="apply"><method type="post">
                     <service name="mantle.account.PaymentServices.apply#InvoicePayment"/></method></resource>
             </id></resource>
-            <resource name="applications">
-                <method type="get"><entity name="paymentApplications" operation="list"/></method>
-            </resource>
+            <resource name="applications"><method type="get">
+                <entity name="paymentApplications" operation="list"/></method></resource>
+
+            <!-- TODO content services -->
+
             <resource name="gateways">
                 <id name="paymentGatewayConfigId">
                     <resource name="authorize"><method type="post">
