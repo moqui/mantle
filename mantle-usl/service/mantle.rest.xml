@@ -361,7 +361,51 @@ along with this software (see the LICENSE.md file). If not, see
         </resource>
     </resource>
 
-    <!-- TODO ========== Work Efforts ========== (remember issue#AssetToWorkEffort,AnyAssetToWorkEffort) -->
+    <!-- ========== Work Efforts ========== -->
+    <resource name="workEfforts" description="Work Efforts - Projects, Tasks, Events, Production Runs, Shipment Loads, etc">
+        <method type="get"><entity name="workEfforts" operation="list"/></method>
+
+        <id name="workEffortId">
+            <method type="get"><entity name="workEfforts" masterName="default" operation="one"/></method>
+
+            <resource name="assets">
+                <id name="assetId">
+                    <resource name="consume"><method type="post">
+                        <service name="mantle.work.WorkEffortServices.issue#AssetToWorkEffort"/></method></resource>
+                </id>
+            </resource>
+            <!-- TODO content services -->
+            <resource name="parties">
+                <resource name="replace"><method type="post">
+                    <service name="mantle.work.WorkEffortServices.replace#WorkEffortParty"/></method></resource>
+
+            </resource>
+            <resource name="products">
+                <id name="productId">
+                    <method type="put"><service name="mantle.work.WorkEffortServices.add#WorkEffortProduct"/></method>
+
+                    <resource name="consume"><method type="post">
+                        <service name="mantle.work.WorkEffortServices.issue#AnyAssetToWorkEffort"/></method></resource>
+                    <resource name="issuances"><method type="get">
+                        <entity name="mantle.product.issuance.AssetIssuance" operation="list"/></method></resource>
+
+                    <resource name="produce"><method type="post">
+                        <service name="mantle.shipment.ShipmentServices.receive#ShipmentProduct"/></method></resource>
+                    <resource name="receipts"><method type="get">
+                        <entity name="mantle.product.receipt.AssetReceipt" operation="list"/></method></resource>
+                </id>
+            </resource>
+
+            <resource name="startEnd"><method type="get">
+                <service name="mantle.work.WorkEffortServices.get#WorkEffortStartEnd"/></method></resource>
+            <resource name="clone"><method type="post">
+                <service name="mantle.work.WorkEffortServices.clone#WorkEffort"/></method></resource>
+        </id>
+
+        <resource name="timeEntries">
+            <!-- TODO -->
+        </resource>
+    </resource>
 
     <!-- ========== Orders ========== -->
     <resource name="orders" description="Orders - Purchase and Sales">
