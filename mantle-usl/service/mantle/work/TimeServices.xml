@@ -118,19 +118,18 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="billToList">
                     <date-filter/><econdition field-name="workEffortId"/>
                     <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
-                <if condition="billToList">
-                    <then><set field="clientPartyId" from="billToList[0].partyId"/></then>
-                    <else>
-                        <!-- see if there is a CustomerBillTo associated with the root (project) -->
-                        <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
-                        <if condition="workEffort?.rootWorkEffortId">
-                            <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="rootBillToList">
-                                <date-filter/><econdition field-name="workEffortId" from="workEffort.rootWorkEffortId"/>
-                                <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
-                            <if condition="rootBillToList"><set field="clientPartyId" from="rootBillToList[0].partyId"/></if>
-                        </if>
-                    </else>
-                </if>
+                <if condition="billToList"><then>
+                    <set field="clientPartyId" from="billToList[0].partyId"/>
+                </then><else>
+                    <!-- see if there is a CustomerBillTo associated with the root (project) -->
+                    <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+                    <if condition="workEffort?.rootWorkEffortId">
+                        <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="rootBillToList">
+                            <date-filter/><econdition field-name="workEffortId" from="workEffort.rootWorkEffortId"/>
+                            <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
+                        <if condition="rootBillToList"><set field="clientPartyId" from="rootBillToList[0].partyId"/></if>
+                    </if>
+                </else></if>
             </if>
 
             <!-- if there is a pieceCount but no pieceRateTypeEnumId lookup by related or set to RatpPiece -->
@@ -150,15 +149,12 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk">
                 <exclude field-name="hours"/><exclude field-name="breakHours"/><exclude field-name="thruDate"/>
-                <exclude field-name="pieceCount"/>
-            </auto-parameters>
+                <exclude field-name="pieceCount"/></auto-parameters>
             <parameter name="partyId" default="ec.user.userAccount.partyId"/>
             <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
             <parameter name="fromDate" default="ec.user.nowTimestamp"/>
         </in-parameters>
-        <out-parameters>
-            <parameter name="timeEntryId"/>
-        </out-parameters>
+        <out-parameters><parameter name="timeEntryId"/></out-parameters>
         <actions>
             <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
         </actions>
@@ -428,6 +424,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="find" noun="TimeEntryRateAmount">
+        <description>Internal service used by get#TimeEntryRate</description>
         <in-parameters>
             <parameter name="timeEntry" type="EntityValue" required="true"/>
             <parameter name="ratePurposeEnumId" required="true"/>
@@ -437,7 +434,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="rateAmountId"/>
-            <parameter name="rateAmount"/>
+            <parameter name="rateAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <if condition="timeEntry.workEffortId">
@@ -545,7 +542,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="clear" noun="TimeEntryInvoice">
-        <description>Called when an Invoice is cancelled to clear the invoiceId/vendorInvoiceId and related item seq IDs.</description>
+        <description>Called by SECA rule when an Invoice is cancelled to clear the invoiceId/vendorInvoiceId and related item seq IDs.</description>
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <actions>
             <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList" for-update="true">
