@@ -778,7 +778,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- mantle.ledger.transaction -->
     <!-- ========================================================= -->
 
-    <entity entity-name="AcctgTrans" package-name="mantle.ledger.transaction">
+    <entity entity-name="AcctgTrans" package-name="mantle.ledger.transaction" short-alias="acctgTrans">
         <field name="acctgTransId" type="id" is-pk="true"/>
         <field name="acctgTransTypeEnumId" type="id"/>
         <field name="organizationPartyId" type="id"/>
@@ -810,37 +810,40 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="reversedByAcctgTransId" type="id"/>
         <field name="reverseOfAcctgTransId" type="id"/>
 
-        <relationship type="one" title="AcctgTransType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" title="AcctgTransType" related-entity-name="moqui.basic.Enumeration" short-alias="type">
             <key-map field-name="acctgTransTypeEnumId"/></relationship>
-        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party" short-alias="organization">
             <key-map field-name="organizationPartyId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.ledger.transaction.GlJournal"/>
-        <relationship type="one" title="GlFiscalType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" related-entity-name="mantle.ledger.transaction.GlJournal" short-alias="journal"/>
+        <relationship type="one" title="GlFiscalType" related-entity-name="moqui.basic.Enumeration" short-alias="fiscalType">
             <key-map field-name="glFiscalTypeEnumId"/></relationship>
-        <relationship type="one" title="Group" related-entity-name="moqui.basic.StatusItem">
+        <relationship type="one" title="Group" related-entity-name="moqui.basic.StatusItem" short-alias="groupStatus">
             <key-map field-name="groupStatusId"/></relationship>
-        <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="Amount" related-entity-name="moqui.basic.Uom" short-alias="amountUom">
             <key-map field-name="amountUomId"/></relationship>
-        <relationship type="one" title="OriginalCurrency" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="OriginalCurrency" related-entity-name="moqui.basic.Uom" short-alias="originalCurrencyUom">
             <key-map field-name="originalCurrencyUomId"/></relationship>
 
-        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
-        <relationship type="one" related-entity-name="mantle.product.issuance.AssetIssuance"/>
-        <relationship type="one" related-entity-name="mantle.product.receipt.AssetReceipt"/>
-        <relationship type="one" related-entity-name="mantle.product.asset.PhysicalInventory"/>
-        <relationship type="one" title="Other" related-entity-name="mantle.party.Party">
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset" short-alias="asset"/>
+        <relationship type="one" related-entity-name="mantle.product.issuance.AssetIssuance" short-alias="assetIssuance"/>
+        <relationship type="one" related-entity-name="mantle.product.receipt.AssetReceipt" short-alias="assetReceipt"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.PhysicalInventory" short-alias="physicalInventory"/>
+        <relationship type="one" title="Other" related-entity-name="mantle.party.Party" short-alias="otherParty">
             <key-map field-name="otherPartyId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.account.invoice.Invoice"/>
-        <relationship type="one" related-entity-name="mantle.account.payment.Payment"/>
-        <relationship type="one" related-entity-name="mantle.account.payment.PaymentApplication"/>
-        <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountTrans"/>
-        <relationship type="one" related-entity-name="mantle.shipment.Shipment"/>
-        <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort"/>
-        <relationship type="one" title="ReversedBy" related-entity-name="mantle.ledger.transaction.AcctgTrans">
+        <relationship type="one" related-entity-name="mantle.account.invoice.Invoice" short-alias="invoice"/>
+        <relationship type="one" related-entity-name="mantle.account.payment.Payment" short-alias="payment"/>
+        <relationship type="one" related-entity-name="mantle.account.payment.PaymentApplication" short-alias="paymentApplication"/>
+        <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccountTrans" short-alias="financialAccountTrans"/>
+        <relationship type="one" related-entity-name="mantle.shipment.Shipment" short-alias="shipment"/>
+        <relationship type="one" related-entity-name="mantle.work.effort.WorkEffort" short-alias="workEffort"/>
+        <relationship type="one" title="ReversedBy" related-entity-name="mantle.ledger.transaction.AcctgTrans" short-alias="reversedBy">
             <key-map field-name="reversedByAcctgTransId" related-field-name="acctgTransId"/></relationship>
-        <relationship type="one" title="ReverseOf" related-entity-name="mantle.ledger.transaction.AcctgTrans">
+        <relationship type="one" title="ReverseOf" related-entity-name="mantle.ledger.transaction.AcctgTrans" short-alias="reverseOf">
             <key-map field-name="reverseOfAcctgTransId" related-field-name="acctgTransId"/></relationship>
 
+        <relationship type="many" related-entity-name="mantle.ledger.transaction.AcctgTransEntry" short-alias="entries">
+            <key-map field-name="acctgTransId"/></relationship>
+        
         <seed-data>
             <!-- Accounting Transaction Type -->
             <moqui.basic.EnumerationType description="Accounting Transaction Type" enumTypeId="AcctgTransType"/>
@@ -911,6 +914,22 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.Enumeration enumId="AtrNoTransReason" description="No Transaction Reason" enumTypeId="AcctgTransResult"/><!-- for FinancialAccountTrans -->
             <moqui.basic.Enumeration enumId="AtrPaymentNotPosted" description="Payment Not Posted" enumTypeId="AcctgTransResult"/><!-- for PaymentApplication -->
         </seed-data>
+        <master>
+            <detail relationship="type"/><detail relationship="organization"/><detail relationship="journal"/>
+            <detail relationship="fiscalType"/><detail relationship="groupStatus"/><detail relationship="amountUom"/>
+            <detail relationship="originalCurrencyUom"/>
+            <detail relationship="asset"/><detail relationship="assetIssuance"/><detail relationship="assetReceipt"/>
+            <detail relationship="physicalInventory"/><detail relationship="otherParty"/>
+            <detail relationship="invoice"/><detail relationship="payment"/><detail relationship="paymentApplication"/>
+            <detail relationship="financialAccountTrans"/><detail relationship="shipment"/>
+            <detail relationship="workEffort"/><detail relationship="reversedBy"/><detail relationship="reverseOf"/>
+
+            <detail relationship="entries">
+                <detail relationship="glAccountType"/><detail relationship="glAccount"/>
+                <detail relationship="reconcileStatus"/>
+                <detail relationship="product"/><detail relationship="asset"/>
+            </detail>
+        </master>
     </entity>
     <entity entity-name="AcctgTransEntry" package-name="mantle.ledger.transaction">
         <field name="acctgTransId" type="id" is-pk="true"/>
@@ -932,15 +951,15 @@ along with this software (see the LICENSE.md file). If not, see
         <field name="assetId" type="id"/>
         <field name="invoiceItemSeqId" type="id"/>
 
-        <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTrans"/>
-        <relationship type="one" title="GlAccountType" related-entity-name="moqui.basic.Enumeration">
+        <relationship type="one" related-entity-name="mantle.ledger.transaction.AcctgTrans" short-alias="trans"/>
+        <relationship type="one" title="GlAccountType" related-entity-name="moqui.basic.Enumeration" short-alias="glAccountType">
             <key-map field-name="glAccountTypeEnumId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
-        <relationship type="one" title="AcctgTransEntryReconcile" related-entity-name="moqui.basic.StatusItem">
+        <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount" short-alias="glAccount"/>
+        <relationship type="one" title="AcctgTransEntryReconcile" related-entity-name="moqui.basic.StatusItem" short-alias="reconcileStatus">
             <key-map field-name="reconcileStatusId"/></relationship>
         <relationship type="one" related-entity-name="SettlementTerm"/>
-        <relationship type="one" related-entity-name="mantle.product.Product"/>
-        <relationship type="one" related-entity-name="mantle.product.asset.Asset"/>
+        <relationship type="one" related-entity-name="mantle.product.Product" short-alias="product"/>
+        <relationship type="one" related-entity-name="mantle.product.asset.Asset" short-alias="asset"/>
 
         <seed-data>
             <!-- Accounting Transaction Entry Reconcile Status -->
