@@ -17,28 +17,39 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="get" noun="ProductionRunDisplayInfo">
         <in-parameters><parameter name="workEffortId" required="true"/></in-parameters>
         <out-parameters>
-            <parameter name="workEffort" type="EntityValue"/>
-            <parameter name="statusHistoryList" type="EntityList"/>
+            <parameter name="workEffort" type="Map"/>
+            <parameter name="statusHistoryList" type="List"><parameter name="auditLog" type="Map"/></parameter>
 
-            <parameter name="lineFacility" type="EntityValue"/>
-            <parameter name="warehouseFacility" type="EntityValue"/>
-            <parameter name="currentFacilityIdList" type="List"/>
+            <parameter name="lineFacility" type="Map"/>
+            <parameter name="warehouseFacility" type="Map"/>
+            <parameter name="currentFacilityIdList" type="List"><parameter name="facilityId"/></parameter>
             <parameter name="inventoryFacilityId"/>
-            <parameter name="inventoryFacility" type="EntityValue"/>
+            <parameter name="inventoryFacility" type="Map"/>
 
-            <parameter name="consumeList" type="EntityList"/><parameter name="consumeProductIdList" type="List"/>
-            <parameter name="produceList" type="EntityList"/><parameter name="produceProductIdList" type="List"/>
-            <parameter name="combinedProductIdList" type="List"/>
-            <parameter name="assetSummaryList" type="EntityList"><description>List of AssetSummaryView records for all
-                products consumed and produced, to be filtered and used as needed.</description></parameter>
+            <parameter name="consumeList" type="List"><parameter name="consumeItem" type="Map"/></parameter>
+            <parameter name="consumeProductIdList" type="List"><parameter name="productId"/></parameter>
+            <parameter name="produceList" type="List"><parameter name="produceItem" type="Map"/></parameter>
+            <parameter name="produceProductIdList" type="List"><parameter name="productId"/></parameter>
+            <parameter name="combinedProductIdList" type="List"><parameter name="productId"/></parameter>
+            <parameter name="assetSummaryList" type="List">
+                <description>List of AssetSummaryView records for all products consumed and produced, to be filtered and used as needed.</description>
+                <parameter name="assetSummary" type="Map"/>
+            </parameter>
 
-            <parameter name="issuanceSummaryList" type="EntityList"><description>Summary of quantities of assets issued
-                (consumed) by productId.</description></parameter>
-            <parameter name="receiptSummaryList" type="EntityList"><description>Summary of quantities of assets received
-                (produced) by productId.</description></parameter>
+            <parameter name="issuanceSummaryList" type="List">
+                <description>Summary of quantities of assets issued (consumed) by productId.</description>
+                <parameter name="issuanceSummary" type="Map"/>
+            </parameter>
+            <parameter name="receiptSummaryList" type="List">
+                <description>Summary of quantities of assets received (produced) by productId.</description>
+                <parameter name="receiptSummary" type="Map"/>
+            </parameter>
 
-            <parameter name="equipmentList" type="EntityList"/>
-            <parameter name="weapdList" type="EntityList"><description>List of WorkEffortAndPartyDetail values.</description></parameter>
+            <parameter name="equipmentList" type="List"><parameter name="equipment" type="Map"/></parameter>
+            <parameter name="weapdList" type="List">
+                <description>List of WorkEffortAndPartyDetail values.</description>
+                <parameter name="weapd" type="Map"/>
+            </parameter>
         </out-parameters>
         <actions>
             <!-- The Production Run WorkEffort -->
@@ -103,11 +114,11 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="produceBomDetailList" type="List"><parameter name="produceBomDetailMap" type="Map">
                 <parameter name="productId"/>
-                <parameter name="workEffortProductDetail" type="EntityValue"/>
+                <parameter name="workEffortProductDetail" type="Map"/>
                 <parameter name="estimatedQuantity" type="BigDecimal"/>
                 <parameter name="bomDetailList" type="List"><parameter name="bomDetailMap" type="Map">
                     <parameter name="bomQuantity" type="BigDecimal"/>
-                    <parameter name="productIdSet" type="Set"/>
+                    <parameter name="productIdSet" type="Set"><parameter name="productId"/></parameter>
                     <parameter name="estConsumeQuantity" type="BigDecimal"/>
                     <parameter name="quantityNeeded" type="BigDecimal"/>
                     <parameter name="quantityRemaining" type="BigDecimal"/>
@@ -185,7 +196,7 @@ along with this software (see the LICENSE.md file). If not, see
         <out-parameters>
             <parameter name="bomDetailList" type="List"><parameter name="bomDetailMap" type="Map">
                 <parameter name="bomQuantity" type="BigDecimal"/>
-                <parameter name="productIdSet" type="Set"/>
+                <parameter name="productIdSet" type="Set"><parameter name="productId"/></parameter>
             </parameter></parameter>
         </out-parameters>
         <actions>
@@ -278,38 +289,44 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="originFacility" type="Map"/>
             <parameter name="destinationFacility" type="Map"/>
 
-            <parameter name="lineFacility" type="EntityValue"/>
-            <parameter name="warehouseFacility" type="EntityValue"/>
+            <parameter name="lineFacility" type="Map"/>
+            <parameter name="warehouseFacility" type="Map"/>
             <parameter name="inventoryFacilityId"/>
-            <parameter name="inventoryFacility" type="EntityValue"/>
-            <parameter name="consumeProductList" type="EntityList"/>
-            <parameter name="consumeProductIdList" type="List"/>
-            <parameter name="equipmentList" type="EntityList"/>
+            <parameter name="inventoryFacility" type="Map"/>
+            <parameter name="consumeProductList" type="List"><parameter name="productItem" type="Map"/></parameter>
+            <parameter name="consumeProductIdList" type="List"><parameter name="productId"/></parameter>
+            <parameter name="equipmentList" type="List"><parameter name="equipment" type="Map"/></parameter>
 
-            <parameter name="locationInfoList" type="List"/>
-            <!-- locationInfoList are List of Maps with:
-              - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
-              - locationTypeEnum
-              - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
-              - productInfoList - List of Maps with:
-                - Product fields (all fields from entity)
-                - quantity
-            -->
-            <parameter name="productInfoList" type="List"/>
-            <!-- productInfoList is a List of Maps with:
-              - Product fields (all fields from entity)
-              - quantity
-              - locationInfoList
-                - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
-                - locationTypeEnum
-                - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
-                - quantity
-            -->
+            <parameter name="locationInfoList" type="List">
+                <description>
+                    locationInfoList is a  List of Maps with:
+                      - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+                      - locationTypeEnum
+                      - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
+                      - productInfoList - List of Maps with:
+                        - Product fields (all fields from entity)
+                        - quantity
+                </description>
+                <parameter name="locationInfo" type="Map"/>
+            </parameter>
+            <parameter name="productInfoList" type="List">
+                <description>
+                    productInfoList is a List of Maps with:
+                      - Product fields (all fields from entity)
+                      - quantity
+                      - locationInfoList
+                        - FacilityLocation fields [facilityId, locationTypeEnumId, areaId, aisleId, sectionId, levelId, positionId]
+                        - locationTypeEnum
+                        - GeoPoint fields [latitude, longitude, elevation, elevationUomId]
+                        - quantity
+                </description>
+                <parameter name="productInfo" type="Map"/>
+            </parameter>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
 
-            <!-- Line and Warehouse Facilities -->
+                    <!-- Line and Warehouse Facilities -->
             <entity-find-related-one value-field="workEffort" relationship-name="mantle.facility.Facility" to-value-field="lineFacility"/>
             <entity-find-related-one value-field="lineFacility" relationship-name="Parent#mantle.facility.Facility" to-value-field="warehouseFacility"/>
             <!-- use the warehouse for inventory unless there is no warehouse, then use the line (the direct facility on the run) -->
