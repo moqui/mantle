@@ -599,6 +599,9 @@ along with this software (see the LICENSE.md file). If not, see
 
             <resource name="shipping"><resource name="calculate"><method type="post">
                 <service name="mantle.shipment.CarrierServices.calculate#OrderShipping"/></method></resource></resource>
+            <resource name="salesTax"><resource name="calculate"><method type="post">
+                <service name="mantle.other.TaxServices.calculate#OrderSalesTax"/></method></resource></resource>
+
             <resource name="payments"><resource name="authorize"><method type="post">
                 <service name="mantle.account.PaymentServices.authorize#OrderPayments"/></method></resource></resource>
 
@@ -927,6 +930,62 @@ along with this software (see the LICENSE.md file). If not, see
             <entity name="mantle.account.financial.FinancialAccountTrans" operation="one"/></method></id></resource>
     </resource>
 
-    <!-- TODO ========== General Ledger ========== -->
+    <!-- ========== General Ledger ========== -->
+    <resource name="gl" description="General Ledger - Transactions, Reports, etc">
+        <resource name="trans">
+            <method type="get"><entity name="acctgTrans" operation="list"/></method>
+            <method type="post"><service name="mantle.ledger.LedgerServices.create#AcctgTrans"/></method>
+            <id name="acctgTransId">
+                <method type="get"><entity name="acctgTrans" masterName="default" operation="one"/></method>
+                <method type="patch"><service name="mantle.ledger.LedgerServices.update#AcctgTrans"/></method>
+                <method type="delete"><service name="mantle.ledger.LedgerServices.delete#AcctgTrans"/></method>
 
+                <resource name="entry">
+                    <method type="get"><entity name="mantle.ledger.transaction.AcctgTransEntry" operation="list"/></method>
+                    <method type="post"><service name="mantle.ledger.LedgerServices.create#AcctgTransEntry"/></method>
+                    <id name="acctgTransEntrySeqId">
+                        <method type="patch"><service name="mantle.ledger.LedgerServices.update#AcctgTransEntry"/></method>
+                        <method type="delete"><service name="mantle.ledger.LedgerServices.delete#AcctgTransEntry"/></method>
+                        <resource name="move"><method type="post">
+                            <service name="mantle.ledger.LedgerServices.move#AcctgTransEntry"/></method></resource>
+                    </id>
+                </resource>
+
+                <resource name="trialBalance"><method type="get">
+                    <service name="mantle.ledger.LedgerServices.calculate#AcctgTransTrialBalance"/></method></resource>
+                <resource name="post"><method type="post">
+                    <service name="mantle.ledger.LedgerServices.post#AcctgTrans"/></method></resource>
+                <resource name="reverse"><method type="post">
+                    <service name="mantle.ledger.LedgerServices.post#ReverseAcctgTrans"/></method></resource>
+            </id>
+        </resource>
+        <resource name="organizations"><id name="organizationPartyId">
+            <resource name="init"><method type="post">
+                <service name="mantle.ledger.LedgerServices.init#PartyAccountingConfiguration"/></method></resource>
+            <resource name="periods">
+                <resource name="checkNext"><method type="post">
+                    <service name="mantle.ledger.LedgerServices.check#NextFiscalTimePeriods"/></method></resource>
+            </resource>
+            <resource name="balanceSheet"><method type="post">
+                <service name="mantle.ledger.LedgerReportServices.run#BalanceSheet"/></method></resource>
+            <resource name="incomeStatement"><method type="post">
+                <service name="mantle.ledger.LedgerReportServices.run#IncomeStatement"/></method></resource>
+            <resource name="cashFlowStatement"><method type="post">
+                <service name="mantle.ledger.LedgerReportServices.run#CashFlowStatement"/></method></resource>
+            <resource name="retainedEarningsStatement"><method type="post">
+                <service name="mantle.ledger.LedgerReportServices.run#RetainedEarningsStatement"/></method></resource>
+            <resource name="financialRatios"><method type="post">
+                <service name="mantle.ledger.LedgerReportServices.run#FinancialRatios"/></method></resource>
+            <resource name="postedAmountSummary"><method type="post">
+                <service name="mantle.ledger.LedgerReportServices.run#PostedAmountSummary"/></method></resource>
+        </id></resource>
+        <resource name="periods">
+            <id name="timePeriodId">
+                <resource name="recalculate"><method type="post">
+                    <service name="mantle.ledger.LedgerServices.recalculate#GlAccountOrgTimePeriodAmounts"/></method></resource>
+                <resource name="close"><method type="post">
+                    <service name="mantle.ledger.LedgerServices.close#FinancialTimePeriod"/></method></resource>
+            </id>
+        </resource>
+    </resource>
 </resource>
