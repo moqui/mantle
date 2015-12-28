@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -11,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
     <service verb="get" noun="StatementPrintInfo">
         <in-parameters>
@@ -22,10 +23,10 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="thruDate" type="Timestamp"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="financialAccount" type="EntityValue"/>
-            <parameter name="ownerDetail" type="EntityValue"/>
-            <parameter name="organizationDetail" type="EntityValue"/>
-            <parameter name="financialAccountTransList" type="EntityList"/>
+            <parameter name="financialAccount" type="Map"/>
+            <parameter name="ownerDetail" type="Map"/>
+            <parameter name="organizationDetail" type="Map"/>
+            <parameter name="financialAccountTransList" type="List"><parameter name="fat" type="Map"/></parameter>
 
             <parameter name="fromDate" type="Timestamp"/>
             <parameter name="thruDate" type="Timestamp"/>
@@ -105,10 +106,37 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="update#mantle.account.financial.FinancialAccount" in-map="context" out-map="context"/>
         </actions>
     </service>
+    <service verb="getOrCreate" noun="FinancialAccount">
+        <in-parameters>
+            <parameter name="finAccountTypeId" required="true"/>
+            <parameter name="organizationPartyId" required="true"/>
+            <parameter name="ownerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="finAccountId"/></out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.account.financial.FinancialAccount" list="finAccountList">
+                <econdition field-name="ownerPartyId"/><econdition field-name="finAccountTypeId"/></entity-find>
+            <if condition="finAccountList">
+                <then>
+                    <set field="finAccountId" from="finAccountList[0].finAccountList"/>
+                </then>
+                <else>
+                    <entity-find-one entity-name="mantle.account.financial.FinancialAccountType" value-field="financialAccountType"/>
+                    <entity-find-one entity-name="mantle.party.PartyDetail" value-field="owner">
+                        <field-map field-name="partyId" from="ownerPartyId"/></entity-find-one>
+                    <set field="finAccountName" value="${owner.organizationName?:''}${owner.firstName?:''}${owner.lastName ? ' ' + owner.lastName : ''} ${financialAccountType.description}"/>
+                    <service-call name="mantle.account.FinancialAccountServices.create#FinancialAccount"
+                            in-map="context" out-map="context"/>
+                </else>
+            </if>
+        </actions>
+    </service>
 
     <service verb="calculate" noun="FinancialAccountTotals">
-        <description>Calculates totals from FinancialAccountTrans and FinancialAccountAuth records, records them
-            on the FinancialAccount record and returns them.</description>
+        <description>
+            Called automatically for authorizations and transactions. Calculates totals from FinancialAccountTrans and
+            FinancialAccountAuth records, records them on the FinancialAccount record and returns them.
+        </description>
         <in-parameters>
             <parameter name="finAccountId"/>
             <parameter name="finAccountTransId"/>
@@ -135,16 +163,32 @@ along with this software (see the LICENSE.md file). If not, see
                     for-update="true"/>
             <set field="currencyUomId" from="financialAccount.currencyUomId"/>
 
-            <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
-                <econdition field-name="finAccountId"/></entity-find>
-            <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+            <!-- View queries won't work with transaction cache, so if active use different approach -->
+            <if condition="ec.transaction.isTransactionCacheActive()"><then>
+                <set field="actualBalance" from="0"/>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountTrans" list="fatList">
+                    <econdition field-name="finAccountId"/><select-field field-name="amount"/></entity-find>
+                <iterate list="fatList" entry="fat"><set field="actualBalance" from="actualBalance + fat.amount"/></iterate>
 
-            <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
-                <econdition field-name="finAccountId"/>
-                <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
-                <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
-            </entity-find>
-            <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+                <set field="authBalance" from="0"/>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountAuth" list="faaList">
+                    <econdition field-name="finAccountId"/>
+                    <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                    <select-field field-name="amount"/>
+                </entity-find>
+                <iterate list="faaList" entry="faa"><set field="authBalance" from="authBalance + faa.amount"/></iterate>
+            </then><else>
+                <entity-find entity-name="mantle.account.financial.FinancialAccountActualView" list="faaList">
+                    <econdition field-name="finAccountId"/></entity-find>
+                <set field="actualBalance" from="faaList?.first?.actualBalance ?: 0"/>
+
+                <entity-find entity-name="mantle.account.financial.FinancialAccountAuthView" list="faaList">
+                    <econdition field-name="finAccountId"/>
+                    <econdition field-name="expireDate" operator="greater" from="ec.user.nowTimestamp" or-null="true"/>
+                    <select-field field-name="finAccountId"/><select-field field-name="authBalance"/>
+                </entity-find>
+                <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
+            </else></if>
 
             <set field="availableBalance" from="actualBalance - authBalance"/>
 
@@ -342,7 +386,7 @@ along with this software (see the LICENSE.md file). If not, see
             (will need to be Authorized, then Delivered to post).</description>
         <implements service="mantle.account.FinancialAccountServices.withdraw#FinancialAccount"/>
         <in-parameters>
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
             <parameter name="paymentMethodId"/>
         </in-parameters>
         <out-parameters>
@@ -358,7 +402,7 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[paymentTypeEnumId:'PtFinancialAccount', statusId:'PmntPromised', comments:comments,
                         fromPartyId:financialAccount.organizationPartyId, toPartyId:financialAccount.ownerPartyId,
                         amount:amount, amountUomId:financialAccount.currencyUomId, finAccountId:finAccountId,
-                        paymentMethodTypeEnumId:paymentMethodTypeEnumId, paymentMethodId:paymentMethodId]"/>
+                        paymentInstrumentEnumId:paymentInstrumentEnumId, paymentMethodId:paymentMethodId]"/>
 
             <!-- withdraw from FinancialAccount -->
             <service-call name="mantle.account.FinancialAccountServices.withdraw#FinancialAccount" out-map="context"

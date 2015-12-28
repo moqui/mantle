@@ -1,5 +1,6 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+ * This software is in the public domain under CC0 1.0 Universal plus a
+ * Grant of Patent License.
  * 
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
@@ -101,7 +102,7 @@ class OrderTenantAccess extends Specification {
                 statusId="OrderCompleted" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="29.97"/>
 
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" paymentTypeEnumId="PtInvoicePayment"
-                paymentMethodId="CustJqpCc" paymentMethodTypeEnumId="PmtCreditCard" orderId="${cartOrderId}"
+                paymentMethodId="CustJqpCc" paymentInstrumentEnumId="PiCreditCard" orderId="${cartOrderId}"
                 orderPartSeqId="01" statusId="PmntDelivered" amount="29.97" amountUomId="USD" fromPartyId="CustJqp"
                 toPartyId="ORG_ZIZI_RETAIL"/>
             <mantle.account.method.PaymentGatewayResponse paymentGatewayResponseId="55600"
@@ -156,7 +157,7 @@ class OrderTenantAccess extends Specification {
                 postedDate="${effectiveTime}" glFiscalTypeEnumId="GLFT_ACTUAL" amountUomId="USD" otherPartyId="CustJqp"
                 invoiceId="55600"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55600" acctgTransEntrySeqId="01" debitCreditFlag="C"
-                amount="29.97" glAccountId="411000000" reconcileStatusId="AterNot" isSummary="N"
+                amount="29.97" glAccountId="141300000" reconcileStatusId="AterNot" isSummary="N"
                 productId="DEMO_TNT" invoiceItemSeqId="01"/>
             <mantle.ledger.transaction.AcctgTransEntry acctgTransId="55600" acctgTransEntrySeqId="02" debitCreditFlag="D"
                 amount="29.97" glAccountTypeEnumId="GatAccountsReceivable" glAccountId="121000000"

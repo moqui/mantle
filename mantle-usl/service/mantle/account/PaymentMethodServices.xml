@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -11,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
     <service verb="get" noun="PartyPaymentMethodInfo">
         <in-parameters>
@@ -325,6 +326,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Create a Credit Card (and the corresponding PaymentMethod record)</description>
         <in-parameters>
             <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <parameter name="ownerPartyId" default="ec.user.userAccount.partyId"/>
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
             <parameter name="expireDate" required="true"><time-range after="now" format="MM/yyyy"/></parameter>
             <parameter name="cardNumber" required="true"><credit-card/></parameter>
@@ -334,8 +336,6 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
         <actions>
-            <set field="ownerPartyId" from="ownerPartyId ?: ec.user.userAccount.partyId"/>
-
             <if condition="!description">
                 <entity-find-one entity-name="moqui.basic.Enumeration" value-field="creditCardTypeEnum">
                     <field-map field-name="enumId" from="creditCardTypeEnumId"/>
@@ -368,7 +368,8 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
-            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk">
+                <exclude field-name="ownerPartyId"/></auto-parameters>
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
@@ -417,6 +418,7 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="BankAccount">
         <in-parameters>
             <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <parameter name="ownerPartyId" default="ec.user.userAccount.partyId"/>
             <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk"/>
 
             <parameter name="paymentMethodTypeEnumId" default-value="PmtBankAccount"/>
@@ -476,10 +478,134 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="mantle.account.PaymentMethodServices.update#PaymentMethodMutable"/>
         <in-parameters>
             <parameter name="lastCheckNumber" type="Long"/>
+            <!-- Parameters for NACHA fields, constraints based on spec -->
+            <parameter name="nachaImmedDest"><text-digits/><text-length min="9" max="9"/></parameter>
+            <parameter name="nachaImmedOrig"><text-digits/><text-length min="9" max="9"/></parameter>
+            <parameter name="nachaImmedDestName"><text-length max="23"/></parameter>
+            <parameter name="nachaImmedOrigName"><text-length max="23"/></parameter>
+            <parameter name="nachaCompanyName"><text-length max="16"/></parameter>
+            <parameter name="nachaDiscrData"><text-length max="20"/></parameter>
+            <parameter name="nachaCompanyId"><text-length max="10"/></parameter>
+            <parameter name="nachaEntryDescription"><text-length max="10"/></parameter>
+            <parameter name="posPayBankNumber"/>
+            <parameter name="posPayFormatEnumId"/>
         </in-parameters>
         <actions>
             <service-call name="update#mantle.account.method.PaymentMethod" in-map="context"/>
             <service-call name="update#mantle.account.method.BankAccount" in-map="context"/>
+        </actions>
+    </service>
+
+    <!-- ===================================================== -->
+    <!-- ========== Payment Method Content Services ========== -->
+    <!-- ===================================================== -->
+
+    <service verb="get" noun="PaymentMethodContentLocation">
+        <in-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="contentTypeEnumIdList" type="List" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="contentLocation"/>
+            <parameter name="paymentMethodContent"/>
+        </out-parameters>
+        <actions>
+            <iterate list="contentTypeEnumIdList" entry="contentTypeEnumId">
+                <entity-find entity-name="mantle.account.method.PaymentMethodContent" list="paymentMethodContentList">
+                    <econdition field-name="paymentMethodId"/><econdition field-name="contentTypeEnumId"/>
+                    <order-by field-name="-contentDate"/></entity-find>
+                <if condition="paymentMethodContentList">
+                    <set field="paymentMethodContent" from="paymentMethodContentList[0]"/>
+                    <break/>
+                </if>
+            </iterate>
+            <set field="contentLocation" from="paymentMethodContent ? paymentMethodContent.contentLocation : null"/>
+        </actions>
+    </service>
+
+    <service verb="create" noun="PaymentMethodContent">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethodContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <out-parameters><parameter name="paymentMethodContentId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.account.method.PaymentMethodContent" in-map="context" out-map="context"/>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <service-call name="mantle.account.PaymentMethodServices.save#PaymentMethodContentFile" in-map="context"/></if>
+        </actions>
+    </service>
+    <service verb="update" noun="PaymentMethodContent">
+        <in-parameters>
+            <parameter name="paymentMethodContentId" required="true"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethodContent" include="nonpk">
+                <exclude field-name="contentLocation"/></auto-parameters>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem"/>
+        </in-parameters>
+        <actions>
+            <if condition="contentFile != null &amp;&amp; contentFile.size &gt; 0">
+                <entity-find-one entity-name="mantle.account.method.PaymentMethodContent" value-field="paymentMethodContent"/>
+                <service-call name="mantle.account.PaymentMethodServices.save#PaymentMethodContentFile" out-map="context"
+                        in-map="context + [paymentMethodId:paymentMethodContent.paymentMethodId, saveContentLocation:false]"/>
+            </if>
+            <service-call name="update#mantle.account.method.PaymentMethodContent" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="save" noun="PaymentMethodContentFile">
+        <in-parameters>
+            <parameter name="paymentMethodContentId" required="true"/>
+            <parameter name="paymentMethodId" required="true"/>
+            <parameter name="contentFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+            <parameter name="saveContentLocation" type="Boolean" default="true"/>
+        </in-parameters>
+        <out-parameters><parameter name="contentLocation"/></out-parameters>
+        <actions>
+            <set field="filename" from="contentFile.getName()"/>
+            <set field="contentRoot" from="ec.user.getPreference('mantle.content.root') ?: 'dbresource://mantle/content'"/>
+            <set field="contentLocation" value="${contentRoot}/paymentMethod/${paymentMethodId}/content_${paymentMethodContentId}/${filename}"/>
+
+            <set field="docRr" from="ec.resource.getLocationReference(contentLocation)"/>
+            <script>
+                fileStream = contentFile.getInputStream()
+                try { docRr.putStream(fileStream) } finally { fileStream.close() }
+            </script>
+
+            <if condition="saveContentLocation"><service-call name="update#mantle.account.method.PaymentMethodContent"
+                    in-map="[paymentMethodContentId:paymentMethodContentId, contentLocation:contentLocation]"/></if>
+        </actions>
+    </service>
+
+    <!-- ================================================== -->
+    <!-- ========== Payment Method File Services ========== -->
+    <!-- ================================================== -->
+
+    <service verb="update" noun="PaymentMethodFileComplete">
+        <in-parameters>
+            <parameter name="paymentMethodFileId" required="true"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethodFile" include="nonpk"/>
+            <parameter name="fileText" allow-html="any"/>
+            <parameter name="paymentList" type="List"/>
+            <parameter name="outgoingStatusId" default-value="PmntDelivered"/>
+            <parameter name="incomingStatusId" default-value="PmntDelivered">
+                <description>Could also be PmntAuthorized</description></parameter>
+        </in-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethodFile" value-field="paymentMethodFile"/>
+            <set field="paymentMethodId" from="paymentMethodFile.paymentMethodId"/>
+            <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
+
+            <iterate list="paymentList" entry="payment">
+                <!-- set paymentMethodFileId and update statusId on all Payment records -->
+                <set field="outgoing" from="payment.fromPartyId == paymentMethod.ownerPartyId"/>
+                <service-call name="update#mantle.account.payment.Payment"
+                        in-map="[paymentId:payment.paymentId, paymentMethodFileId:paymentMethodFileId,
+                            statusId:(outgoing ? outgoingStatusId : incomingStatusId)]"/>
+            </iterate>
+
+            <!-- save full file text, etc to PaymentMethodFile -->
+            <service-call name="update#mantle.account.method.PaymentMethodFile" in-map="context"/>
         </actions>
     </service>
 </services>

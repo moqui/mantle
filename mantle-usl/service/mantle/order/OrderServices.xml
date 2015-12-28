@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -11,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
 <!--
 h1. General Order Services
@@ -43,24 +44,100 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderId" required="true"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="orderHeader" type="Map"/>
-            <parameter name="statusItem" type="Map"/>
-            <parameter name="orderItemList" type="List"/>
-            <parameter name="orderItemWithChildrenSet" type="Set"/>
-            <parameter name="paymentList" type="List"/>
+            <parameter name="orderHeader" type="Map"><auto-parameters entity-name="mantle.order.OrderHeader"/></parameter>
+            <parameter name="statusItem" type="Map"><auto-parameters entity-name="moqui.basic.StatusItem"/></parameter>
+            <parameter name="orderItemList" type="List"><parameter name="orderItem" type="Map">
+                <auto-parameters entity-name="mantle.order.OrderItem"/></parameter></parameter>
+            <parameter name="orderItemWithChildrenSet" type="Set"><parameter name="orderItemSeqId"/></parameter>
+            <parameter name="paymentList" type="List"><parameter name="payment" type="Map">
+                <auto-parameters entity-name="mantle.account.payment.Payment"/></parameter></parameter>
 
-            <parameter name="shipmentItemSourceList" type="List"/>
-            <parameter name="shipmentIdSet" type="Set"/>
-            <parameter name="orderItemBillingList" type="List"/>
-            <parameter name="invoiceIdSet" type="Set"/>
-            <parameter name="requestItemOrderList" type="List"/>
-            <parameter name="requestIdSet" type="Set"/>
-            <parameter name="statusHistoryList" type="List"/>
-            <parameter name="orderNoteList" type="List"/>
+            <parameter name="shipmentItemSourceList" type="List"><parameter name="sis" type="Map">
+                <auto-parameters entity-name="mantle.shipment.ShipmentItemSource"/></parameter></parameter>
+            <parameter name="shipmentIdSet" type="Set"><parameter name="shipmentId"/></parameter>
+            <parameter name="orderItemBillingList" type="List"><parameter name="oib" type="Map">
+                <auto-parameters entity-name="mantle.order.OrderItemBilling"/></parameter></parameter>
+            <parameter name="invoiceIdSet" type="Set"><parameter name="invoiceId"/></parameter>
+            <parameter name="requestItemOrderList" type="List"><parameter name="rio" type="Map">
+                <auto-parameters entity-name="mantle.request.RequestItemOrder"/></parameter></parameter>
+            <parameter name="requestIdSet" type="Set"><parameter name="requestId"/></parameter>
+            <parameter name="statusHistoryList" type="List"><parameter name="auditLog" type="Map">
+                <auto-parameters entity-name="moqui.entity.EntityAuditLog"/></parameter></parameter>
+            <parameter name="orderNoteList" type="List"><parameter name="orderNote" type="Map">
+                <auto-parameters entity-name="mantle.order.OrderNote"/></parameter></parameter>
 
-            <parameter name="orderPartList" type="List"/>
-            <parameter name="orderPartInfoList" type="List"/>
-            <parameter name="firstPartInfo" type="Map"/>
+            <parameter name="orderPartList" type="List"><parameter name="orderPart" type="Map">
+                <auto-parameters entity-name="mantle.order.OrderPart"/></parameter>
+            </parameter>
+            <parameter name="orderPartInfoList" type="List"><parameter name="orderPartInfo" type="Map">
+                <parameter name="orderPart" type="Map"><auto-parameters entity-name="mantle.order.OrderPart"/></parameter>
+                <parameter name="partOrderItemList" type="List"><parameter name="partOrderItem" type="Map">
+                    <auto-parameters entity-name="mantle.order.OrderItem"/></parameter></parameter>
+                <parameter name="partNoParentOrderItemList" type="List"><parameter name="partOrderItem" type="Map">
+                    <auto-parameters entity-name="mantle.order.OrderItem"/></parameter></parameter>
+                <parameter name="shipmentMethodEnum" type="Map">
+                    <auto-parameters entity-name="moqui.basic.Enumeration"/></parameter>
+                <parameter name="partPaymentList" type="List"><parameter name="partPayment" type="Map">
+                    <auto-parameters entity-name="mantle.account.payment.Payment"/></parameter></parameter>
+                <parameter name="partPaymentInfoList" type="List"><parameter name="partPaymentInfo" type="Map">
+                    <parameter name="partPayment" type="Map">
+                        <auto-parameters entity-name="mantle.account.payment.Payment"/></parameter>
+                    <parameter name="paymentMethod" type="Map">
+                        <auto-parameters entity-name="mantle.account.method.PaymentMethod"/></parameter>
+                    <parameter name="creditCard" type="Map">
+                        <auto-parameters entity-name="mantle.account.method.CreditCard"/></parameter>
+                    <parameter name="creditCardTypeEnum" type="Map">
+                        <auto-parameters entity-name="moqui.basic.Enumeration"/></parameter>
+                    <parameter name="maskedCardNumber"/>
+                    <parameter name="postalAddress" type="Map">
+                        <auto-parameters entity-name="mantle.party.contact.PostalAddress"/></parameter>
+                    <parameter name="postalAddressStateGeo" type="Map">
+                        <auto-parameters entity-name="moqui.basic.Geo"/></parameter>
+                    <parameter name="telecomNumber" type="Map">
+                        <auto-parameters entity-name="mantle.party.contact.TelecomNumber"/></parameter>
+                    <parameter name="paymentMethodTypeEnum" type="Map">
+                        <auto-parameters entity-name="moqui.basic.Enumeration"/></parameter>
+                    <parameter name="paymentInstrumentEnum" type="Map">
+                        <auto-parameters entity-name="moqui.basic.Enumeration"/></parameter>
+                </parameter></parameter>
+                <parameter name="paymentsTotal" type="BigDecimal"/>
+                <parameter name="partTotalUnpaid" type="BigDecimal"/>
+                <parameter name="postalAddress" type="Map">
+                    <auto-parameters entity-name="mantle.party.contact.PostalAddress"/></parameter>
+                <parameter name="postalAddressStateGeo" type="Map">
+                    <auto-parameters entity-name="moqui.basic.Geo"/></parameter>
+                <parameter name="telecomNumber" type="Map">
+                    <auto-parameters entity-name="mantle.party.contact.TelecomNumber"/></parameter>
+                <parameter name="facility" type="Map">
+                    <auto-parameters entity-name="mantle.facility.Facility"/></parameter>
+                <parameter name="facilityContactInfo" type="Map">
+                    <parameter name="postalContactMechId"/>
+                    <parameter name="postalContactMechPurposeId"/>
+                    <parameter name="postalAddress" type="Map">
+                        <auto-parameters entity-name="mantle.party.contact.PostalAddress"/></parameter>
+                    <parameter name="postalAddressStateGeo" type="Map">
+                        <auto-parameters entity-name="moqui.basic.Geo"/></parameter>
+                    <parameter name="postalAddressGeoPoint" type="Map">
+                        <auto-parameters entity-name="moqui.basic.GeoPoint"/></parameter>
+                    <parameter name="telecomContactMechId"/>
+                    <parameter name="telecomContactMechPurposeId"/>
+                    <parameter name="telecomNumber" type="Map">
+                        <auto-parameters entity-name="mantle.party.contact.TelecomNumber"/></parameter>
+                </parameter>
+                <parameter name="customerDetail" type="Map">
+                    <auto-parameters entity-name="mantle.party.PartyDetail"/></parameter>
+                <parameter name="vendorDetail" type="Map">
+                    <auto-parameters entity-name="mantle.party.PartyDetail"/></parameter>
+                <parameter name="isCustomerInternalOrg" type="Boolean"/>
+                <parameter name="isVendorInternalOrg" type="Boolean"/>
+                <parameter name="orderPartPartyList" type="List"><parameter name="orderPartParty">
+                    <auto-parameters entity-name="mantle.order.OrderPartPartyDetail"/></parameter></parameter>
+                <parameter name="customerShipToDetail" type="Map">
+                    <auto-parameters entity-name="mantle.order.OrderPartPartyDetail"/></parameter>
+                <parameter name="partShipmentItemSourceList" type="List"><parameter name="partSis" type="Map">
+                    <auto-parameters entity-name="mantle.shipment.ShipmentItemSource"/></parameter></parameter>
+                <parameter name="partShipmentIdSet" type="Set"><parameter name="partShipmentId"/></parameter>
+            </parameter></parameter>
         </out-parameters>
         <actions>
 
@@ -138,20 +215,19 @@ h2. General Order Placement and eCommerce Usage
                     paymentsTotal += (partPayment.amount ?: 0)
                     Map partPaymentInfo = [partPayment:partPayment]
                     EntityValue paymentMethod = partPayment.PaymentMethod
-                    EntityValue paymentMethodTypeEnum = partPayment."PaymentMethodType#moqui.basic.Enumeration"
                     if (paymentMethod) {
                         partPaymentInfo.paymentMethod = paymentMethod
                         creditCard = paymentMethod.CreditCard
                         partPaymentInfo.creditCard = creditCard
-                        partPaymentInfo.creditCardTypeEnum = partPaymentInfo.creditCard."CreditCardType#moqui.basic.Enumeration"
+                        partPaymentInfo.creditCardTypeEnum = creditCard?."CreditCardType#moqui.basic.Enumeration"
                         cardNumber = creditCard?.cardNumber
                         partPaymentInfo.maskedCardNumber = cardNumber ? (creditCard.creditCardTypeEnumId == 'CctAmericanExpress' ? '***********' : '************') + cardNumber.substring(cardNumber.length() - 4, cardNumber.length()) : ''
                         partPaymentInfo.postalAddress = paymentMethod.PostalAddress
                         partPaymentInfo.postalAddressStateGeo = partPaymentInfo.postalAddress?."StateProvince#moqui.basic.Geo"
                         partPaymentInfo.telecomNumber = paymentMethod.TelecomNumber
-                        if (!paymentMethodTypeEnum) paymentMethodTypeEnum = paymentMethod."PaymentMethodType#moqui.basic.Enumeration"
+                        partPaymentInfo.paymentMethodTypeEnum = paymentMethod.methodType
                     }
-                    partPaymentInfo.paymentMethodTypeEnum = paymentMethodTypeEnum
+                    partPaymentInfo.paymentInstrumentEnum = partPayment.instrument
                     partPaymentInfoList.add(partPaymentInfo)
                 }
 
@@ -203,7 +279,6 @@ h2. General Order Placement and eCommerce Usage
             }
             </script>
             <!-- <log level="warn" message="======== OrderDisplayInfo orderPartInfoList: ${orderPartInfoList}"/> -->
-            <set field="firstPartInfo" from="orderPartInfoList[0]"/>
         </actions>
     </service>
     <service verb="get" noun="OrderItemsTotalCount">
@@ -224,9 +299,6 @@ h2. General Order Placement and eCommerce Usage
             All parameters are optional so that this can be called transparently to create a shell/empty order.
         </description>
         <in-parameters>
-            <parameter name="orderName"/>
-
-            <!-- parameters for the initial OrderPart -->
             <auto-parameters entity-name="mantle.order.OrderHeader" include="nonpk"><exclude field-name="remainingSubTotal"/>
                 <exclude field-name="grandTotal"/></auto-parameters>
             <auto-parameters entity-name="mantle.order.OrderPart" include="nonpk"/>
@@ -244,6 +316,14 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId" required="true"/>
         </out-parameters>
         <actions>
+            <if condition="productStoreId">
+                <!-- Get some unspecified values from the ProductStore -->
+                <entity-find-one entity-name="mantle.product.store.ProductStore" value-field="productStore"/>
+                <set field="vendorPartyId" from="vendorPartyId ?: productStore?.organizationPartyId"/>
+                <set field="currencyUomId" from="currencyUomId ?: productStore?.defaultCurrencyUomId"/>
+                <set field="facilityId" from="facilityId ?: productStore?.inventoryFacilityId"/>
+            </if>
+
             <if condition="!currencyUomId">
                 <if condition="customerPartyId">
                     <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
@@ -551,7 +631,7 @@ h2. General Order Placement and eCommerce Usage
         <actions>
             <!-- lookup orderPartSeqId if not passed in -->
             <if condition="!orderPartSeqId">
-                <entity-find entity-name="OrderPart" list="orderPartList">
+                <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
                     <econdition field-name="orderId"/><order-by field-name="orderPartSeqId"/></entity-find>
                 <set field="orderPartSeqId" from="orderPartList?.first?.orderPartSeqId"/>
             </if>
@@ -669,7 +749,8 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="paymentId"/>
 
             <parameter name="paymentMethodId"/>
-            <parameter name="paymentMethodTypeEnumId"/>
+            <parameter name="paymentInstrumentEnumId"/>
+            <parameter name="shippingFacilityId"/>
             <parameter name="shippingPostalContactMechId"/>
             <parameter name="shippingTelecomContactMechId"/>
 
@@ -703,15 +784,44 @@ h2. General Order Placement and eCommerce Usage
                 <set field="shippingTelecomContactMechId" from="postalAddress.telecomContactMechId"/>
             </if>
 
-            <set field="orderPart.postalContactMechId" from="shippingPostalContactMechId"/>
-            <set field="orderPart.telecomContactMechId" from="shippingTelecomContactMechId"/>
+            <if condition="shippingFacilityId"><set field="orderPart.facilityId" from="shippingFacilityId"/></if>
+            <if condition="shippingPostalContactMechId"><set field="orderPart.postalContactMechId" from="shippingPostalContactMechId"/></if>
+            <if condition="shippingTelecomContactMechId"><set field="orderPart.telecomContactMechId" from="shippingTelecomContactMechId"/></if>
             <if condition="carrierAndShipmentMethod">
                 <set field="carrierPartyId" from="carrierAndShipmentMethod.split(':')[0]"/>
                 <set field="shipmentMethodEnumId" from="carrierAndShipmentMethod.split(':')[1]"/>
             </if>
-            <set field="orderPart.carrierPartyId" from="carrierPartyId"/>
-            <set field="orderPart.shipmentMethodEnumId" from="shipmentMethodEnumId"/>
+            <if condition="carrierPartyId"><set field="orderPart.carrierPartyId" from="carrierPartyId"/></if>
+            <if condition="shipmentMethodEnumId"><set field="orderPart.shipmentMethodEnumId" from="shipmentMethodEnumId"/></if>
             <entity-update value-field="orderPart"/>
+
+            <!-- Find the shipment IDs for this order part -->
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
+                <econdition field-name="orderId"/></entity-find>
+            <if condition="shipmentItemSourceList">
+                <entity-find entity-name="mantle.order.OrderItem" list="partOrderItemList">
+                    <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/></entity-find>
+                <script>
+                    List orderItemSeqIdList = partOrderItemList.orderItemSeqId
+                    partShipmentIdSet = new TreeSet()
+                    for (EntityValue sis in shipmentItemSourceList) if (sis.orderItemSeqId in orderItemSeqIdList) {
+                        partShipmentIdSet.add(sis.shipmentId)
+                    }
+                </script>
+
+                <!-- Update shipment method and shipping address on the last route segment(s) of this order part -->
+                <iterate list="partShipmentIdSet" entry="shipmentId">
+                    <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegments">
+                        <econdition field-name="shipmentId"/><order-by field-name="-shipmentRouteSegmentSeqId"/></entity-find>
+                    <if condition="shipmentRouteSegments">
+                        <set field="shipmentRouteSegment" from="shipmentRouteSegments[0]"/>
+                        <set field="shipmentRouteSegment.shipmentMethodEnumId" from="shipmentMethodEnumId"/>
+                        <set field="shipmentRouteSegment.destPostalContactMechId" from="shippingPostalContactMechId"/>
+                        <set field="shipmentRouteSegment.destTelecomContactMechId" from="shippingTelecomContactMechId"/>
+                        <entity-update value-field="shipmentRouteSegment"/>
+                    </if>
+                </iterate>
+            </if>
 
             <!-- TODO: find a better place/way to call these, maybe even turn this service into some sort of workflow -->
             <if condition="orderHeader.productStoreId">
@@ -724,10 +834,11 @@ h2. General Order Placement and eCommerce Usage
             </if>
 
             <if condition="paymentId">
-                <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
-
+                <then>
+                    <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+                </then>
                 <else>
-                    <!-- just get the first part -->
+                    <!-- try the first payment for the part -->
                     <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
                         <econdition field-name="orderId"/>
                         <econdition field-name="orderPartSeqId"/>
@@ -737,23 +848,29 @@ h2. General Order Placement and eCommerce Usage
                 </else>
             </if>
 
-            <if condition="!paymentMethodTypeEnumId &amp;&amp; paymentMethodId">
+            <if condition="!paymentInstrumentEnumId &amp;&amp; paymentMethodId">
                 <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
-                <set field="paymentMethodTypeEnumId" from="paymentMethod.paymentMethodTypeEnumId"/>
+                <!-- may be more than one, just pick first by description for consistency -->
+                <entity-find entity-name="moqui.basic.Enumeration" list="instrEnumList">
+                    <econdition field-name="relatedEnumId" from="paymentMethod.paymentMethodTypeEnumId"/>
+                    <order-by field-name="description"/>
+                </entity-find>
+                <set field="paymentInstrumentEnumId" from="instrEnumList ? instrEnumList[0].enumId : null"/>
             </if>
             <if condition="payment">
-                <!-- update existing payment -->
-                <set field="payment.paymentMethodId" from="paymentMethodId"/>
-                <set field="payment.paymentMethodTypeEnumId" from="paymentMethodTypeEnumId"/>
-                <set field="payment.amount" from="orderPart.partTotal"/>
-                <entity-update value-field="payment"/>
-                <set field="paymentId" from="payment.paymentId"/>
-
-                <else-if condition="paymentMethodId || paymentMethodTypeEnumId">
+                <then>
+                    <!-- update existing payment -->
+                    <set field="payment.paymentMethodId" from="paymentMethodId"/>
+                    <set field="payment.paymentInstrumentEnumId" from="paymentInstrumentEnumId"/>
+                    <set field="payment.amount" from="orderPart.partTotal"/>
+                    <entity-update value-field="payment"/>
+                    <set field="paymentId" from="payment.paymentId"/>
+                </then>
+                <else-if condition="paymentMethodId || paymentInstrumentEnumId">
                     <!-- create a new Payment for the Order -->
                     <service-call name="mantle.order.OrderServices.add#OrderPartPayment" out-map="context"
                             in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                                paymentMethodTypeEnumId:paymentMethodTypeEnumId]"/>
+                                paymentInstrumentEnumId:paymentInstrumentEnumId]"/>
                 </else-if>
             </if>
         </actions>
@@ -763,7 +880,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
             <parameter name="paymentMethodId"/>
-            <parameter name="paymentMethodTypeEnumId"/>
+            <parameter name="paymentInstrumentEnumId"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to OrderPart.partTotal</description></parameter>
         </in-parameters>
         <out-parameters>
@@ -774,7 +891,7 @@ h2. General Order Placement and eCommerce Usage
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
                     in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentTypeEnumId:'PtInvoicePayment',
-                        paymentMethodId:paymentMethodId, paymentMethodTypeEnumId:paymentMethodTypeEnumId,
+                        paymentMethodId:paymentMethodId, paymentInstrumentEnumId:paymentInstrumentEnumId,
                         amount:(amount ?: orderPart.partTotal), amountUomId:orderHeader.currencyUomId, statusId:'PmntPromised',
                         fromPartyId:orderPart.customerPartyId, toPartyId:orderPart.vendorPartyId,
                         visitId:orderHeader.visitId]"/>
@@ -984,7 +1101,8 @@ h2. General Order Placement and eCommerce Usage
     <service verb="clone" noun="Order">
         <description>Clone an order. Always copies the OrderHeader, OrderPart, and OrderItem records.</description>
         <in-parameters>
-            <parameter name="baseOrderId" required="true"/>
+            <parameter name="baseOrderId" required="true" default="orderId"/>
+            <parameter name="orderId"/>
             <auto-parameters entity-name="mantle.order.OrderHeader" include="nonpk"/>
             <auto-parameters entity-name="mantle.order.OrderPart" include="nonpk"/>
             <parameter name="requiredByDate" type="Timestamp"/>
@@ -1166,7 +1284,7 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="requestId" required="true"/>
             <parameter name="customerPartyId" required="true">
                 <description>The customer for the PO. Should be an Internal Org.</description></parameter>
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
             <parameter name="paymentMethodId"/>
             <parameter name="shipmentMethodEnumId" default-value="ShMthPickUp"/>
             <parameter name="placeAndApproveOrders" type="Boolean" default="false"/>
@@ -1229,7 +1347,7 @@ h2. General Order Placement and eCommerce Usage
                 </if>
                 <service-call name="mantle.order.OrderServices.set#OrderBillingShippingInfo"
                         in-map="[orderId:orderOut.orderId, orderPartSeqId:orderOut.orderPartSeqId,
-                            paymentMethodTypeEnumId:paymentMethodTypeEnumId, paymentMethodId:paymentMethodId,
+                            paymentInstrumentEnumId:paymentInstrumentEnumId, paymentMethodId:paymentMethodId,
                             shippingPostalContactMechId:shippingPostalContactMechId,
                             shippingTelecomContactMechId:shippingTelecomContactMechId,
                             shipmentMethodEnumId:shipmentMethodEnumId]"/>

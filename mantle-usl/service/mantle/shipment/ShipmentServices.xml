@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -11,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
     <!-- ==================================================== -->
     <!-- ========== Shipment View/Display Services ========== -->
@@ -26,14 +27,14 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="isIncoming" type="Boolean"/>
             <parameter name="fromPartyDetail" type="Map"/>
             <parameter name="toPartyDetail" type="Map"/>
-            <parameter name="statusHistoryList" type="List"/>
-            <parameter name="shipmentItemDetailList" type="List"/>
-            <parameter name="shipmentRouteSegmentList" type="List"/>
-            <parameter name="shipmentPackageList" type="List"/>
-            <parameter name="shipmentItemSourceList" type="List"/>
-            <parameter name="orderIdSet" type="Set"/>
-            <parameter name="invoiceIdSet" type="Set"/>
-            <parameter name="contentList" type="List"/>
+            <parameter name="statusHistoryList" type="List"><parameter name="auditLog" type="Map"/></parameter>
+            <parameter name="shipmentItemDetailList" type="List"><parameter name="shipmentItemDetail" type="Map"/></parameter>
+            <parameter name="shipmentRouteSegmentList" type="List"><parameter name="shipmentRouteSegment" type="Map"/></parameter>
+            <parameter name="shipmentPackageList" type="List"><parameter name="shipmentPackage" type="Map"/></parameter>
+            <parameter name="shipmentItemSourceList" type="List"><parameter name="shipmentItemSource"/></parameter>
+            <parameter name="orderIdSet" type="Set"><parameter name="orderId"/></parameter>
+            <parameter name="invoiceIdSet" type="Set"><parameter name="invoiceId"/></parameter>
+            <parameter name="contentList" type="List"><parameter name="content" type="Map"/></parameter>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
@@ -442,12 +443,13 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- is this an outgoing Shipment (use ShpTpSales) or incoming (use ShpTpPurchase) order based on internal org? -->
             <!-- TODO: what to do if both are internal orgs? need a flag or something for which side we're dealing with... -->
             <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
-                <field-map field-name="partyId" from="orderPart.customerPartyId"/><field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+                <field-map field-name="partyId" from="orderPart.customerPartyId"/>
+                <field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
             <set field="shipmentTypeEnumId" from="customerOrgInternal ? 'ShpTpPurchase' : 'ShpTpSales'"/>
 
             <if condition="orderPart.facilityId">
                 <if condition="customerOrgInternal">
-                    <set field="destinationFacilityId" from="destinationFacilityId ?: orderPart.facilityId"/>
+                    <then><set field="destinationFacilityId" from="destinationFacilityId ?: orderPart.facilityId"/></then>
                     <else><set field="originFacilityId" from="originFacilityId ?: orderPart.facilityId"/></else>
                 </if>
             </if>
@@ -467,7 +469,8 @@ along with this software (see the LICENSE.md file). If not, see
                             shipmentMethodEnumId:shipmentMethodEnumId,
                             destPostalContactMechId:orderPart.postalContactMechId,
                             destTelecomContactMechId:orderPart.telecomContactMechId,
-                            originFacilityId:originFacilityId, destinationFacilityId:destinationFacilityId]"/>
+                            originFacilityId:originFacilityId, destinationFacilityId:destinationFacilityId,
+                            shipmentMethodEnumId:orderPart.shipmentMethodEnumId]"/>
             </if>
             <if condition="shipmentPackageSeqId &amp;&amp; shipmentRouteSegmentSeqId">
                 <service-call name="create#mantle.shipment.ShipmentPackageRouteSeg"
@@ -745,9 +748,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="toContactInfo" type="Map"><description>The to ship info, first by ShipmentRouteSegment.dest*,
                 then from the mantle.party.ContactServices.get#PartyContactInfo service for Shipment.toPartyId.</description></parameter>
 
-            <parameter name="reservedLocationInfoList" type="List"/>
-            <parameter name="otherLocationInfoList" type="List"/>
-            <parameter name="productInfoList" type="List"/>
+            <parameter name="reservedLocationInfoList" type="List"><parameter name="reservedLocationInfo" type="Map"/></parameter>
+            <parameter name="otherLocationInfoList" type="List"><parameter name="otherLocationInfo" type="Map"/></parameter>
+            <parameter name="productInfoList" type="List"><parameter name="productInfo" type="Map"/></parameter>
 
             <!-- for use by get#PicklistPickInfo and others that need more structured results -->
             <parameter name="reservedLocationInfoMap" type="Map"/>
@@ -1151,9 +1154,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="quantityRejected" type="BigDecimal" default-value="0"/>
             <parameter name="rejectionReasonEnumId"/>
         </in-parameters>
-        <out-parameters>
-            <parameter name="assetIdList" type="List"/>
-        </out-parameters>
+        <out-parameters><parameter name="assetIdList" type="List"><parameter name="assetId"/></parameter></out-parameters>
         <actions>
             <if condition="!facilityId">
                 <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="shipmentRouteSegmentList">
@@ -1184,8 +1185,9 @@ along with this software (see the LICENSE.md file). If not, see
 
                 <service-call name="mantle.product.AssetServices.receive#Asset" out-map="receiveAssetOut"
                         in-map="context + [productId:productId, quantity:quantityToAccept, shipmentId:shipmentId,
-                            shipmentPackageSeqId:null, orderId:shipmentItemSource.orderId,
-                            orderItemSeqId:shipmentItemSource.orderItemSeqId, facilityId:facilityId,
+                            shipmentPackageSeqId:null, facilityId:facilityId,
+                            orderId:shipmentItemSource.orderId, orderItemSeqId:shipmentItemSource.orderItemSeqId,
+                            returnId:shipmentItemSource.returnId, returnItemSeqId:shipmentItemSource.returnItemSeqId,
                             quantityRejected:quantityToReject, rejectionReasonEnumId:rejectionReasonEnumId]"/>
                 <script>assetIdList.add(receiveAssetOut.assetId)</script>
 
@@ -1270,6 +1272,11 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <service-call name="update#mantle.shipment.Shipment" out-map="context"
                     in-map="[shipmentId:shipmentId, statusId:'ShipShipped']"/>
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegmentDetail" list="shipmentRouteSegmentList">
+                <econdition field-name="shipmentId"/><order-by field-name="shipmentRouteSegmentSeqId"/></entity-find>
+            <service-call name="update#mantle.shipment.ShipmentRouteSegment"
+                    in-map="[shipmentId:shipmentId, shipmentRouteSegmentSeqId:shipmentRouteSegmentList[0].shipmentRouteSegmentSeqId,
+                             actualStartDate:shipmentRouteSegmentList[0].actualStartDate?:ec.user.nowTimestamp]"/>
         </actions>
     </service>
 

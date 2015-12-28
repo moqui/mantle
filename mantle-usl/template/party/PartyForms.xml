@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -12,7 +13,7 @@ along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
 <screen xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.5.xsd"
+        xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/xml-screen-1.6.xsd"
         default-menu-include="false">
 
     <!-- NOTE: this screen is not meant to be rendered, it is just a library of forms to extend in other screens -->
@@ -28,14 +29,16 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="partyId" from="term"/></entity-find-one>
             <!-- <log message="====== ${term}:${roleTypeId}, partyDetail: ${partyDetail}"/> -->
             <if condition="partyDetail">
-                <script>
-                    def outList = [[value:partyDetail.partyId, label:ec.resource.expand("PartyNameTemplate", "", partyDetail)]]
-                    ec.web.sendJsonResponse(outList)
-                </script>
-
+                <then>
+                    <script>
+                        def outList = [[value:partyDetail.partyId, label:ec.resource.expand("PartyNameTemplate", "", partyDetail)]]
+                        ec.web.sendJsonResponse(outList)
+                    </script>
+                </then>
                 <else>
                     <entity-find entity-name="mantle.party.PartyDetailAndRole" list="partyList" limit="20">
                         <econdition field-name="roleTypeId" operator="in" ignore-if-empty="true"/>
+                        <econdition field-name="disabled" value="N" or-null="true"/>
                         <econditions combine="or">
                             <econdition field-name="partyId" operator="like" value="%${term}%" ignore-case="true"/>
                             <econdition field-name="pseudoId" operator="like" value="%${term}%" ignore-case="true"/>

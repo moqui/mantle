@@ -116,7 +116,7 @@ along with this software (see the LICENSE.md file). If not, see
 </#macro>
 <#macro stubBody paymentInfo>
 <fo:block margin="0.3in" overflow="hidden">
-    <fo:block text-align="left" margin-bottom="0.1in">${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(paymentInfo.fromPartyDetail.organizationName!"", false)}${paymentInfo.fromPartyDetail.firstName!} ${paymentInfo.fromPartyDetail.lastName!} - Payment Ref #${paymentInfo.payment.paymentId}</fo:block>
+    <fo:block text-align="left" margin-bottom="0.1in">${Static["org.moqui.impl.StupidUtilities"].encodeForXmlAttribute(paymentInfo.fromPartyDetail.organizationName!"", false)}${paymentInfo.fromPartyDetail.firstName!} ${paymentInfo.fromPartyDetail.lastName!} - Payment #${paymentInfo.payment.paymentId}<#if paymentInfo.payment.paymentRefNum?has_content> - Check #${paymentInfo.payment.paymentRefNum}</#if></fo:block>
 
     <#if paymentInfo.invoiceList?has_content>
         <fo:table table-layout="fixed" width="7.5in">

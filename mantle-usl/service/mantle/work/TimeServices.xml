@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -11,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
     <service verb="store" noun="TimeEntry">
         <in-parameters>
@@ -117,24 +118,28 @@ along with this software (see the LICENSE.md file). If not, see
                 <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="billToList">
                     <date-filter/><econdition field-name="workEffortId"/>
                     <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
-                <if condition="billToList">
-                    <then><set field="clientPartyId" from="billToList[0].partyId"/></then>
-                    <else>
-                        <!-- see if there is a CustomerBillTo associated with the root (project) -->
-                        <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
-                        <if condition="workEffort?.rootWorkEffortId">
-                            <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="rootBillToList">
-                                <date-filter/><econdition field-name="workEffortId" from="workEffort.rootWorkEffortId"/>
-                                <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
-                            <if condition="rootBillToList"><set field="clientPartyId" from="rootBillToList[0].partyId"/></if>
-                        </if>
-                    </else>
-                </if>
+                <if condition="billToList"><then>
+                    <set field="clientPartyId" from="billToList[0].partyId"/>
+                </then><else>
+                    <!-- see if there is a CustomerBillTo associated with the root (project) -->
+                    <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
+                    <if condition="workEffort?.rootWorkEffortId">
+                        <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="rootBillToList">
+                            <date-filter/><econdition field-name="workEffortId" from="workEffort.rootWorkEffortId"/>
+                            <econdition field-name="roleTypeId" value="CustomerBillTo"/></entity-find>
+                        <if condition="rootBillToList"><set field="clientPartyId" from="rootBillToList[0].partyId"/></if>
+                    </if>
+                </else></if>
             </if>
 
-            <!-- if there is a pieceCount but no pieceRateTypeEnumId set to RatpPiece -->
+            <!-- if there is a pieceCount but no pieceRateTypeEnumId lookup by related or set to RatpPiece -->
             <if condition="pieceCount &amp;&amp; !pieceRateTypeEnumId">
-                <set field="pieceRateTypeEnumId" value="RatpPiece"/></if>
+                <entity-find entity-name="moqui.basic.Enumeration" list="relatedEnumList">
+                    <econdition field-name="relatedEnumId" from="rateTypeEnumId"/></entity-find>
+                <if condition="relatedEnumList"><set field="pieceRateTypeEnumId" from="relatedEnumList[0].enumId"/>
+                    <else><set field="pieceRateTypeEnumId" value="RatpPiece"/></else></if>
+
+            </if>
 
             <service-call name="store#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
             <service-call name="mantle.work.TimeServices.get#TimeEntryRate" out-map="context" in-map="context"/>
@@ -144,15 +149,12 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <auto-parameters entity-name="mantle.work.time.TimeEntry" include="nonpk">
                 <exclude field-name="hours"/><exclude field-name="breakHours"/><exclude field-name="thruDate"/>
-                <exclude field-name="pieceCount"/>
-            </auto-parameters>
+                <exclude field-name="pieceCount"/></auto-parameters>
             <parameter name="partyId" default="ec.user.userAccount.partyId"/>
             <parameter name="rateTypeEnumId" default-value="RatpStandard"/>
             <parameter name="fromDate" default="ec.user.nowTimestamp"/>
         </in-parameters>
-        <out-parameters>
-            <parameter name="timeEntryId"/>
-        </out-parameters>
+        <out-parameters><parameter name="timeEntryId"/></out-parameters>
         <actions>
             <service-call name="create#mantle.work.time.TimeEntry" out-map="context" in-map="context"/>
         </actions>
@@ -422,6 +424,7 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="find" noun="TimeEntryRateAmount">
+        <description>Internal service used by get#TimeEntryRate</description>
         <in-parameters>
             <parameter name="timeEntry" type="EntityValue" required="true"/>
             <parameter name="ratePurposeEnumId" required="true"/>
@@ -431,7 +434,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="rateAmountId"/>
-            <parameter name="rateAmount"/>
+            <parameter name="rateAmount" type="BigDecimal"/>
         </out-parameters>
         <actions>
             <if condition="timeEntry.workEffortId">
@@ -539,7 +542,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="clear" noun="TimeEntryInvoice">
-        <description>Called when an Invoice is cancelled to clear the invoiceId/vendorInvoiceId and related item seq IDs.</description>
+        <description>Called by SECA rule when an Invoice is cancelled to clear the invoiceId/vendorInvoiceId and related item seq IDs.</description>
         <in-parameters><parameter name="invoiceId"/></in-parameters>
         <actions>
             <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList" for-update="true">
@@ -554,6 +557,139 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="timeEntry.vendorInvoiceId" from="null"/><set field="timeEntry.vendorInvoiceItemSeqId" from="null"/>
                 <entity-update value-field="timeEntry"/>
             </iterate>
+        </actions>
+    </service>
+
+    <!-- ===================================== -->
+    <!-- ========== Import Services ========== -->
+    <!-- ===================================== -->
+
+    <service verb="upload" noun="TimeSummaryFile">
+        <in-parameters>
+            <parameter name="clientPartyId" required="true"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="timeFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+        </in-parameters>
+        <actions>
+            <set field="fileText" from="timeFile.getString('UTF-8')"/>
+            <service-call name="mantle.work.TimeServices.import#TimeSummaryFile" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="import" noun="TimeSummaryFile">
+        <in-parameters>
+            <parameter name="clientPartyId" required="true"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="fileText" required="true"/>
+        </in-parameters>
+        <actions>
+            <script>
+            org.moqui.context.ExecutionContext ec = context.ec
+            recordsLoaded = ec.entity.makeDataLoader().csvText(fileText)
+                    .csvEntityName("mantle.work.TimeServices.import#TimeSummaryRecord")
+                    .csvFieldNames(['employeeId', 'emplPositionClassId', 'standardHours', 'overtimeHours',
+                                    'doubleTimeHours', 'standardPieces', 'overtimePieces', 'doubleTimePieces'])
+                    .defaultValues([clientPartyId:clientPartyId, effectiveDate:effectiveDate])
+                    .load()
+            </script>
+            <message>Loaded ${recordsLoaded} time summary records</message>
+        </actions>
+    </service>
+    <service verb="import" noun="TimeSummaryRecord">
+        <in-parameters>
+            <parameter name="clientPartyId" required="true"/>
+            <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- here down from file -->
+            <parameter name="employeeId" required="true"/>
+            <parameter name="emplPositionClassId"/>
+            <parameter name="standardHours" type="BigDecimal"/>
+            <parameter name="overtimeHours" type="BigDecimal"/>
+            <parameter name="doubleTimeHours" type="BigDecimal"/>
+            <parameter name="standardPieces" type="BigDecimal"/>
+            <parameter name="overtimePieces" type="BigDecimal"/>
+            <parameter name="doubleTimePieces" type="BigDecimal"/>
+        </in-parameters>
+        <actions>
+            <!-- find the party, will be partyId or pseudoId (FUTURE: look by some sort of PartyIdentification too) -->
+            <entity-find-one entity-name="mantle.party.Party" value-field="party">
+                <field-map field-name="partyId" from="employeeId"/></entity-find-one>
+            <if condition="!party"><entity-find-one entity-name="mantle.party.Party" value-field="party">
+                <field-map field-name="pseudoId" from="employeeId"/></entity-find-one></if>
+            <if condition="!party"><return error="true" message="Could not find employee with ID ${employeeId}"/></if>
+
+            <if condition="standardHours || standardPieces"><service-call name="mantle.work.TimeServices.store#TimeEntry"
+                    in-map="[partyId:party.partyId, rateTypeEnumId:'RatpStandard', emplPositionClassId:emplPositionClassId,
+                        clientPartyId:clientPartyId, thruDate:effectiveDate, hours:standardHours, pieceCount:standardPieces]"/></if>
+            <if condition="overtimeHours || overtimePieces"><service-call name="mantle.work.TimeServices.store#TimeEntry"
+                    in-map="[partyId:party.partyId, rateTypeEnumId:'RatpOvertime', emplPositionClassId:emplPositionClassId,
+                        clientPartyId:clientPartyId, thruDate:effectiveDate, hours:overtimeHours, pieceCount:overtimePieces]"/></if>
+            <if condition="doubleTimeHours || doubleTimePieces"><service-call name="mantle.work.TimeServices.store#TimeEntry"
+                    in-map="[partyId:party.partyId, rateTypeEnumId:'RatpDoubleTime', emplPositionClassId:emplPositionClassId,
+                        clientPartyId:clientPartyId, thruDate:effectiveDate, hours:doubleTimeHours, pieceCount:doubleTimePieces]"/></if>
+        </actions>
+    </service>
+
+    <service verb="upload" noun="TimeDetailFile">
+        <in-parameters>
+            <parameter name="clientPartyId" required="true"/>
+            <parameter name="defaultDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="timeFile" type="org.apache.commons.fileupload.FileItem" required="true"/>
+        </in-parameters>
+        <actions>
+            <set field="fileText" from="timeFile.getString('UTF-8')"/>
+            <service-call name="mantle.work.TimeServices.import#TimeDetailFile" in-map="context"/>
+        </actions>
+    </service>
+    <service verb="import" noun="TimeDetailFile">
+        <in-parameters>
+            <parameter name="clientPartyId" required="true"/>
+            <parameter name="defaultDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="fileText" required="true"/>
+        </in-parameters>
+        <actions>
+            <script>
+            org.moqui.context.ExecutionContext ec = context.ec
+            recordsLoaded = ec.entity.makeDataLoader().csvText(fileText)
+                    .csvEntityName("mantle.work.TimeServices.import#TimeDetailRecord")
+                    .csvFieldNames(['employeeId', 'emplPositionClassId', 'rateType', 'startDateTime',
+                                    'endDateTime', 'hours', 'pieceCount'])
+                    .defaultValues([clientPartyId:clientPartyId, defaultDate:defaultDate])
+                    .load()
+            </script>
+            <message>Loaded ${recordsLoaded} time detail records</message>
+        </actions>
+    </service>
+    <service verb="import" noun="TimeDetailRecord">
+        <in-parameters>
+            <parameter name="clientPartyId" required="true"/>
+            <parameter name="defaultDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <!-- here down from file -->
+            <parameter name="employeeId" required="true"/>
+            <parameter name="emplPositionClassId"/>
+            <parameter name="rateType" default-value="Standard"/>
+            <parameter name="startDateTime"/>
+            <parameter name="endDateTime"/>
+            <parameter name="hours" type="BigDecimal"/>
+            <parameter name="pieceCount" type="BigDecimal"/>
+            <parameter name="dateTimeFormat" default-value="MM/dd/yyyy HH:mm:ss"/>
+        </in-parameters>
+        <actions>
+            <!-- find the party, will be partyId or pseudoId (FUTURE: look by some sort of PartyIdentification too) -->
+            <entity-find-one entity-name="mantle.party.Party" value-field="party">
+                <field-map field-name="partyId" from="employeeId"/></entity-find-one>
+            <if condition="!party"><entity-find-one entity-name="mantle.party.Party" value-field="party">
+                <field-map field-name="pseudoId" from="employeeId"/></entity-find-one></if>
+            <if condition="!party"><return error="true" message="Could not find employee with ID ${employeeId}"/></if>
+
+            <if condition="startDateTime"><set field="fromDate" from="ec.l10n.parseTimestamp(startDateTime, dateTimeFormat)"/></if>
+            <if condition="endDateTime"><set field="thruDate" from="ec.l10n.parseTimestamp(endDateTime, dateTimeFormat)"/></if>
+            <if condition="!fromDate &amp;&amp; !thruDate"><set field="thruDate" from="defaultDate"/></if>
+
+            <set field="rateTypeEnumId" value="Ratp${rateType}"/>
+
+            <service-call name="mantle.work.TimeServices.store#TimeEntry"
+                    in-map="[partyId:party.partyId, rateTypeEnumId:rateTypeEnumId, emplPositionClassId:emplPositionClassId,
+                        clientPartyId:clientPartyId, fromDate:fromDate, thruDate:thruDate,
+                        hours:hours, pieceCount:pieceCount]"/>
         </actions>
     </service>
 </services>

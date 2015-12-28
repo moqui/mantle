@@ -1,5 +1,6 @@
 /*
- * This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+ * This software is in the public domain under CC0 1.0 Universal plus a 
+ * Grant of Patent License.
  *
  * To the extent possible under law, the author(s) have dedicated all
  * copyright and related and neighboring rights to this software to the
@@ -110,8 +111,9 @@ class AssetReservationMultipleThreads extends Specification {
         String orderPartSeqId = addOut1.orderPartSeqId
 
         ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
-                .parameters([orderId: cartOrderId, paymentMethodId: 'CustJqpCc', shippingPostalContactMechId: 'CustJqpAddr',
-                             shippingTelecomContactMechId: 'CustJqpTeln', carrierPartyId: '_NA_', shipmentMethodEnumId: 'ShMthGround']).call()
+                .parameters([orderId: cartOrderId, paymentMethodId:'CustJqpCc', paymentInstrumentEnumId:'PiCreditCard',
+                             shippingPostalContactMechId: 'CustJqpAddr', shippingTelecomContactMechId: 'CustJqpTeln',
+                             carrierPartyId: '_NA_', shipmentMethodEnumId: 'ShMthGround']).call()
         ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId: cartOrderId]).call()
 
         ec.user.logoutUser()

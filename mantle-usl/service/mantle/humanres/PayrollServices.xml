@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a 
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -11,7 +12,7 @@ You should have received a copy of the CC0 Public Domain Dedication
 along with this software (see the LICENSE.md file). If not, see
 <http://creativecommons.org/publicdomain/zero/1.0/>.
 -->
-<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.5.xsd">
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
     <service verb="get" noun="TimePeriodEmployments">
         <in-parameters>
@@ -187,16 +188,46 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="timePeriodId" required="true"/>
             <parameter name="statusId" default-value="PmntAuthorized"/>
-            <parameter name="paymentMethodTypeEnumId" default-value="PmtCompanyCheck"/>
+            <parameter name="paymentInstrumentEnumId" default-value="PiCompanyCheck"/>
+            <parameter name="paymentMethodId"/>
             <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
         <actions>
+            <!-- find the PmpPayroll purpose PaymentMethod -->
+            <if condition="!paymentMethodId">
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+                <entity-find entity-name="mantle.account.method.PaymentMethod" list="paymentMethodList">
+                    <date-filter/><econdition field-name="ownerPartyId" from="timePeriod.partyId"/>
+                    <econdition field-name="purposeEnumId" value="PmpPayroll"/>
+                    <!-- constrain by a paymentMethodTypeEnumId corresponding to the paymentInstrumentEnumId? -->
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+                <if condition="!paymentMethodList"><entity-find entity-name="mantle.account.method.PaymentMethod" list="paymentMethodList">
+                    <date-filter/><econdition field-name="ownerPartyId" from="timePeriod.partyId"/>
+                    <econdition field-name="purposeEnumId" value="PmpGeneral"/><order-by field-name="-fromDate"/></entity-find></if>
+                <if condition="paymentMethodList"><set field="paymentMethodId" from="paymentMethodList[0].paymentMethodId"/></if>
+            </if>
+
             <entity-find entity-name="mantle.account.invoice.Invoice" list="invoiceList">
                 <econdition field-name="timePeriodId"/>
                 <econdition field-name="invoiceTypeEnumId" value="InvoicePayroll"/>
                 <econdition field-name="statusId" value="InvoiceApproved"/>
             </entity-find>
             <iterate list="invoiceList" entry="invoice">
+                <!-- if paymentInstrumentEnumId is PiAch look for employee's BankAccount -->
+                <set field="toPaymentMethodId" from="null"/>
+                <if condition="paymentInstrumentEnumId == 'PiAch'">
+                    <entity-find entity-name="mantle.account.method.PaymentMethod" list="toPaymentMethodList">
+                        <date-filter/>
+                        <econdition field-name="ownerPartyId" from="invoice.fromPartyId"/>
+                        <econdition field-name="purposeEnumId" value="PmpPayroll"/>
+                        <econdition field-name="paymentMethodTypeEnumId" value="PmtBankAccount"/>
+                        <order-by field-name="-fromDate"/>
+                    </entity-find>
+                    <if condition="toPaymentMethodList">
+                        <set field="toPaymentMethodId" from="toPaymentMethodList[0].paymentMethodId"/></if>
+                </if>
+
                 <service-call name="mantle.account.PaymentServices.create#InvoicePayment" out-map="paymentOut"
                     in-map="context + [invoiceId:invoice.invoiceId, partyRelationshipId:invoice.partyRelationshipId]"/>
             </iterate>
@@ -970,11 +1001,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="org.moqui.impl.ScreenServices.create#FormResponse" out-map="responseOut"
                         out-map-add-to-existing="false" in-map="[formId:formOut.formId, responseMap:formOut.formMap]"/>
 
-                <!-- create EmploymentPayHistory record -->
-                <service-call name="create#mantle.humanres.employment.WageAndTaxStatement"
-                        in-map="[timePeriodId:timePeriodId, partyRelationshipId:employment.partyRelationshipId,
-                            taxAuthorityId:formOut.federalTaxAuthorityId, formId:formOut.formId,
-                            formResponseId:responseOut.formResponseId]"/>
+                <!-- create TaxStatement record -->
+                <service-call name="create#mantle.other.tax.TaxStatement"
+                        in-map="[timePeriodId:timePeriodId, partyId:employment.fromPartyId,
+                            partyRelationshipId:employment.partyRelationshipId, taxAuthorityId:formOut.federalTaxAuthorityId,
+                            formId:formOut.formId, formResponseId:responseOut.formResponseId]"/>
             </iterate>
 
             <!-- close the TimePeriod -->
