@@ -46,6 +46,7 @@ class OrderToCashBasicFlow extends Specification {
 
         ec.entity.tempSetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55500, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.shipment.Shipment", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.shipment.ShipmentItemSource", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.Asset", 55500, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.product.asset.AssetDetail", 55500, 10)
@@ -61,6 +62,7 @@ class OrderToCashBasicFlow extends Specification {
     def cleanupSpec() {
         ec.entity.tempResetSequencedIdPrimary("mantle.account.method.PaymentGatewayResponse")
         ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
+        ec.entity.tempResetSequencedIdPrimary("mantle.shipment.Shipment")
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.Asset")
         ec.entity.tempResetSequencedIdPrimary("mantle.product.asset.AssetDetail")
