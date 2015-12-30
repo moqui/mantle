@@ -14,9 +14,55 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
+    <service verb="find" noun="PartyCommunicationEvents">
+        <in-parameters>
+            <parameter name="partyId" required="true"/>
+            <auto-parameters entity-name="mantle.party.communication.CommunicationEventAndPurpose" include="all"/>
+            <parameter name="communicationEventTypeId" default-value="Email,Message,Comment"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="commEventList" type="List"><parameter name="commEvent" type="Map">
+                <parameter name="communicationEventId"/><parameter name="entryDate"/>
+                <parameter name="statusId"/><parameter name="fromPartyId"/><parameter name="toPartyId"/>
+                <parameter name="subject"/><parameter name="communicationEventTypeId"/>
+            </parameter></parameter>
+        </out-parameters>
+        <actions>
+            <entity-find entity-name="mantle.party.communication.CommunicationEventAndPurpose" list="commEventList">
+                <search-form-inputs default-order-by="-entryDate"/>
+                <econditions combine="or">
+                    <econdition field-name="fromPartyId" from="partyId"/>
+                    <econdition field-name="toPartyId" from="partyId"/>
+                </econditions>
+                <econdition field-name="communicationEventTypeId" operator="in"/>
+                <select-field field-name="communicationEventId"/><select-field field-name="entryDate"/>
+                <select-field field-name="statusId"/><select-field field-name="fromPartyId"/><select-field field-name="toPartyId"/>
+                <select-field field-name="subject"/><select-field field-name="communicationEventTypeId"/>
+            </entity-find>
+        </actions>
+    </service>
+    <service verb="create" noun="Message">
+        <in-parameters>
+            <auto-parameters entity-name="mantle.party.communication.CommunicationEvent" include="nonpk"/>
+            <parameter name="fromPartyId" default="ec.user.userAccount.partyId"/>
+            <parameter name="communicationEventTypeId" default-value="Message"/>
+            <parameter name="statusId" default-value="CeReceived"/>
+            <parameter name="entryDate" default="ec.user.nowTimestamp"/>
+
+            <parameter name="purposeEnumId"/>
+        </in-parameters>
+        <out-parameters><parameter name="communicationEventId"/></out-parameters>
+        <actions>
+            <service-call name="create#mantle.party.communication.CommunicationEvent" in-map="context" out-map="context"/>
+            <if condition="purposeEnumId">
+                <service-call name="create#mantle.party.communication.CommunicationEventPurpose" in-map="context"/>
+            </if>
+        </actions>
+    </service>
     <service verb="reply" noun="CommunicationEvent">
         <in-parameters>
-            <parameter name="parentCommEventId" required="true"/>
+            <parameter name="parentCommEventId" required="true" default="communicationEventId"/>
+            <parameter name="communicationEventId"/>
             <parameter name="subject"/>
             <parameter name="body"/>
             <parameter name="contentType" default-value="text/plain"/>
@@ -36,24 +82,6 @@ along with this software (see the LICENSE.md file). If not, see
                         parentCommEventId:parentCommEventId, rootCommEventId:rootCommEventId,
                         fromPartyId:fromPartyId, toPartyId:toPartyId, entryDate:ec.user.nowTimestamp,
                         contentType:contentType, subject:subject, body:body]"/>
-        </actions>
-    </service>
-    <service verb="create" noun="Message">
-        <in-parameters>
-            <auto-parameters entity-name="mantle.party.communication.CommunicationEvent" include="nonpk"/>
-            <parameter name="fromPartyId" default="ec.user.userAccount.partyId"/>
-            <parameter name="communicationEventTypeId" default-value="Message"/>
-            <parameter name="statusId" default-value="CeReceived"/>
-            <parameter name="entryDate" default="ec.user.nowTimestamp"/>
-
-            <parameter name="purposeEnumId"/>
-        </in-parameters>
-        <out-parameters><parameter name="communicationEventId"/></out-parameters>
-        <actions>
-            <service-call name="create#mantle.party.communication.CommunicationEvent" in-map="context" out-map="context"/>
-            <if condition="purposeEnumId">
-                <service-call name="create#mantle.party.communication.CommunicationEventPurpose" in-map="context"/>
-            </if>
         </actions>
     </service>
 </services>

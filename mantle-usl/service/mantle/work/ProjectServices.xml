@@ -103,7 +103,10 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="get" noun="ProjectStats">
-        <in-parameters><parameter name="workEffort" type="Map"/></in-parameters>
+        <in-parameters>
+            <parameter name="workEffort" type="Map"/>
+            <parameter name="workEffortId"/>
+        </in-parameters>
         <out-parameters>
             <parameter name="actualProfit" type="BigDecimal"/>
             <parameter name="clientBudgetRemaining" type="BigDecimal"/>
@@ -131,6 +134,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="taskCountByStatusMap" type="Map"/>
         </out-parameters>
         <actions>
+            <if condition="workEffort == null">
+                <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/></if>
+
             <set field="actualProfit" from="(workEffort.actualClientCost ?: 0) - (workEffort.actualCost ?: 0)"/>
             <set field="clientBudgetRemaining" from="(workEffort.totalClientCostAllowed ?: 0) - (workEffort.actualClientCost ?: 0)"/>
             <set field="clientBudgetUsedPercent" from="workEffort.totalClientCostAllowed ? ((workEffort.actualClientCost ?: 0) / workEffort.totalClientCostAllowed) * 100 : 0"/>
@@ -169,11 +175,12 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="get" noun="ProjectParties">
         <in-parameters>
-            <parameter name="rootWorkEffortId"/>
+            <parameter name="rootWorkEffortId" default="workEffortId"/>
+            <parameter name="workEffortId"/>
             <parameter name="addOptional" type="Boolean" default="true"/>
             <parameter name="onlyAssignable" type="Boolean" default="true"/>
         </in-parameters>
-        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <out-parameters><parameter name="resultList" type="List"><parameter name="result" type="Map"/></parameter></out-parameters>
         <actions>
             <entity-find entity-name="mantle.work.effort.WorkEffortAndPartyDetail" list="partyList">
                 <date-filter/><econdition field-name="workEffortId" from="rootWorkEffortId"/>
@@ -189,8 +196,11 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="get" noun="ProjectTeams">
-        <in-parameters><parameter name="rootWorkEffortId"/></in-parameters>
-        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <in-parameters>
+            <parameter name="rootWorkEffortId" default="workEffortId"/>
+            <parameter name="workEffortId"/>
+        </in-parameters>
+        <out-parameters><parameter name="resultList" type="List"><parameter name="result" type="Map"/></parameter></out-parameters>
         <actions>
             <entity-find entity-name="mantle.work.effort.WorkEffortAndPartyDetail" list="weapdList">
                 <date-filter/>
@@ -206,8 +216,11 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="get" noun="ProjectTasks">
-        <in-parameters><parameter name="rootWorkEffortId"/></in-parameters>
-        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <in-parameters>
+            <parameter name="rootWorkEffortId" default="workEffortId"/>
+            <parameter name="workEffortId"/>
+        </in-parameters>
+        <out-parameters><parameter name="resultList" type="List"><parameter name="result" type="Map"/></parameter></out-parameters>
         <actions>
             <entity-find entity-name="mantle.work.effort.WorkEffort" list="taskList">
                 <econdition field-name="rootWorkEffortId"/>
@@ -223,8 +236,11 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="get" noun="ProjectMilestones">
-        <in-parameters><parameter name="rootWorkEffortId"/></in-parameters>
-        <out-parameters><parameter name="resultList" type="List"/></out-parameters>
+        <in-parameters>
+            <parameter name="rootWorkEffortId" default="workEffortId"/>
+            <parameter name="workEffortId"/>
+        </in-parameters>
+        <out-parameters><parameter name="resultList" type="List"><parameter name="result" type="Map"/></parameter></out-parameters>
         <actions>
             <entity-find entity-name="mantle.work.effort.WorkEffort" list="milestoneList">
                 <econdition field-name="rootWorkEffortId"/>

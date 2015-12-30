@@ -25,8 +25,8 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="fulfill" noun="OrderSubscriptions">
-        <description>When an order goes to the OrderApproved status (by SECA rule) calls fulfill#OrderPartSubscriptions
-            for each order part.</description>
+        <description>Called by SECA rule when an order goes to the OrderApproved status.
+            Calls fulfill#OrderPartSubscriptions for each order part.</description>
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <actions>
             <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
@@ -39,9 +39,13 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="fulfill" noun="OrderPartSubscriptions">
-        <description>When an order goes to the OrderApproved status (by SECA rule) looks for digital products on the
-            order with ProductSubscriptionResource records, and if there is no Subscription record for the OrderItem
-            and SubscriptionResource then fulfills the ProductSubscriptionResource and bills for the OrderItem.</description>
+        <description>
+            Called by fulfill#OrderSubscriptions which is called by SECA rule on the Order Approved status.
+
+            Looks for digital products on the order with ProductSubscriptionResource records, and if there is
+            no Subscription record for the OrderItem and SubscriptionResource then fulfills the
+            ProductSubscriptionResource and bills for the OrderItem.
+        </description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
@@ -96,6 +100,12 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="fulfill" noun="ProductSubscriptionResource">
+        <description>
+            Called by fulfill#OrderSubscriptions which is called by SECA rule on the Order Approved status.
+
+            Creates a Subscription record starting now or after an active Subscription ends.
+            Calls the SubscriptResource init service if one is configured.
+        </description>
         <in-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderItemSeqId" required="true"/>

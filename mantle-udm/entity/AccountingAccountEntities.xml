@@ -77,39 +77,39 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- mantle.account.financial -->
     <!-- ========================================================= -->
 
-    <entity entity-name="FinancialAccount" package-name="mantle.account.financial">
+    <entity entity-name="FinancialAccount" package-name="mantle.account.financial" short-alias="financialAccounts">
         <field name="finAccountId" type="id" is-pk="true"/>
         <field name="finAccountTypeId" type="id"/>
         <field name="statusId" type="id" enable-audit-log="true"/>
         <field name="finAccountName" type="text-medium"/>
         <field name="finAccountCode" type="text-medium" encrypt="true"/>
         <field name="finAccountPin" type="text-medium" encrypt="true"/>
-        <field name="organizationPartyId" type="id"><description>The internal organization Party that is liable for the
-            account.</description></field>
+        <field name="organizationPartyId" type="id">
+            <description>The internal organization Party that is liable for the account.</description></field>
         <field name="ownerPartyId" type="id"/>
         <field name="postToGlAccountId" type="id"/>
         <field name="fromDate" type="date-time"/>
         <field name="thruDate" type="date-time"/>
         <field name="isRefundable" type="text-indicator"/>
         <field name="currencyUomId" type="id"/>
-        <field name="actualBalance" type="currency-amount"><description>Calculated as the sum of
-            FinancialAccountTrans.amount</description></field>
-        <field name="availableBalance" type="currency-amount"><description>Calculated as actualBalance minus sum of
-            outstanding FinancialAccountAuth.amount</description></field>
+        <field name="actualBalance" type="currency-amount">
+            <description>Calculated as the sum of FinancialAccountTrans.amount</description></field>
+        <field name="availableBalance" type="currency-amount">
+            <description>Calculated as actualBalance minus sum of outstanding FinancialAccountAuth.amount</description></field>
         <field name="replenishPaymentId" type="id"/>
         <field name="replenishLevel" type="currency-amount"/>
-        <relationship type="one" related-entity-name="FinancialAccountType">
+        <relationship type="one" related-entity-name="FinancialAccountType" short-alias="type">
             <key-map field-name="finAccountTypeId"/></relationship>
-        <relationship type="one" title="FinancialAccount" related-entity-name="moqui.basic.StatusItem"/>
-        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="FinancialAccount" related-entity-name="moqui.basic.StatusItem" short-alias="status"/>
+        <relationship type="one" title="Organization" related-entity-name="mantle.party.Party" short-alias="organization">
             <key-map field-name="organizationPartyId"/></relationship>
-        <relationship type="one" title="Owner" related-entity-name="mantle.party.Party">
+        <relationship type="one" title="Owner" related-entity-name="mantle.party.Party" short-alias="owner">
             <key-map field-name="ownerPartyId"/></relationship>
-        <relationship type="one" title="PostTo" related-entity-name="mantle.ledger.account.GlAccount">
+        <relationship type="one" title="PostTo" related-entity-name="mantle.ledger.account.GlAccount" short-alias="postToAccount">
             <key-map field-name="postToGlAccountId"/></relationship>
-        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
+        <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom" short-alias="currencyUom">
             <key-map field-name="currencyUomId"/></relationship>
-        <relationship type="one" title="Replenish" related-entity-name="mantle.account.method.PaymentMethod">
+        <relationship type="one" title="Replenish" related-entity-name="mantle.account.method.PaymentMethod" short-alias="replenishMethod">
             <key-map field-name="replenishPaymentId"/></relationship>
         <seed-data>
             <!-- Financial Account Status -->
@@ -131,6 +131,13 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FaManFrozen" toStatusId="FaActive" transitionName="Re-activate"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="FaManFrozen" toStatusId="FaCancelled" transitionName="Cancel"/>
         </seed-data>
+        <master>
+            <detail relationship="type"/><detail relationship="status"/>
+            <detail relationship="organization"/><detail relationship="owner"/>
+            <detail relationship="postToAccount"/><detail relationship="currencyUom"/>
+            <detail relationship="replenishMethod"/>
+            <!-- don't include auth and trans, too many of them -->
+        </master>
     </entity>
     <entity entity-name="FinancialAccountAuth" package-name="mantle.account.financial">
         <field name="finAccountAuthId" type="id" is-pk="true"/>
@@ -612,27 +619,27 @@ along with this software (see the LICENSE.md file). If not, see
             <key-map field-name="ownerPartyId"/></relationship>
         <relationship type="one" title="Currency" related-entity-name="moqui.basic.Uom">
             <key-map field-name="currencyUomId"/></relationship>
-        <relationship type="one" title="Postal" related-entity-name="mantle.party.contact.ContactMech" short-alias="postal">
+        <relationship type="one" title="Postal" related-entity-name="mantle.party.contact.ContactMech" short-alias="postal" mutable="true">
             <key-map field-name="postalContactMechId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.party.contact.PostalAddress">
+        <relationship type="one" related-entity-name="mantle.party.contact.PostalAddress" mutable="true">
             <key-map field-name="postalContactMechId"/></relationship>
-        <relationship type="one" title="Telecom" related-entity-name="mantle.party.contact.ContactMech" short-alias="telecom">
+        <relationship type="one" title="Telecom" related-entity-name="mantle.party.contact.ContactMech" short-alias="telecom" mutable="true">
             <key-map field-name="telecomContactMechId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.party.contact.TelecomNumber">
+        <relationship type="one" related-entity-name="mantle.party.contact.TelecomNumber" mutable="true">
             <key-map field-name="telecomContactMechId"/></relationship>
-        <relationship type="one" title="Email" related-entity-name="mantle.party.contact.ContactMech" short-alias="email">
+        <relationship type="one" title="Email" related-entity-name="mantle.party.contact.ContactMech" short-alias="email" mutable="true">
             <key-map field-name="emailContactMechId"/></relationship>
         <relationship type="one" title="ContactPaymentTrustLevel" related-entity-name="moqui.basic.Enumeration" short-alias="trustLevel">
             <key-map field-name="trustLevelEnumId"/></relationship>
-        <relationship type="one" related-entity-name="mantle.account.payment.PaymentFraudEvidence"/>
+        <relationship type="one" related-entity-name="mantle.account.payment.PaymentFraudEvidence" mutable="true"/>
         <relationship type="one" related-entity-name="mantle.ledger.account.GlAccount"/>
         <relationship type="one" related-entity-name="mantle.account.financial.FinancialAccount"/>
 
-        <relationship type="one-nofk" related-entity-name="mantle.account.method.BankAccount" short-alias="bankAccount"/>
-        <relationship type="one-nofk" related-entity-name="mantle.account.method.BitcoinWallet" short-alias="bitcoinWallet"/>
-        <relationship type="one-nofk" related-entity-name="mantle.account.method.CreditCard" short-alias="creditCard"/>
-        <relationship type="one-nofk" related-entity-name="mantle.account.method.GiftCard" short-alias="giftCard"/>
-        <relationship type="one-nofk" related-entity-name="mantle.account.method.PayPalAccount" short-alias="payPalAccount"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.BankAccount" short-alias="bankAccount" mutable="true"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.BitcoinWallet" short-alias="bitcoinWallet" mutable="true"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.CreditCard" short-alias="creditCard" mutable="true"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.GiftCard" short-alias="giftCard" mutable="true"/>
+        <relationship type="one-nofk" related-entity-name="mantle.account.method.PayPalAccount" short-alias="payPalAccount" mutable="true"/>
 
         <seed-data>
             <!-- Payment Method Type -->

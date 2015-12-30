@@ -326,6 +326,7 @@ along with this software (see the LICENSE.md file). If not, see
         <description>Create a Credit Card (and the corresponding PaymentMethod record)</description>
         <in-parameters>
             <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <parameter name="ownerPartyId" default="ec.user.userAccount.partyId"/>
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
             <parameter name="expireDate" required="true"><time-range after="now" format="MM/yyyy"/></parameter>
             <parameter name="cardNumber" required="true"><credit-card/></parameter>
@@ -335,8 +336,6 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
         <actions>
-            <set field="ownerPartyId" from="ownerPartyId ?: ec.user.userAccount.partyId"/>
-
             <if condition="!description">
                 <entity-find-one entity-name="moqui.basic.Enumeration" value-field="creditCardTypeEnum">
                     <field-map field-name="enumId" from="creditCardTypeEnumId"/>
@@ -369,7 +368,8 @@ along with this software (see the LICENSE.md file). If not, see
         </description>
         <in-parameters>
             <parameter name="paymentMethodId" required="true"/>
-            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk">
+                <exclude field-name="ownerPartyId"/></auto-parameters>
             <auto-parameters entity-name="mantle.account.method.CreditCard" include="nonpk"/>
         </in-parameters>
         <out-parameters><parameter name="paymentMethodId" required="true"/></out-parameters>
@@ -418,6 +418,7 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="create" noun="BankAccount">
         <in-parameters>
             <auto-parameters entity-name="mantle.account.method.PaymentMethod" include="nonpk"/>
+            <parameter name="ownerPartyId" default="ec.user.userAccount.partyId"/>
             <auto-parameters entity-name="mantle.account.method.BankAccount" include="nonpk"/>
 
             <parameter name="paymentMethodTypeEnumId" default-value="PmtBankAccount"/>

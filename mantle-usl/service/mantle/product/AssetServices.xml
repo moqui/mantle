@@ -20,13 +20,13 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="asset" type="EntityValue"/>
             <parameter name="statusItem" type="EntityValue"/>
             <parameter name="statusId"/>
-            <parameter name="statusHistoryList" type="EntityList"/>
+            <parameter name="statusHistoryList" type="EntityList"><parameter name="auditLog" type="EntityValue"/></parameter>
             <parameter name="product" type="EntityValue"/>
             <parameter name="facility" type="EntityValue"/>
             <parameter name="facilityLocation" type="EntityValue"/>
             <parameter name="originFacility" type="EntityValue"/>
-            <parameter name="assetDetailList" type="EntityList"/>
-            <parameter name="assetReservationList" type="EntityList"/>
+            <parameter name="assetDetailList" type="EntityList"><parameter name="assetDetail" type="EntityValue"/></parameter>
+            <parameter name="assetReservationList" type="EntityList"><parameter name="assetReservation" type="EntityValue"/></parameter>
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.product.asset.Asset" value-field="asset"/>
@@ -77,8 +77,12 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ========================================== -->
+    <!-- ========== Reservation Services ========== -->
+    <!-- ========================================== -->
+
     <service verb="reserve" noun="AssetsForOrder">
-        <!-- this is triggered by an SECA rule on OrderHeader status change to OrderPlaced (see ProductAsset.secas.xml) -->
+        <description>Triggered by an SECA rule on OrderHeader status change to OrderPlaced (see ProductAsset.secas.xml)</description>
         <in-parameters><parameter name="orderId" required="true"/></in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
@@ -104,7 +108,10 @@ along with this software (see the LICENSE.md file). If not, see
                 If there is no OrderHeader.productStoreId defaults to reservationOrderEnumId=AsResOrdFifoRec and gets
                 inventoryFacilityId from OrderPart.facilityId and organizationPartyId from OrderPart.vendorPartyId.</description></parameter>
             <parameter name="assetId"><description>Optional assetId, reserves against this first if specified.</description></parameter>
-            <parameter name="assetIdList" type="List"><description>Optional List of assetId values, reserves against these first (in order) if specified.</description></parameter>
+            <parameter name="assetIdList" type="List">
+                <description>Optional List of assetId values, reserves against these first (in order) if specified.</description>
+                <parameter name="assetId"/>
+            </parameter>
             <parameter name="resetReservations" type="Boolean" default="false"><description>If true remove existing reservations before reserving.</description></parameter>
         </in-parameters>
         <actions>
@@ -363,9 +370,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="move" noun="AssetReservation">
+        <description>Move partial or full reservation quantity to another asset.</description>
         <in-parameters>
-            <parameter name="assetId" required="true"/>
             <parameter name="assetReservationId" required="true"/>
+            <parameter name="assetId" required="true"/>
             <parameter name="quantity" type="BigDecimal" required="true"/>
             <parameter name="forceFullQuantity" type="Boolean" default-value="false"><description>If true ignore
                 available to promise on asset and moves the quantity to it anyway.</description></parameter>
@@ -551,6 +559,10 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
         </actions>
     </service>
+
+    <!-- ======================================= -->
+    <!-- ========== Issuance Services ========== -->
+    <!-- ======================================= -->
 
     <service verb="issue" noun="AssetReservation">
         <description>Issue an Asset based on a reservation (AssetReservation).</description>
@@ -753,7 +765,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="quantity" type="BigDecimal" required="true"/>
             <parameter name="issuedDate" type="Timestamp" default="ec.user.nowTimestamp"/>
         </in-parameters>
-        <out-parameters><parameter name="assetIdList" type="List"/></out-parameters>
+        <out-parameters><parameter name="assetIdList" type="List"><parameter name="assetId"/></parameter></out-parameters>
         <actions>
             <entity-find entity-name="mantle.product.asset.Asset" list="assetList">
                 <econdition field-name="productId"/><econdition field-name="facilityId"/>
@@ -773,6 +785,10 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
+
+    <!-- ====================================== -->
+    <!-- ========== Receipt Services ========== -->
+    <!-- ====================================== -->
 
     <service verb="receive" noun="Asset">
         <!-- NOTE: tested with transaction="cache" and works fine, but only a small performance improvement (this is a fairly small service) -->
@@ -937,6 +953,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ==================================== -->
+    <!-- ========== Other Services ========== -->
+    <!-- ==================================== -->
+
     <service verb="update" noun="AssetAndReceipt">
         <in-parameters>
             <parameter name="assetId" required="true"/>
@@ -1038,6 +1058,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ================================================= -->
+    <!-- ========== Physical Inventory Services ========== -->
+    <!-- ================================================= -->
+
     <service verb="record" noun="PhysicalInventoryQuantity">
         <in-parameters>
             <parameter name="productId" required="true"/>
@@ -1073,7 +1097,10 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="physicalInventoryDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="comments"/>
             <parameter name="varianceReasonEnumId"/>
-            <parameter name="assetList" type="EntityList"><description>Optional, meant to be used when called by other physical inventory services.</description></parameter>
+            <parameter name="assetList" type="EntityList">
+                <description>Optional, meant to be used when called by other physical inventory services.</description>
+                <parameter name="asset" type="EntityValue"/>
+            </parameter>
         </in-parameters>
         <out-parameters><parameter name="physicalInventoryId"/></out-parameters>
         <actions>
