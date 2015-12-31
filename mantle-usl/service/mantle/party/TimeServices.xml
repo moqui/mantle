@@ -47,15 +47,14 @@ along with this software (see the LICENSE.md file). If not, see
                         <!-- see if previous period's parent time range covers the new period, otherwise see if it has a next or create one -->
                         <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="previousPeriodParent">
                             <field-map field-name="timePeriodId" from="previousPeriod.parentPeriodId"/></entity-find-one>
-                        <if condition="previousPeriodParent.thruDate >= fromDate">
-                            <then><set field="parentPeriodId" from="previousPeriod.parentPeriodId"/></then>
-                            <else>
-                                <!-- find the next parent TimePeriod (gets nextTimePeriodId, nextTimePeriod) -->
-                                <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod"
-                                        in-map="[timePeriodId:previousPeriod.parentPeriodId]" out-map="createNextParentOut"/>
-                                <set field="parentPeriodId" from="createNextParentOut.nextTimePeriodId"/>
-                            </else>
-                        </if>
+                        <if condition="previousPeriodParent.thruDate >= fromDate"><then>
+                            <set field="parentPeriodId" from="previousPeriod.parentPeriodId"/>
+                        </then><else>
+                            <!-- find the next parent TimePeriod (gets nextTimePeriodId, nextTimePeriod) -->
+                            <service-call name="mantle.party.TimeServices.getOrCreate#NextTimePeriod"
+                                    in-map="[timePeriodId:previousPeriod.parentPeriodId]" out-map="createNextParentOut"/>
+                            <set field="parentPeriodId" from="createNextParentOut.nextTimePeriodId"/>
+                        </else></if>
                     </if>
                 </then>
                 <else>
@@ -124,19 +123,15 @@ along with this software (see the LICENSE.md file). If not, see
                     <else>
                         <!-- calculate based on calendar year -->
                         <script>fromDateCal = ec.user.getCalendarSafe(); fromDateCal.setTime(fromDate)</script>
-                        <if condition="timePeriodType.lengthUomId == 'TF_yr'">
-                            <then>
-                                <set field="periodNum" from="fromDateCal.get(Calendar.YEAR)"/>
-                            </then>
-                            <else-if condition="timePeriodType.lengthUomId == 'TF_mon'">
-                                <set field="periodNum" from="(fromDateCal.get(Calendar.MONTH) / timePeriodType.periodLength).intValue() + 1"/>
-                                <if condition="timePeriodType.periodLength &lt; 1 &amp;&amp; fromDateCal.get(Calendar.DAY_OF_MONTH) &gt; 1">
-                                    <set field="periodNum" from="periodNum + 1"/></if>
-                            </else-if>
-                            <else-if condition="timePeriodType.lengthUomId == 'TF_wk'">
-                                <set field="periodNum" from="(fromDateCal.get(Calendar.WEEK_OF_YEAR) / timePeriodType.periodLength).intValue()"/>
-                            </else-if>
-                        </if>
+                        <if condition="timePeriodType.lengthUomId == 'TF_yr'"><then>
+                            <set field="periodNum" from="fromDateCal.get(Calendar.YEAR)"/>
+                        </then><else-if condition="timePeriodType.lengthUomId == 'TF_mon'">
+                            <set field="periodNum" from="(fromDateCal.get(Calendar.MONTH) / timePeriodType.periodLength).intValue() + 1"/>
+                            <if condition="timePeriodType.periodLength &lt; 1 &amp;&amp; fromDateCal.get(Calendar.DAY_OF_MONTH) &gt; 1">
+                                <set field="periodNum" from="periodNum + 1"/></if>
+                        </else-if><else-if condition="timePeriodType.lengthUomId == 'TF_wk'">
+                            <set field="periodNum" from="(fromDateCal.get(Calendar.WEEK_OF_YEAR) / timePeriodType.periodLength).intValue()"/>
+                        </else-if></if>
                     </else>
                 </if>
             </if>
@@ -161,17 +156,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="partyId"/><econdition field-name="timePeriodTypeId"/>
                 <econdition field-name="fromDate"/>
             </entity-find>
-            <if condition="existingPeriodList">
-                <then>
-                    <set field="timePeriod" from="existingPeriodList.first[0]"/>
-                    <set field="timePeriodId" from="timePeriod.timePeriodId"/>
-                </then>
-                <else>
-                    <service-call name="mantle.party.TimeServices.create#TimePeriod" in-map="context" out-map="createTpOut"/>
-                    <set field="timePeriodId" from="createTpOut.timePeriodId"/>
-                    <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
-                </else>
-            </if>
+            <if condition="existingPeriodList"><then>
+                <set field="timePeriod" from="existingPeriodList.first[0]"/>
+                <set field="timePeriodId" from="timePeriod.timePeriodId"/>
+            </then><else>
+                <service-call name="mantle.party.TimeServices.create#TimePeriod" in-map="context" out-map="createTpOut"/>
+                <set field="timePeriodId" from="createTpOut.timePeriodId"/>
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="timePeriod"/>
+            </else></if>
         </actions>
     </service>
     <service verb="getOrCreate" noun="NextTimePeriod">
@@ -183,15 +175,14 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find entity-name="mantle.party.time.TimePeriod" list="nextTimePeriodList" for-update="true">
                 <econdition field-name="previousPeriodId" from="timePeriodId"/></entity-find>
-            <if condition="nextTimePeriodList">
-                <then><set field="nextTimePeriod" from="nextTimePeriodList.first"/></then>
-                <else>
-                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
-                            in-map="[previousPeriodId:timePeriodId]"/>
-                    <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="nextTimePeriod">
-                        <field-map field-name="timePeriodId" from="createTpOut.timePeriodId"/></entity-find-one>
-                </else>
-            </if>
+            <if condition="nextTimePeriodList"><then>
+                <set field="nextTimePeriod" from="nextTimePeriodList.first"/>
+            </then><else>
+                <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                        in-map="[previousPeriodId:timePeriodId]"/>
+                <entity-find-one entity-name="mantle.party.time.TimePeriod" value-field="nextTimePeriod">
+                    <field-map field-name="timePeriodId" from="createTpOut.timePeriodId"/></entity-find-one>
+            </else></if>
             <set field="nextTimePeriodId" from="nextTimePeriod.timePeriodId"/>
         </actions>
     </service>
