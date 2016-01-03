@@ -22,8 +22,8 @@ import spock.lang.Shared
 import spock.lang.Specification
 import spock.lang.Unroll
 
-class MyAccountScreenTests extends Specification {
-    protected final static Logger logger = LoggerFactory.getLogger(MyAccountScreenTests.class)
+class ZzzMyAccountScreenTests extends Specification {
+    protected final static Logger logger = LoggerFactory.getLogger(ZzzMyAccountScreenTests.class)
 
     @Shared
     ExecutionContext ec
@@ -34,7 +34,8 @@ class MyAccountScreenTests extends Specification {
 
     def setupSpec() {
         ec = Moqui.getExecutionContext()
-        ec.user.loginUser("john.doe", "moqui", null)
+        // this is the user created in WorkPlanToCashBasicFlow
+        ec.user.loginUser("worker", "moqui1!", null)
         screenTest = ec.screen.makeTest().baseScreenPath("apps/my")
 
         ec.entity.tempSetSequencedIdPrimary("mantle.party.communication.CommunicationEvent", 55850, 10)
@@ -83,13 +84,25 @@ class MyAccountScreenTests extends Specification {
         "User/Messages/FindMessage" | ['Screen Test Subject']
         "User/Messages/MessageThread?communicationEventId=55850" | ['Screen Test Subject']
         "User/Messages/MessageThread/SingleMessage?communicationEventId=55850" | ['Screen Test Subject', 'Screen Test Body']
+
         "User/Calendar" | ['New Event']
         "User/Calendar/MyCalendar/createEvent?workEffortName=Screen Test Event&purposeEnumId=WepMeeting&estimatedStartDate=${effectiveTime}&estimatedWorkDuration=2" | []
-        // "User/Calendar/MyCalendar/getCalendarEvents?partyId=EX_JOHN_DOE" | ['55850', 'Screen Test Event', 'Meeting']
+        // "User/Calendar/MyCalendar/getCalendarEvents?partyId=" | ['55850', 'Screen Test Event', 'Meeting']
         "User/Calendar/EventDetail?workEffortId=55850" | ['Screen Test Event', 'Meeting']
-        "User/Task" | []
-        "User/TimeEntries" | []
+
+        "User/Task/MyTasks/createTask?purposeEnumId=WepTask&estimatedWorkTime=3&workEffortName=Screen Test Task&description=Screen Test Description" | []
+        "User/Task/MyTasks" | ['55851', 'Screen Test Task', 'In Planning']
+        "User/Task/TaskDetail?workEffortId=55851" |
+                ['Screen Test Task', 'Screen Test Description', 'In Planning', 'Test Worker']
+
+        "User/TimeEntries/recordTimeEntry?workEffortId=55851&rateTypeEnumId=RatpStandard&emplPositionClassId=Programmer&hours=3&pieceCount=150" | []
+        "User/TimeEntries" | ['Screen Test Task', 'Standard', '3.00']
         "User/ContactInfo" | ['Email Addresses', 'Phone Numbers']
-        "User/Account" | ['john.doe@test.com', 'John', 'Change Password']
+        "User/Account" | ['worker@test.com', 'Worker', 'Change Password']
+
+        "Expense/FindExpenseInvoice" | ['Test Vendor', 'Billed Through']
+        "Expense/EditExpenseInvoice?invoiceId=55900" | ['Test Worker', 'Billed Through', '849.12']
+        "Expense/EditExpenseInvoiceItems?invoiceId=55900" |
+                ['Expense - Travel Air', 'United SFO-LAX', 'Sales - Time Entry', '240.00']
     }
 }
