@@ -37,6 +37,7 @@ class MyAccountScreenTests extends Specification {
         ec.user.loginUser("john.doe", "moqui", null)
         screenTest = ec.screen.makeTest().baseScreenPath("apps/my")
 
+        ec.entity.tempSetSequencedIdPrimary("mantle.party.communication.CommunicationEvent", 55850, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.work.effort.WorkEffort", 55850, 10)
     }
 
@@ -44,6 +45,7 @@ class MyAccountScreenTests extends Specification {
         long totalTime = System.currentTimeMillis() - screenTest.startTime
         logger.info("Rendered ${screenTest.renderCount} screens (${screenTest.errorCount} errors) in ${ec.l10n.format(totalTime/1000, "0.000")}s, output ${ec.l10n.format(screenTest.renderTotalChars/1000, "#,##0")}k chars")
 
+        ec.entity.tempResetSequencedIdPrimary("mantle.party.communication.CommunicationEvent")
         ec.entity.tempResetSequencedIdPrimary("mantle.work.effort.WorkEffort")
         ec.destroy()
     }
@@ -77,17 +79,16 @@ class MyAccountScreenTests extends Specification {
 
         where:
         screenPath | containsTextList
-        "User/Messages/FindMessage" | ['Received', 'Gob Bluth', 'Comment']
-        "User/Messages/MessageThread?communicationEventId=HM-004-01-A1A" | ['Remaining hours question']
-        "User/Messages/MessageThread/SingleMessage?communicationEventId=HM-004-01-A1A" | ['Gob Bluth', 'John Doe', "It's about time"]
         "User/Messages/FindMessage/createMessage?toPartyId=ORG_BLUTH_GOB&subject=Screen Test Subject&body=Screen Test Body" | []
         "User/Messages/FindMessage" | ['Screen Test Subject']
+        "User/Messages/MessageThread?communicationEventId=55850" | ['Screen Test Subject']
+        "User/Messages/MessageThread/SingleMessage?communicationEventId=55850" | ['Screen Test Subject', 'Screen Test Body']
         "User/Calendar" | ['New Event']
         "User/Calendar/MyCalendar/createEvent?workEffortName=Screen Test Event&purposeEnumId=WepMeeting&estimatedStartDate=${effectiveTime}&estimatedWorkDuration=2" | []
         // "User/Calendar/MyCalendar/getCalendarEvents?partyId=EX_JOHN_DOE" | ['55850', 'Screen Test Event', 'Meeting']
         "User/Calendar/EventDetail?workEffortId=55850" | ['Screen Test Event', 'Meeting']
-        "User/Task" | ['Dashboard My Tasks', 'In Progress']
-        "User/TimeEntries" | ['Another Company Making Everything', 'Programmer Lead', 'Standard']
+        "User/Task" | []
+        "User/TimeEntries" | []
         "User/ContactInfo" | ['Email Addresses', 'Phone Numbers']
         "User/Account" | ['john.doe@test.com', 'John', 'Change Password']
     }
