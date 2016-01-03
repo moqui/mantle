@@ -45,23 +45,26 @@ class WorkPlanToCashBasicFlow extends Specification {
         ec.user.setEffectiveTime(effectiveThruDate)
         effectiveTime = effectiveThruDate.time
 
-        ec.entity.tempSetSequencedIdPrimary("moqui.security.UserAccount", 55900, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.party.Party", 55900, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55900, 10)
-        ec.entity.tempSetSequencedIdPrimary("mantle.work.time.TimeEntry", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.Invoice", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.party.Party", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.request.Request", 55900, 10)
+        ec.entity.tempSetSequencedIdPrimary("mantle.work.time.TimeEntry", 55900, 10)
         ec.entity.tempSetSequencedIdPrimary("moqui.entity.EntityAuditLog", 55900, 100)
+        ec.entity.tempSetSequencedIdPrimary("moqui.security.UserAccount", 55900, 10)
     }
 
     def cleanupSpec() {
-        ec.entity.tempResetSequencedIdPrimary("moqui.security.UserAccount")
-        ec.entity.tempResetSequencedIdPrimary("mantle.party.Party")
-        ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
-        ec.entity.tempResetSequencedIdPrimary("mantle.work.time.TimeEntry")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.Invoice")
         ec.entity.tempResetSequencedIdPrimary("mantle.account.invoice.InvoiceItemAssoc")
+        ec.entity.tempResetSequencedIdPrimary("mantle.ledger.transaction.AcctgTrans")
+        ec.entity.tempResetSequencedIdPrimary("mantle.party.Party")
+        ec.entity.tempResetSequencedIdPrimary("mantle.request.Request")
+        ec.entity.tempResetSequencedIdPrimary("mantle.work.time.TimeEntry")
         ec.entity.tempResetSequencedIdPrimary("moqui.entity.EntityAuditLog")
+        ec.entity.tempResetSequencedIdPrimary("moqui.security.UserAccount")
+
         ec.destroy()
     }
 
@@ -566,10 +569,10 @@ class WorkPlanToCashBasicFlow extends Specification {
                 roleTypeId="Worker" fromDate="${effectiveTime}" statusId="WeptAssigned"/>
 
             <moqui.entity.EntityAuditLog auditHistorySeqId="55927" changedEntityName="mantle.request.Request"
-                changedFieldName="statusId" pkPrimaryValue="100000" newValueText="ReqSubmitted"
+                changedFieldName="statusId" pkPrimaryValue="55900" newValueText="ReqSubmitted"
                 changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
             <moqui.entity.EntityAuditLog auditHistorySeqId="55928" changedEntityName="mantle.request.Request"
-                changedFieldName="statusId" pkPrimaryValue="100000" oldValueText="ReqSubmitted"
+                changedFieldName="statusId" pkPrimaryValue="55900" oldValueText="ReqSubmitted"
                 newValueText="ReqReviewed" changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
 
             <moqui.entity.EntityAuditLog auditHistorySeqId="55929" changedEntityName="mantle.work.effort.WorkEffort"
@@ -584,7 +587,7 @@ class WorkPlanToCashBasicFlow extends Specification {
                 changedFieldName="statusId" pkPrimaryValue="${createReqTskResult.workEffortId}" oldValueText="WeApproved"
                 newValueText="WeComplete" changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
             <moqui.entity.EntityAuditLog auditHistorySeqId="55932" changedEntityName="mantle.request.Request"
-                changedFieldName="statusId" pkPrimaryValue="100000" oldValueText="ReqReviewed"
+                changedFieldName="statusId" pkPrimaryValue="55900" oldValueText="ReqReviewed"
                 newValueText="ReqCompleted" changedDate="${effectiveTime}" changedByUserId="EX_JOHN_DOE"/>
 
         </entity-facade-xml>""").check()

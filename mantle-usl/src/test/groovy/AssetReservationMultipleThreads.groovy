@@ -76,7 +76,7 @@ class AssetReservationMultipleThreads extends Specification {
                 }
             }
         }
-        latch.await(20, TimeUnit.SECONDS)
+        latch.await(30, TimeUnit.SECONDS)
         EntityValue asset = gec.entity.find("mantle.product.asset.Asset").condition("assetId","DEMO_1_1A").one()
         logger.info("ATP of DEMO_1_1A is " + asset.availableToPromiseTotal)
 
@@ -88,8 +88,8 @@ class AssetReservationMultipleThreads extends Specification {
         then:
         asset.availableToPromiseTotal == -totalNotAvailable
 
-        cleanup:
-        cancelOrders(list)
+        // cleanup:
+        // cancelOrders(list)
     }
 
     String makeOrder(int threadId) {
@@ -123,7 +123,7 @@ class AssetReservationMultipleThreads extends Specification {
     }
 
     boolean cancelOrders(List orders) {
-        // orders.each { orderId -> gec.service.sync().name("mantle.order.OrderServices.cancel#Order").parameters([orderId: orderId]).call() }
+        orders.each { orderId -> gec.service.sync().name("mantle.order.OrderServices.cancel#Order").parameters([orderId: orderId]).call() }
         true
     }
 }

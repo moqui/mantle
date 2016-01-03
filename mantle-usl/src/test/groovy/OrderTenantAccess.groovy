@@ -92,11 +92,12 @@ class OrderTenantAccess extends Specification {
         setInfoOut = ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
                 .parameters([orderId:cartOrderId, paymentMethodId:'CustJqpCc', shippingPostalContactMechId:'CustJqpAddr',
                     shippingTelecomContactMechId:'CustJqpTeln', carrierPartyId:'_NA_', shipmentMethodEnumId:'ShMthGround']).call()
+
+        // place order, triggers tenant provision, etc
         ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:cartOrderId]).call()
 
         ec.user.logoutUser()
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${cartOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
                 statusId="OrderCompleted" currencyUomId="USD" productStoreId="POPC_DEFAULT" grandTotal="29.97"/>
@@ -129,7 +130,6 @@ class OrderTenantAccess extends Specification {
 
     def "validate Invoice"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and Finalized (status set by action in SECA rule), then Payment Received (status set by Payment application) -->
             <mantle.account.invoice.Invoice invoiceId="55600" invoiceTypeEnumId="InvoiceSales"
@@ -149,7 +149,6 @@ class OrderTenantAccess extends Specification {
 
     def "validate Invoice Accounting Transaction"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Finalized Invoice -->
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55600" acctgTransTypeEnumId="AttSalesInvoice"
@@ -171,7 +170,6 @@ class OrderTenantAccess extends Specification {
 
     def "validate Payment Accounting Transaction"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.payment.Payment paymentId="${setInfoOut.paymentId}" statusId="PmntDelivered"/>
             <mantle.account.payment.PaymentApplication paymentApplicationId="55600" paymentId="${setInfoOut.paymentId}"
