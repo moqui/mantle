@@ -14,6 +14,78 @@ along with this software (see the LICENSE.md file). If not, see
 -->
 <services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-1.6.xsd">
 
+    <service verb="get" noun="ReturnDisplayInfo">
+        <in-parameters><parameter name="returnId" required="true"/></in-parameters>
+        <out-parameters>
+            <parameter name="returnHeader" type="Map"/>
+            <parameter name="statusId"/>
+            <parameter name="statusHistoryList" type="List"><parameter name="auditLog" type="Map"/></parameter>
+            <parameter name="returnChangeable" type="Boolean"/>
+            <parameter name="isVendorOrgInternal" type="Boolean"/>
+            <parameter name="orgPartyId"/><parameter name="shippingPartyId"/>
+
+            <parameter name="returnItemList" type="List"><parameter name="returnItem" type="Map"/></parameter>
+            <parameter name="postalAddressList" type="List"><parameter name="postalAddress" type="Map"/></parameter>
+            <parameter name="telecomNumberList" type="List"><parameter name="telecomNumber" type="Map"/></parameter>
+
+            <parameter name="salesOrderIdSet" type="Set"><parameter name="salesOrderId"/></parameter>
+            <parameter name="replacementOrderIdSet" type="Set"><parameter name="replacementOrderId"/></parameter>
+            <parameter name="purchaseOrderIdSet" type="Set"><parameter name="purchaseOrderId"/></parameter>
+
+            <parameter name="shipmentItemSourceList" type="List"><parameter name="shipmentItemSource" type="Map"/></parameter>
+            <parameter name="receivingShipmentIdSet" type="Set"><parameter name="receivingShipmentId"/></parameter>
+            <parameter name="shippingShipmentIdSet" type="Set"><parameter name="shippingShipmentId"/></parameter>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.order.return.ReturnHeader" value-field="returnHeader"/>
+
+            <set field="statusId" from="returnHeader.statusId"/>
+            <entity-find entity-name="moqui.entity.EntityAuditLog" list="statusHistoryList">
+                <econdition field-name="changedEntityName" value="mantle.order.return.ReturnHeader"/>
+                <econdition field-name="changedFieldName" value="statusId"/>
+                <econdition field-name="pkPrimaryValue" from="returnId"/>
+            </entity-find>
+            <set field="returnChangeable" from="statusId in ['ReturnCreated', 'ReturnRequested', 'ReturnApproved']"/>
+
+            <entity-find entity-name="mantle.party.PartyRole" list="vendorOrgInternalList">
+                <econdition field-name="partyId" from="returnHeader.vendorPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <!-- if isVendorOrgInternal is a return from customer, otherwise is a return to supplier -->
+            <set field="isVendorOrgInternal" from="vendorOrgInternalList as boolean"/>
+
+            <set field="orgPartyId" from="isVendorOrgInternal ? returnHeader.vendorPartyId : returnHeader.customerPartyId"/>
+            <set field="shippingPartyId" from="isVendorOrgInternal ? returnHeader.customerPartyId : returnHeader.vendorPartyId"/>
+            <!-- get postalAddressList, telecomNumberList; may only have dest or origin used for order, just get all -->
+            <entity-find entity-name="mantle.party.contact.PartyContactMechPostalAddress" list="postalAddressList">
+                <date-filter/><econdition field-name="partyId" from="shippingPartyId"/></entity-find>
+            <entity-find entity-name="mantle.party.contact.PartyContactMechTelecomNumber" list="telecomNumberList">
+                <date-filter/><econdition field-name="partyId" from="shippingPartyId"/></entity-find>
+
+            <set field="salesOrderIdSet" from="new TreeSet()"/>
+            <set field="replacementOrderIdSet" from="new TreeSet()"/>
+            <set field="purchaseOrderIdSet" from="new TreeSet()"/>
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="returnId"/></entity-find>
+            <iterate list="returnItemList" entry="returnItem"><script>
+                if (isVendorOrgInternal) {
+                    if (returnItem.orderId) salesOrderIdSet.add(returnItem.orderId)
+                    if (returnItem.replacementOrderId) replacementOrderIdSet.add(returnItem.replacementOrderId)
+                } else {
+                    if (returnItem.orderId) purchaseOrderIdSet.add(returnItem.orderId)
+                }
+            </script></iterate>
+
+            <set field="receivingShipmentIdSet" from="new TreeSet()"/>
+            <set field="shippingShipmentIdSet" from="new TreeSet()"/>
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="shipmentItemSourceList">
+                <econdition field-name="returnId"/></entity-find>
+            <iterate list="shipmentItemSourceList" entry="sis"><script>
+                if (isVendorOrgInternal) { receivingShipmentIdSet.add(sis.shipmentId) }
+                else { shippingShipmentIdSet.add(sis.shipmentId)}
+            </script></iterate>
+        </actions>
+    </service>
+
     <!-- ============================================ -->
     <!-- ========== Create Return Services ========== -->
     <!-- ============================================ -->
