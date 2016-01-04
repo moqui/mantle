@@ -155,13 +155,12 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="moqui.basic.Enumeration" value-field="enumValue" cache="true">
                 <field-map field-name="enumId" from="glAccountClassEnumId"/>
             </entity-find-one>
-            <if condition="enumValue.parentEnumId">
+            <if condition="enumValue.parentEnumId"><then>
                 <service-call name="mantle.ledger.LedgerServices.find#RootGlAccountClassEnum" out-map="context"
                         in-map="[glAccountClassEnumId:enumValue.parentEnumId]"/>
-                <else>
-                    <set field="rootGlAccountClassEnumId" from="glAccountClassEnumId"/>
-                </else>
-            </if>
+            </then><else>
+                <set field="rootGlAccountClassEnumId" from="glAccountClassEnumId"/>
+            </else></if>
         </actions>
     </service>
     <service verb="expand" noun="ParentOrganizationList">
@@ -193,10 +192,11 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference" cache="true">
                 <field-map field-name="organizationPartyId"/></entity-find-one>
-            <if condition="onlyWithNoAcctgPreference &amp;&amp; partyAcctgPreference">
-                <then><set field="orgPartyIdList" from="[]"/></then>
-                <else><set field="orgPartyIdList" from="[organizationPartyId]"/></else>
-            </if>
+            <if condition="onlyWithNoAcctgPreference &amp;&amp; partyAcctgPreference"><then>
+                <set field="orgPartyIdList" from="[]"/>
+            </then><else>
+                <set field="orgPartyIdList" from="[organizationPartyId]"/>
+            </else></if>
 
             <entity-find entity-name="mantle.party.PartyRelationship" list="partyRelationshipList" cache="true">
                 <date-filter/>
@@ -424,10 +424,11 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="debitTotal" from="0"/>
             <set field="creditTotal" from="0"/>
             <iterate entry="acctgTransEntry" list="acctgTransEntryList">
-                <if condition="acctgTransEntry.debitCreditFlag == 'D'">
-                    <then><set field="debitTotal" from="debitTotal + acctgTransEntry.amount"/></then>
-                    <else><set field="creditTotal" from="creditTotal + acctgTransEntry.amount"/></else>
-                </if>
+                <if condition="acctgTransEntry.debitCreditFlag == 'D'"><then>
+                    <set field="debitTotal" from="debitTotal + acctgTransEntry.amount"/>
+                </then><else>
+                    <set field="creditTotal" from="creditTotal + acctgTransEntry.amount"/>
+                </else></if>
             </iterate>
 
             <set field="debitCreditDifference" from="debitTotal - creditTotal"/>
@@ -533,16 +534,16 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="ec.message.hasError()">
                 <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
                         in-map="[organizationPartyId:acctgTrans.organizationPartyId]"/>
-                <if condition="partyAcctgPreference?.errorGlJournalId">
+                <if condition="partyAcctgPreference?.errorGlJournalId"><then>
                     <service-call name="update#mantle.ledger.transaction.AcctgTrans"
                             in-map="[acctgTransId:acctgTransId, glJournalId:partyAcctgPreference.errorGlJournalId]"/>
                     <message>Accounting transaction [${acctgTransId}] has been saved in the Error Journal [${partyAcctgPreference.errorGlJournalId}].</message>
                     <script>ec.message.clearErrors()</script>
                     <return/>
-
+                </then><else>
                     <!-- if not errorGlJournalId return errors -->
-                    <else><check-errors/></else>
-                </if>
+                    <check-errors/>
+                </else></if>
             </if>
 
 
@@ -565,10 +566,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <service-call name="mantle.ledger.LedgerServices.find#RootGlAccountClassEnum" out-map="context"
                         in-map="[glAccountClassEnumId:glAccount.glAccountClassEnumId]"/>
 
-                <if condition="rootGlAccountClassEnumId == 'DEBIT'">
-                    <then><set field="postingAmount" from="acctgTransEntry.debitCreditFlag == 'D' ? acctgTransEntry.amount : -acctgTransEntry.amount"/></then>
-                    <else><set field="postingAmount" from="acctgTransEntry.debitCreditFlag == 'D' ? -acctgTransEntry.amount : acctgTransEntry.amount"/></else>
-                </if>
+                <if condition="rootGlAccountClassEnumId == 'DEBIT'"><then>
+                    <set field="postingAmount" from="acctgTransEntry.debitCreditFlag == 'D' ? acctgTransEntry.amount : -acctgTransEntry.amount"/>
+                </then><else>
+                    <set field="postingAmount" from="acctgTransEntry.debitCreditFlag == 'D' ? -acctgTransEntry.amount : acctgTransEntry.amount"/>
+                </else></if>
 
                 <!-- TODO: do anything with RESOURCE or potentially other root GL account classes? -->
 
@@ -591,10 +593,11 @@ along with this software (see the LICENSE.md file). If not, see
                                 timePeriodId:timePeriod.timePeriodId, beginningBalance:0, postedDebits:0, postedCredits:0, endingBalance:0]"/>
                     </if>
 
-                    <if condition="acctgTransEntry.debitCreditFlag == 'D'">
-                        <then><set field="glAccountOrgTimePeriod.postedDebits" from="(glAccountOrgTimePeriod.postedDebits ?: 0) + acctgTransEntry.amount"/></then>
-                        <else><set field="glAccountOrgTimePeriod.postedCredits" from="(glAccountOrgTimePeriod.postedCredits ?: 0) + acctgTransEntry.amount"/></else>
-                    </if>
+                    <if condition="acctgTransEntry.debitCreditFlag == 'D'"><then>
+                        <set field="glAccountOrgTimePeriod.postedDebits" from="(glAccountOrgTimePeriod.postedDebits ?: 0) + acctgTransEntry.amount"/>
+                    </then><else>
+                        <set field="glAccountOrgTimePeriod.postedCredits" from="(glAccountOrgTimePeriod.postedCredits ?: 0) + acctgTransEntry.amount"/>
+                    </else></if>
                     <set field="glAccountOrgTimePeriod.endingBalance" from="(glAccountOrgTimePeriod.endingBalance ?: 0) + postingAmount"/>
 
                     <entity-create value-field="glAccountOrgTimePeriod" or-update="true"/>
@@ -622,18 +625,15 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.ledger.transaction.AcctgTrans" value-field="acctgTrans" for-update="true"/>
 
-            <if condition="acctgTrans.isPosted != 'Y'"><if condition="deleteIfNotPosted">
-                <then>
-                    <service-call name="mantle.ledger.LedgerServices.delete#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
-                    <return/>
-                </then>
-                <else><return error="true" message="Not reversing transaction [${acctgTransId}], transaction is not posted"/></else>
-            </if></if>
+            <if condition="acctgTrans.isPosted != 'Y'"><if condition="deleteIfNotPosted"><then>
+                <service-call name="mantle.ledger.LedgerServices.delete#AcctgTrans" in-map="[acctgTransId:acctgTransId]"/>
+                <return/>
+            </then><else>
+                <return error="true" message="Not reversing transaction [${acctgTransId}], transaction is not posted"/>
+            </else></if></if>
 
             <entity-find entity-name="mantle.ledger.transaction.AcctgTransEntry" list="acctgTransEntryList">
-                <econdition field-name="acctgTransId"/>
-                <order-by field-name="acctgTransEntrySeqId"/>
-            </entity-find>
+                <econdition field-name="acctgTransId"/><order-by field-name="acctgTransEntrySeqId"/></entity-find>
 
             <set field="reverseAcctgTrans" from="acctgTrans.clone()"/>
             <set field="reverseAcctgTrans.acctgTransId" from="null"/>
@@ -657,7 +657,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="!reverseAcctgTransEntry.glAccountId"><set field="useErrorJournal" from="true"/></if>
             </iterate>
 
-            <if condition="useErrorJournal">
+            <if condition="useErrorJournal"><then>
                 <!-- put in the error journal for the org -->
                 <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
                         in-map="[organizationPartyId:acctgTrans.organizationPartyId]"/>
@@ -666,12 +666,10 @@ along with this software (see the LICENSE.md file). If not, see
                             in-map="[acctgTransId:reverseAcctgTrans.acctgTransId,
                                 glJournalId:partyAcctgPreference.errorGlJournalId]"/>
                 </if>
-
-                <else>
-                    <!-- call the post service -->
-                    <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:reverseAcctgTransId]"/>
-                </else>
-            </if>
+            </then><else>
+                <!-- call the post service -->
+                <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans" in-map="[acctgTransId:reverseAcctgTransId]"/>
+            </else></if>
 
             <set field="acctgTrans.reversedByAcctgTransId" from="reverseAcctgTransId"/>
             <entity-update value-field="acctgTrans"/>
@@ -754,53 +752,48 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- start with FiscalYear and go down so we have parentPeriodId -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="currentYearList"><date-filter valid-date="new Timestamp(basisDate.time)"/>
                 <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalYear"/></entity-find>
-            <if condition="!currentYearList">
-                <then>
-                    <!-- no current year... assume fiscal year is calendar year and create one automatically -->
-                    <script>yearFromCal = basisCal.clone(); yearFromCal.set(Calendar.DAY_OF_YEAR, 1)</script>
-                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
-                            in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalYear',
-                                fromDate:new java.sql.Date(yearFromCal.getTimeInMillis())]"/>
-                    <set field="yearPeriodId" from="createTpOut.timePeriodId"/>
-                </then>
-                <else><set field="yearPeriodId" from="currentYearList.first.timePeriodId"/></else>
-            </if>
+            <if condition="!currentYearList"><then>
+                <!-- no current year... assume fiscal year is calendar year and create one automatically -->
+                <script>yearFromCal = basisCal.clone(); yearFromCal.set(Calendar.DAY_OF_YEAR, 1)</script>
+                <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                        in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalYear',
+                            fromDate:new java.sql.Date(yearFromCal.getTimeInMillis())]"/>
+                <set field="yearPeriodId" from="createTpOut.timePeriodId"/>
+            </then><else>
+                <set field="yearPeriodId" from="currentYearList.first.timePeriodId"/>
+            </else></if>
 
             <!-- current quarter -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="currentQuarterList"><date-filter valid-date="new Timestamp(basisDate.time)"/>
                 <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalQuarter"/></entity-find>
-            <if condition="!currentQuarterList">
-                <then>
-                    <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
-                    <script>quarterNumber = (int) (basisCal.get(Calendar.MONTH)/3)</script>
-                    <script>quarterFromCal = basisCal.clone(); quarterFromCal.set(Calendar.MONTH, (quarterNumber * 3)); quarterFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
-                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
-                            in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalQuarter',
-                                parentPeriodId:yearPeriodId, periodNum:(quarterNumber + 1),
-                                fromDate:new java.sql.Date(quarterFromCal.getTimeInMillis())]"/>
-                    <set field="quarterPeriodId" from="createTpOut.timePeriodId"/>
-                </then>
-                <else><set field="quarterPeriodId" from="currentQuarterList.first.timePeriodId"/></else>
-            </if>
+            <if condition="!currentQuarterList"><then>
+                <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
+                <script>quarterNumber = (int) (basisCal.get(Calendar.MONTH)/3)</script>
+                <script>quarterFromCal = basisCal.clone(); quarterFromCal.set(Calendar.MONTH, (quarterNumber * 3)); quarterFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
+                <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                        in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalQuarter',
+                            parentPeriodId:yearPeriodId, periodNum:(quarterNumber + 1),
+                            fromDate:new java.sql.Date(quarterFromCal.getTimeInMillis())]"/>
+                <set field="quarterPeriodId" from="createTpOut.timePeriodId"/>
+            </then><else>
+                <set field="quarterPeriodId" from="currentQuarterList.first.timePeriodId"/>
+            </else></if>
 
             <!-- current month -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="currentMonthList"><date-filter valid-date="new Timestamp(basisDate.time)"/>
                 <econdition field-name="partyId" from="organizationPartyId"/><econdition field-name="timePeriodTypeId" value="FiscalMonth"/></entity-find>
-            <if condition="!currentMonthList">
-                <then>
-                    <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
-                    <script>monthNumber = basisCal.get(Calendar.MONTH)</script>
-                    <script>monthFromCal = basisCal.clone(); monthFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
-                    <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
-                            in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalMonth',
-                                parentPeriodId:quarterPeriodId, periodNum:(monthNumber + 1),
-                                fromDate:new java.sql.Date(monthFromCal.getTimeInMillis())]"/>
-                    <set field="monthPeriodId" from="createTpOut.timePeriodId"/>
-                </then>
-
-
-                <else><set field="monthPeriodId" from="currentMonthList.first.timePeriodId"/></else>
-            </if>
+            <if condition="!currentMonthList"><then>
+                <!-- no current quarter... assume fiscal year is calendar year with 4 3-month quarters and create one automatically -->
+                <script>monthNumber = basisCal.get(Calendar.MONTH)</script>
+                <script>monthFromCal = basisCal.clone(); monthFromCal.set(Calendar.DAY_OF_MONTH, 1)</script>
+                <service-call name="mantle.party.TimeServices.create#TimePeriod" out-map="createTpOut"
+                        in-map="[partyId:organizationPartyId, timePeriodTypeId:'FiscalMonth',
+                            parentPeriodId:quarterPeriodId, periodNum:(monthNumber + 1),
+                            fromDate:new java.sql.Date(monthFromCal.getTimeInMillis())]"/>
+                <set field="monthPeriodId" from="createTpOut.timePeriodId"/>
+            </then><else>
+                <set field="monthPeriodId" from="currentMonthList.first.timePeriodId"/>
+            </else></if>
 
             <!-- next year -->
             <!-- based on current year see if next exists and if not add one starting the day after and one year long -->
@@ -827,21 +820,17 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="thruTimestamp" from="ec.l10n.parseTimestamp(&quot;${timePeriod.thruDate} 23:59:59.999&quot;, '')"/>
 
             <if condition="timePeriod.isClosed == 'Y'">
-                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, already closed.</message>
-            </if>
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, already closed.</message></if>
             <if condition="ec.user.nowTimestamp.before(timePeriod.thruDate)">
-                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, period has not ended (ends on ${timePeriod.thruDate}).</message>
-            </if>
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, period has not ended (ends on ${timePeriod.thruDate}).</message></if>
 
             <!-- if any child periods make sure they are closed -->
             <entity-find entity-name="mantle.party.time.TimePeriod" list="childTimePeriodList">
                 <econdition field-name="parentPeriodId" from="timePeriodId"/>
             </entity-find>
-            <iterate list="childTimePeriodList" entry="childTimePeriod">
-                <if condition="childTimePeriod.isClosed != 'Y'">
-                    <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, child period ${ec.resource.expand('TimePeriodNameTemplate','',childTimePeriod)} not closed.</message>
-                </if>
-            </iterate>
+            <iterate list="childTimePeriodList" entry="childTimePeriod"><if condition="childTimePeriod.isClosed != 'Y'">
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, child period ${ec.resource.expand('TimePeriodNameTemplate','',childTimePeriod)} not closed.</message>
+            </if></iterate>
 
             <!-- make sure there are no unposted transactions within the time period -->
             <entity-find-count entity-name="mantle.ledger.transaction.AcctgTrans" count-field="unpostedTransCount">
@@ -850,8 +839,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="transactionDate" operator="less-equals" from="thruTimestamp"/>
             </entity-find-count>
             <if condition="unpostedTransCount &gt; 0">
-                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, found ${unpostedTransCount} in period.</message>
-            </if>
+                <message error="true">Not closing period ${ec.resource.expand('TimePeriodNameTemplate','',timePeriod)}, found ${unpostedTransCount} in period.</message></if>
 
             <!-- check errors before continuing -->
             <check-errors/>
@@ -897,10 +885,11 @@ along with this software (see the LICENSE.md file). If not, see
                 </entity-find>
                 <!-- should have at most 2 results, debitCreditFlag=D, debitCreditFlag=C -->
                 <set field="postedDebits" from="0"/><set field="postedCredits" from="0"/>
-                <iterate list="transSummaryList" entry="transSummary"><if condition="transSummary.debitCreditFlag == 'D'">
-                    <then><set field="postedDebits" from="transSummary.amount"/></then>
-                    <else><set field="postedCredits" from="transSummary.amount"/></else>
-                </if></iterate>
+                <iterate list="transSummaryList" entry="transSummary"><if condition="transSummary.debitCreditFlag == 'D'"><then>
+                    <set field="postedDebits" from="transSummary.amount"/>
+                </then><else>
+                    <set field="postedCredits" from="transSummary.amount"/>
+                </else></if></iterate>
                 <if condition="postedDebits != glAccountOrgTimePeriod.postedDebits">
                     <set field="glAccountOrgTimePeriod.postedDebits" from="postedDebits"/></if>
                 <if condition="postedCredits != glAccountOrgTimePeriod.postedCredits">
@@ -912,12 +901,13 @@ along with this software (see the LICENSE.md file). If not, see
                         <field-map field-name="glAccountId" from="glAccountOrgTimePeriod.glAccountId"/></entity-find-one>
                     <service-call name="mantle.ledger.LedgerServices.find#RootGlAccountClassEnum" out-map="context"
                             in-map="[glAccountClassEnumId:glAccount.glAccountClassEnumId]"/>
-                    <if condition="rootGlAccountClassEnumId == 'DEBIT'">
-                        <then><set field="glAccountOrgTimePeriod.endingBalance" from="(glAccountOrgTimePeriod.beginningBalance?:0) +
-                                (glAccountOrgTimePeriod.postedDebits?:0) - (glAccountOrgTimePeriod.postedCredits?:0)"/></then>
-                        <else><set field="glAccountOrgTimePeriod.endingBalance" from="(glAccountOrgTimePeriod.beginningBalance?:0) -
-                                (glAccountOrgTimePeriod.postedDebits?:0) + (glAccountOrgTimePeriod.postedCredits?:0)"/></else>
-                    </if>
+                    <if condition="rootGlAccountClassEnumId == 'DEBIT'"><then>
+                        <set field="glAccountOrgTimePeriod.endingBalance" from="(glAccountOrgTimePeriod.beginningBalance?:0) +
+                                (glAccountOrgTimePeriod.postedDebits?:0) - (glAccountOrgTimePeriod.postedCredits?:0)"/>
+                    </then><else>
+                        <set field="glAccountOrgTimePeriod.endingBalance" from="(glAccountOrgTimePeriod.beginningBalance?:0) -
+                                (glAccountOrgTimePeriod.postedDebits?:0) + (glAccountOrgTimePeriod.postedCredits?:0)"/>
+                    </else></if>
 
                     <log level="info" message="In close#FinancialTimePeriod found GlAccountOrgTimePeriod (organizationPartyId=${glAccountOrgTimePeriod.organizationPartyId}, timePeriodId=${glAccountOrgTimePeriod.timePeriodId}, glAccountId=${glAccountOrgTimePeriod.glAccountId}, root class ${rootGlAccountClassEnumId}) with wrong posted amounts; beginningBalance=${glAccountOrgTimePeriod.beginningBalance}, postedDebits was ${origGlAccountOrgTimePeriod.postedDebits} is ${glAccountOrgTimePeriod.postedDebits}, postedCredits was ${origGlAccountOrgTimePeriod.postedCredits} is ${glAccountOrgTimePeriod.postedCredits}, endingBalance was ${origGlAccountOrgTimePeriod.endingBalance} is ${glAccountOrgTimePeriod.endingBalance}"/>
                     <!-- update the record -->
@@ -1007,10 +997,8 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="acctgTransList" entry="acctgTrans">
                 <service-call name="mantle.ledger.LedgerServices.post#AcctgTrans"
                         in-map="[acctgTransId:acctgTrans.acctgTransId]"/>
-                <if condition="ec.message.hasError()">
-                    <return error="true"/>
-                    <else><set field="txPostCount" from="txPostCount + 1"/></else>
-                </if>
+                <if condition="ec.message.hasError()"><then><return error="true"/></then>
+                    <else><set field="txPostCount" from="txPostCount + 1"/></else></if>
             </iterate>
             <message>Posted ${txPostCount} transactions</message>
 
