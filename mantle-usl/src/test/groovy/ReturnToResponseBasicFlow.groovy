@@ -244,8 +244,8 @@ class ReturnToResponseBasicFlow extends Specification {
                 <parts shipmentMethodEnumId="ShMthGround" telecomContactMechId="CustJqpTeln" postalContactMechId="CustJqpAddr" partTotal="0" customerPartyId="CustJqp" lastUpdatedStamp="1450573654119" facilityId="ORG_ZIZI_RETAIL_WH" vendorPartyId="ORG_ZIZI_RETAIL" carrierPartyId="_NA_" statusId="OrderApproved" orderPartSeqId="01"/>
                 <items orderItemSeqId="01" isModifiedPrice="N" itemTypeEnumId="ItemProduct" quantity="1"
                         itemDescription="Demo Product One-One" productId="DEMO_1_1" unitAmount="0" orderPartSeqId="01">
-                    <reservations reservedDate="${effectiveTime}" quantity="1" productId="DEMO_1_1" sequenceNum="0"
-                            quantityNotIssued="1" assetReservationId="55701" assetId="55400" quantityNotAvailable="0"
+                    <reservations assetReservationId="55701" assetId="55400" reservedDate="${effectiveTime}" quantity="1"
+                            productId="DEMO_1_1" sequenceNum="1" quantityNotIssued="1" quantityNotAvailable="0"
                             reservationOrderEnumId="AsResOrdFifoRec">
                         <mantle.product.asset.AssetDetail assetDetailId="55705" assetId="55400" productId="DEMO_1_1"
                             availableToPromiseDiff="-1" effectiveDate="${effectiveTime}"/>
