@@ -58,17 +58,21 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderItemBillingList" type="List"><parameter name="oib" type="Map">
                 <auto-parameters entity-name="mantle.order.OrderItemBilling"/></parameter></parameter>
             <parameter name="invoiceIdSet" type="Set"><parameter name="invoiceId"/></parameter>
+
+            <parameter name="returnItemList" type="List"><parameter name="returnItem" type="Map">
+                <auto-parameters entity-name="mantle.order.return.ReturnItem"/></parameter></parameter>
+
             <parameter name="requestItemOrderList" type="List"><parameter name="rio" type="Map">
                 <auto-parameters entity-name="mantle.request.RequestItemOrder"/></parameter></parameter>
             <parameter name="requestIdSet" type="Set"><parameter name="requestId"/></parameter>
+
             <parameter name="statusHistoryList" type="List"><parameter name="auditLog" type="Map">
                 <auto-parameters entity-name="moqui.entity.EntityAuditLog"/></parameter></parameter>
             <parameter name="orderNoteList" type="List"><parameter name="orderNote" type="Map">
                 <auto-parameters entity-name="mantle.order.OrderNote"/></parameter></parameter>
 
             <parameter name="orderPartList" type="List"><parameter name="orderPart" type="Map">
-                <auto-parameters entity-name="mantle.order.OrderPart"/></parameter>
-            </parameter>
+                <auto-parameters entity-name="mantle.order.OrderPart"/></parameter></parameter>
             <parameter name="orderPartInfoList" type="List"><parameter name="orderPartInfo" type="Map">
                 <parameter name="orderPart" type="Map"><auto-parameters entity-name="mantle.order.OrderPart"/></parameter>
                 <parameter name="partOrderItemList" type="List"><parameter name="partOrderItem" type="Map">
@@ -179,6 +183,12 @@ h2. General Order Placement and eCommerce Usage
             <iterate list="orderItemBillingList" entry="orderItemBilling">
                 <script>invoiceIdSet.add(orderItemBilling.invoiceId)</script></iterate>
 
+            <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                <econdition field-name="orderId"/>
+                <econdition field-name="statusId" operator="not-equals" value="ReturnCancelled"/>
+                <order-by field-name="orderItemSeqId"/>
+            </entity-find>
+
             <entity-find entity-name="mantle.request.RequestItemOrder" list="requestItemOrderList">
                 <econdition field-name="orderId"/></entity-find>
             <set field="requestIdSet" from="new TreeSet()"/>
@@ -265,6 +275,10 @@ h2. General Order Placement and eCommerce Usage
                         .condition([orderId:orderPart.orderId, orderPartSeqId:orderPart.orderPartSeqId]).orderBy("description").list()
                 EntityValue customerShipToDetail = orderPartPartyList.find({ it.roleTypeId == 'CustomerShipTo' })
 
+                // find applicable open returns
+                Map openReturnsResult = ec.service.sync().name("mantle.order.ReturnServices.find#OrderOpenReturns")
+                        .parameters([orderId:orderPart.orderId, orderPartSeqId:orderPart.orderPartSeqId]).call()
+
                 orderPartInfoList.add([orderPart:orderPart, partOrderItemList:partOrderItemList,
                         partNoParentOrderItemList:partNoParentOrderItemList,
                         shipmentMethodEnum:orderPart."ShipmentMethod#moqui.basic.Enumeration",
@@ -275,7 +289,8 @@ h2. General Order Placement and eCommerce Usage
                         facilityContactInfo:facilityContactInfo, customerDetail:customerDetail, vendorDetail:vendorDetail,
                         isCustomerInternalOrg:isCustomerInternalOrg, isVendorInternalOrg:isVendorInternalOrg,
                         orderPartPartyList:orderPartPartyList, customerShipToDetail:customerShipToDetail,
-                        partShipmentItemSourceList:partShipmentItemSourceList, partShipmentIdSet:partShipmentIdSet])
+                        partShipmentItemSourceList:partShipmentItemSourceList, partShipmentIdSet:partShipmentIdSet,
+                        openReturnList:openReturnsResult.openReturnList])
             }
             </script>
             <!-- <log level="warn" message="======== OrderDisplayInfo orderPartInfoList: ${orderPartInfoList}"/> -->
