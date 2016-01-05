@@ -124,15 +124,13 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="invoiceId"/></entity-find>
             <set field="invoiceTotal" from="0"/>
             <iterate list="invoiceItemList" entry="invoiceItem">
-                <set field="invoiceTotal" from="invoiceTotal + ((invoiceItem.quantity ?: 1) * (invoiceItem.amount ?: 0))"/>
-            </iterate>
+                <set field="invoiceTotal" from="invoiceTotal + ((invoiceItem.quantity ?: 1) * (invoiceItem.amount ?: 0))"/></iterate>
 
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="invoiceId"/></entity-find>
             <set field="appliedPaymentsTotal" from="0"/>
             <iterate list="paymentApplicationList" entry="paymentApplication">
-                <set field="appliedPaymentsTotal" from="appliedPaymentsTotal + (paymentApplication.amountApplied ?: 0)"/>
-            </iterate>
+                <set field="appliedPaymentsTotal" from="appliedPaymentsTotal + (paymentApplication.amountApplied ?: 0)"/></iterate>
 
             <set field="unpaidTotal" from="invoiceTotal - appliedPaymentsTotal"/>
         </actions>
@@ -170,11 +168,13 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="itemTypeSummaryMapMap" from="[:]"/>
             <iterate list="invoiceItemList" entry="invoiceItem">
                 <set field="mapKey" from="invoiceItem.itemTypeEnumId"/>
-                <if condition="invoiceItem.itemTypeEnumId == 'ItemTimeEntry'"><set field="mapKey" from="mapKey + '::' + invoiceItem.amount"/></if>
+                <if condition="invoiceItem.itemTypeEnumId == 'ItemTimeEntry'">
+                    <set field="mapKey" from="mapKey + '::' + invoiceItem.amount"/></if>
                 <set field="itemTypeSummaryMap" from="itemTypeSummaryMapMap.get(mapKey)"/>
                 <if condition="!itemTypeSummaryMap">
                     <set field="itemTypeSummaryMap" from="[itemTypeEnumId:invoiceItem.itemTypeEnumId, quantity:0, total:0]"/>
-                    <if condition="invoiceItem.itemTypeEnumId == 'ItemTimeEntry'"><set field="itemTypeSummaryMap.amount" from="invoiceItem.amount"/></if>
+                    <if condition="invoiceItem.itemTypeEnumId == 'ItemTimeEntry'">
+                        <set field="itemTypeSummaryMap.amount" from="invoiceItem.amount"/></if>
                     <script>itemTypeSummaryMapMap.put(mapKey, itemTypeSummaryMap)</script>
                 </if>
                 <set field="itemTypeSummaryMap.quantity" from="itemTypeSummaryMap.quantity + (invoiceItem.quantity ?: 1)"/>
@@ -183,15 +183,13 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="itemTypeSummaryMapList" from="itemTypeSummaryMapMap.values()"/>
 
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="fromParty">
-                <field-map field-name="partyId" from="invoice.fromPartyId"/>
-            </entity-find-one>
+                <field-map field-name="partyId" from="invoice.fromPartyId"/></entity-find-one>
             <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="fromContactInfo"
                     in-map="[partyId:invoice.fromPartyId, postalContactMechPurposeId:'PostalPayment',
                         telecomContactMechPurposeId:'PhonePayment', emailContactMechPurposeId:'EmailPayment']"/>
 
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="toParty">
-                <field-map field-name="partyId" from="invoice.toPartyId"/>
-            </entity-find-one>
+                <field-map field-name="partyId" from="invoice.toPartyId"/></entity-find-one>
             <service-call name="mantle.party.ContactServices.get#PartyContactInfo" out-map="toContactInfo"
                     in-map="[partyId:invoice.toPartyId, postalContactMechPurposeId:'PostalBilling',
                         telecomContactMechPurposeId:'PhoneBilling', emailContactMechPurposeId:'EmailBilling']"/>
@@ -441,9 +439,8 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
 
             <!-- update Invoice status to statusId passed in -->
-            <if condition="statusId">
-                <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:statusId]"/>
-            </if>
+            <if condition="statusId"><service-call name="update#mantle.account.invoice.Invoice"
+                    in-map="[invoiceId:invoiceId, statusId:statusId]"/></if>
         </actions>
     </service>
 
@@ -480,7 +477,6 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="itemAmount == 0"><continue/></if>
 
                 <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
-
                 <set field="invoiceId" from="invoiceIdByOrderPartIdMap[orderItem.orderId + ':' + orderItem.orderPartSeqId]"/>
 
                 <if condition="!invoiceId">
@@ -734,8 +730,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <if condition="!workEffortId &amp;&amp; !toPartyId">
-                <return error="true" message="Must specify either Project (workEffortId) or To Party (toPartyId)"/>
-            </if>
+                <return error="true" message="Must specify either Project (workEffortId) or To Party (toPartyId)"/></if>
 
             <if condition="!currencyUomId">
                 <entity-find-one entity-name="mantle.ledger.config.PartyAcctgPreference" value-field="partyAcctgPreference">
@@ -753,8 +748,7 @@ along with this software (see the LICENSE.md file). If not, see
             <service-call name="create#mantle.account.invoice.Invoice" in-map="context" out-map="context"/>
 
             <if condition="workEffortId">
-                <service-call name="create#mantle.work.effort.WorkEffortInvoice" in-map="context" out-map="context"/>
-            </if>
+                <service-call name="create#mantle.work.effort.WorkEffortInvoice" in-map="context" out-map="context"/></if>
         </actions>
     </service>
 
@@ -787,8 +781,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="billFromWep" from="billFromList ? billFromList[0] : null"/>
 
             <entity-find-one entity-name="mantle.party.PartyDetail" value-field="workerParty">
-                <field-map field-name="partyId" from="workerPartyId"/>
-            </entity-find-one>
+                <field-map field-name="partyId" from="workerPartyId"/></entity-find-one>
 
             <!-- create Invoice associated with WorkEffort, use WorkEffortParty to find from/to parties -->
             <if condition="!invoiceId">
@@ -880,10 +873,11 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.work.effort.WorkEffort" value-field="workEffort"/>
 
-            <if condition="ratePurposeEnumId == 'RaprVendor'">
+            <if condition="ratePurposeEnumId == 'RaprVendor'"><then>
                 <set field="timeEntryInvoiceCondition" from="[vendorInvoiceId:null]"/>
-                <else><set field="timeEntryInvoiceCondition" from="[invoiceId:null]"/></else>
-            </if>
+            </then><else>
+                <set field="timeEntryInvoiceCondition" from="[invoiceId:null]"/>
+            </else></if>
             <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList">
                 <econdition-object field="timeEntryInvoiceCondition"/>
                 <econdition field-name="workEffortId" ignore-if-empty="true"/>
@@ -961,11 +955,9 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="invoiceItemCreatedCount" from="0" type="Long"/>
 
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="originalInvoice">
-                <field-map field-name="invoiceId" from="originalInvoiceId"/>
-            </entity-find-one>
+                <field-map field-name="invoiceId" from="originalInvoiceId"/></entity-find-one>
             <entity-find entity-name="mantle.account.invoice.InvoiceItem" list="originalInvoiceItemList">
-                <econdition field-name="invoiceId" from="originalInvoiceId"/>
-            </entity-find>
+                <econdition field-name="invoiceId" from="originalInvoiceId"/></entity-find>
             <iterate list="originalInvoiceItemList" entry="originalInvoiceItem">
                 <!-- if there is a TimeEntry with this as a vendor InvoiceItem skip it so it isn't double billed (and at the incorrect rate) -->
                 <entity-find entity-name="mantle.work.time.TimeEntry" list="timeEntryList">
@@ -1013,19 +1005,15 @@ along with this software (see the LICENSE.md file). If not, see
                 <if condition="invoice.statusId == 'InvoicePmtSent'"><set field="statusId" value="InvoiceApproved"/></if>
             </if>
             <if condition="statusId &amp;&amp; invoice.statusId != statusId">
-                <service-call name="update#mantle.account.invoice.Invoice"
-                        in-map="[invoiceId:invoiceId, statusId:statusId]"/>
-            </if>
+                <service-call name="update#mantle.account.invoice.Invoice" in-map="[invoiceId:invoiceId, statusId:statusId]"/></if>
 
             <!-- unapply payment applications -->
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="invoiceId"/></entity-find>
-            <iterate list="paymentApplicationList" entry="paymentApplication">
-                <if condition="paymentApplication.amountApplied != 0">
-                    <service-call name="mantle.account.PaymentServices.unapply#PaymentApplication"
-                            in-map="[paymentApplicationId:paymentApplication.paymentApplicationId]"/>
-                </if>
-            </iterate>
+            <iterate list="paymentApplicationList" entry="paymentApplication"><if condition="paymentApplication.amountApplied != 0">
+                <service-call name="mantle.account.PaymentServices.unapply#PaymentApplication"
+                        in-map="[paymentApplicationId:paymentApplication.paymentApplicationId]"/>
+            </if></iterate>
         </actions>
     </service>
 

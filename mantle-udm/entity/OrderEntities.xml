@@ -109,8 +109,12 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- An Open Order is like a shopping cart -->
             <moqui.basic.StatusItem description="Open (Tentative)" sequenceNum="1" statusId="OrderOpen" statusTypeId="OrderHeader"/>
-            <moqui.basic.StatusItem description="Proposed by Vendor" sequenceNum="2" statusId="OrderProposed" statusTypeId="OrderHeader"/>
-            <moqui.basic.StatusItem description="Placed" sequenceNum="3" statusId="OrderPlaced" statusTypeId="OrderHeader"/>
+            <!-- Request Quote done by Customer (or at Customer's request) -->
+            <moqui.basic.StatusItem description="Quote Requested" sequenceNum="2" statusId="OrderRequested" statusTypeId="OrderHeader"/>
+            <!-- Propose done by Vendor -->
+            <moqui.basic.StatusItem description="Proposed by Vendor" sequenceNum="3" statusId="OrderProposed" statusTypeId="OrderHeader"/>
+            <!-- Place done by Customer (or at Customer's request) -->
+            <moqui.basic.StatusItem description="Placed" sequenceNum="4" statusId="OrderPlaced" statusTypeId="OrderHeader"/>
 
             <moqui.basic.StatusItem description="Processing" sequenceNum="11" statusId="OrderProcessing" statusTypeId="OrderHeader"/>
             <moqui.basic.StatusItem description="Approved" sequenceNum="12" statusId="OrderApproved" statusTypeId="OrderHeader"/>
@@ -119,7 +123,9 @@ along with this software (see the LICENSE.md file). If not, see
             <moqui.basic.StatusItem description="Completed" sequenceNum="21" statusId="OrderCompleted" statusTypeId="OrderHeader"/>
             <moqui.basic.StatusItem description="Held" sequenceNum="22" statusId="OrderHold" statusTypeId="OrderHeader"/>
 
+            <!-- Reject done by Vendor -->
             <moqui.basic.StatusItem description="Rejected" sequenceNum="98" statusId="OrderRejected" statusTypeId="OrderHeader"/>
+            <!-- Cancel done by Customer (or at Customer's request) -->
             <moqui.basic.StatusItem description="Cancelled" sequenceNum="99" statusId="OrderCancelled" statusTypeId="OrderHeader"/>
 
             <moqui.basic.StatusItem description="Wish List" sequenceNum="101" statusId="OrderWishList" statusTypeId="OrderHeader"/>
@@ -128,14 +134,16 @@ along with this software (see the LICENSE.md file). If not, see
 
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderBeingChanged" toStatusId="OrderOpen" transitionName="Make Open/Tentative"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderOpen" toStatusId="OrderBeingChanged" transitionName="Begin Changes"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderOpen" toStatusId="OrderProposed" transitionName="Propose"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderOpen" toStatusId="OrderPlaced" transitionName="Place"/>
 
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderBeingChanged" toStatusId="OrderProposed" transitionName="Propose"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderOpen" toStatusId="OrderRequested" transitionName="Request Quote"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderRequested" toStatusId="OrderProposed" transitionName="Propose Quote"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderRequested" toStatusId="OrderRejected" transitionName="Reject Request"/>
+
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderBeingChanged" toStatusId="OrderProposed" transitionName="Propose Quote"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderProposed" toStatusId="OrderBeingChanged" transitionName="Begin Changes"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderProposed" toStatusId="OrderPlaced" transitionName="Place"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderProposed" toStatusId="OrderRejected" transitionName="Reject"/>
-            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderProposed" toStatusId="OrderCancelled" transitionName="Cancel"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderProposed" toStatusId="OrderPlaced" transitionName="Place from Quote"/>
+            <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderProposed" toStatusId="OrderCancelled" transitionName="Cancel Quote"/>
 
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderBeingChanged" toStatusId="OrderPlaced" transitionName="Place"/>
             <moqui.basic.StatusFlowTransition statusFlowId="Default" statusId="OrderPlaced" toStatusId="OrderProcessing" transitionName="Process"/>
