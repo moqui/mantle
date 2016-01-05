@@ -763,19 +763,17 @@ h2. General Order Placement and eCommerce Usage
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
-            <if condition="orderPartSeqId">
+            <if condition="orderPartSeqId"><then>
                 <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
-
-                <else>
-                    <!-- just get the first part -->
-                    <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
-                        <econdition field-name="orderId"/>
-                        <order-by field-name="orderPartSeqId"/>
-                    </entity-find>
-                    <set field="orderPart" from="orderPartList.first"/>
-                    <set field="orderPartSeqId" from="orderPart.orderPartSeqId"/>
-                </else>
-            </if>
+            </then><else>
+                <!-- just get the first part -->
+                <entity-find entity-name="mantle.order.OrderPart" list="orderPartList">
+                    <econdition field-name="orderId"/>
+                    <order-by field-name="orderPartSeqId"/>
+                </entity-find>
+                <set field="orderPart" from="orderPartList.first"/>
+                <set field="orderPartSeqId" from="orderPart.orderPartSeqId"/>
+            </else></if>
 
             <if condition="shippingPostalContactMechId &amp;&amp; !shippingTelecomContactMechId">
                 <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress">
@@ -833,20 +831,17 @@ h2. General Order Placement and eCommerce Usage
                         in-map="[orderId:orderId, orderPartSeqId:orderPart.orderPartSeqId]"/>
             </if>
 
-            <if condition="paymentId">
-                <then>
-                    <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
-                </then>
-                <else>
-                    <!-- try the first payment for the part -->
-                    <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
-                        <econdition field-name="orderId"/>
-                        <econdition field-name="orderPartSeqId"/>
-                        <order-by field-name="paymentId"/>
-                    </entity-find>
-                    <set field="payment" from="paymentList.first"/>
-                </else>
-            </if>
+            <if condition="paymentId"><then>
+                <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            </then><else>
+                <!-- try the first payment for the part -->
+                <entity-find entity-name="mantle.account.payment.Payment" list="paymentList">
+                    <econdition field-name="orderId"/>
+                    <econdition field-name="orderPartSeqId"/>
+                    <order-by field-name="paymentId"/>
+                </entity-find>
+                <set field="payment" from="paymentList.first"/>
+            </else></if>
 
             <if condition="!paymentInstrumentEnumId &amp;&amp; paymentMethodId">
                 <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
@@ -857,22 +852,19 @@ h2. General Order Placement and eCommerce Usage
                 </entity-find>
                 <set field="paymentInstrumentEnumId" from="instrEnumList ? instrEnumList[0].enumId : null"/>
             </if>
-            <if condition="payment">
-                <then>
-                    <!-- update existing payment -->
-                    <set field="payment.paymentMethodId" from="paymentMethodId"/>
-                    <set field="payment.paymentInstrumentEnumId" from="paymentInstrumentEnumId"/>
-                    <set field="payment.amount" from="orderPart.partTotal"/>
-                    <entity-update value-field="payment"/>
-                    <set field="paymentId" from="payment.paymentId"/>
-                </then>
-                <else-if condition="paymentMethodId || paymentInstrumentEnumId">
-                    <!-- create a new Payment for the Order -->
-                    <service-call name="mantle.order.OrderServices.add#OrderPartPayment" out-map="context"
-                            in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                                paymentInstrumentEnumId:paymentInstrumentEnumId]"/>
-                </else-if>
-            </if>
+            <if condition="payment"><then>
+                <!-- update existing payment -->
+                <set field="payment.paymentMethodId" from="paymentMethodId"/>
+                <set field="payment.paymentInstrumentEnumId" from="paymentInstrumentEnumId"/>
+                <set field="payment.amount" from="orderPart.partTotal"/>
+                <entity-update value-field="payment"/>
+                <set field="paymentId" from="payment.paymentId"/>
+            </then><else-if condition="paymentMethodId || paymentInstrumentEnumId">
+                <!-- create a new Payment for the Order -->
+                <service-call name="mantle.order.OrderServices.add#OrderPartPayment" out-map="context"
+                        in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
+                            paymentInstrumentEnumId:paymentInstrumentEnumId]"/>
+            </else-if></if>
         </actions>
     </service>
     <service verb="add" noun="OrderPartPayment">

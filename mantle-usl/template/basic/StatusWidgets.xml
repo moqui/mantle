@@ -103,7 +103,7 @@ along with this software (see the LICENSE.md file). If not, see
         </section>
 
         <!-- this requires a statusHistoryList field in the context (with moqui.entity.EntityAuditLog values) OR a
-        changedEntityName (like "example.Example") and pkPrimaryValue (exampleId, orderId, etc value) -->
+            changedEntityName (like "example.Example") and pkPrimaryValue (exampleId, orderId, etc value) -->
         <section name="StatusChangeAndHistorySection">
             <actions>
                 <entity-find-one entity-name="moqui.basic.StatusItem" value-field="statusItem"/>
@@ -112,19 +112,16 @@ along with this software (see the LICENSE.md file). If not, see
                     <econdition field-name="statusFlowId" from="statusFlowId ?: 'Default'"/>
                     <order-by field-name="transitionSequence,transitionName"/>
                 </entity-find>
-                <if condition="!statusHistoryList &amp;&amp; changedEntityName">
+                <if condition="!statusHistoryList &amp;&amp; changedEntityName"><then>
                     <entity-find entity-name="moqui.entity.EntityAuditLog" list="reverseList">
                         <econdition field-name="changedEntityName"/>
                         <econdition field-name="changedFieldName" value="statusId"/>
                         <econdition field-name="pkPrimaryValue"/>
                         <order-by field-name="-changedDate"/>
                     </entity-find>
-                    <else-if condition="statusHistoryList">
-                        <script><![CDATA[
-                            reverseList = statusHistoryList.cloneList().orderByFields(["-changedDate"])
-                        ]]></script>
-                    </else-if>
-                </if>
+                </then><else-if condition="statusHistoryList">
+                    <script>reverseList = statusHistoryList.cloneList().orderByFields(["-changedDate"])</script>
+                </else-if></if>
             </actions>
             <widgets>
                 <container-box>

@@ -153,7 +153,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="alsoIncludePrimaryPurpose" type="Boolean" default="true"/>
         </in-parameters>
         <out-parameters>
-            <parameter name="postalAddressList" type="List"><parameter name="infoMap">
+            <parameter name="postalAddressList" type="List"><parameter name="infoMap" type="Map">
                 <parameter name="postalContactMechId"/>
                 <parameter name="postalContactMech" type="EntityValue"/>
                 <parameter name="postalContactMechPurposeId"/>
@@ -169,14 +169,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <parameter name="emailContactMech" type="EntityValue"/>
                 <parameter name="emailAddress"/>
             </parameter></parameter>
-            <parameter name="telecomNumberList" type="List"><parameter name="infoMap">
+            <parameter name="telecomNumberList" type="List"><parameter name="infoMap" type="Map">
                 <parameter name="telecomContactMechId"/>
                 <parameter name="telecomContactMech" type="EntityValue"/>
                 <parameter name="telecomContactMechPurposeId"/>
                 <parameter name="telecomContactMechPurpose" type="EntityValue"/>
                 <parameter name="telecomNumber" type="EntityValue"/>
             </parameter></parameter>
-            <parameter name="emailAddressList" type="List"><parameter name="infoMap">
+            <parameter name="emailAddressList" type="List"><parameter name="infoMap" type="Map">
                 <parameter name="emailContactMechId"/>
                 <parameter name="emailContactMech" type="EntityValue"/>
                 <parameter name="emailContactMechPurposeId"/>
@@ -185,38 +185,32 @@ along with this software (see the LICENSE.md file). If not, see
             </parameter></parameter>
         </out-parameters>
         <actions>
-            <if condition="postalContactMechPurposeId">
-                <then>
-                    <set field="postalPurposeList" from="[postalContactMechPurposeId]"/>
-                    <if condition="alsoIncludePrimaryPurpose &amp;&amp; postalContactMechPurposeId != 'PostalPrimary'">
-                        <script>postalPurposeList.add('PostalPrimary')</script></if>
-                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="postalPcmList">
-                        <date-filter/><econdition field-name="partyId"/>
-                        <econdition field-name="contactMechPurposeId" operator="in" from="postalPurposeList"/>
-                        <order-by field-name="-fromDate"/>
-                    </entity-find>
-                </then>
-                <else-if condition="getAll">
-                    <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="postalPcmList">
-                        <date-filter/><econdition field-name="partyId"/>
-                        <econdition field-name="contactMechTypeEnumId" value="CmtPostalAddress"/>
-                        <order-by field-name="-fromDate"/>
-                    </entity-find>
-                </else-if>
-            </if>
+            <if condition="postalContactMechPurposeId"><then>
+                <set field="postalPurposeList" from="[postalContactMechPurposeId]"/>
+                <if condition="alsoIncludePrimaryPurpose &amp;&amp; postalContactMechPurposeId != 'PostalPrimary'">
+                    <script>postalPurposeList.add('PostalPrimary')</script></if>
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="postalPcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" operator="in" from="postalPurposeList"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+            </then><else-if condition="getAll">
+                <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="postalPcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechTypeEnumId" value="CmtPostalAddress"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+            </else-if></if>
             <if condition="postalPcmList">
                 <set field="postalAddressList" from="[]"/>
                 <iterate list="postalPcmList" entry="postalPcm">
                     <set field="postalContactMechId" from="postalPcm.contactMechId"/>
                     <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="postalContactMech">
-                        <field-map field-name="contactMechId" from="postalContactMechId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechId" from="postalContactMechId"/></entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.PostalAddress" value-field="postalAddress">
-                        <field-map field-name="contactMechId" from="postalContactMechId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechId" from="postalContactMechId"/></entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.ContactMechPurpose" value-field="postalContactMechPurpose">
-                        <field-map field-name="contactMechPurposeId" from="postalPcm.contactMechPurposeId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechPurposeId" from="postalPcm.contactMechPurposeId"/></entity-find-one>
                     <entity-find-related-one value-field="postalAddress" relationship-name="StateProvince#moqui.basic.Geo" to-value-field="postalAddressStateGeo"/>
                     <entity-find-related-one value-field="postalAddress" relationship-name="Country#moqui.basic.Geo" to-value-field="postalAddressCountryGeo"/>
                     <entity-find-related-one value-field="postalAddress" relationship-name="moqui.basic.GeoPoint" to-value-field="postalAddressGeoPoint"/>
@@ -224,17 +218,14 @@ along with this software (see the LICENSE.md file). If not, see
                     <if condition="postalAddress.telecomContactMechId">
                         <set field="telecomContactMechId" from="postalAddress.telecomContactMechId"/>
                         <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
-                            <field-map field-name="contactMechId" from="telecomContactMechId"/>
-                        </entity-find-one>
+                            <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
                         <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
-                            <field-map field-name="contactMechId" from="telecomContactMechId"/>
-                        </entity-find-one>
+                            <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
                     </if>
                     <if condition="postalAddress.emailContactMechId">
                         <set field="emailContactMechId" from="postalAddress.emailContactMechId"/>
                         <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
-                            <field-map field-name="contactMechId" from="emailContactMechId"/>
-                        </entity-find-one>
+                            <field-map field-name="contactMechId" from="emailContactMechId"/></entity-find-one>
                     </if>
 
                     <set field="postalAddressInfo" from="[postalContactMechId:postalContactMechId, postalContactMech:postalContactMech,
@@ -247,38 +238,32 @@ along with this software (see the LICENSE.md file). If not, see
                 </iterate>
             </if>
 
-            <if condition="telecomContactMechPurposeId">
-                <then>
-                    <set field="telecomPurposeList" from="[telecomContactMechPurposeId]"/>
-                    <if condition="alsoIncludePrimaryPurpose &amp;&amp; telecomContactMechPurposeId != 'PhonePrimary'">
-                        <script>telecomPurposeList.add('PhonePrimary')</script></if>
-                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
-                        <date-filter/><econdition field-name="partyId"/>
-                        <econdition field-name="contactMechPurposeId" operator="in" from="telecomPurposeList"/>
-                        <order-by field-name="-fromDate"/>
-                    </entity-find>
-                </then>
-                <else-if condition="getAll">
-                    <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="telecomPcmList">
-                        <date-filter/><econdition field-name="partyId"/>
-                        <econdition field-name="contactMechTypeEnumId" value="CmtTelecomNumber"/>
-                        <order-by field-name="-fromDate"/>
-                    </entity-find>
-                </else-if>
-            </if>
+            <if condition="telecomContactMechPurposeId"><then>
+                <set field="telecomPurposeList" from="[telecomContactMechPurposeId]"/>
+                <if condition="alsoIncludePrimaryPurpose &amp;&amp; telecomContactMechPurposeId != 'PhonePrimary'">
+                    <script>telecomPurposeList.add('PhonePrimary')</script></if>
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="telecomPcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" operator="in" from="telecomPurposeList"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+            </then><else-if condition="getAll">
+                <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="telecomPcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechTypeEnumId" value="CmtTelecomNumber"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+            </else-if></if>
             <if condition="telecomPcmList">
                 <set field="telecomNumberList" from="[]"/>
                 <iterate list="telecomPcmList" entry="telecomPcm">
                     <set field="telecomContactMechId" from="telecomPcm.contactMechId"/>
                     <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="telecomContactMech">
-                        <field-map field-name="contactMechId" from="telecomContactMechId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.TelecomNumber" value-field="telecomNumber">
-                        <field-map field-name="contactMechId" from="telecomContactMechId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechId" from="telecomContactMechId"/></entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.ContactMechPurpose" value-field="telecomContactMechPurpose">
-                        <field-map field-name="contactMechPurposeId" from="telecomPcm.contactMechPurposeId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechPurposeId" from="telecomPcm.contactMechPurposeId"/></entity-find-one>
                     <set field="telecomNumberInfo" from="[telecomContactMechId:telecomContactMechId, telecomContactMechId:telecomContactMechId,
                             telecomContactMechPurposeId:telecomPcm.contactMechPurposeId, telecomContactMechPurpose:telecomContactMechPurpose,
                             telecomNumber:telecomNumber]"/>
@@ -286,35 +271,30 @@ along with this software (see the LICENSE.md file). If not, see
                 </iterate>
             </if>
 
-            <if condition="emailContactMechPurposeId">
-                <then>
-                    <set field="emailPurposeList" from="[emailContactMechPurposeId]"/>
-                    <if condition="alsoIncludePrimaryPurpose &amp;&amp; emailContactMechPurposeId != 'EmailPrimary'">
-                        <script>emailPurposeList.add('EmailPrimary')</script></if>
-                    <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
-                        <date-filter/><econdition field-name="partyId"/>
-                        <econdition field-name="contactMechPurposeId" operator="in" from="emailPurposeList"/>
-                        <order-by field-name="-fromDate"/>
-                    </entity-find>
-                </then>
-                <else-if condition="getAll">
-                    <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="emailPcmList">
-                        <date-filter/><econdition field-name="partyId"/>
-                        <econdition field-name="contactMechTypeEnumId" value="CmtEmailAddress"/>
-                        <order-by field-name="-fromDate"/>
-                    </entity-find>
-                </else-if>
-            </if>
+            <if condition="emailContactMechPurposeId"><then>
+                <set field="emailPurposeList" from="[emailContactMechPurposeId]"/>
+                <if condition="alsoIncludePrimaryPurpose &amp;&amp; emailContactMechPurposeId != 'EmailPrimary'">
+                    <script>emailPurposeList.add('EmailPrimary')</script></if>
+                <entity-find entity-name="mantle.party.contact.PartyContactMech" list="emailPcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechPurposeId" operator="in" from="emailPurposeList"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+            </then><else-if condition="getAll">
+                <entity-find entity-name="mantle.party.contact.PartyContactMechInfo" list="emailPcmList">
+                    <date-filter/><econdition field-name="partyId"/>
+                    <econdition field-name="contactMechTypeEnumId" value="CmtEmailAddress"/>
+                    <order-by field-name="-fromDate"/>
+                </entity-find>
+            </else-if></if>
             <if condition="emailPcmList">
                 <set field="emailAddressList" from="[]"/>
                 <iterate list="emailPcmList" entry="emailPcm">
                     <set field="emailContactMechId" from="emailPcm.contactMechId"/>
                     <entity-find-one entity-name="mantle.party.contact.ContactMech" value-field="emailContactMech">
-                        <field-map field-name="contactMechId" from="emailContactMechId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechId" from="emailContactMechId"/></entity-find-one>
                     <entity-find-one entity-name="mantle.party.contact.ContactMechPurpose" value-field="emailContactMechPurpose">
-                        <field-map field-name="contactMechPurposeId" from="emailPcm.contactMechPurposeId"/>
-                    </entity-find-one>
+                        <field-map field-name="contactMechPurposeId" from="emailPcm.contactMechPurposeId"/></entity-find-one>
                     <set field="emailAddressInfo" from="[emailContactMechId:emailContactMechId, emailContactMech:emailContactMech,
                             emailContactMechPurposeId:emailPcm.contactMechPurposeId, emailContactMechPurpose:emailContactMechPurpose,
                             emailAddress:emailContactMech.infoString]"/>
@@ -411,56 +391,44 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="otherContactMechId"/>
         </out-parameters>
         <actions>
-            <if condition="telecomContactMechId">
-                <then>
-                    <service-call name="mantle.party.ContactServices.update#PartyTelecomNumber" out-map="tnOut"
-                            in-map="context + [contactMechId:telecomContactMechId, contactMechPurposeId:telecomContactMechPurposeId]"/>
-                </then>
-                <else-if condition="contactNumber">
-                    <service-call name="mantle.party.ContactServices.create#TelecomNumber" out-map="tnOut"
-                            in-map="context + [contactMechPurposeId:telecomContactMechPurposeId]"/>
-                </else-if>
-            </if>
+            <if condition="telecomContactMechId"><then>
+                <service-call name="mantle.party.ContactServices.update#PartyTelecomNumber" out-map="tnOut"
+                        in-map="context + [contactMechId:telecomContactMechId, contactMechPurposeId:telecomContactMechPurposeId]"/>
+            </then><else-if condition="contactNumber">
+                <service-call name="mantle.party.ContactServices.create#TelecomNumber" out-map="tnOut"
+                        in-map="context + [contactMechPurposeId:telecomContactMechPurposeId]"/>
+            </else-if></if>
             <set field="telecomContactMechId" from="tnOut?.contactMechId ?: telecomContactMechId"/>
 
-            <if condition="emailContactMechId">
-                <then>
-                    <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="emOut"
-                            in-map="[infoString:emailAddress, partyId:partyId, contactMechId:emailContactMechId,
-                                contactMechPurposeId:emailContactMechPurposeId]"/>
-                </then>
-                <else-if condition="emailAddress">
-                    <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emOut"
-                            in-map="context + [contactMechPurposeId:emailContactMechPurposeId]"/>
-                </else-if>
-            </if>
+            <if condition="emailContactMechId"><then>
+                <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="emOut"
+                        in-map="[infoString:emailAddress, partyId:partyId, contactMechId:emailContactMechId,
+                            contactMechPurposeId:emailContactMechPurposeId]"/>
+            </then><else-if condition="emailAddress">
+                <service-call name="mantle.party.ContactServices.create#EmailAddress" out-map="emOut"
+                        in-map="context + [contactMechPurposeId:emailContactMechPurposeId]"/>
+            </else-if></if>
             <set field="emailContactMechId" from="emOut?.contactMechId ?: emailContactMechId"/>
 
-            <if condition="otherContactMechId">
-                <then>
-                    <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="otherOut"
-                            in-map="[infoString:otherInfoString, partyId:partyId, contactMechId:otherContactMechId,
-                                contactMechPurposeId:otherContactMechPurposeId]"/>
-                </then>
-                <else-if condition="otherInfoString">
-                    <service-call name="mantle.party.ContactServices.create#ContactMechOther" out-map="otherOut"
-                            in-map="context + [infoString:otherInfoString, contactMechTypeEnumId:otherContactMechTypeEnumId,
-                                contactMechPurposeId:otherContactMechPurposeId]"/>
-                </else-if>
-            </if>
+            <if condition="otherContactMechId"><then>
+                <service-call name="mantle.party.ContactServices.update#PartyContactOther" out-map="otherOut"
+                        in-map="[infoString:otherInfoString, partyId:partyId, contactMechId:otherContactMechId,
+                            contactMechPurposeId:otherContactMechPurposeId]"/>
+            </then><else-if condition="otherInfoString">
+                <service-call name="mantle.party.ContactServices.create#ContactMechOther" out-map="otherOut"
+                        in-map="context + [infoString:otherInfoString, contactMechTypeEnumId:otherContactMechTypeEnumId,
+                            contactMechPurposeId:otherContactMechPurposeId]"/>
+            </else-if></if>
             <set field="otherContactMechId" from="otherOut?.contactMechId ?: otherContactMechId"/>
 
             <!-- do postal last so PostalAddress.telecomContactMechId and emailContactMechId can be populated -->
-            <if condition="postalContactMechId">
-                <then>
-                    <service-call name="mantle.party.ContactServices.update#PartyPostalAddress" out-map="paOut"
-                            in-map="context + [contactMechId:postalContactMechId, contactMechPurposeId:postalContactMechPurposeId]"/>
-                </then>
-                <else-if condition="address1 || city || postalCode">
-                    <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
-                            in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
-                </else-if>
-            </if>
+            <if condition="postalContactMechId"><then>
+                <service-call name="mantle.party.ContactServices.update#PartyPostalAddress" out-map="paOut"
+                        in-map="context + [contactMechId:postalContactMechId, contactMechPurposeId:postalContactMechPurposeId]"/>
+            </then><else-if condition="address1 || city || postalCode">
+                <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut"
+                        in-map="context + [contactMechPurposeId:postalContactMechPurposeId]"/>
+            </else-if></if>
             <set field="postalContactMechId" from="paOut?.contactMechId ?: postalContactMechId"/>
         </actions>
     </service>
@@ -525,7 +493,7 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- first handle the GeoPoint as a dependent record, getting an updated geoPointId if needed -->
             <set field="geoPointId" from="origPostalAddress.geoPointId"/>
-            <if condition="geoPointId">
+            <if condition="geoPointId"><then>
                 <entity-find-one entity-name="moqui.basic.GeoPoint" value-field="origGeoPoint"/>
                 <set field="newGeoPoint" from="origGeoPoint.cloneValue()"/>
                 <entity-set value-field="newGeoPoint" include="nonpk"/>
@@ -535,13 +503,11 @@ along with this software (see the LICENSE.md file). If not, see
                     <entity-create value-field="newGeoPoint"/>
                     <set field="geoPointId" from="newGeoPoint.geoPointId"/>
                 </if>
-
-                <else>
-                    <!-- this will get a geoPointId to set below on the PostalAddress -->
-                    <if condition="latitude || elevation">
-                        <service-call name="create#moqui.basic.GeoPoint" in-map="context" out-map="context"/></if>
-                </else>
-            </if>
+            </then><else>
+                <!-- this will get a geoPointId to set below on the PostalAddress -->
+                <if condition="latitude || elevation">
+                    <service-call name="create#moqui.basic.GeoPoint" in-map="context" out-map="context"/></if>
+            </else></if>
 
             <set field="newPostalAddress" from="origPostalAddress.cloneValue()"/>
             <entity-set value-field="newPostalAddress" include="nonpk" set-if-empty="true"/>
@@ -618,22 +584,19 @@ along with this software (see the LICENSE.md file). If not, see
                 <econdition field-name="stateProvinceGeoId" ignore-if-empty="true"/>
                 <econdition field-name="countryGeoId" ignore-if-empty="true"/>
             </entity-find>
-            <if condition="existingList">
-                <then>
-                    <set field="contactMechId" from="existingList.get(0).contactMechId"/>
-                    <!-- make sure address has purpose, create new PartyContactMech if needed -->
-                    <if condition="contactMechPurposeId &amp;&amp; !existingList.contactMechPurposeId.contains(contactMechPurposeId)">
-                        <service-call name="create#mantle.party.contact.PartyContactMech"
-                                in-map="[partyId:partyId, contactMechId:contactMechId, fromDate:ec.user.nowTimestamp,
-                                    contactMechPurposeId:contactMechPurposeId]"/>
-                    </if>
-                </then>
-                <else>
-                    <if condition="!contactMechPurposeId"><set field="contactMechPurposeId" value="PostalPrimary"/></if>
-                    <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut" in-map="context"/>
-                    <set field="contactMechId" from="paOut.contactMechId"/>
-                </else>
-            </if>
+            <if condition="existingList"><then>
+                <set field="contactMechId" from="existingList.get(0).contactMechId"/>
+                <!-- make sure address has purpose, create new PartyContactMech if needed -->
+                <if condition="contactMechPurposeId &amp;&amp; !existingList.contactMechPurposeId.contains(contactMechPurposeId)">
+                    <service-call name="create#mantle.party.contact.PartyContactMech"
+                            in-map="[partyId:partyId, contactMechId:contactMechId, fromDate:ec.user.nowTimestamp,
+                                contactMechPurposeId:contactMechPurposeId]"/>
+                </if>
+            </then><else>
+                <if condition="!contactMechPurposeId"><set field="contactMechPurposeId" value="PostalPrimary"/></if>
+                <service-call name="mantle.party.ContactServices.create#PostalAddress" out-map="paOut" in-map="context"/>
+                <set field="contactMechId" from="paOut.contactMechId"/>
+            </else></if>
         </actions>
     </service>
 
@@ -772,16 +735,14 @@ along with this software (see the LICENSE.md file). If not, see
                 <date-filter/>
                 <econdition-object field="[partyId:partyId, contactMechPurposeId:'EmailPrimary']"/>
             </entity-find>
-            <if condition="pcmiList">
+            <if condition="pcmiList"><then>
                 <set field="emailAddress" from="pcmiList[0].infoString"/>
                 <set field="contactMechId" from="pcmiList[0].contactMechId"/>
-
-                <else>
-                    <!-- get emailAddress from UserAccount -->
-                    <entity-find entity-name="UserAccount" list="uaList"><econdition field-name="partyId"/></entity-find>
-                    <if condition="uaList"><set field="emailAddress" from="uaList[0].emailAddress"/></if>
-                </else>
-            </if>
+            </then><else>
+                <!-- get emailAddress from UserAccount -->
+                <entity-find entity-name="UserAccount" list="uaList"><econdition field-name="partyId"/></entity-find>
+                <if condition="uaList"><set field="emailAddress" from="uaList[0].emailAddress"/></if>
+            </else></if>
         </actions>
     </service>
 

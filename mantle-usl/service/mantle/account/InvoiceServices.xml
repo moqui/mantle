@@ -281,7 +281,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
             <if condition="!(invoice.statusId in ['InvoiceInProcess', 'InvoiceIncoming', 'InvoiceReceived'])">
-                <return error="true" message="Invoice ${invoiceId} is not in a status that allows change"/></if>
+                <return error="true" message="Invoice ${invoiceId} is not in a status that allows change (In Process for receivables, Incoming or Received for payables)"/></if>
 
             <service-call name="create#mantle.account.invoice.InvoiceItem" in-map="context" out-map="context"/>
         </actions>
@@ -312,6 +312,50 @@ along with this software (see the LICENSE.md file). If not, see
                 <return error="true" message="Invoice ${invoiceId} is not in a status that allows change"/></if>
 
             <service-call name="delete#mantle.account.invoice.InvoiceItem" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+
+    <service verb="adjust" noun="Invoice">
+        <description>
+            Adjust closed invoices (receivable: Finalized, Sent; payable: Approved) for charges or discounts
+            after the invoice has been posted to the GL but before payment is finalized. SECA rule posts an accounting
+            transaction for the change as the invoice is already posted.
+
+            Relevant item types include: Write-off, Prompt Payment Discount, Late Payment Charge, Return (before paid)
+        </description>
+        <in-parameters>
+            <parameter name="invoiceId" required="true"/>
+            <parameter name="description"/>
+            <parameter name="amount" type="BigDecimal" required="true"/>
+            <parameter name="quantity" type="BigDecimal" default="1"/>
+
+            <parameter name="parentInvoiceItemSeqId">
+                <description>Optional, associate adjustment item with a another invoice item.</description></parameter>
+            <parameter name="itemDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="itemTypeEnumId" default-value="ItemInvAdjust"><description>Should be an item type that is a
+                child of ItemInvAdjust (ItemWriteOff, ItemPromptDiscount, ItemLateCharge, ItemReturnAdjust)</description></parameter>
+            <parameter name="overrideGlAccountId"/>
+        </in-parameters>
+        <out-parameters><parameter name="invoiceItemSeqId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.invoice.Invoice" value-field="invoice"/>
+            <if condition="!(invoice.statusId in ['InvoiceFinalized', 'InvoiceSent', 'InvoiceApproved'])">
+                <return error="true" message="Invoices may only be adjusted in the Finalized or Sent statuses for receivables, and the Approved status for payables; invoice ${invoiceId} is in status ${invoice.statusId}"/></if>
+
+            <set field="adjustTotal" from="(amount ?: 0) * quantity"/>
+
+            <!-- if adjustment is negative, have enough unpaid for it? -->
+            <if condition="adjustTotal &lt; 0">
+                <service-call name="mantle.account.InvoiceServices.get#InvoiceTotal" in-map="[invoiceId:invoiceId]" out-map="invTotal"/>
+                <if condition="(-adjustTotal) > invTotal.unpaidTotal">
+                    <return error="true" message="Cannot adjust invoice ${invoiceId}, adjustment total ${adjustTotal} is greater than unpaid total ${invTotal.unpaidTotal}"/></if>
+            </if>
+
+            <!-- create the InvoiceItem -->
+            <if condition="parentInvoiceItemSeqId"><set field="parentInvoiceId" from="invoiceId"/></if>
+            <service-call name="create#mantle.account.invoice.InvoiceItem" in-map="context" out-map="context"/>
+
+            <!-- NOTE: Invoice Adjustment GL posting done by SECA rule -->
         </actions>
     </service>
 
@@ -351,8 +395,7 @@ along with this software (see the LICENSE.md file). If not, see
             </then><else>
                 <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
                     <econdition field-name="orderId"/><econdition field-name="orderPartSeqId"/>
-                    <order-by field-name="orderItemSeqId"/>
-                </entity-find>
+                    <order-by field-name="orderItemSeqId"/></entity-find>
             </else></if>
 
             <iterate list="orderItemList" entry="orderItem">
@@ -429,127 +472,54 @@ along with this software (see the LICENSE.md file). If not, see
 
             <iterate list="shipmentItemSourceList" entry="shipmentItemSource">
                 <set field="orderItem" from="shipmentItemSource.'mantle.order.OrderItem'"/>
-                <if condition="orderItem &amp;&amp; !shipmentItemSource.invoiceId">
-                    <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
+                <if condition="!orderItem || shipmentItemSource.invoiceId"><continue/></if>
+                <set field="itemAmount" from="(orderItem.unitAmount ?: 0) * (orderItem.quantity ?: 0)"/>
+                <if condition="itemAmount == 0"><continue/></if>
 
-                    <set field="invoiceId" from="invoiceIdByOrderPartIdMap[orderItem.orderId + ':' + orderItem.orderPartSeqId]"/>
+                <set field="orderHeader" from="shipmentItemSource.'mantle.order.OrderHeader'"/>
+                <set field="invoiceId" from="invoiceIdByOrderPartIdMap[orderItem.orderId + ':' + orderItem.orderPartSeqId]"/>
 
-                    <if condition="!invoiceId">
-                        <!-- find the OrderPart for the from/toPartyId, etc -->
-                        <set field="orderPart" from="orderItem.'mantle.order.OrderPart'"/>
-                        <if condition="orderPart">
-                            <set field="description" value="Invoice for Order ${orderItem.orderId} part ${orderItem.orderPartSeqId} and Shipment ${shipmentId}"/>
-                            <service-call name="create#mantle.account.invoice.Invoice" out-map="invOut"
-                                    in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:initialStatusId,
-                                        fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
-                                        invoiceDate:invoiceDate, currencyUomId:orderHeader.currencyUomId,
-                                        description:description, systemMessageRemoteId:orderHeader.systemMessageRemoteId]"/>
-                            <set field="invoiceId" from="invOut.invoiceId"/>
-                            <script>invoiceIdByOrderPartIdMap.put(orderItem.orderId + ':' + orderItem.orderPartSeqId, invoiceId)</script>
-                        </if>
+                <if condition="!invoiceId">
+                    <!-- find the OrderPart for the from/toPartyId, etc -->
+                    <set field="orderPart" from="orderItem.'mantle.order.OrderPart'"/>
+                    <if condition="orderPart">
+                        <set field="description" value="Invoice for Order ${orderItem.orderId} part ${orderItem.orderPartSeqId} and Shipment ${shipmentId}"/>
+                        <service-call name="create#mantle.account.invoice.Invoice" out-map="invOut"
+                                in-map="[invoiceTypeEnumId:'InvoiceSales', statusId:initialStatusId,
+                                    fromPartyId:orderPart.vendorPartyId, toPartyId:orderPart.customerPartyId,
+                                    invoiceDate:invoiceDate, currencyUomId:orderHeader.currencyUomId,
+                                    description:description, systemMessageRemoteId:orderHeader.systemMessageRemoteId]"/>
+                        <set field="invoiceId" from="invOut.invoiceId"/>
+                        <script>invoiceIdByOrderPartIdMap.put(orderItem.orderId + ':' + orderItem.orderPartSeqId, invoiceId)</script>
                     </if>
+                </if>
 
-                    <if condition="invoiceId">
-                        <!-- create InvoiceItem, OrderItemBilling, set invoiceId,invoiceItemSeqId -->
+                <if condition="invoiceId">
+                    <!-- create InvoiceItem, OrderItemBilling, set invoiceId,invoiceItemSeqId -->
 
-                        <set field="quantityNotOnItems" from="shipmentItemSource.quantity * (orderItem.selectedAmount ?: 1)"/>
+                    <set field="quantityNotOnItems" from="shipmentItemSource.quantity * (orderItem.selectedAmount ?: 1)"/>
 
-                        <!-- first do AssetIssuance -->
-                        <if condition="handleIssuances">
-                            <entity-find entity-name="mantle.product.issuance.AssetIssuance" list="assetIssuanceList">
-                                <econdition-object field="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
-                                    shipmentId:shipmentId]"/>
-                                <order-by field-name="orderItemSeqId"/>
-                            </entity-find>
-                            <iterate list="assetIssuanceList" entry="assetIssuance">
-                                <!-- should we make sure the total quantity on all AssetIssuance records matches the
-                                    quantity on the ShipmentItemSource record? that should be handled when they are created... -->
-                                <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                        in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
-                                            amount:orderItem.unitAmount, description:orderItem.itemDescription,
-                                            quantity:assetIssuance.quantity, assetId:assetIssuance.assetId,
-                                            quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
-                                            itemDate:orderHeader.placedDate]"/>
-                                <service-call name="create#mantle.order.OrderItemBilling"
-                                        in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
-                                            invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
-                                            assetIssuanceId:assetIssuance.assetIssuanceId, shipmentId:shipmentId,
-                                            amount:orderItem.unitAmount, quantity:assetIssuance.quantity]"/>
-                                <!-- update ShipmentItemSource -->
-                                <if condition="shipmentItemSource.invoiceItemSeqId"><then>
-                                    <!-- will have to split the ShipmentItemSource -->
-                                    <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
-                                    <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
-                                    <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
-                                    <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                    <set field="newShipmentItemSource.quantity" from="assetIssuance.quantity"/>
-                                    <entity-create value-field="newShipmentItemSource"/>
-
-                                    <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetIssuance.quantity"/>
-                                    <entity-update value-field="shipmentItemSource"/>
-                                </then><else>
-                                    <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
-                                    <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                    <entity-update value-field="shipmentItemSource"/>
-                                </else></if>
-
-                                <set field="quantityNotOnItems" from="quantityNotOnItems - assetIssuance.quantity"/>
-                            </iterate>
-                        </if>
-
-                        <!-- now do AssetReceipt; this service is reused for purchase orders by a wrapping service, in
-                            spite of the name handle these too -->
-                        <if condition="handleReceipts">
-                            <entity-find entity-name="mantle.product.receipt.AssetReceipt" list="assetReceiptList">
-                                <econdition-object field="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
-                                    shipmentId:shipmentId]"/>
-                                <order-by field-name="orderItemSeqId"/>
-                            </entity-find>
-                            <iterate list="assetReceiptList" entry="assetReceipt">
-                                <!-- should we make sure the total quantity on all AssetReceipt records matches the
-                                    quantity on the ShipmentItemSource record? that should be handled when they are created... -->
-                                <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                        in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
-                                            amount:orderItem.unitAmount, description:orderItem.itemDescription,
-                                            quantity:assetReceipt.quantityAccepted, assetId:assetReceipt.assetId,
-                                            quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
-                                            itemDate:orderHeader.placedDate]"/>
-                                <service-call name="create#mantle.order.OrderItemBilling"
-                                        in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
-                                            invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
-                                            assetReceiptId:assetReceipt.assetReceiptId, shipmentId:shipmentId,
-                                            amount:orderItem.unitAmount, quantity:assetReceipt.quantityAccepted]"/>
-                                <!-- update ShipmentItemSource -->
-                                <if condition="shipmentItemSource.invoiceItemSeqId"><then>
-                                    <!-- will have to split the ShipmentItemSource -->
-                                    <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
-                                    <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
-                                    <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
-                                    <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                    <set field="newShipmentItemSource.quantity" from="assetReceipt.quantityAccepted"/>
-                                    <entity-create value-field="newShipmentItemSource"/>
-
-                                    <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetReceipt.quantityAccepted"/>
-                                    <entity-update value-field="shipmentItemSource"/>
-                                </then><else>
-                                    <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
-                                    <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                    <entity-update value-field="shipmentItemSource"/>
-                                </else></if>
-
-                                <set field="quantityNotOnItems" from="quantityNotOnItems - assetReceipt.quantityAccepted"/>
-                            </iterate>
-                        </if>
-
-                        <!-- there should not be any quantity left over after issuance/receipt records, but just make sure -->
-                        <if condition="quantityNotOnItems">
-                            <!-- NOTE: in this case we don't have an assetId -->
+                    <!-- first do AssetIssuance -->
+                    <if condition="handleIssuances">
+                        <entity-find entity-name="mantle.product.issuance.AssetIssuance" list="assetIssuanceList">
+                            <econdition-object field="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
+                                shipmentId:shipmentId]"/>
+                            <order-by field-name="orderItemSeqId"/>
+                        </entity-find>
+                        <iterate list="assetIssuanceList" entry="assetIssuance">
+                            <!-- should we make sure the total quantity on all AssetIssuance records matches the
+                                quantity on the ShipmentItemSource record? that should be handled when they are created... -->
                             <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
                                     in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
                                         amount:orderItem.unitAmount, description:orderItem.itemDescription,
-                                        quantity:quantityNotOnItems,
+                                        quantity:assetIssuance.quantity, assetId:assetIssuance.assetId,
                                         quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
                                         itemDate:orderHeader.placedDate]"/>
+                            <service-call name="create#mantle.order.OrderItemBilling"
+                                    in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
+                                        invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                        assetIssuanceId:assetIssuance.assetIssuanceId, shipmentId:shipmentId,
+                                        amount:orderItem.unitAmount, quantity:assetIssuance.quantity]"/>
                             <!-- update ShipmentItemSource -->
                             <if condition="shipmentItemSource.invoiceItemSeqId"><then>
                                 <!-- will have to split the ShipmentItemSource -->
@@ -557,44 +527,117 @@ along with this software (see the LICENSE.md file). If not, see
                                 <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
                                 <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
                                 <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
-                                <set field="newShipmentItemSource.quantity" from="quantityNotOnItems"/>
+                                <set field="newShipmentItemSource.quantity" from="assetIssuance.quantity"/>
                                 <entity-create value-field="newShipmentItemSource"/>
 
-                                <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - quantityNotOnItems"/>
+                                <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetIssuance.quantity"/>
                                 <entity-update value-field="shipmentItemSource"/>
                             </then><else>
                                 <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
                                 <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
                                 <entity-update value-field="shipmentItemSource"/>
                             </else></if>
-                        </if>
 
-                        <!-- also invoice child OrderItems (adjustments, etc) -->
-                        <set field="childOrderItemList" from="orderItem.'Child#mantle.order.OrderItem'"/>
-                        <order-map-list list="childOrderItemList"><order-by field-name="orderItemSeqId"/></order-map-list>
-                        <iterate list="childOrderItemList" entry="childOrderItem">
-                            <!-- only ship if no productId, that should be shipped before invoiced -->
-                            <if condition="!childOrderItem.productId">
-                                <set field="oibBaseMap" from="[orderId:childOrderItem.orderId,
-                                    orderItemSeqId:childOrderItem.orderItemSeqId]"/>
-                                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
-                                    <econdition-object field="oibBaseMap"/>
-                                </entity-find>
-                                <if condition="!orderItemBillingList">
-                                    <!-- is prorate by quantity needed? -->
-                                    <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
-                                            in-map="[invoiceId:invoiceId, itemTypeEnumId:(childOrderItem.itemTypeEnumId ?: 'ItemSales'),
-                                                amount:childOrderItem.unitAmount, description:childOrderItem.itemDescription,
-                                                quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1)),
-                                                quantityUomId:childOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
-                                    <service-call name="create#mantle.order.OrderItemBilling"
-                                            in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
-                                                shipmentId:shipmentId, amount:childOrderItem.unitAmount,
-                                                quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1))]"/>
-                                </if>
-                            </if>
+                            <set field="quantityNotOnItems" from="quantityNotOnItems - assetIssuance.quantity"/>
                         </iterate>
                     </if>
+
+                    <!-- now do AssetReceipt; this service is reused for purchase orders by a wrapping service, in
+                        spite of the name handle these too -->
+                    <if condition="handleReceipts">
+                        <entity-find entity-name="mantle.product.receipt.AssetReceipt" list="assetReceiptList">
+                            <econdition-object field="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
+                                shipmentId:shipmentId]"/>
+                            <order-by field-name="orderItemSeqId"/>
+                        </entity-find>
+                        <iterate list="assetReceiptList" entry="assetReceipt">
+                            <!-- should we make sure the total quantity on all AssetReceipt records matches the
+                                quantity on the ShipmentItemSource record? that should be handled when they are created... -->
+                            <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                    in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
+                                        amount:orderItem.unitAmount, description:orderItem.itemDescription,
+                                        quantity:assetReceipt.quantityAccepted, assetId:assetReceipt.assetId,
+                                        quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
+                                        itemDate:orderHeader.placedDate]"/>
+                            <service-call name="create#mantle.order.OrderItemBilling"
+                                    in-map="[orderId:orderItem.orderId, orderItemSeqId:orderItem.orderItemSeqId,
+                                        invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                        assetReceiptId:assetReceipt.assetReceiptId, shipmentId:shipmentId,
+                                        amount:orderItem.unitAmount, quantity:assetReceipt.quantityAccepted]"/>
+                            <!-- update ShipmentItemSource -->
+                            <if condition="shipmentItemSource.invoiceItemSeqId"><then>
+                                <!-- will have to split the ShipmentItemSource -->
+                                <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                                <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                                <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                                <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                <set field="newShipmentItemSource.quantity" from="assetReceipt.quantityAccepted"/>
+                                <entity-create value-field="newShipmentItemSource"/>
+
+                                <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - assetReceipt.quantityAccepted"/>
+                                <entity-update value-field="shipmentItemSource"/>
+                            </then><else>
+                                <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                                <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                                <entity-update value-field="shipmentItemSource"/>
+                            </else></if>
+
+                            <set field="quantityNotOnItems" from="quantityNotOnItems - assetReceipt.quantityAccepted"/>
+                        </iterate>
+                    </if>
+
+                    <!-- there should not be any quantity left over after issuance/receipt records, but just make sure -->
+                    <if condition="quantityNotOnItems">
+                        <!-- NOTE: in this case we don't have an assetId -->
+                        <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                in-map="[invoiceId:invoiceId, itemTypeEnumId:orderItem.itemTypeEnumId ?: 'ItemProduct',
+                                    amount:orderItem.unitAmount, description:orderItem.itemDescription,
+                                    quantity:quantityNotOnItems,
+                                    quantityUomId:orderItem.quantityUomId, productId:orderItem.productId,
+                                    itemDate:orderHeader.placedDate]"/>
+                        <!-- update ShipmentItemSource -->
+                        <if condition="shipmentItemSource.invoiceItemSeqId"><then>
+                            <!-- will have to split the ShipmentItemSource -->
+                            <set field="newShipmentItemSource" from="shipmentItemSource.cloneValue()"/>
+                            <set field="newShipmentItemSource.shipmentItemSourceId" from="null"/>
+                            <entity-sequenced-id-primary value-field="newShipmentItemSource"/>
+                            <set field="newShipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                            <set field="newShipmentItemSource.quantity" from="quantityNotOnItems"/>
+                            <entity-create value-field="newShipmentItemSource"/>
+
+                            <set field="shipmentItemSource.quantity" from="shipmentItemSource.quantity - quantityNotOnItems"/>
+                            <entity-update value-field="shipmentItemSource"/>
+                        </then><else>
+                            <set field="shipmentItemSource.invoiceId" from="invoiceId"/>
+                            <set field="shipmentItemSource.invoiceItemSeqId" from="iiOut.invoiceItemSeqId"/>
+                            <entity-update value-field="shipmentItemSource"/>
+                        </else></if>
+                    </if>
+
+                    <!-- also invoice child OrderItems (adjustments, etc) -->
+                    <set field="childOrderItemList" from="orderItem.'Child#mantle.order.OrderItem'"/>
+                    <order-map-list list="childOrderItemList"><order-by field-name="orderItemSeqId"/></order-map-list>
+                    <iterate list="childOrderItemList" entry="childOrderItem">
+                        <!-- only ship if no productId, that should be shipped before invoiced -->
+                        <if condition="!childOrderItem.productId">
+                            <set field="oibBaseMap" from="[orderId:childOrderItem.orderId,
+                                orderItemSeqId:childOrderItem.orderItemSeqId]"/>
+                            <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                                <econdition-object field="oibBaseMap"/></entity-find>
+                            <if condition="!orderItemBillingList">
+                                <!-- is prorate by quantity needed? -->
+                                <service-call name="create#mantle.account.invoice.InvoiceItem" out-map="iiOut"
+                                        in-map="[invoiceId:invoiceId, itemTypeEnumId:(childOrderItem.itemTypeEnumId ?: 'ItemSales'),
+                                            amount:childOrderItem.unitAmount, description:childOrderItem.itemDescription,
+                                            quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1)),
+                                            quantityUomId:childOrderItem.quantityUomId, itemDate:orderHeader.placedDate]"/>
+                                <service-call name="create#mantle.order.OrderItemBilling"
+                                        in-map="oibBaseMap + [invoiceId:invoiceId, invoiceItemSeqId:iiOut.invoiceItemSeqId,
+                                            shipmentId:shipmentId, amount:childOrderItem.unitAmount,
+                                            quantity:((childOrderItem.quantity ?: 1) * (childOrderItem.selectedAmount ?: 1))]"/>
+                            </if>
+                        </if>
+                    </iterate>
                 </if>
             </iterate>
 
@@ -697,8 +740,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!toPartyId">
                 <entity-find entity-name="mantle.work.effort.WorkEffortParty" list="vendorWepList">
                     <date-filter/><econdition field-name="workEffortId"/>
-                    <econdition field-name="roleTypeId" value="VendorBillFrom"/>
-                </entity-find>
+                    <econdition field-name="roleTypeId" value="VendorBillFrom"/></entity-find>
                 <set field="vendorWep" from="vendorWepList?.first"/>
                 <set field="toPartyId" from="vendorWep.partyId"/>
             </if>
@@ -908,9 +950,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="originalInvoiceId" required="true"/>
             <parameter name="newInvoiceId" required="true"/>
         </in-parameters>
-        <out-parameters>
-            <parameter name="invoiceItemCreatedCount" type="Long"/>
-        </out-parameters>
+        <out-parameters><parameter name="invoiceItemCreatedCount" type="Long"/></out-parameters>
         <actions>
             <set field="invoiceItemCreatedCount" from="0" type="Long"/>
 
