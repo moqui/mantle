@@ -214,6 +214,33 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="calculate" noun="OrderItemReturnable">
+        <description>Calculate returnable quantity for an OrderItem with pre-queried OrderItemBilling and ReturnItem
+            lists, which can be lists for an entire order (ie filtered before calc).</description>
+        <in-parameters>
+            <parameter name="orderId" required="true"/><parameter name="orderItemSeqId" required="true"/>
+            <parameter name="orderItemBillingList" type="List"><parameter name="oib" type="Map"/></parameter>
+            <parameter name="returnItemList" type="List"><parameter name="returnItem" type="Map"/></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="invoiceQuantity" type="BigDecimal"/>
+            <parameter name="returnQuantity" type="BigDecimal"/>
+            <parameter name="returnableQuantity" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <set field="invoiceQuantity" from="0"/>
+            <iterate list="orderItemBillingList" entry="oib">
+                <if condition="oib.orderId != orderId || oib.orderItemSeqId != orderItemSeqId"><continue/></if>
+                <set field="invoiceQuantity" from="invoiceQuantity + oib.quantity"/>
+            </iterate>
+            <set field="returnQuantity" from="0"/>
+            <iterate list="returnItemList" entry="returnItem">
+                <if condition="returnItem.orderId != orderId || returnItem.orderItemSeqId != orderItemSeqId"><continue/></if>
+                <set field="returnQuantity" from="returnQuantity + returnItem.returnQuantity"/>
+            </iterate>
+            <set field="returnableQuantity" from="invoiceQuantity - returnQuantity"/>
+        </actions>
+    </service>
     <service verb="add" noun="OrderItemToReturn">
         <in-parameters>
             <parameter name="returnId" required="true"/>
