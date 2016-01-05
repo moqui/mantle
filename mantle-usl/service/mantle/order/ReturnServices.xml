@@ -184,27 +184,31 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
 
             <!-- Match customerPartyId, vendorPartyId (to OrderPart), include (invoiced items (physical shipped or not); shipped items/quantities), exclude returned -->
-            <!-- TODO: test this and make sure query produces correct invoiceQuantity and returnQuantity, have doubts, may need to split into 2 queries -->
             <entity-find entity-name="mantle.order.return.ReturnableOrderItemView" list="returnableItems">
                 <econdition field-name="customerPartyId" from="returnHeader.customerPartyId"/>
                 <econdition field-name="vendorPartyId" from="returnHeader.vendorPartyId"/>
                 <econdition field-name="placedDate" operator="greater-equals" from="lookBackTs"/>
-                <econdition field-name="returnStatusId" operator="not-equals" value="ReturnCancelled"/>
-                <having-econditions><econdition field-name="invoiceQuantity" operator="greater" to-field-name="returnQuantity"/></having-econditions>
                 <select-field field-name="orderId"/><select-field field-name="orderItemSeqId"/>
                 <select-field field-name="itemTypeEnumId"/><select-field field-name="productId"/>
                 <select-field field-name="quantity"/><select-field field-name="invoiceQuantity"/>
-                <select-field field-name="returnQuantity"/>
+                <order-by field-name="orderId"/><order-by field-name="orderItemSeqId"/>
             </entity-find>
 
             <set field="orderItemInfoList" from="[]"/>
             <iterate list="returnableItems" entry="returnableItem">
-                <set field="returnableQuantity" from="(returnableItem.invoiceQuantity ?: 0) - (returnableItem.returnQuantity ?: 0)"/>
+                <entity-find entity-name="mantle.order.return.ReturnItemQuantity" list="riqList">
+                    <econdition field-name="orderId" from="returnableItem.orderId"/>
+                    <econdition field-name="orderItemSeqId" from="returnableItem.orderItemSeqId"/>
+                    <econdition field-name="statusId" operator="not-equals" value="ReturnCancelled"/>
+                    <select-field field-name="returnQuantity"/>
+                </entity-find>
+                <set field="returnQuantity" from="(riqList ? (riqList[0].returnQuantity ?: 0) : 0) as BigDecimal"/>
+                <set field="returnableQuantity" from="(returnableItem.invoiceQuantity ?: 0) - returnQuantity"/>
                 <if condition="returnableQuantity > 0">
                     <script>orderItemInfoList.add([orderId:returnableItem.orderId, orderItemSeqId:returnableItem.orderItemSeqId,
                                 itemTypeEnumId:returnableItem.itemTypeEnumId, productId:returnableItem.productId,
                                 orderQuantity:returnableItem.quantity, invoiceQuantity:returnableItem.invoiceQuantity,
-                                returnQuantity:returnableItem.returnQuantity, returnableQuantity:returnableQuantity])</script>
+                                returnQuantity:returnQuantity, returnableQuantity:returnableQuantity])</script>
                 </if>
             </iterate>
         </actions>
