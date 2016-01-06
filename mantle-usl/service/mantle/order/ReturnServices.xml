@@ -216,7 +216,7 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="calculate" noun="OrderItemReturnable">
         <description>Calculate returnable quantity for an OrderItem with pre-queried OrderItemBilling and ReturnItem
-            lists, which can be lists for an entire order (ie filtered before calc).</description>
+            lists, which can be lists for an entire order (ie filtered before calc) and if are null are queried here.</description>
         <in-parameters>
             <parameter name="orderId" required="true"/><parameter name="orderItemSeqId" required="true"/>
             <parameter name="orderItemBillingList" type="List"><parameter name="oib" type="Map"/></parameter>
@@ -229,15 +229,28 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <set field="invoiceQuantity" from="0"/>
+            <if condition="orderItemBillingList == null">
+                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                    <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/></entity-find>
+            </if>
             <iterate list="orderItemBillingList" entry="oib">
                 <if condition="oib.orderId != orderId || oib.orderItemSeqId != orderItemSeqId"><continue/></if>
                 <set field="invoiceQuantity" from="invoiceQuantity + oib.quantity"/>
             </iterate>
+
             <set field="returnQuantity" from="0"/>
+            <if condition="returnItemList == null">
+                <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                    <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
+                    <econdition field-name="statusId" operator="not-equals" value="ReturnCancelled"/>
+                    <order-by field-name="orderItemSeqId"/>
+                </entity-find>
+            </if>
             <iterate list="returnItemList" entry="returnItem">
                 <if condition="returnItem.orderId != orderId || returnItem.orderItemSeqId != orderItemSeqId"><continue/></if>
                 <set field="returnQuantity" from="returnQuantity + returnItem.returnQuantity"/>
             </iterate>
+
             <set field="returnableQuantity" from="invoiceQuantity - returnQuantity"/>
         </actions>
     </service>
