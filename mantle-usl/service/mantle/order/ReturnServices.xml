@@ -355,7 +355,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="receive" noun="ReturnShipmentItems">
-        <description>Call receive#ReturnItem for all items returned on a Shipment. Called be SECA rule on Shipment status Delivered.</description>
+        <description>Call receive#ReturnItem for all items returned on a Shipment. Called by SECA rule on Shipment status Delivered.</description>
         <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
@@ -790,7 +790,62 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </if>
             </iterate>
-            
+        </actions>
+    </service>
+
+    <!-- =============================================== -->
+    <!-- ========== Reroute Shipment Services ========== -->
+    <!-- =============================================== -->
+
+    <service verb="reroute" noun="Shipment">
+        <description>For use when a Shipment is rejected and sold to another customer. Calls return#Shipment and resell#Shipment.</description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="returnReasonEnumId" required="true"/>
+            <parameter name="returnResponseEnumId" required="true"/>
+            <parameter name="customerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="returnId"/>
+            <parameter name="newOrderId"/>
+            <parameter name="newShipmentId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.order.ReturnServices.return#Shipment" in-map="context" out-map="context"/>
+            <service-call name="mantle.order.ReturnServices.resell#Shipment" in-map="context" out-map="context"/>
+        </actions>
+    </service>
+    <service verb="return" noun="Shipment">
+        <description>Create a return for entire shipment, return all items/quantities on the shipment</description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="returnReasonEnumId" required="true"/>
+            <parameter name="returnResponseEnumId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="returnId"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO -->
+        </actions>
+    </service>
+    <service verb="resell" noun="Shipment">
+        <description>
+            Create order for different customer for all items on a shipment.
+            Create new shipment for new order.
+            Cancel original shipment and reallocate inventory to new shipment.
+            Leave shipment picked, don't set to packed so invoice is not created (so order prices can be adjusted).
+        </description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="customerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="newOrderId"/>
+            <parameter name="newShipmentId"/>
+        </out-parameters>
+        <actions>
+            <!-- TODO -->
         </actions>
     </service>
 </services>
