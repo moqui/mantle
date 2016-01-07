@@ -826,7 +826,40 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="returnId"/>
         </out-parameters>
         <actions>
-            <!-- TODO -->
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <set field="vendorPartyId" from="shipment.fromPartyId"/>
+            <set field="customerPartyId" from="shipment.toPartyId"/>
+
+            <!-- get contact info from ShipmentRouteSegment -->
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <set field="srs" from="srsList[0]"/>
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
+                <field-map field-name="partyId" from="customerPartyId"/>
+                <field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+            <if condition="customerOrgInternal"><then>
+                <set field="facilityId" from="srs.destinationFacilityId"/>
+                <set field="postalContactMechId" from="srs.originPostalContactMechId"/>
+                <set field="telecomContactMechId" from="srs.originTelecomContactMechId"/>
+            </then><else>
+                <set field="facilityId" from="srs.originFacilityId"/>
+                <set field="postalContactMechId" from="srs.destPostalContactMechId"/>
+                <set field="telecomContactMechId" from="srs.destTelecomContactMechId"/>
+            </else></if>
+
+            <!-- create ReturnHeader -->
+            <service-call name="mantle.order.ReturnServices.resell#Shipment" out-map="context"
+                    in-map="[vendorPartyId:vendorPartyId, customerPartyId:customerPartyId, facilityId:facilityId,
+                        postalContactMechId:postalContactMechId, telecomContactMechId:telecomContactMechId]"/>
+
+            <!-- add return items for order items from ShipmentItemSource records -->
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <iterate list="sisList" entry="sis">
+                <service-call name="mantle.order.ReturnServices.add#OrderItemToReturn" in-map="[returnId:returnId,
+                        orderId:sis.orderId, orderItemSeqId:sis.orderItemSeqId, returnQuantity:sis.quantity,
+                        returnReasonEnumId:returnReasonEnumId, returnResponseEnumId:returnResponseEnumId]"/>
+            </iterate>
         </actions>
     </service>
     <service verb="resell" noun="Shipment">
