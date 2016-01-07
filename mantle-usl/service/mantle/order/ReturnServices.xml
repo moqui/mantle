@@ -798,7 +798,11 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- =============================================== -->
 
     <service verb="reroute" noun="Shipment">
-        <description>For use when a Shipment is rejected and sold to another customer. Calls return#Shipment and resell#Shipment.</description>
+        <description>
+            For use when a Shipment is rejected and sold to another customer.
+            Calls return#Shipment and resell#Shipment.
+            For use only with Sales shipments.
+        </description>
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
             <parameter name="returnReasonEnumId" required="true"/>
@@ -816,7 +820,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
     <service verb="return" noun="Shipment">
-        <description>Create a return for entire shipment, return all items/quantities on the shipment</description>
+        <description>
+            Create a return for entire shipment, return all items/quantities on the shipment.
+            For use with Sales or Purchase shipments.
+        </description>
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
             <parameter name="returnReasonEnumId" required="true"/>
@@ -827,7 +834,7 @@ along with this software (see the LICENSE.md file). If not, see
         </out-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
-            <if condition="!(shipment.statusId in ['ShpTpSales', 'ShpTpPurchase'])">
+            <if condition="!(shipment.shipmentTypeEnumId in ['ShpTpSales', 'ShpTpPurchase'])">
                 <return error="true" message="Shipment ${shipmentId} is not a Sales or Purchase shipment"/></if>
 
             <set field="vendorPartyId" from="shipment.fromPartyId"/>
@@ -871,6 +878,7 @@ along with this software (see the LICENSE.md file). If not, see
             Create new shipment for new order.
             Cancel original shipment and reallocate inventory to new shipment.
             Leave shipment picked, don't set to packed so invoice is not created (so order prices can be adjusted).
+            For use only with Sales shipments.
         </description>
         <in-parameters>
             <parameter name="shipmentId" required="true"/>
@@ -881,6 +889,14 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="newShipmentId"/>
         </out-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <if condition="shipment.shipmentTypeEnumId != 'ShpTpSales'">
+                <return error="true" message="Shipment ${shipmentId} is not a Sales shipment"/></if>
+
+            <set field="vendorPartyId" from="shipment.fromPartyId"/>
+            <set field="customerPartyId" from="shipment.toPartyId"/>
+
+
             <!-- TODO -->
         </actions>
     </service>
