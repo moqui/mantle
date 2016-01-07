@@ -342,25 +342,27 @@ h2. General Order Placement and eCommerce Usage
             <if condition="!currencyUomId">
                 <if condition="customerPartyId">
                     <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                            in-map="[organizationPartyId:customerPartyId]"/>
-                </if>
-                <if condition="partyAcctgPreference">
-                    <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
-                    <else-if condition="vendorPartyId">
-                        <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                                in-map="[organizationPartyId:vendorPartyId]"/>
-                        <if condition="partyAcctgPreference">
-                            <set field="currencyUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
-                        </if>
-                    </else-if>
-                </if>
+                            in-map="[organizationPartyId:customerPartyId]"/></if>
+                <if condition="!partyAcctgPreference &amp;&amp; vendorPartyId">
+                    <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                            in-map="[organizationPartyId:vendorPartyId]"/></if>
+                <set field="currencyUomId" from="partyAcctgPreference?.baseCurrencyUomId"/>
             </if>
             <!-- TODO: get this from configuration somewhere, perhaps Tenant.defaultCurrencyUomId? -->
             <if condition="!currencyUomId"><set field="currencyUomId" value="USD"/></if>
 
             <service-call name="create#mantle.order.OrderHeader" in-map="context" out-map="context"/>
 
-            <service-call name="mantle.facility.ContactServices.get#FacilityDefaultShipDest" in-map="context" out-map="context"/>
+            <!-- If customer is internal org and there is a facility get default ship dest contact info -->
+            <if condition="customerPartyId">
+                <entity-find entity-name="mantle.party.PartyRole" list="custOrgInternalList">
+                    <econdition field-name="partyId" from="customerPartyId"/>
+                    <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+                <if condition="custOrgInternalList">
+                    <service-call name="mantle.facility.ContactServices.get#FacilityDefaultShipDest"
+                            in-map="context" out-map="context"/></if>
+            </if>
+
             <service-call name="create#mantle.order.OrderPart" in-map="context" out-map="context"/>
         </actions>
     </service>
