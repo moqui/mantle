@@ -130,8 +130,16 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="currencyUomId" from="orderHeader.currencyUomId"/>
 
             <if condition="!facilityId"><set field="facilityId" from="orderPart.facilityId"/></if>
-            <if condition="!postalContactMechId"><set field="postalContactMechId" from="orderPart.postalContactMechId"/></if>
-            <if condition="!telecomContactMechId"><set field="telecomContactMechId" from="orderPart.telecomContactMechId"/></if>
+
+            <!-- Only set postalContactMechId, telecomContactMechId if vendor is internal org, ie if it is Sales Order they are the customer's -->
+            <entity-find entity-name="mantle.party.PartyRole" list="vendorOrgInternalList">
+                <econdition field-name="partyId" from="vendorPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <if condition="vendorOrgInternalList">
+                <if condition="!postalContactMechId"><set field="postalContactMechId" from="orderPart.postalContactMechId"/></if>
+                <if condition="!telecomContactMechId"><set field="telecomContactMechId" from="orderPart.telecomContactMechId"/></if>
+            </if>
+
             <if condition="!shipmentMethodEnumId"><set field="shipmentMethodEnumId" from="orderPart.shipmentMethodEnumId"/></if>
             <if condition="!carrierPartyId"><set field="carrierPartyId" from="orderPart.carrierPartyId"/></if>
             <if condition="!paymentMethodId">
