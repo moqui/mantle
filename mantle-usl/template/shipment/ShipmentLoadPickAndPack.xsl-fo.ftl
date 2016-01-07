@@ -1,5 +1,6 @@
 <#--
-This software is in the public domain under CC0 1.0 Universal plus a Grant of Patent License.
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
 
 To the extent possible under law, the author(s) have dedicated all
 copyright and related and neighboring rights to this software to the
@@ -13,8 +14,8 @@ along with this software (see the LICENSE.md file). If not, see
 
 <#-- See the mantle.shipment.ShipmentServices.get#ShipmentPickPackInfo service for data preparation -->
 
-<#import "component://mantle-usl/template/shipment/ShipmentLoadPick.xsl-fo.ftl" as loadPick>
-<#import "component://mantle-usl/template/shipment/ShipmentPack.xsl-fo.ftl" as shipmentPack>
+<#import "component://SimpleScreens/template/shipment/ShipmentLoadPick.xsl-fo.ftl" as loadPick>
+<#import "component://SimpleScreens/template/shipment/ShipmentPack.xsl-fo.ftl" as shipmentPack>
 
 <#assign cellPadding = "1pt">
 <#assign dateFormat = dateFormat!"dd MMM yyyy">
