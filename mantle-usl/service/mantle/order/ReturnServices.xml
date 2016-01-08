@@ -858,7 +858,7 @@ along with this software (see the LICENSE.md file). If not, see
             </else></if>
 
             <!-- create ReturnHeader -->
-            <service-call name="mantle.order.ReturnServices.resell#Shipment" out-map="context"
+            <service-call name="mantle.order.ReturnServices.create#Return" out-map="context"
                     in-map="[vendorPartyId:vendorPartyId, customerPartyId:customerPartyId, facilityId:facilityId,
                         postalContactMechId:postalContactMechId, telecomContactMechId:telecomContactMechId]"/>
 
@@ -894,10 +894,42 @@ along with this software (see the LICENSE.md file). If not, see
                 <return error="true" message="Shipment ${shipmentId} is not a Sales shipment"/></if>
 
             <set field="vendorPartyId" from="shipment.fromPartyId"/>
-            <set field="customerPartyId" from="shipment.toPartyId"/>
 
+            <!-- get origin facility from ShipmentRouteSegment -->
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <set field="srs" from="srsList[0]"/>
+            <set field="facilityId" from="srs.originFacilityId"/>
 
-            <!-- TODO -->
+            <!-- NOTE: don't set postalContactMechId or telecomContactMechId, those were for the other customer -->
+
+            <!-- create Order -->
+            <service-call name="mantle.order.OrderServices.create#Order" out-map="ordOut"
+                    in-map="[vendorPartyId:vendorPartyId, customerPartyId:customerPartyId, facilityId:facilityId]"/>
+            <set field="newOrderId" from="ordOut.orderId"/>
+
+            <!-- add order items for shipment items records -->
+            <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <iterate list="shipmentItemList" entry="shipmentItem">
+                <service-call name="mantle.order.OrderServices.add#OrderProductQuantity" in-map="[orderId:newOrderId,
+                        productId:shipmentItem.productId, quantity:shipmentItem.quantity]"/>
+            </iterate>
+
+            <!-- create new shipment for order -->
+            <service-call name="mantle.shipment.ShipmentServices.create#OrderPartShipment"
+                    in-map="[orderId:ordOut.orderId, orderPartSeqId:ordOut.orderPartSeqId]" out-map="shipOut"/>
+            <set field="newShipmentId" from="shipOut.shipmentId"/>
+
+            <!-- cancel original shipment -->
+            <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:shipmentId, statusId:'ShipCancelled']"/>
+
+            <!-- reallocate inventory to new shipment -->
+            <service-call name="mantle.product.AssetServices.move#IssuancesToNewShipment"
+                    in-map="[shipmentId:shipmentId, newOrderId:newOrderId, newShipmentId:newShipmentId]"/>
+
+            <!-- set shipment picked (don't set to pack until after manual order update, set prices/etc as needed) -->
+            <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:newShipmentId, statusId:'ShipPicked']"/>
         </actions>
     </service>
 </services>
