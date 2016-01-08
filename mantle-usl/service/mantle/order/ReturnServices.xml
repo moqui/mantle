@@ -797,7 +797,7 @@ along with this software (see the LICENSE.md file). If not, see
     <!-- ========== Reroute Shipment Services ========== -->
     <!-- =============================================== -->
 
-    <service verb="reroute" noun="Shipment">
+    <service verb="returnAndResell" noun="Shipment">
         <description>
             For use when a Shipment is rejected and sold to another customer.
             Calls return#Shipment and resell#Shipment.
@@ -807,6 +807,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="shipmentId" required="true"/>
             <parameter name="returnReasonEnumId" required="true"/>
             <parameter name="returnResponseEnumId" required="true"/>
+            <parameter name="responseImmediate" default-value="Y"/>
             <parameter name="customerPartyId" required="true"/>
         </in-parameters>
         <out-parameters>
@@ -828,6 +829,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="shipmentId" required="true"/>
             <parameter name="returnReasonEnumId" required="true"/>
             <parameter name="returnResponseEnumId" required="true"/>
+            <parameter name="responseImmediate"/>
         </in-parameters>
         <out-parameters>
             <parameter name="returnId"/>
@@ -836,6 +838,8 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
             <if condition="!(shipment.shipmentTypeEnumId in ['ShpTpSales', 'ShpTpPurchase'])">
                 <return error="true" message="Shipment ${shipmentId} is not a Sales or Purchase shipment"/></if>
+            <if condition="!(shipment.statusId in ['ShipPacked', 'ShipShipped'])">
+                <return error="true" message="Shipment ${shipmentId} is not in the Packed or Shipped status"/></if>
 
             <set field="vendorPartyId" from="shipment.fromPartyId"/>
             <set field="customerPartyId" from="shipment.toPartyId"/>
@@ -868,7 +872,8 @@ along with this software (see the LICENSE.md file). If not, see
             <iterate list="sisList" entry="sis">
                 <service-call name="mantle.order.ReturnServices.add#OrderItemToReturn" in-map="[returnId:returnId,
                         orderId:sis.orderId, orderItemSeqId:sis.orderItemSeqId, returnQuantity:sis.quantity,
-                        returnReasonEnumId:returnReasonEnumId, returnResponseEnumId:returnResponseEnumId]"/>
+                        returnReasonEnumId:returnReasonEnumId, returnResponseEnumId:returnResponseEnumId,
+                        responseImmediate:responseImmediate]"/>
             </iterate>
         </actions>
     </service>
@@ -876,8 +881,8 @@ along with this software (see the LICENSE.md file). If not, see
         <description>
             Create order for different customer for all items on a shipment.
             Create new shipment for new order.
-            Cancel original shipment and reallocate inventory to new shipment.
-            Leave shipment picked, don't set to packed so invoice is not created (so order prices can be adjusted).
+            Reject original shipment and reallocate inventory to new shipment.
+            Leave shipment picked, don't set to packed so invoice is not created (so order prices can be adjusted, etc).
             For use only with Sales shipments.
         </description>
         <in-parameters>
@@ -892,6 +897,8 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
             <if condition="shipment.shipmentTypeEnumId != 'ShpTpSales'">
                 <return error="true" message="Shipment ${shipmentId} is not a Sales shipment"/></if>
+            <if condition="!(shipment.statusId in ['ShipPacked', 'ShipShipped'])">
+                <return error="true" message="Shipment ${shipmentId} is not in the Packed or Shipped status"/></if>
 
             <set field="vendorPartyId" from="shipment.fromPartyId"/>
 
@@ -921,14 +928,14 @@ along with this software (see the LICENSE.md file). If not, see
                     in-map="[orderId:ordOut.orderId, orderPartSeqId:ordOut.orderPartSeqId]" out-map="shipOut"/>
             <set field="newShipmentId" from="shipOut.shipmentId"/>
 
-            <!-- cancel original shipment -->
-            <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:shipmentId, statusId:'ShipCancelled']"/>
+            <!-- reject original shipment -->
+            <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:shipmentId, statusId:'ShipRejected']"/>
 
             <!-- reallocate inventory to new shipment -->
             <service-call name="mantle.product.AssetServices.move#IssuancesToNewShipment"
                     in-map="[shipmentId:shipmentId, newOrderId:newOrderId, newShipmentId:newShipmentId]"/>
 
-            <!-- set shipment picked (don't set to pack until after manual order update, set prices/etc as needed) -->
+            <!-- set shipment picked (don't set to packed until after manual order update, set prices/etc as needed) -->
             <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:newShipmentId, statusId:'ShipPicked']"/>
         </actions>
     </service>
