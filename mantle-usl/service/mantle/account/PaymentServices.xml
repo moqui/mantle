@@ -339,16 +339,15 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!amountUomId">
                 <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
                         in-map="[organizationPartyId:fromPartyId]"/>
-                <if condition="partyAcctgPreference">
+                <if condition="partyAcctgPreference"><then>
                     <set field="amountUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
-                    <else>
-                        <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
-                                in-map="[organizationPartyId:toPartyId]"/>
-                        <if condition="partyAcctgPreference">
-                            <set field="amountUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
-                        </if>
-                    </else>
-                </if>
+                </then><else>
+                    <service-call name="mantle.ledger.LedgerServices.find#PartyAcctgPreference" out-map="context"
+                            in-map="[organizationPartyId:toPartyId]"/>
+                    <if condition="partyAcctgPreference">
+                        <set field="amountUomId" from="partyAcctgPreference.baseCurrencyUomId"/>
+                    </if>
+                </else></if>
             </if>
             <if condition="!amountUomId"><set field="amountUomId" value="USD"/></if>
 
@@ -416,8 +415,8 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if target status is PmntConfirmed go to PmntDelivered first -->
             <if condition="statusId == 'PmntConfirmed'">
-                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:'PmntDelivered']"/>
-            </if>
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:'PmntDelivered']"/></if>
+
             <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:statusId]"/>
         </actions>
     </service>
@@ -576,8 +575,7 @@ along with this software (see the LICENSE.md file). If not, see
         <actions>
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
             <if condition="!(payment.statusId in ['PmntCancelled', 'PmntVoid', 'PmntRefunded'])">
-                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:'PmntVoid']"/>
-            </if>
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:paymentId, statusId:'PmntVoid']"/></if>
 
             <entity-find entity-name="mantle.account.payment.PaymentApplication" list="paymentApplicationList">
                 <econdition field-name="paymentId"/></entity-find>
@@ -812,7 +810,7 @@ along with this software (see the LICENSE.md file). If not, see
                     paymentGatewayConfigId:paymentGatewayConfig.paymentGatewayConfigId]"/>
             <set field="paymentGatewayResponseId" from="authOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
-            <if condition="paymentGatewayResponse?.resultSuccess == 'Y'">
+            <if condition="paymentGatewayResponse?.resultSuccess == 'Y'"><then>
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
                         statusId:'PmntAuthorized', paymentGatewayConfigId:paymentGatewayConfigId]"/>
 
@@ -827,13 +825,10 @@ along with this software (see the LICENSE.md file). If not, see
                     <set field="creditCard.cardSecurityCode" from="null"/>
                     <entity-update value-field="creditCard"/>
                 </if>
-
-
-                <else>
-                    <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
-                            statusId:'PmntDeclined', paymentGatewayConfigId:paymentGatewayConfigId]"/>
-                </else>
-            </if>
+            </then><else>
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId,
+                        statusId:'PmntDeclined', paymentGatewayConfigId:paymentGatewayConfigId]"/>
+            </else></if>
         </actions>
     </service>
 
@@ -921,11 +916,11 @@ along with this software (see the LICENSE.md file). If not, see
 
             <set field="paymentGatewayResponseId" from="captOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
-            <if condition="paymentGatewayResponse?.resultSuccess == 'Y'">
+            <if condition="paymentGatewayResponse?.resultSuccess == 'Y'"><then>
                 <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDelivered']"/>
-
-                <else><service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDeclined']"/></else>
-            </if>
+            </then><else>
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntDeclined']"/>
+            </else></if>
         </actions>
     </service>
 
@@ -968,8 +963,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="paymentGatewayResponseId" from="releaseOut.paymentGatewayResponseId"/>
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayResponse" value-field="paymentGatewayResponse"/>
             <if condition="paymentGatewayResponse?.resultSuccess == 'Y'">
-                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntVoid']"/>
-            </if>
+                <service-call name="update#mantle.account.payment.Payment" in-map="[paymentId:payment.paymentId, statusId:'PmntVoid']"/></if>
         </actions>
     </service>
 
