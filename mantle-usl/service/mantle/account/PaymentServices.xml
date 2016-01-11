@@ -847,6 +847,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
     
     <service verb="capture" noun="InvoicePayments">
+        <description>DEPRECATED by capture#AppliedPayment. Was called by SECA rule.</description>
         <in-parameters><parameter name="invoiceId" required="true"/></in-parameters>
         <out-parameters><parameter name="captureFailed" type="Boolean"/></out-parameters>
         <actions>
@@ -860,6 +861,18 @@ along with this software (see the LICENSE.md file). If not, see
             </iterate>
         </actions>
     </service>
+    <service verb="capture" noun="AppliedPayment">
+        <description>Called by SECA rule on create#mantle.account.payment.PaymentApplication</description>
+        <in-parameters><parameter name="paymentApplicationId" required="true"/></in-parameters>
+        <out-parameters><parameter name="paymentGatewayResponseId"/></out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.account.payment.PaymentApplication" value-field="paymentApplication"/>
+            <!-- capture full or partial Payment for the PaymentApplication -->
+            <service-call name="mantle.account.PaymentServices.capture#SinglePayment" out-map="captOut"
+                    in-map="[paymentId:paymentApplication.paymentId, amount:paymentApplication.amountApplied]"/>
+        </actions>
+    </service>
+
     <!-- TODO: transaction="force-new" on this is blowing up, debug it -->
     <service verb="capture" noun="SinglePayment">
         <in-parameters>
@@ -878,7 +891,7 @@ along with this software (see the LICENSE.md file). If not, see
             <!-- if the Payment.statusId is already PmntDelivered don't try again -->
             <!-- NOTE: also handle other statuses, ie anything other than PmntAuthorized? might be too inflexible... -->
             <if condition="payment.statusId != 'PmntAuthorized'">
-                <log level="warn" message="Not capturing Payment [${paymentId}], is in ${payment.statusId} and not the Authorized status."/>
+                <log level="info" message="Not capturing Payment [${paymentId}], is in ${payment.statusId} and not the Authorized status."/>
                 <return/>
             </if>
 
@@ -892,7 +905,10 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- if no auth and no payment.paymentGatewayConfigId then this shouldn't be captured (probably a payment method type with no gateway) -->
             <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentInstrumentEnumId -->
-            <if condition="!paymentGatewayConfigId"><return/></if>
+            <if condition="!paymentGatewayConfigId">
+                <log level="info" message="Not capturing Payment ${paymentId}, no gateway config found"/>
+                <return/>
+            </if>
 
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
