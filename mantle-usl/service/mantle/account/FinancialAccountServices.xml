@@ -76,6 +76,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="organizationPartyId" required="true"/>
             <parameter name="ownerPartyId" required="true"/>
             <parameter name="statusId" default-value="FaActive"/>
+            <parameter name="negativeBalanceLimit" type="BigDecimal" default="0"/>
             <parameter name="isRefundable"><description>Defaults to FinancialAccountType.isRefundable</description></parameter>
             <parameter name="currencyUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for organizationPartyId.</description></parameter>
         </in-parameters>
@@ -92,6 +93,8 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <if condition="!currencyUomId"><set field="currencyUomId" value="USD"/></if>
 
+            <set field="actualBalance" from="0"/>
+            <set field="availableBalance" from="negativeBalanceLimit"/>
             <service-call name="create#mantle.account.financial.FinancialAccount" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -102,6 +105,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <exclude field-name="actualBalance"/><exclude field-name="availableBalance"/></auto-parameters>
         </in-parameters>
         <actions>
+            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"/>
+            <!-- if needed adjust availableBalance -->
+            <if condition="negativeBalanceLimit != financialAccount.negativeBalanceLimit">
+                <set field="availableBalance" from="availableBalance + (negativeBalanceLimit - financialAccount.negativeBalanceLimit)"/></if>
             <service-call name="update#mantle.account.financial.FinancialAccount" in-map="context" out-map="context"/>
         </actions>
     </service>
@@ -186,7 +193,7 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="authBalance" from="faaList?.first?.authBalance ?: 0"/>
             </else></if>
 
-            <set field="availableBalance" from="actualBalance - authBalance"/>
+            <set field="availableBalance" from="actualBalance - authBalance + (financialAccount.negativeBalanceLimit ?: 0)"/>
 
             <set field="financialAccount.actualBalance" from="actualBalance"/>
             <set field="financialAccount.availableBalance" from="availableBalance"/>
@@ -341,7 +348,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="finAccountId" required="true"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
             <parameter name="authorizationDate" type="Timestamp" default-value="ec.user.nowTimestamp"/>
-            <parameter name="expireDate" type="Timestamp" required="true"/><!-- TODO: default this based on some sort of setting? -->
+            <parameter name="paymentId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="preAvailableBalance" type="BigDecimal"/>
@@ -352,7 +359,16 @@ along with this software (see the LICENSE.md file). If not, see
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="financialAccount"
                     for-update="true"/>
             <set field="preAvailableBalance" from="financialAccount.availableBalance"/>
+            <if condition="preAvailableBalance &lt; amount">
+                <return error="true" message="Insufficient funds: ${ec.l10n.format(preAvailableBalance, '0.00')} available, authorize amount ${ec.l10n.format(amount, '0.00')}"/></if>
 
+            <set field="authValidDays" from="financialAccount.authValidDays ?: 7"/>
+            <script>
+                Calendar expireCal = ec.user.nowCalendar
+                expireCal.setTimeInMillis(authorizationDate.time)
+                expireCal.add(Calendar.DAY_OF_MONTH, authValidDays)
+                expireDate = new Timestamp(expireCal.getTimeInMillis())
+            </script>
             <service-call name="create#mantle.account.financial.FinancialAccountAuth" in-map="context" out-map="context"/>
 
             <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
@@ -409,7 +425,11 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="authorize" noun="FinancialAccountPayment">
         <implements service="mantle.account.PaymentServices.authorize#Payment"/>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <if condition="!payment.finAccountId"><return error="true" message="No Financial Account ID on Payment ${payment.paymentId}"/></if>
+
+            <service-call name="mantle.account.FinancialAccountServices.authorize#FinancialAccount" out-map="authOut"
+                    in-map="[finAccountId:payment.finAccountId, amount:payment.amount, paymentId:paymentId]"/>
         </actions>
     </service>
     <service verb="capture" noun="FinancialAccountPayment">
