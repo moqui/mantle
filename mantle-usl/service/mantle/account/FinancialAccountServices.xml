@@ -434,14 +434,20 @@ along with this software (see the LICENSE.md file). If not, see
         <implements service="mantle.account.PaymentServices.authorize#Payment"/>
         <actions>
             <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
-            <if condition="!payment.finAccountId"><return error="true" message="No Financial Account ID on Payment ${payment.paymentId}"/></if>
+            <set field="finAccountId" from="payment.finAccountId"/>
+            <if condition="!finAccountId &amp;&amp; payment.paymentMethodId">
+                <!-- if there is a FinancialAccount PaymentMethod, use that -->
+                <set field="paymentMethod" from="payment.method"/>
+                <set field="finAccountId" from="paymentMethod.finAccountId"/>
+            </if>
+            <if condition="!finAccountId"><return error="true" message="No Financial Account ID on Payment ${payment.paymentId}"/></if>
 
             <service-call name="mantle.account.FinancialAccountServices.authorize#FinancialAccount" out-map="authOut"
-                    in-map="[finAccountId:payment.finAccountId, amount:payment.amount, paymentId:paymentId]"/>
+                    in-map="[finAccountId:finAccountId, amount:payment.amount, paymentId:paymentId]"/>
 
             <service-call name="create#mantle.account.method.PaymentGatewayResponse" out-map="context"
                     in-map="[paymentGatewayConfigId:paymentGatewayConfigId, paymentOperationEnumId:'PgoAuthorize',
-                        paymentId:paymentId, paymentMethodId:payment.paymentMethodId, finAccountId:payment.finAccountId,
+                        paymentId:paymentId, paymentMethodId:payment.paymentMethodId, finAccountId:finAccountId,
                         amount:amount, amountUomId:payment.amountUomId,
                         referenceNum:authOut.finAccountAuthId, approvalCode:authOut.finAccountAuthId,
                         responseCode:authOut.responseCode, reasonCode:null, reasonMessage:authOut.responseMessage,
