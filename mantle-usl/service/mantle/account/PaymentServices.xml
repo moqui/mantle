@@ -321,7 +321,9 @@ along with this software (see the LICENSE.md file). If not, see
 
     <service verb="create" noun="Payment">
         <in-parameters>
-            <auto-parameters entity-name="mantle.account.payment.Payment" include="nonpk"/>
+            <auto-parameters entity-name="mantle.account.payment.Payment" include="nonpk">
+                <exclude field-name="acctgTransResultEnumId"/><exclude field-name="reconcileStatusId"/>
+                <exclude field-name="paymentMethodFileId"/></auto-parameters>
             <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
             <parameter name="statusId" default-value="PmntProposed"/>
             <parameter name="fromPartyId" required="true"/>
@@ -330,6 +332,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="amountUomId"><description>Defaults to PartyAcctgPreference.baseCurrencyUomId for whichever
                 Party (from or to) is an internal organization with an accounting preference record.</description></parameter>
             <parameter name="effectiveDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+            <parameter name="visitId" default="ec.user.visitId"/>
         </in-parameters>
         <out-parameters><parameter name="paymentId"/></out-parameters>
         <actions>
@@ -348,8 +351,6 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
             </if>
             <if condition="!amountUomId"><set field="amountUomId" value="USD"/></if>
-
-            <if condition="!visitId"><set field="visitId" from="ec.user.visitId"/></if>
 
             <service-call name="create#mantle.account.payment.Payment" in-map="context" out-map="context"/>
         </actions>
@@ -373,7 +374,8 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="invoiceId" required="true"/>
             <auto-parameters entity-name="mantle.account.payment.Payment" include="nonpk">
-                <exclude field-name="overrideGlAccountId"/></auto-parameters>
+                <exclude field-name="overrideGlAccountId"/><exclude field-name="acctgTransResultEnumId"/>
+                <exclude field-name="reconcileStatusId"/><exclude field-name="paymentMethodFileId"/></auto-parameters>
             <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
             <parameter name="statusId" default-value="PmntDelivered"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to invoice unpaid total</description></parameter>

@@ -886,11 +886,15 @@ h2. General Order Placement and eCommerce Usage
     </service>
     <service verb="add" noun="OrderPartPayment">
         <in-parameters>
+            <auto-parameters entity-name="mantle.account.payment.Payment" include="nonpk"><exclude field-name="amountUomId"/>
+                <exclude field-name="fromPartyId"/><exclude field-name="toPartyId"/><exclude field-name="acctgTransResultEnumId"/>
+                <exclude field-name="reconcileStatusId"/><exclude field-name="paymentMethodFileId"/></auto-parameters>
             <parameter name="orderId" required="true"/>
             <parameter name="orderPartSeqId" required="true"/>
-            <parameter name="paymentMethodId"/>
-            <parameter name="paymentInstrumentEnumId"/>
+            <parameter name="paymentTypeEnumId" default-value="PtInvoicePayment"/>
+            <parameter name="statusId" default-value="PmntPromised"/>
             <parameter name="amount" type="BigDecimal"><description>Defaults to OrderPart.partTotal</description></parameter>
+            <parameter name="visitId" default="ec.user.visitId"/>
         </in-parameters>
         <out-parameters>
             <parameter name="paymentId"/>
@@ -899,11 +903,8 @@ h2. General Order Placement and eCommerce Usage
             <entity-find-one entity-name="mantle.order.OrderHeader" value-field="orderHeader"/>
             <entity-find-one entity-name="mantle.order.OrderPart" value-field="orderPart"/>
             <service-call name="create#mantle.account.payment.Payment" out-map="context"
-                    in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentTypeEnumId:'PtInvoicePayment',
-                        paymentMethodId:paymentMethodId, paymentInstrumentEnumId:paymentInstrumentEnumId,
-                        amount:(amount ?: orderPart.partTotal), amountUomId:orderHeader.currencyUomId, statusId:'PmntPromised',
-                        fromPartyId:orderPart.customerPartyId, toPartyId:orderPart.vendorPartyId,
-                        visitId:orderHeader.visitId]"/>
+                    in-map="context + [amount:(amount ?: orderPart.partTotal), amountUomId:orderHeader.currencyUomId,
+                        fromPartyId:orderPart.customerPartyId, toPartyId:orderPart.vendorPartyId]"/>
         </actions>
     </service>
 
