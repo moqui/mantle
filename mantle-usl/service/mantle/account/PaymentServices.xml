@@ -782,7 +782,8 @@ along with this software (see the LICENSE.md file). If not, see
     -->
     <service verb="authorize" noun="SinglePayment">
         <in-parameters>
-            <parameter name="paymentGatewayConfigId" required="true"/>
+            <parameter name="paymentGatewayConfigId"><description>A payment gateway config is required, but may be
+                determined by a default (such as for FinancialAccount payments, etc)</description></parameter>
             <parameter name="paymentId" required="true"/>
             <parameter name="cardSecurityCode"/>
             <parameter name="payment" type="EntityValue"/>
@@ -800,8 +801,11 @@ along with this software (see the LICENSE.md file). If not, see
                 <return/>
             </if>
 
-            <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig"
-                    value-field="paymentGatewayConfig" cache="true"/>
+            <!-- if still no paymentGatewayConfigId and this is a Financial Account payment, default to local gateway -->
+            <if condition="!paymentGatewayConfigId &amp;&amp; payment.paymentInstrumentEnumId == 'PiFinancialAccount'">
+                <set field="paymentGatewayConfigId" from="FinancialAccountLocal"/></if>
+
+            <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
                 <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig"/></if>
 
@@ -902,6 +906,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="paymentGatewayConfigId" from="authRespOut.paymentGatewayResponse.paymentGatewayConfigId"/></if>
             <!-- if no auth PGR instead of ProductStorePaymentGateway lookup with paymentGatewayConfigId from Payment -->
             <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
+
+            <!-- if still no paymentGatewayConfigId and this is a Financial Account payment, default to local gateway -->
+            <if condition="!paymentGatewayConfigId &amp;&amp; payment.paymentInstrumentEnumId == 'PiFinancialAccount'">
+                <set field="paymentGatewayConfigId" from="FinancialAccountLocal"/></if>
 
             <!-- if no auth and no payment.paymentGatewayConfigId then this shouldn't be captured (probably a payment method type with no gateway) -->
             <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentInstrumentEnumId -->
@@ -1009,6 +1017,10 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="paymentGatewayConfigId" from="authRespOut.paymentGatewayResponse.paymentGatewayConfigId"/></if>
             <!-- if no auth PGR instead of ProductStorePaymentGateway lookup with paymentGatewayConfigId from Payment -->
             <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
+
+            <!-- if still no paymentGatewayConfigId and this is a Financial Account payment, default to local gateway -->
+            <if condition="!paymentGatewayConfigId &amp;&amp; payment.paymentInstrumentEnumId == 'PiFinancialAccount'">
+                <set field="paymentGatewayConfigId" from="FinancialAccountLocal"/></if>
 
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
