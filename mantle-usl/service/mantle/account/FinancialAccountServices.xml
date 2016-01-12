@@ -66,6 +66,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- =============================== -->
+    <!-- Financial Account CrUD Services -->
+    <!-- =============================== -->
+
     <service verb="create" noun="FinancialAccount">
         <in-parameters>
             <auto-parameters entity-name="mantle.account.financial.FinancialAccount" include="nonpk">
@@ -134,6 +138,10 @@ along with this software (see the LICENSE.md file). If not, see
             </else></if>
         </actions>
     </service>
+
+    <!-- ====================================== -->
+    <!-- Authorization and Transaction Services -->
+    <!-- ====================================== -->
 
     <service verb="calculate" noun="FinancialAccountTotals">
         <description>
@@ -444,7 +452,10 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <!-- ============================================= -->
     <!-- Financial Account Payment Processing Services -->
+    <!-- ============================================= -->
+
     <service verb="authorize" noun="FinancialAccountPayment">
         <implements service="mantle.account.PaymentServices.authorize#Payment"/>
         <actions>
@@ -458,7 +469,7 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!finAccountId"><return error="true" message="No Financial Account associated with Payment ${payment.paymentId}"/></if>
 
             <service-call name="mantle.account.FinancialAccountServices.authorize#FinancialAccount" out-map="authOut"
-                    in-map="[finAccountId:finAccountId, amount:payment.amount, paymentId:paymentId]"/>
+                    in-map="[finAccountId:finAccountId, amount:amount, paymentId:paymentId]"/>
 
             <service-call name="create#mantle.account.method.PaymentGatewayResponse" out-map="context"
                     in-map="[paymentGatewayConfigId:paymentGatewayConfigId, paymentOperationEnumId:'PgoAuthorize',
@@ -481,7 +492,7 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="capture" noun="FinancialAccountPayment">
         <implements service="mantle.account.PaymentServices.capture#Payment"/>
         <actions>
-            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment"/>
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
             <set field="finAccountId" from="payment.finAccountId"/>
             <if condition="!finAccountId &amp;&amp; payment.paymentMethodId">
                 <!-- if there is a FinancialAccount PaymentMethod, use that -->
@@ -491,10 +502,10 @@ along with this software (see the LICENSE.md file). If not, see
             <if condition="!finAccountId"><return error="true" message="No Financial Account associated with Payment ${payment.paymentId}"/></if>
 
             <service-call name="mantle.account.FinancialAccountServices.withdraw#FinancialAccount" out-map="wdOut"
-                    in-map="[finAccountId:finAccountId, amount:payment.amount]"/>
+                    in-map="[finAccountId:finAccountId, amount:amount, finAccountAuthId:payment.finAccountAuthId]"/>
 
             <service-call name="create#mantle.account.method.PaymentGatewayResponse" out-map="context"
-                    in-map="[paymentGatewayConfigId:paymentGatewayConfigId, paymentOperationEnumId:'PgoAuthorize',
+                    in-map="[paymentGatewayConfigId:paymentGatewayConfigId, paymentOperationEnumId:'PgoCapture',
                         paymentId:paymentId, paymentMethodId:payment.paymentMethodId, finAccountId:finAccountId,
                         amount:amount, amountUomId:payment.amountUomId,
                         referenceNum:wdOut.finAccountTransId, approvalCode:wdOut.finAccountTransId,
@@ -514,7 +525,21 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="release" noun="FinancialAccountPayment">
         <implements service="mantle.account.PaymentServices.release#Payment"/>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
+            <if condition="!payment.finAccountAuthId"><return error="true" message="No authorization associated with Payment ${payment.paymentId}"/></if>
+
+            <service-call name="mantle.account.FinancialAccountServices.expire#FinancialAccountAuth" out-map="wdOut"
+                    in-map="[finAccountAuthId:payment.finAccountAuthId]"/>
+
+            <service-call name="create#mantle.account.method.PaymentGatewayResponse" out-map="context"
+                    in-map="[paymentGatewayConfigId:paymentGatewayConfigId, paymentOperationEnumId:'PgoRelease',
+                        paymentId:paymentId, paymentMethodId:payment.paymentMethodId, finAccountId:finAccountId,
+                        amount:payment.amount, amountUomId:payment.amountUomId,
+                        transactionDate:ec.user.nowTimestamp,
+                        resultSuccess:'Y']"/>
+
+            <set field="payment.finAccountAuthId" from="null"/>
+            <entity-update value-field="payment"/>
         </actions>
     </service>
     <service verb="refund" noun="FinancialAccountPayment">
