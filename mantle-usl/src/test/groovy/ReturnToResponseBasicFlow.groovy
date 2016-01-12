@@ -39,6 +39,8 @@ class ReturnToResponseBasicFlow extends Specification {
     Map replaceShipResult
     @Shared
     long effectiveTime = System.currentTimeMillis()
+    @Shared
+    long totalFieldsChecked = 0
 
     def setupSpec() {
         // init the framework, get the ec
@@ -84,6 +86,8 @@ class ReturnToResponseBasicFlow extends Specification {
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.Shipment")
         ec.entity.tempResetSequencedIdPrimary("mantle.shipment.ShipmentItemSource")
         ec.destroy()
+
+        logger.info("Return to Response Basic Flow complete, ${totalFieldsChecked} record fields checked")
     }
 
     def setup() {
@@ -111,7 +115,7 @@ class ReturnToResponseBasicFlow extends Specification {
                 .parameters([returnId:returnId, orderId:originalOrderId, orderItemSeqId:'02', returnQuantity:2,
                              returnReasonEnumId:'RrsnDefective', returnResponseEnumId:'RrspRefund']).call()
         ec.service.sync().name("mantle.order.ReturnServices.add#OrderItemToReturn")
-                .parameters([returnId:returnId, orderId:originalOrderId, orderItemSeqId:'03', returnQuantity:1,
+                .parameters([returnId:returnId, orderId:originalOrderId, orderItemSeqId:'03', returnQuantity:3,
                              returnReasonEnumId:'RrsnDidNotWant', returnResponseEnumId:'RrspCredit']).call()
 
         // submit return request
@@ -119,7 +123,8 @@ class ReturnToResponseBasicFlow extends Specification {
 
         ec.user.logoutUser()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <returns returnId="55700" facilityId="ORG_ZIZI_RETAIL_WH" entryDate="${effectiveTime}"
                     shipmentMethodEnumId="ShMthGround" vendorPartyId="ORG_ZIZI_RETAIL" telecomContactMechId="CustJqpTeln"
                     postalContactMechId="CustJqpAddr" carrierPartyId="_NA_" currencyUomId="USD" statusId="ReturnRequested"
@@ -131,11 +136,14 @@ class ReturnToResponseBasicFlow extends Specification {
                     returnQuantity="2" productId="DEMO_3_1" description="Demo Product Three-One" itemTypeEnumId="ItemProduct"
                     statusId="ReturnRequested" returnResponseEnumId="RrspRefund"/>
                 <items returnItemSeqId="03" orderId="55500" orderItemSeqId="03" returnReasonEnumId="RrsnDidNotWant"
-                    returnQuantity="1" productId="DEMO_2_1" description="Demo Product Two-One" itemTypeEnumId="ItemProduct"
+                    returnQuantity="3" productId="DEMO_2_1" description="Demo Product Two-One" itemTypeEnumId="ItemProduct"
                     statusId="ReturnRequested" returnResponseEnumId="RrspCredit"/>
             </returns>
-        </entity-facade-xml>""").check()
-        logger.info("create Return From Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
 
@@ -149,11 +157,14 @@ class ReturnToResponseBasicFlow extends Specification {
         // triggers SECA rule to create an Sales Return (incoming) Shipment
         ec.service.sync().name("mantle.order.ReturnServices.approve#Return").parameters([returnId:returnId]).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <returns returnId="55700" statusId="ReturnApproved"/>
-        </entity-facade-xml>""").check()
-        logger.info("approve Return data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -170,15 +181,16 @@ class ReturnToResponseBasicFlow extends Specification {
         // triggers SECA rules to receive ReturnItems
         ec.service.sync().name("mantle.shipment.ShipmentServices.receive#EntireShipment").parameters([shipmentId:returnShipmentId]).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <shipments shipmentId="55700" fromPartyId="CustJqp" toPartyId="ORG_ZIZI_RETAIL"
                     shipmentTypeEnumId="ShpTpSalesReturn" statusId="ShipDelivered">
                 <items quantity="1" productId="DEMO_1_1">
                     <sources shipmentItemSourceId="55700" quantity="1" statusId="SisReceived" quantityNotHandled="0"
                         returnId="55700" returnItemSeqId="01"/>
                 </items>
-                <items quantity="1" productId="DEMO_2_1">
-                    <sources shipmentItemSourceId="55702" quantity="1" statusId="SisReceived" quantityNotHandled="0"
+                <items quantity="3" productId="DEMO_2_1">
+                    <sources shipmentItemSourceId="55702" quantity="3" statusId="SisReceived" quantityNotHandled="0"
                         returnId="55700" returnItemSeqId="03"/>
                 </items>
                 <items quantity="2" productId="DEMO_3_1">
@@ -189,8 +201,11 @@ class ReturnToResponseBasicFlow extends Specification {
                     destinationFacilityId="ORG_ZIZI_RETAIL_WH" originPostalContactMechId="CustJqpAddr"
                     carrierPartyId="_NA_" originTelecomContactMechId="CustJqpTeln"/>
             </shipments>
-        </entity-facade-xml>""").check()
-        logger.info("receive Return Shipment data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -198,7 +213,8 @@ class ReturnToResponseBasicFlow extends Specification {
 
     def "validate Return Completed"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <returns returnId="55700" statusId="ReturnCompleted">
                 <items returnItemSeqId="01" responseDate="${effectiveTime}" replacementOrderId="55700"
                         statusId="ReturnCompleted" receivedQuantity="1">
@@ -218,19 +234,21 @@ class ReturnToResponseBasicFlow extends Specification {
                         availableToPromiseDiff="2" shipmentId="55700" assetReceiptId="55702" effectiveDate="${effectiveTime}"
                         quantityOnHandDiff="2"/>
                 </items>
-                <items returnItemSeqId="03" finAccountTransId="55700" statusId="ReturnCompleted" responseAmount="12.12"
-                        receivedQuantity="1">
-                    <receipts assetReceiptId="55701" productId="DEMO_2_1" quantityAccepted="1"
+                <items returnItemSeqId="03" finAccountTransId="55700" statusId="ReturnCompleted" responseAmount="36.36"
+                        receivedQuantity="3">
+                    <receipts assetReceiptId="55701" productId="DEMO_2_1" quantityAccepted="3"
                         acctgTransResultEnumId="AtrNoAcquireCost" quantityRejected="0" assetId="55701" shipmentId="55700"
                         receivedByUserId="EX_JOHN_DOE" receivedDate="${effectiveTime}"/>
                     <mantle.product.asset.AssetDetail assetDetailId="55703" productId="DEMO_2_1" assetId="55701"
-                        availableToPromiseDiff="1" shipmentId="55700" assetReceiptId="55701" effectiveDate="${effectiveTime}"
-                        quantityOnHandDiff="1"/>
+                        availableToPromiseDiff="3" shipmentId="55700" assetReceiptId="55701" effectiveDate="${effectiveTime}"
+                        quantityOnHandDiff="3"/>
                 </items>
             </returns>
-        </entity-facade-xml>""").check()
-        logger.info("validate Refund Payment and Customer Credit TX data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -238,7 +256,8 @@ class ReturnToResponseBasicFlow extends Specification {
 
     def "validate Replacement Order and Asset Reservation"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <orders orderId="55700" entryDate="${effectiveTime}" grandTotal="0" orderRevision="7" currencyUomId="USD"
                     statusId="OrderApproved" placedDate="${effectiveTime}">
                 <parts shipmentMethodEnumId="ShMthGround" telecomContactMechId="CustJqpTeln" postalContactMechId="CustJqpAddr" partTotal="0" customerPartyId="CustJqp" lastUpdatedStamp="1450573654119" facilityId="ORG_ZIZI_RETAIL_WH" vendorPartyId="ORG_ZIZI_RETAIL" carrierPartyId="_NA_" statusId="OrderApproved" orderPartSeqId="01"/>
@@ -252,9 +271,11 @@ class ReturnToResponseBasicFlow extends Specification {
                     </reservations>
                 </items>
             </orders>
-        </entity-facade-xml>""").check()
-        logger.info("validate Replacement Order and Asset Reservation data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -262,13 +283,16 @@ class ReturnToResponseBasicFlow extends Specification {
 
     def "validate Refund Payment"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <payments paymentId="55700" fromPartyId="ORG_ZIZI_RETAIL" toPartyId="CustJqp" amountUomId="USD"
                 paymentTypeEnumId="PtRefund" toPaymentMethodId="CustJqpCc" amount="15.54" reconcileStatusId="PmtrNot"
                 statusId="PmntPromised" paymentInstrumentEnumId="PiCompanyCheck" effectiveDate="${effectiveTime}"/>
-        </entity-facade-xml>""").check()
-        logger.info("validate Refund Payment data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -276,26 +300,29 @@ class ReturnToResponseBasicFlow extends Specification {
 
     def "validate Customer Credit Financial Account Trans"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.financial.FinancialAccount finAccountId="55700" finAccountTypeId="CustomerCredit" isRefundable="Y"
-                    availableBalance="12.12" ownerPartyId="CustJqp" currencyUomId="USD" statusId="FaActive"
-                    finAccountName="Joe Public Customer Credit" actualBalance="12.12" organizationPartyId="ORG_ZIZI_RETAIL">
+                    availableBalance="36.36" ownerPartyId="CustJqp" currencyUomId="USD" statusId="FaActive"
+                    finAccountName="Joe Public Customer Credit" actualBalance="36.36" organizationPartyId="ORG_ZIZI_RETAIL">
                 <mantle.account.financial.FinancialAccountTrans finAccountTransId="55700" fromPartyId="ORG_ZIZI_RETAIL"
-                        finAccountTransTypeEnumId="FattDeposit" reasonEnumId="FatrCsCredit" amount="12.12"
+                        finAccountTransTypeEnumId="FattDeposit" reasonEnumId="FatrCsCredit" amount="36.36"
                         entryDate="${effectiveTime}" acctgTransResultEnumId="AtrSuccess" transactionDate="${effectiveTime}"
-                        postBalance="12.12" toPartyId="CustJqp" performedByUserId="EX_JOHN_DOE"/>
+                        postBalance="36.36" toPartyId="CustJqp" performedByUserId="EX_JOHN_DOE"/>
             </mantle.account.financial.FinancialAccount>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55700" otherPartyId="CustJqp" postedDate="${effectiveTime}"
                     amountUomId="USD" isPosted="Y" acctgTransTypeEnumId="AttFinancialDeposit"
                     glFiscalTypeEnumId="GLFT_ACTUAL" transactionDate="${effectiveTime}" organizationPartyId="ORG_ZIZI_RETAIL">
-                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="12.12" glAccountId="430000000"
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="01" amount="36.36" glAccountId="430000000"
                         reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatSales" debitCreditFlag="D"/>
-                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="12.12" glAccountId="251100000"
+                <mantle.ledger.transaction.AcctgTransEntry acctgTransEntrySeqId="02" amount="36.36" glAccountId="251100000"
                         reconcileStatusId="AterNot" isSummary="N" glAccountTypeEnumId="GatCustomerCredits" debitCreditFlag="C"/>
             </mantle.ledger.transaction.AcctgTrans>
-        </entity-facade-xml>""").check()
-        logger.info("validate Customer Credit Financial Account Trans data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -309,7 +336,8 @@ class ReturnToResponseBasicFlow extends Specification {
         replaceShipResult = ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
                 .parameters([orderId:returnItem.replacementOrderId, orderPartSeqId:'01']).call()
 
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <shipments shipmentId="55701" fromPartyId="ORG_ZIZI_RETAIL" toPartyId="CustJqp"
                     shipmentTypeEnumId="ShpTpSales" statusId="ShipShipped">
                 <items quantity="1" productId="DEMO_1_1">
@@ -325,8 +353,11 @@ class ReturnToResponseBasicFlow extends Specification {
                         actualStartDate="${effectiveTime}" destTelecomContactMechId="CustJqpTeln"
                         originFacilityId="ORG_ZIZI_RETAIL_WH" destPostalContactMechId="CustJqpAddr"/>
             </shipments>
-        </entity-facade-xml>""").check()
-        logger.info("ship Replacement Order data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -334,12 +365,16 @@ class ReturnToResponseBasicFlow extends Specification {
 
     def "validate Replacement Order Complete"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- OrderHeader status to Completed -->
             <orders orderId="55700" orderRevision="8" statusId="OrderCompleted">
                 <parts orderPartSeqId="01" statusId="OrderCompleted"/></orders>
-        </entity-facade-xml>""").check()
-        logger.info("validate Replacement Order Complete data check results: " + dataCheckErrors)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
@@ -347,7 +382,8 @@ class ReturnToResponseBasicFlow extends Specification {
 
     def "validate Asset Issuance and Accounting Transactions"() {
         when:
-        List<String> dataCheckErrors = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.product.issuance.AssetIssuance assetIssuanceId="55700" assetId="55400" shipmentId="55701"
                     orderId="55700" orderItemSeqId="01" issuedDate="${effectiveTime}" quantity="1" productId="DEMO_1_1"
                     assetReservationId="55701" acctgTransResultEnumId="AtrSuccess">
@@ -364,9 +400,58 @@ class ReturnToResponseBasicFlow extends Specification {
                 <mantle.product.asset.AssetDetail assetDetailId="55706" assetId="55400" productId="DEMO_1_1"
                         assetReservationId="55701" shipmentId="55701" effectiveDate="${effectiveTime}" quantityOnHandDiff="-1"/>
             </mantle.product.issuance.AssetIssuance>
-        </entity-facade-xml>""").check()
-        logger.info("validate Asset Issuance and Accounting Transactions data check results: ")
-        for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
+
+        then:
+        dataCheckErrors.size() == 0
+    }
+
+    def "purchase with return credit"() {
+        when:
+        String productStoreId = "POPC_DEFAULT"
+
+        // ========== place order as customer
+
+        ec.user.logoutUser()
+        ec.user.loginUser("joe@public.com", "moqui", null)
+        String customerPartyId = ec.user.userAccount.partyId
+        // get customer credit account
+        EntityList custFaList = ec.entity.find("mantle.account.financial.FinancialAccount")
+                .condition([ownerPartyId:customerPartyId, finAccountTypeId:'CustomerCredit']).list()
+        String finAccountId = custFaList[0].finAccountId
+
+        Map addOut1 = ec.service.sync().name("mantle.order.OrderServices.add#OrderProductQuantity")
+                .parameters([productId:'DEMO_3_1', quantity:1, customerPartyId:customerPartyId, productStoreId:productStoreId]).call()
+        String orderId = addOut1.orderId
+        String orderPartSeqId = addOut1.orderPartSeqId
+        ec.service.sync().name("mantle.order.OrderServices.set#OrderBillingShippingInfo")
+                .parameters([orderId:orderId, shippingPostalContactMechId:'CustJqpAddr',
+                             shippingTelecomContactMechId:'CustJqpTeln', carrierPartyId:'_NA_',
+                             shipmentMethodEnumId:'ShMthGround', finAccountId:finAccountId]).call()
+        ec.service.sync().name("mantle.order.OrderServices.place#Order").parameters([orderId:orderId]).call()
+
+        ec.user.logoutUser()
+
+        // ========== ship/etc order as admin
+
+        ec.user.loginUser("john.doe", "moqui", null)
+        ec.service.sync().name("mantle.shipment.ShipmentServices.ship#OrderPart")
+                .parameters([orderId:orderId, orderPartSeqId:orderPartSeqId]).call()
+
+        // ========== check data
+
+        List<String> dataCheckErrors = []
+        long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
+
+        </entity-facade-xml>""").check(dataCheckErrors)
+        totalFieldsChecked += fieldsChecked
+        logger.info("Checked ${fieldsChecked} fields")
+        if (dataCheckErrors) for (String dataCheckError in dataCheckErrors) logger.info(dataCheckError)
+        if (ec.message.hasError()) logger.warn(ec.message.getErrorsString())
 
         then:
         dataCheckErrors.size() == 0
