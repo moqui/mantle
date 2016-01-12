@@ -468,6 +468,8 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
             <if condition="!finAccountId"><return error="true" message="No Financial Account associated with Payment ${payment.paymentId}"/></if>
 
+            <if condition="!amount"><set field="amount" from="payment.amount"/></if>
+
             <service-call name="mantle.account.FinancialAccountServices.authorize#FinancialAccount" out-map="authOut"
                     in-map="[finAccountId:finAccountId, amount:amount, paymentId:paymentId]"/>
 
@@ -500,6 +502,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <set field="finAccountId" from="paymentMethod.finAccountId"/>
             </if>
             <if condition="!finAccountId"><return error="true" message="No Financial Account associated with Payment ${payment.paymentId}"/></if>
+
+            <if condition="!amount"><set field="amount" from="payment.amount"/></if>
 
             <service-call name="mantle.account.FinancialAccountServices.withdraw#FinancialAccount" out-map="wdOut"
                     in-map="[finAccountId:finAccountId, amount:amount, finAccountAuthId:payment.finAccountAuthId]"/>
@@ -536,7 +540,7 @@ along with this software (see the LICENSE.md file). If not, see
                         paymentId:paymentId, paymentMethodId:payment.paymentMethodId, finAccountId:finAccountId,
                         amount:payment.amount, amountUomId:payment.amountUomId,
                         transactionDate:ec.user.nowTimestamp,
-                        resultSuccess:'Y']"/>
+                        resultSuccess:'Y', resultDeclined:'N', resultError:'N', resultNsf:'N']"/>
 
             <set field="payment.finAccountAuthId" from="null"/>
             <entity-update value-field="payment"/>
@@ -545,7 +549,29 @@ along with this software (see the LICENSE.md file). If not, see
     <service verb="refund" noun="FinancialAccountPayment">
         <implements service="mantle.account.PaymentServices.refund#Payment"/>
         <actions>
-            <!-- TODO: implement this... -->
+            <entity-find-one entity-name="mantle.account.payment.Payment" value-field="payment" for-update="true"/>
+            <set field="finAccountId" from="payment.finAccountId"/>
+            <if condition="!finAccountId &amp;&amp; payment.paymentMethodId">
+                <!-- if there is a FinancialAccount PaymentMethod, use that -->
+                <set field="paymentMethod" from="payment.method"/>
+                <set field="finAccountId" from="paymentMethod.finAccountId"/>
+            </if>
+            <if condition="!finAccountId"><return error="true" message="No Financial Account associated with Payment ${payment.paymentId}"/></if>
+
+            <if condition="!amount"><set field="amount" from="payment.amount"/></if>
+
+            <service-call name="mantle.account.FinancialAccountServices.deposit#FinancialAccount" out-map="dpOut"
+                    in-map="[finAccountId:finAccountId, amount:amount, reasonEnumId:'FatrRefund']"/>
+
+            <service-call name="create#mantle.account.method.PaymentGatewayResponse" out-map="context"
+                    in-map="[paymentGatewayConfigId:paymentGatewayConfigId, paymentOperationEnumId:'PgoRefund',
+                        paymentId:paymentId, paymentMethodId:payment.paymentMethodId, finAccountId:finAccountId,
+                        amount:amount, amountUomId:payment.amountUomId,
+                        referenceNum:dpOut.finAccountTransId, approvalCode:dpOut.finAccountTransId,
+                        transactionDate:ec.user.nowTimestamp,
+                        resultSuccess:'Y', resultDeclined:'N', resultError:'N', resultNsf:'N']"/>
+
+            <!-- NOTE: don't update Payment status to refunded, let calling code do that -->
         </actions>
     </service>
 </services>
