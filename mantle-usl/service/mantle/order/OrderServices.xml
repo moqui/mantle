@@ -765,8 +765,9 @@ h2. General Order Placement and eCommerce Usage
             <parameter name="orderPartSeqId"/>
             <parameter name="paymentId"/>
 
-            <parameter name="paymentMethodId"/>
             <parameter name="paymentInstrumentEnumId"/>
+            <parameter name="paymentMethodId"/>
+            <parameter name="finAccountId"/>
             <parameter name="shippingFacilityId"/>
             <parameter name="shippingPostalContactMechId"/>
             <parameter name="shippingTelecomContactMechId"/>
@@ -860,6 +861,8 @@ h2. General Order Placement and eCommerce Usage
                 <set field="payment" from="paymentList.first"/>
             </else></if>
 
+            <if condition="!paymentInstrumentEnumId &amp;&amp; finAccountId">
+                <set field="paymentInstrumentEnumId" value="PiFinancialAccount"/></if>
             <if condition="!paymentInstrumentEnumId &amp;&amp; paymentMethodId">
                 <entity-find-one entity-name="mantle.account.method.PaymentMethod" value-field="paymentMethod"/>
                 <!-- may be more than one, just pick first by description for consistency -->
@@ -871,16 +874,17 @@ h2. General Order Placement and eCommerce Usage
             </if>
             <if condition="payment"><then>
                 <!-- update existing payment -->
-                <set field="payment.paymentMethodId" from="paymentMethodId"/>
                 <set field="payment.paymentInstrumentEnumId" from="paymentInstrumentEnumId"/>
+                <set field="payment.paymentMethodId" from="paymentMethodId"/>
+                <set field="payment.finAccountId" from="finAccountId"/>
                 <set field="payment.amount" from="orderPart.partTotal"/>
                 <entity-update value-field="payment"/>
                 <set field="paymentId" from="payment.paymentId"/>
             </then><else-if condition="paymentMethodId || paymentInstrumentEnumId">
                 <!-- create a new Payment for the Order -->
                 <service-call name="mantle.order.OrderServices.add#OrderPartPayment" out-map="context"
-                        in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentMethodId:paymentMethodId,
-                            paymentInstrumentEnumId:paymentInstrumentEnumId]"/>
+                        in-map="[orderId:orderId, orderPartSeqId:orderPartSeqId, paymentInstrumentEnumId:paymentInstrumentEnumId,
+                            paymentMethodId:paymentMethodId, finAccountId:finAccountId]"/>
             </else-if></if>
         </actions>
     </service>

@@ -701,23 +701,21 @@ along with this software (see the LICENSE.md file). If not, see
                 </if>
 
                 <if condition="authOut.paymentGatewayResponse">
-                    <if condition="authOut.paymentGatewayResponse.resultSuccess == 'Y'">
+                    <if condition="authOut.paymentGatewayResponse.resultSuccess == 'Y'"><then>
                         <set field="totalAuthorized" from="totalAuthorized + authOut.paymentGatewayResponse.amount"/>
-
-                        <else>
-                            <set field="authFailed" from="true"/>
-                            <service-call name="mantle.account.PaymentServices.get#PaymentDescription"
-                                    in-map="[paymentId:payment.paymentId]" out-map="pmtDescOut"/>
-                            <if condition="authOut.paymentGatewayResponse.resultDeclined == 'Y'">
-                                <message>${pmtDescOut.paymentDescription} was declined</message></if>
-                            <if condition="authOut.paymentGatewayResponse.resultNsf == 'Y'">
-                                <message>${pmtDescOut.paymentDescription} has insufficient funds</message></if>
-                            <if condition="authOut.paymentGatewayResponse.resultBadExpire == 'Y'">
-                                <message>${pmtDescOut.paymentDescription} has an invalid expiration date</message></if>
-                            <if condition="authOut.paymentGatewayResponse.resultBadCardNumber == 'Y'">
-                                <message>${pmtDescOut.paymentDescription} has an invalid card number</message></if>
-                        </else>
-                    </if>
+                    </then><else>
+                        <set field="authFailed" from="true"/>
+                        <service-call name="mantle.account.PaymentServices.get#PaymentDescription"
+                                in-map="[paymentId:payment.paymentId]" out-map="pmtDescOut"/>
+                        <if condition="authOut.paymentGatewayResponse.resultDeclined == 'Y'">
+                            <message>${pmtDescOut.paymentDescription} was declined</message></if>
+                        <if condition="authOut.paymentGatewayResponse.resultNsf == 'Y'">
+                            <message>${pmtDescOut.paymentDescription} has insufficient funds</message></if>
+                        <if condition="authOut.paymentGatewayResponse.resultBadExpire == 'Y'">
+                            <message>${pmtDescOut.paymentDescription} has an invalid expiration date</message></if>
+                        <if condition="authOut.paymentGatewayResponse.resultBadCardNumber == 'Y'">
+                            <message>${pmtDescOut.paymentDescription} has an invalid card number</message></if>
+                    </else></if>
                 </if>
             </iterate>
 
@@ -743,11 +741,9 @@ along with this software (see the LICENSE.md file). If not, see
                 <field-map field-name="productStoreId" from="productStoreId"/>
                 <field-map field-name="paymentInstrumentEnumId" from="payment.paymentInstrumentEnumId"/>
             </entity-find-one>
-            <if condition="!productStorePaymentGateway?.paymentGatewayConfigId">
-                <return error="true" message="Not authorizing Payment [${paymentId}], could not find PaymentGatewayConfig for store [${productStoreId}], instrument [${payment.paymentInstrumentEnumId}]"/></if>
             <service-call name="mantle.account.PaymentServices.authorize#SinglePayment" out-map="context"
                     in-map="[paymentId:payment.paymentId, cardSecurityCode:cardSecurityCode, payment:payment,
-                        paymentGatewayConfigId:productStorePaymentGateway.paymentGatewayConfigId]"/>
+                        paymentGatewayConfigId:productStorePaymentGateway?.paymentGatewayConfigId]"/>
         </actions>
     </service>
     <!-- TODO: transaction="force-new" on this is blowing up, debug it; NOTE: seems to be a Derby issue, works fine on MySQL...
@@ -801,9 +797,12 @@ along with this software (see the LICENSE.md file). If not, see
                 <return/>
             </if>
 
-            <!-- if still no paymentGatewayConfigId and this is a Financial Account payment, default to local gateway -->
+            <!-- use paymentGatewayConfigId from Payment if present -->
+            <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
+
+            <!-- if no paymentGatewayConfigId and this is a Financial Account payment, default to local gateway -->
             <if condition="!paymentGatewayConfigId &amp;&amp; payment.paymentInstrumentEnumId == 'PiFinancialAccount'">
-                <set field="paymentGatewayConfigId" from="FinancialAccountLocal"/></if>
+                <set field="paymentGatewayConfigId" value="FinancialAccountLocal"/></if>
 
             <entity-find-one entity-name="mantle.account.method.PaymentGatewayConfig" value-field="paymentGatewayConfig" cache="true"/>
             <if condition="paymentGatewayConfig == null">
@@ -899,17 +898,20 @@ along with this software (see the LICENSE.md file). If not, see
                 <return/>
             </if>
 
+            <!-- use paymentGatewayConfigId from Payment if present -->
+            <set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/>
+
             <!-- lookup auth PaymentGatewayResponse and use the PaymentGatewayConfig on it -->
-            <service-call name="mantle.account.PaymentServices.get#AuthorizePaymentGatewayResponse" out-map="authRespOut"
-                    in-map="[paymentId:paymentId]"/>
-            <if condition="authRespOut.paymentGatewayResponse">
-                <set field="paymentGatewayConfigId" from="authRespOut.paymentGatewayResponse.paymentGatewayConfigId"/></if>
-            <!-- if no auth PGR instead of ProductStorePaymentGateway lookup with paymentGatewayConfigId from Payment -->
-            <if condition="!paymentGatewayConfigId"><set field="paymentGatewayConfigId" from="payment.paymentGatewayConfigId"/></if>
+            <if condition="!paymentGatewayConfigId">
+                <service-call name="mantle.account.PaymentServices.get#AuthorizePaymentGatewayResponse" out-map="authRespOut"
+                        in-map="[paymentId:paymentId]"/>
+                <if condition="authRespOut.paymentGatewayResponse">
+                    <set field="paymentGatewayConfigId" from="authRespOut.paymentGatewayResponse.paymentGatewayConfigId"/></if>
+            </if>
 
             <!-- if still no paymentGatewayConfigId and this is a Financial Account payment, default to local gateway -->
             <if condition="!paymentGatewayConfigId &amp;&amp; payment.paymentInstrumentEnumId == 'PiFinancialAccount'">
-                <set field="paymentGatewayConfigId" from="FinancialAccountLocal"/></if>
+                <set field="paymentGatewayConfigId" value="FinancialAccountLocal"/></if>
 
             <!-- if no auth and no payment.paymentGatewayConfigId then this shouldn't be captured (probably a payment method type with no gateway) -->
             <!-- TODO: this may need more intelligence to determine if a Payment needs to be captured, such as config by paymentInstrumentEnumId -->

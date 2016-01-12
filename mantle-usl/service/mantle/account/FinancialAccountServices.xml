@@ -357,7 +357,7 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="postBalance" from="totalsOut.actualBalance"/>
             <set field="differAmount" from="postBalance - preBalance"/>
             <if condition="differAmount != amount">
-                <return error="true" message="Error adjusting financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/></if>
+                <return error="true" message="Error withdrawing from financial account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}, pre balance ${preBalance} and post balance ${postBalance} differ by ${differAmount} and not by transaction amount ${amount}"/></if>
 
             <set field="responseCode" value="success"/>
             <set field="responseMessage" value="Withdrew ${ec.l10n.format(amount, '0.00')} from account ${ec.resource.expand('FinancialAccountNameTemplate','',financialAccount)}"/>
@@ -368,7 +368,7 @@ along with this software (see the LICENSE.md file). If not, see
         <in-parameters>
             <parameter name="finAccountId" required="true"/>
             <parameter name="amount" type="BigDecimal" required="true"/>
-            <parameter name="authorizationDate" type="Timestamp" default-value="ec.user.nowTimestamp"/>
+            <parameter name="authorizationDate" type="Timestamp" default="ec.user.nowTimestamp"/>
             <parameter name="paymentId"/>
         </in-parameters>
         <out-parameters>
@@ -390,7 +390,8 @@ along with this software (see the LICENSE.md file). If not, see
                 <return/>
             </if>
 
-            <set field="authValidDays" from="financialAccount.authValidDays ?: 7"/>
+            <set field="financialAccountType" from="financialAccount.type"/>
+            <set field="authValidDays" from="financialAccountType?.authValidDays ?: 7"/>
             <script>
                 Calendar expireCal = ec.user.nowCalendar
                 expireCal.setTimeInMillis(authorizationDate.time)
@@ -399,8 +400,9 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
             <service-call name="create#mantle.account.financial.FinancialAccountAuth" in-map="context" out-map="context"/>
 
-            <entity-find-one entity-name="mantle.account.financial.FinancialAccount" value-field="postFinancialAccount"/>
-            <set field="postAvailableBalance" from="postFinancialAccount.actualBalance"/>
+            <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
+                    in-map="[finAccountId:finAccountId]" out-map="totalsOut"/>
+            <set field="postAvailableBalance" from="totalsOut.availableBalance"/>
 
             <set field="differAmount" from="preAvailableBalance - postAvailableBalance"/>
             <if condition="differAmount != amount">
