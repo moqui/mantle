@@ -391,13 +391,14 @@ along with this software (see the LICENSE.md file). If not, see
             </if>
 
             <set field="financialAccountType" from="financialAccount.type"/>
-            <set field="authValidDays" from="financialAccountType?.authValidDays ?: 7"/>
+            <set field="authValidDays" from="(financialAccountType?.authValidDays) ?: 7"/>
             <script>
                 Calendar expireCal = ec.user.nowCalendar
                 expireCal.setTimeInMillis(authorizationDate.time)
                 expireCal.add(Calendar.DAY_OF_MONTH, authValidDays)
                 expireDate = new Timestamp(expireCal.getTimeInMillis())
             </script>
+            <!-- <log message="authorizationDate=${authorizationDate}, expireDate=${expireDate}"/> -->
             <service-call name="create#mantle.account.financial.FinancialAccountAuth" in-map="context" out-map="context"/>
 
             <service-call name="mantle.account.FinancialAccountServices.calculate#FinancialAccountTotals"
