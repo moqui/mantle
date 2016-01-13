@@ -146,7 +146,6 @@ class OrderProcureToPayBasicFlow extends Specification {
         ec.service.sync().name("mantle.order.OrderServices.approve#Order").parameters([orderId:purchaseOrderId]).call()
         // then the PO is sent to the vendor/supplier
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.order.OrderHeader orderId="${purchaseOrderId}" entryDate="${effectiveTime}" placedDate="${effectiveTime}"
@@ -190,7 +189,6 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         // TODO: add PO Shipment Schedule, update status to ShipScheduled
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment created -->
@@ -240,7 +238,6 @@ class OrderProcureToPayBasicFlow extends Specification {
         ec.service.sync().name("mantle.shipment.ShipmentServices.ship#Shipment")
                 .parameters([shipmentId:shipResult.shipmentId]).call()
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Shipment to Shipped status -->
@@ -489,7 +486,6 @@ class OrderProcureToPayBasicFlow extends Specification {
         //         .parameters([shipmentId:shipResult.shipmentId, statusId:'InvoiceReceived']).call()
         // invoiceId = invResult.invoiceIdList.first
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- Invoice created and received, not yet approved/etc -->
@@ -561,7 +557,6 @@ class OrderProcureToPayBasicFlow extends Specification {
         ec.service.sync().name("update#mantle.account.invoice.Invoice")
                 .parameters([invoiceId:'55400', statusId:'InvoiceApproved']).call()
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.invoice.Invoice invoiceId="55400" statusId="InvoiceApproved"/>
@@ -577,7 +572,6 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "validate Purchase Invoice Accounting Transaction"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Approved Invoice -->
@@ -625,7 +619,6 @@ class OrderProcureToPayBasicFlow extends Specification {
         ec.service.sync().name("mantle.account.InvoiceServices.adjust#Invoice")
                 .parameters([invoiceId:'55400', description:'', amount:-15, itemTypeEnumId:'ItemPromptDiscount']).call()
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <invoices invoiceId="55400">
@@ -666,7 +659,6 @@ class OrderProcureToPayBasicFlow extends Specification {
         sendPmtResult = ec.service.sync().name("mantle.account.PaymentServices.send#PromisedPayment")
                 .parameters([invoiceId:'55400', paymentId:setInfoOut.paymentId, amount:23830.00]).call()
 
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.account.payment.PaymentApplication paymentApplicationId="${sendPmtResult.paymentApplicationId}"
@@ -691,7 +683,6 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "validate Purchase Payment Accounting Transaction"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <!-- AcctgTrans created for Delivered Payment -->
@@ -715,7 +706,6 @@ class OrderProcureToPayBasicFlow extends Specification {
 
     def "validate Purchase Payment Application Accounting Transaction"() {
         when:
-        // NOTE: this has sequenced IDs so is sensitive to run order!
         List<String> dataCheckErrors = []
         long fieldsChecked = ec.entity.makeDataLoader().xmlText("""<entity-facade-xml>
             <mantle.ledger.transaction.AcctgTrans acctgTransId="55408" acctgTransTypeEnumId="AttOutgoingPaymentAp"

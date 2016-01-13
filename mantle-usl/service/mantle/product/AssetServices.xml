@@ -786,6 +786,40 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="move" noun="IssuancesToNewShipment">
+        <description>Move AssetIssuance details to new records for another Shipment. Doesn't delete original record or
+            receive assets back into inventory, just moves quantity to AssetIssuance.quantityCancelled and then creates
+            a new record with the same assetId, etc for the new Shipment and corresponding Order.</description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="newOrderId" required="true"/>
+            <parameter name="newShipmentId" required="true"/>
+            <parameter name="issuedDate" type="Timestamp" default="ec.user.nowTimestamp"/>
+        </in-parameters>
+        <actions>
+            <entity-find entity-name="mantle.product.issuance.AssetIssuance" list="issuanceList" for-update="true">
+                <econdition field-name="shipmentId"/></entity-find>
+            <entity-find entity-name="mantle.order.OrderItem" list="orderItemList">
+                <econdition field-name="orderId" from="newOrderId"/></entity-find>
+            <iterate list="issuanceList" entry="issuance">
+                <!-- cancel original issuance quantity -->
+                <service-call name="update#mantle.product.issuance.AssetIssuance"
+                        in-map="[assetIssuanceId:issuance.assetIssuanceId, quantityCancelled:issuance.quantity, quantity:0]"/>
+                <!-- create new issuance -->
+                <filter-map-list list="orderItemList" to-list="prodOrderItemList">
+                    <field-map field-name="productId" from="issuance.productId"/></filter-map-list>
+                <if condition="!prodOrderItemList">
+                    <return error="true" message="In move issuance to new shipment no Order Item found on order ${newOrderId} for product ${issuance.productId}"/></if>
+                <service-call name="create#mantle.product.issuance.AssetIssuance"
+                        in-map="[assetId:issuance.assetId, quantity:issuance.quantity, orderId:newOrderId,
+                            orderItemSeqId:prodOrderItemList[0].orderItemSeqId, shipmentId:newShipmentId,
+                            productId:issuance.productId, issuedDate:issuedDate]"/>
+
+                <!-- TODO check GL inventory transactions on cancel, direct issuance create; need any since this is a direct replacement? -->
+            </iterate>
+        </actions>
+    </service>
+
     <!-- ====================================== -->
     <!-- ========== Receipt Services ========== -->
     <!-- ====================================== -->

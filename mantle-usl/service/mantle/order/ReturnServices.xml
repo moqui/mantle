@@ -130,8 +130,16 @@ along with this software (see the LICENSE.md file). If not, see
             <set field="currencyUomId" from="orderHeader.currencyUomId"/>
 
             <if condition="!facilityId"><set field="facilityId" from="orderPart.facilityId"/></if>
-            <if condition="!postalContactMechId"><set field="postalContactMechId" from="orderPart.postalContactMechId"/></if>
-            <if condition="!telecomContactMechId"><set field="telecomContactMechId" from="orderPart.telecomContactMechId"/></if>
+
+            <!-- Only set postalContactMechId, telecomContactMechId if vendor is internal org, ie if it is Sales Order they are the customer's -->
+            <entity-find entity-name="mantle.party.PartyRole" list="vendorOrgInternalList">
+                <econdition field-name="partyId" from="vendorPartyId"/>
+                <econdition field-name="roleTypeId" value="OrgInternal"/></entity-find>
+            <if condition="vendorOrgInternalList">
+                <if condition="!postalContactMechId"><set field="postalContactMechId" from="orderPart.postalContactMechId"/></if>
+                <if condition="!telecomContactMechId"><set field="telecomContactMechId" from="orderPart.telecomContactMechId"/></if>
+            </if>
+
             <if condition="!shipmentMethodEnumId"><set field="shipmentMethodEnumId" from="orderPart.shipmentMethodEnumId"/></if>
             <if condition="!carrierPartyId"><set field="carrierPartyId" from="orderPart.carrierPartyId"/></if>
             <if condition="!paymentMethodId">
@@ -214,6 +222,46 @@ along with this software (see the LICENSE.md file). If not, see
         </actions>
     </service>
 
+    <service verb="calculate" noun="OrderItemReturnable">
+        <description>Calculate returnable quantity for an OrderItem with pre-queried OrderItemBilling and ReturnItem
+            lists, which can be lists for an entire order (ie filtered before calc) and if are null are queried here.</description>
+        <in-parameters>
+            <parameter name="orderId" required="true"/><parameter name="orderItemSeqId" required="true"/>
+            <parameter name="orderItemBillingList" type="List"><parameter name="oib" type="Map"/></parameter>
+            <parameter name="returnItemList" type="List"><parameter name="returnItem" type="Map"/></parameter>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="invoiceQuantity" type="BigDecimal"/>
+            <parameter name="returnQuantity" type="BigDecimal"/>
+            <parameter name="returnableQuantity" type="BigDecimal"/>
+        </out-parameters>
+        <actions>
+            <set field="invoiceQuantity" from="0"/>
+            <if condition="orderItemBillingList == null">
+                <entity-find entity-name="mantle.order.OrderItemBilling" list="orderItemBillingList">
+                    <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/></entity-find>
+            </if>
+            <iterate list="orderItemBillingList" entry="oib">
+                <if condition="oib.orderId != orderId || oib.orderItemSeqId != orderItemSeqId"><continue/></if>
+                <set field="invoiceQuantity" from="invoiceQuantity + oib.quantity"/>
+            </iterate>
+
+            <set field="returnQuantity" from="0"/>
+            <if condition="returnItemList == null">
+                <entity-find entity-name="mantle.order.return.ReturnItem" list="returnItemList">
+                    <econdition field-name="orderId"/><econdition field-name="orderItemSeqId"/>
+                    <econdition field-name="statusId" operator="not-equals" value="ReturnCancelled"/>
+                    <order-by field-name="orderItemSeqId"/>
+                </entity-find>
+            </if>
+            <iterate list="returnItemList" entry="returnItem">
+                <if condition="returnItem.orderId != orderId || returnItem.orderItemSeqId != orderItemSeqId"><continue/></if>
+                <set field="returnQuantity" from="returnQuantity + returnItem.returnQuantity"/>
+            </iterate>
+
+            <set field="returnableQuantity" from="invoiceQuantity - returnQuantity"/>
+        </actions>
+    </service>
     <service verb="add" noun="OrderItemToReturn">
         <in-parameters>
             <parameter name="returnId" required="true"/>
@@ -307,7 +355,7 @@ along with this software (see the LICENSE.md file). If not, see
     </service>
 
     <service verb="receive" noun="ReturnShipmentItems">
-        <description>Call receive#ReturnItem for all items returned on a Shipment. Called be SECA rule on Shipment status Delivered.</description>
+        <description>Call receive#ReturnItem for all items returned on a Shipment. Called by SECA rule on Shipment status Delivered.</description>
         <in-parameters><parameter name="shipmentId" required="true"/></in-parameters>
         <actions>
             <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
@@ -742,7 +790,154 @@ along with this software (see the LICENSE.md file). If not, see
                     </if>
                 </if>
             </iterate>
-            
+        </actions>
+    </service>
+
+    <!-- =============================================== -->
+    <!-- ========== Reroute Shipment Services ========== -->
+    <!-- =============================================== -->
+
+    <service verb="returnAndResell" noun="Shipment">
+        <description>
+            For use when a Shipment is rejected and sold to another customer.
+            Calls return#Shipment and resell#Shipment.
+            For use only with Sales shipments.
+        </description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="returnReasonEnumId" required="true"/>
+            <parameter name="returnResponseEnumId" required="true"/>
+            <parameter name="responseImmediate" default-value="Y"/>
+            <parameter name="customerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="returnId"/>
+            <parameter name="newOrderId"/>
+            <parameter name="newShipmentId"/>
+        </out-parameters>
+        <actions>
+            <service-call name="mantle.order.ReturnServices.return#Shipment" in-map="context" out-map="context"/>
+            <service-call name="mantle.order.ReturnServices.resell#Shipment" in-map="context" out-map="context"/>
+            <message>Shipment ${shipmentId} returned in Return ${returnId}, resold in Order ${newOrderId} and inventory issued to Shipment ${newShipmentId}</message>
+        </actions>
+    </service>
+    <service verb="return" noun="Shipment">
+        <description>
+            Create a return for entire shipment, return all items/quantities on the shipment.
+            For use with Sales or Purchase shipments.
+        </description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="returnReasonEnumId" required="true"/>
+            <parameter name="returnResponseEnumId" required="true"/>
+            <parameter name="responseImmediate"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="returnId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <if condition="!(shipment.shipmentTypeEnumId in ['ShpTpSales', 'ShpTpPurchase'])">
+                <return error="true" message="Shipment ${shipmentId} is not a Sales or Purchase shipment"/></if>
+            <if condition="!(shipment.statusId in ['ShipPacked', 'ShipShipped'])">
+                <return error="true" message="Shipment ${shipmentId} is not in the Packed or Shipped status"/></if>
+
+            <set field="vendorPartyId" from="shipment.fromPartyId"/>
+            <set field="customerPartyId" from="shipment.toPartyId"/>
+
+            <!-- get contact info from ShipmentRouteSegment -->
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <set field="srs" from="srsList[0]"/>
+            <entity-find-one entity-name="mantle.party.PartyRole" value-field="customerOrgInternal">
+                <field-map field-name="partyId" from="customerPartyId"/>
+                <field-map field-name="roleTypeId" value="OrgInternal"/></entity-find-one>
+            <if condition="customerOrgInternal"><then>
+                <set field="facilityId" from="srs.destinationFacilityId"/>
+                <set field="postalContactMechId" from="srs.originPostalContactMechId"/>
+                <set field="telecomContactMechId" from="srs.originTelecomContactMechId"/>
+            </then><else>
+                <set field="facilityId" from="srs.originFacilityId"/>
+                <set field="postalContactMechId" from="srs.destPostalContactMechId"/>
+                <set field="telecomContactMechId" from="srs.destTelecomContactMechId"/>
+            </else></if>
+
+            <!-- create ReturnHeader -->
+            <service-call name="mantle.order.ReturnServices.create#Return" out-map="context"
+                    in-map="[vendorPartyId:vendorPartyId, customerPartyId:customerPartyId, facilityId:facilityId,
+                        postalContactMechId:postalContactMechId, telecomContactMechId:telecomContactMechId]"/>
+
+            <!-- add return items for order items from ShipmentItemSource records -->
+            <entity-find entity-name="mantle.shipment.ShipmentItemSource" list="sisList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <iterate list="sisList" entry="sis">
+                <service-call name="mantle.order.ReturnServices.add#OrderItemToReturn" in-map="[returnId:returnId,
+                        orderId:sis.orderId, orderItemSeqId:sis.orderItemSeqId, returnQuantity:sis.quantity,
+                        returnReasonEnumId:returnReasonEnumId, returnResponseEnumId:returnResponseEnumId,
+                        responseImmediate:responseImmediate]"/>
+            </iterate>
+        </actions>
+    </service>
+    <service verb="resell" noun="Shipment">
+        <description>
+            Create order for different customer for all items on a shipment.
+            Create new shipment for new order.
+            Reject original shipment and reallocate inventory to new shipment.
+            Leave shipment picked, don't set to packed so invoice is not created (so order prices can be adjusted, etc).
+            For use only with Sales shipments.
+        </description>
+        <in-parameters>
+            <parameter name="shipmentId" required="true"/>
+            <parameter name="customerPartyId" required="true"/>
+        </in-parameters>
+        <out-parameters>
+            <parameter name="newOrderId"/>
+            <parameter name="newShipmentId"/>
+        </out-parameters>
+        <actions>
+            <entity-find-one entity-name="mantle.shipment.Shipment" value-field="shipment"/>
+            <if condition="shipment.shipmentTypeEnumId != 'ShpTpSales'">
+                <return error="true" message="Shipment ${shipmentId} is not a Sales shipment"/></if>
+            <if condition="!(shipment.statusId in ['ShipPacked', 'ShipShipped'])">
+                <return error="true" message="Shipment ${shipmentId} is not in the Packed or Shipped status"/></if>
+
+            <set field="vendorPartyId" from="shipment.fromPartyId"/>
+
+            <!-- get origin facility from ShipmentRouteSegment -->
+            <entity-find entity-name="mantle.shipment.ShipmentRouteSegment" list="srsList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <set field="srs" from="srsList[0]"/>
+            <set field="facilityId" from="srs.originFacilityId"/>
+
+            <!-- NOTE: don't set postalContactMechId or telecomContactMechId, those were for the other customer -->
+
+            <!-- create Order -->
+            <service-call name="mantle.order.OrderServices.create#Order" out-map="ordOut"
+                    in-map="[vendorPartyId:vendorPartyId, customerPartyId:customerPartyId, facilityId:facilityId]"/>
+            <set field="newOrderId" from="ordOut.orderId"/>
+
+            <!-- add order items for shipment items records -->
+            <entity-find entity-name="mantle.shipment.ShipmentItem" list="shipmentItemList">
+                <econdition field-name="shipmentId"/></entity-find>
+            <iterate list="shipmentItemList" entry="shipmentItem">
+                <service-call name="mantle.order.OrderServices.add#OrderProductQuantity" in-map="[orderId:newOrderId,
+                        productId:shipmentItem.productId, quantity:shipmentItem.quantity]"/>
+            </iterate>
+
+            <!-- create new shipment for order -->
+            <service-call name="mantle.shipment.ShipmentServices.create#OrderPartShipment"
+                    in-map="[orderId:ordOut.orderId, orderPartSeqId:ordOut.orderPartSeqId]" out-map="shipOut"/>
+            <set field="newShipmentId" from="shipOut.shipmentId"/>
+
+            <!-- reject original shipment -->
+            <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:shipmentId, statusId:'ShipRejected']"/>
+
+            <!-- reallocate inventory to new shipment -->
+            <service-call name="mantle.product.AssetServices.move#IssuancesToNewShipment"
+                    in-map="[shipmentId:shipmentId, newOrderId:newOrderId, newShipmentId:newShipmentId]"/>
+
+            <!-- set shipment picked (don't set to packed until after manual order update, set prices/etc as needed) -->
+            <service-call name="update#mantle.shipment.Shipment" in-map="[shipmentId:newShipmentId, statusId:'ShipPicked']"/>
         </actions>
     </service>
 </services>
