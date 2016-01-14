@@ -114,7 +114,8 @@ class OrderProcureToPayBasicFlow extends Specification {
 
         // no store, etc for purchase orders so explicitly create order and set parties
         Map orderOut = ec.service.sync().name("mantle.order.OrderServices.create#Order")
-                .parameters([customerPartyId:customerPartyId, vendorPartyId:vendorPartyId, currencyUomId:currencyUomId])
+                .parameters([customerPartyId:customerPartyId, vendorPartyId:vendorPartyId,
+                             currencyUomId:currencyUomId, facilityId:facilityId])
                 .call()
 
         purchaseOrderId = orderOut.orderId
@@ -157,7 +158,7 @@ class OrderProcureToPayBasicFlow extends Specification {
 
             <mantle.order.OrderPart orderId="${purchaseOrderId}" orderPartSeqId="01" vendorPartyId="${vendorPartyId}"
                 customerPartyId="${customerPartyId}" shipmentMethodEnumId="ShMthPickUp" postalContactMechId="ORG_ZIZI_RTL_SA"
-                telecomContactMechId="ORG_ZIZI_RTL_PT" partTotal=""/>
+                telecomContactMechId="ORG_ZIZI_RTL_PT" partTotal="" facilityId="${facilityId}"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="01" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
                 productId="DEMO_1_1" itemDescription="Demo Product One-One" quantity="400" unitAmount="8.00" isModifiedPrice="N"/>
             <mantle.order.OrderItem orderId="${purchaseOrderId}" orderItemSeqId="02" orderPartSeqId="01" itemTypeEnumId="ItemInventory"
