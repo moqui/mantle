@@ -70,6 +70,50 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
         </actions>
     </service>
+    <service verb="get" noun="UserOrganizationInfo">
+        <in-parameters><parameter name="partyId" default="ec.user.userAccount.partyId"/></in-parameters>
+        <out-parameters>
+            <parameter name="userOrgList" type="List"><parameter name="userOrg" type="Map">
+                <auto-parameters entity-name="mantle.party.PartyDetail"/></parameter></parameter>
+            <parameter name="userOrgIds" type="List"><parameter name="userOrgId"/></parameter>
+
+            <parameter name="activeOrgId"/>
+            <parameter name="activeOrg" type="Map"><auto-parameters entity-name="mantle.party.PartyDetail"/></parameter>
+
+            <parameter name="filterOrgIds" type="List"><parameter name="userOrgId"/></parameter>
+        </out-parameters>
+        <actions>
+            <!-- get user organizations data -->
+            <entity-find entity-name="mantle.party.PartyRelationship" list="userOrgRelList" cache="true">
+                <date-filter/>
+                <econdition field-name="relationshipTypeEnumId" operator="in" value="PrtAgent,PrtEmployee,PrtMember"/>
+                <econdition field-name="toRoleTypeId" value="OrgInternal"/>
+                <econdition field-name="fromPartyId" from="ec.user.userAccount.partyId"/>
+            </entity-find>
+            <set field="userOrgList" from="[]"/>
+            <set field="userOrgIds" from="[]"/>
+            <iterate list="userOrgRelList" entry="userOrgRel">
+                <entity-find-one entity-name="mantle.party.PartyDetail" value-field="userOrg" cache="true">
+                    <field-map field-name="partyId" from="userOrgRel.toPartyId"/></entity-find-one>
+                <script>userOrgList.add(userOrg); userOrgIds.add(userOrgRel.toPartyId)</script>
+            </iterate>
+
+            <!-- active org -->
+            <set field="activeOrgId" from="ec.user.getPreference('ACTIVE_ORGANIZATION')"/>
+            <!-- if active org is not valid for the user ignore it -->
+            <if condition="!userOrgIds.contains(activeOrgId)"><set field="activeOrgId" from="null"/></if>
+            <!-- get the active org detail for display, etc -->
+            <if condition="activeOrgId"><entity-find-one entity-name="mantle.party.PartyDetail" value-field="activeOrg" cache="true">
+                <field-map field-name="partyId" from="activeOrgId"/></entity-find-one></if>
+
+            <!-- get org ids to filter by (for queries, etc) -->
+            <set field="filterOrgIds" from="activeOrgId ? [activeOrgId] : userOrgIds"/>
+        </actions>
+    </service>
+
+    <!-- ========================================= -->
+    <!-- ========== Party CrUD Services ========== -->
+    <!-- ========================================= -->
 
     <service verb="create" noun="Account" authenticate="false">
         <description>
