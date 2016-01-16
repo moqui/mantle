@@ -70,8 +70,7 @@ along with this software (see the LICENSE.md file). If not, see
             </script>
         </actions>
     </service>
-    <service verb="get" noun="UserOrganizationInfo">
-        <in-parameters><parameter name="partyId" default="ec.user.userAccount.partyId"/></in-parameters>
+    <service verb="setup" noun="UserOrganizationInfo">
         <out-parameters>
             <parameter name="userOrgList" type="List"><parameter name="userOrg" type="Map">
                 <auto-parameters entity-name="mantle.party.PartyDetail"/></parameter></parameter>
@@ -83,6 +82,12 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="filterOrgIds" type="List"><parameter name="userOrgId"/></parameter>
         </out-parameters>
         <actions>
+            <set field="partyId" from="ec.user.userAccount.partyId"/>
+            <if condition="!partyId">
+                <log level="warn" message="Cannot setup#UserOrganizationInfo, no user with partyId logged in"/>
+                <return/>
+            </if>
+
             <!-- get user organizations data -->
             <entity-find entity-name="mantle.party.PartyRelationship" list="userOrgRelList" cache="true">
                 <date-filter/>
@@ -108,6 +113,13 @@ along with this software (see the LICENSE.md file). If not, see
 
             <!-- get org ids to filter by (for queries, etc) -->
             <set field="filterOrgIds" from="activeOrgId ? [activeOrgId] : userOrgIds"/>
+
+            <!-- set userOrgIds, filterOrgIds, and activeOrgId in user context -->
+            <script>
+                ec.user.context.userOrgIds = userOrgIds
+                ec.user.context.filterOrgIds = filterOrgIds
+                ec.user.context.activeOrgId = activeOrgId
+            </script>
         </actions>
     </service>
 
